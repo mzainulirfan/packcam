@@ -1,73 +1,88 @@
-# React + TypeScript + Vite
+# PackCam
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+PackCam adalah aplikasi perekaman packing berbasis barcode resi. Aplikasi ini dipakai untuk login operator, memindai resi, merekam proses packing lewat kamera, menyimpan history rekaman, dan mengelola data operasional dari satu dashboard.
 
-Currently, two official plugins are available:
+## Fitur
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Login operator berbasis username dan password
+- Scan resi lewat input barcode atau input manual
+- Preview kamera sebelum dan saat recording
+- Recording video per resi
+- History rekaman dengan filter, detail, preview, dan export
+- Manajemen user/operator untuk admin
+- Pengaturan aplikasi dan branding
+- Halaman health untuk cek runtime, data, dan reset
 
-## React Compiler
+## Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React 19
+- TypeScript
+- Vite
+- Tauri 2 untuk mode desktop
+- SQLite di runtime desktop
 
-## Expanding the ESLint configuration
+## Struktur Halaman
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- `Scan` untuk input resi, preview kamera, dan proses recording
+- `History` untuk melihat, memfilter, dan mengekspor rekaman
+- `Users` untuk mengelola akun operator
+- `Settings` untuk pengaturan video, kamera, folder output, dan branding
+- `Health` untuk cek status runtime dan reset data
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Menjalankan Project
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Mode Web
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Mode Desktop Tauri
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run tauri:dev
 ```
+
+## Build
+
+### Build Web
+
+```bash
+npm run build
+```
+
+### Build Desktop
+
+```bash
+npm run tauri:build
+```
+
+## Script Tersedia
+
+- `npm run dev` - jalankan Vite dev server
+- `npm run build` - build frontend
+- `npm run preview` - preview hasil build
+- `npm run lint` - jalankan ESLint
+- `npm run tauri:dev` - jalankan aplikasi desktop dalam mode development
+- `npm run tauri:build` - build aplikasi desktop
+
+## Data dan Penyimpanan
+
+- Di browser, data disimpan lewat storage web
+- Di desktop Tauri, data disimpan lewat backend SQLite
+- Folder video default berada di `Documents/PackCam/videos`
+- Format video default adalah `webm`
+
+## Konfigurasi Default
+
+- Nama aplikasi: `PackCam`
+- Tagline: `Perekaman packing berbasis scan barcode resi.`
+- Warna utama: `#111113`
+- Warna aksen: `#4f46e5`
+
+## Catatan
+
+- Aplikasi ini memakai kamera perangkat dan `MediaRecorder`, jadi jalankan di environment yang mengizinkan akses kamera.
+- Halaman `Users` dan beberapa menu administrasi hanya tersedia untuk role `admin`.
