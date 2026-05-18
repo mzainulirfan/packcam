@@ -2,7 +2,7 @@
 
 ## Tujuan
 
-Mewujudkan alur utama PackCam end-to-end.
+Mewujudkan alur utama Pakti end-to-end.
 
 ## Ruang Lingkup
 

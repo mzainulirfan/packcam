@@ -1,0 +1,1074 @@
+import fs from 'node:fs'
+import path from 'node:path'
+
+import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
+import type { AppSettings, OperatorProfile, OperatorRole, RecordingStatus, SystemConfig, WorkTask } from '@pakti/types'
+
+import { getDb, getDbPath, getPendingRecordingsDir, getUploadsDir, ensureServerStorage } from './db'
+import { createPasswordDigest, verifyPassword } from './auth'
+import type { HttpSession } from './http'
+import { broadcastBackendEvent } from './realtime'
+
+type OperatorProfileRow = {
+  operator_name: string
+  operator_code: string
+  role: OperatorRole
+  task_type: WorkTask
+  full_name: string | null
+  last_used_at: string
+  password_salt: string | null
+  password_hash: string | null
+}
+
+type SessionRow = {
+  session_id: string
+  operator_name: string
+  operator_code: string
+  role: OperatorRole
+  task_type: WorkTask
+  created_at: string
+  updated_at: string
+}
+
+type RecordingRow = {
+  id: string
+  resi_number: string
+  task_type: WorkTask
+  operator_name: string | null
+  operator_code: string | null
+  file_name: string
+  file_path: string
+  file_size_bytes: number | null
+  record_date: string
+  start_time: string
+  end_time: string | null
+  duration_seconds: number | null
+  status: RecordingStatus
+  note: string | null
+  created_at: string
+  updated_at: string
+}
+
+type ScanLogRow = {
+  id: string
+  resi_number: string
+  task_type: WorkTask
+  operator_name: string | null
+  operator_code: string | null
+  scan_time: string
+  action: 'start' | 'stop' | 'duplicate' | 'invalid'
+  message: string | null
+}
+
+type LastErrorRow = {
+  message: string
+  createdAt: string
+}
+
+type RecordingDraftInput = {
+  id?: string
+  resiNumber: string
+  taskType: WorkTask
+  operatorName: string
+  operatorCode: string
+  startedAt?: string
+  fileName?: string
+  filePath?: string
+  fileSizeBytes?: number | null
+  status?: RecordingStatus
+  note?: string | null
+}
+
+const JSON_STATE_KEY = 'current'
+const MAX_SCAN_LOGS = 500
+const LEGACY_SYSTEM_TAGLINE = 'Aplikasi yang membantu UMKM merekam proses QC dan packing paket secara lebih rapi.'
+function nowIso() {
+  return new Date().toISOString()
+}
+
+function makeId(prefix: string) {
+  return globalThis.crypto?.randomUUID?.() ?? `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`
+}
+
+function normalizeTaskType(value: WorkTask | string | undefined | null): WorkTask {
+  return value === 'packing' ? 'packing' : 'qc'
+}
+
+function canStartPackingForResi(resiNumber: string) {
+  const row = db()
+    .prepare(
+      `SELECT COUNT(*) AS count
+       FROM recordings
+       WHERE resi_number = ?
+         AND task_type = 'qc'
+         AND status = 'completed'`,
+    )
+    .get(resiNumber.trim()) as { count: number }
+
+  return (row.count ?? 0) > 0
+}
+
+function assertValidVideoRootPath(value: string) {
+  const normalized = value.trim().replace(/\\/g, '/')
+
+  if (!normalized) {
+    throw new Error('Folder video wajib diisi.')
+  }
+
+  if (normalized.startsWith('/') || /^[A-Za-z]:/.test(normalized)) {
+    throw new Error('Folder video harus menggunakan path relatif, bukan path absolut.')
+  }
+
+  if (normalized.split('/').some((segment) => segment === '..')) {
+    throw new Error('Folder video tidak boleh mengandung "..".')
+  }
+
+  if (/[<>:"|?*\0]/.test(normalized)) {
+    throw new Error('Folder video mengandung karakter yang tidak valid.')
+  }
+
+  return normalized.replace(/\/+/g, '/').replace(/^\.\/+/, '')
+}
+
+function normalizeVideoRootPath(value: string | null | undefined, fallback = DEFAULT_APP_SETTINGS.videoRootPath) {
+  try {
+    return assertValidVideoRootPath(value ?? fallback)
+  } catch {
+    return fallback
+  }
+}
+
+function sanitizeFileSegment(value: string) {
+  return value.trim().replace(/[^\w-]+/g, '_') || 'recording'
+}
+
+function formatRecordingTimestamp(startedAt: Date) {
+  const year = startedAt.getFullYear()
+  const month = `${startedAt.getMonth() + 1}`.padStart(2, '0')
+  const day = `${startedAt.getDate()}`.padStart(2, '0')
+  const hours = `${startedAt.getHours()}`.padStart(2, '0')
+  const minutes = `${startedAt.getMinutes()}`.padStart(2, '0')
+  const seconds = `${startedAt.getSeconds()}`.padStart(2, '0')
+  const milliseconds = `${startedAt.getMilliseconds()}`.padStart(3, '0')
+
+  return `${year}${month}${day}_${hours}${minutes}${seconds}_${milliseconds}`
+}
+
+function buildRecordingFileName(resiNumber: string, format: string, taskType: WorkTask, startedAt: Date) {
+  const prefix = normalizeTaskType(taskType)
+  const extension = format.trim() === 'mp4' ? 'mp4' : 'webm'
+  const timestamp = formatRecordingTimestamp(startedAt)
+  return `${prefix}_${sanitizeFileSegment(resiNumber)}_${timestamp}.${extension}`
+}
+
+function db() {
+  ensureServerStorage()
+  return getDb()
+}
+
+function readJsonRowMeta<T>(table: string, fallback: T) {
+  const row = db()
+    .prepare(`SELECT value, updated_at FROM ${table} WHERE key = ? LIMIT 1`)
+    .get(JSON_STATE_KEY) as { value?: string; updated_at?: string } | undefined
+
+  if (!row?.value) {
+    return {
+      value: fallback,
+      updatedAt: null as string | null,
+    }
+  }
+
+  try {
+    return {
+      value: JSON.parse(row.value) as T,
+      updatedAt: row.updated_at ?? null,
+    }
+  } catch {
+    return {
+      value: fallback,
+      updatedAt: row.updated_at ?? null,
+    }
+  }
+}
+
+function writeJsonRow(table: string, value: unknown) {
+  const timestamp = nowIso()
+  db().prepare(
+    `INSERT INTO ${table} (key, value, updated_at)
+     VALUES (?, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+  ).run(JSON_STATE_KEY, JSON.stringify(value), timestamp)
+
+  return timestamp
+}
+
+function removeJsonRow(table: string) {
+  db().prepare(`DELETE FROM ${table} WHERE key = ?`).run(JSON_STATE_KEY)
+}
+
+function sanitizeSystemConfig(value: Partial<SystemConfig> | null | undefined): SystemConfig {
+  const next = value ?? {}
+  const tagline = next.tagline?.trim()
+  return {
+    appName: next.appName?.trim() || DEFAULT_SYSTEM_CONFIG.appName,
+    tagline: tagline && tagline !== LEGACY_SYSTEM_TAGLINE ? tagline : DEFAULT_SYSTEM_CONFIG.tagline,
+    brandMark: next.brandMark?.trim() || DEFAULT_SYSTEM_CONFIG.brandMark,
+  }
+}
+
+function sanitizeSettings(value: Partial<AppSettings> | null | undefined): AppSettings {
+  const next = value ?? {}
+  return {
+    videoRootPath: normalizeVideoRootPath(next.videoRootPath),
+    videoFormat: next.videoFormat === 'mp4' ? 'mp4' : 'webm',
+    videoResolution: next.videoResolution?.trim() || DEFAULT_APP_SETTINGS.videoResolution,
+    videoBitrate: next.videoBitrate?.trim() || DEFAULT_APP_SETTINGS.videoBitrate,
+    cameraDeviceId: next.cameraDeviceId?.trim() || DEFAULT_APP_SETTINGS.cameraDeviceId,
+    autoOpenFolder: Boolean(next.autoOpenFolder),
+  }
+}
+
+function mapOperatorProfile(row: OperatorProfileRow): OperatorProfile {
+  return {
+    fullName: row.full_name,
+    operatorName: row.operator_name,
+    operatorCode: row.operator_code,
+    role: row.role,
+    taskType: row.task_type,
+    lastUsedAt: row.last_used_at,
+    passwordSalt: row.password_salt,
+    passwordHash: row.password_hash,
+  }
+}
+
+function mapSession(row: SessionRow): HttpSession {
+  return {
+    sessionId: row.session_id,
+    operatorName: row.operator_name,
+    operatorCode: row.operator_code,
+    role: row.role,
+    taskType: row.task_type,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+function normalizeOperatorName(value: string) {
+  return value.trim()
+}
+
+function normalizeOperatorCode(value: string) {
+  return value.trim()
+}
+
+function normalizeRole(value: OperatorRole | string | undefined | null): OperatorRole {
+  return value === 'admin' ? 'admin' : 'operator'
+}
+
+function isSameIdentity(row: OperatorProfileRow | SessionRow, operatorName: string, operatorCode: string, role: OperatorRole) {
+  return (
+    row.operator_name.trim().toLowerCase() === operatorName.trim().toLowerCase() &&
+    row.operator_code.trim().toLowerCase() === operatorCode.trim().toLowerCase() &&
+    row.role === role
+  )
+}
+
+export function getBootstrapStatus() {
+  const adminCount = db()
+    .prepare(`SELECT COUNT(*) AS count FROM operator_profiles WHERE role = 'admin'`)
+    .get() as { count: number }
+
+  return {
+    needsSetup: (adminCount.count ?? 0) === 0,
+    adminCount: adminCount.count ?? 0,
+  }
+}
+
+export function getHealthSnapshot() {
+  const database = db()
+
+  const counts = {
+    operatorProfiles: database.prepare('SELECT COUNT(*) AS count FROM operator_profiles').get() as { count: number },
+    sessions: database.prepare('SELECT COUNT(*) AS count FROM operator_sessions').get() as { count: number },
+    recordings: database.prepare('SELECT COUNT(*) AS count FROM recordings').get() as { count: number },
+    scanLogs: database.prepare('SELECT COUNT(*) AS count FROM scan_logs').get() as { count: number },
+  }
+
+  return {
+    dbPath: getDbPath(),
+    uploadDir: getUploadsDir(),
+    setupRequired: getBootstrapStatus().needsSetup,
+    counts: {
+      operatorProfiles: counts.operatorProfiles.count ?? 0,
+      sessions: counts.sessions.count ?? 0,
+      recordings: counts.recordings.count ?? 0,
+      scanLogs: counts.scanLogs.count ?? 0,
+    },
+  }
+}
+
+export function readSystemConfig() {
+  const { value: raw, updatedAt } = readJsonRowMeta<Partial<SystemConfig> | null>('system_config', null)
+  const normalized = sanitizeSystemConfig(raw)
+
+  if (raw && JSON.stringify(raw) !== JSON.stringify(normalized)) {
+    writeJsonRow('system_config', normalized)
+  }
+
+  return {
+    ...normalized,
+    updatedAt,
+  }
+}
+
+export function saveSystemConfig(nextConfig: SystemConfig) {
+  const normalized = sanitizeSystemConfig(nextConfig)
+  const updatedAt = writeJsonRow('system_config', normalized)
+  broadcastBackendEvent('system-config-updated', { updatedAt })
+  return {
+    ...normalized,
+    updatedAt,
+  }
+}
+
+export function readSettings() {
+  const { value: raw, updatedAt } = readJsonRowMeta<Partial<AppSettings> | null>('app_settings', null)
+  return {
+    ...sanitizeSettings(raw),
+    updatedAt,
+  }
+}
+
+export function saveSettings(nextSettings: AppSettings) {
+  const normalized = {
+    ...sanitizeSettings(nextSettings),
+    videoRootPath: assertValidVideoRootPath(nextSettings.videoRootPath),
+  }
+  const updatedAt = writeJsonRow('app_settings', normalized)
+  broadcastBackendEvent('settings-updated', { updatedAt })
+  return {
+    ...normalized,
+    updatedAt,
+  }
+}
+
+export function listOperatorProfiles() {
+  const rows = db()
+    .prepare(
+      `SELECT operator_name, operator_code, role, task_type, full_name, last_used_at, password_salt, password_hash
+       FROM operator_profiles
+       ORDER BY last_used_at DESC`,
+    )
+    .all() as OperatorProfileRow[]
+
+  return rows.map(mapOperatorProfile)
+}
+
+export function findOperatorProfile(operatorName: string, operatorCode: string, role: OperatorRole) {
+  const row = db()
+    .prepare(
+      `SELECT operator_name, operator_code, role, task_type, full_name, last_used_at, password_salt, password_hash
+       FROM operator_profiles
+       WHERE LOWER(operator_name) = LOWER(?)
+         AND LOWER(operator_code) = LOWER(?)
+         AND role = ?
+       LIMIT 1`,
+    )
+    .get(normalizeOperatorName(operatorName), normalizeOperatorCode(operatorCode), role) as OperatorProfileRow | undefined
+
+  return row ? mapOperatorProfile(row) : null
+}
+
+export function findProfileByName(operatorName: string) {
+  const row = db()
+    .prepare(
+      `SELECT operator_name, operator_code, role, task_type, full_name, last_used_at, password_salt, password_hash
+       FROM operator_profiles
+       WHERE LOWER(operator_name) = LOWER(?)
+       LIMIT 1`,
+    )
+    .get(normalizeOperatorName(operatorName)) as OperatorProfileRow | undefined
+
+  return row ? mapOperatorProfile(row) : null
+}
+
+export function upsertOperatorProfile(input: {
+  operatorName: string
+  operatorCode: string
+  role?: OperatorRole | null
+  taskType?: WorkTask | null
+  fullName?: string | null
+  password?: string | null
+}) {
+  const operatorName = normalizeOperatorName(input.operatorName)
+  const operatorCode = normalizeOperatorCode(input.operatorCode)
+  const role = normalizeRole(input.role)
+  const taskType = normalizeTaskType(input.taskType)
+
+  if (!operatorName || !operatorCode) {
+    throw new Error('Nama operator dan kode user wajib diisi.')
+  }
+
+  const existing = findOperatorProfile(operatorName, operatorCode, role)
+  const passwordValue = input.password?.trim() ?? ''
+  const digest = passwordValue ? createPasswordDigest(passwordValue) : null
+  const passwordSalt = digest?.salt ?? existing?.passwordSalt ?? null
+  const passwordHash = digest?.hash ?? existing?.passwordHash ?? null
+
+  if (!passwordHash || !passwordSalt) {
+    throw new Error('Kata sandi wajib diisi untuk akun baru.')
+  }
+
+  const duplicateName = db()
+    .prepare(
+      `SELECT operator_name, operator_code, role, task_type, full_name, last_used_at, password_salt, password_hash
+       FROM operator_profiles
+       WHERE LOWER(operator_name) = LOWER(?)
+       LIMIT 1`,
+    )
+    .get(operatorName) as OperatorProfileRow | undefined
+
+  if (duplicateName && !isSameIdentity(duplicateName, operatorName, operatorCode, role)) {
+    throw new Error('Nama operator sudah digunakan.')
+  }
+
+  const duplicateCode = db()
+    .prepare(
+      `SELECT operator_name, operator_code, role, task_type, full_name, last_used_at, password_salt, password_hash
+       FROM operator_profiles
+       WHERE LOWER(operator_code) = LOWER(?)
+       LIMIT 1`,
+    )
+    .get(operatorCode) as OperatorProfileRow | undefined
+
+  if (duplicateCode && !isSameIdentity(duplicateCode, operatorName, operatorCode, role)) {
+    throw new Error('Kode user sudah digunakan.')
+  }
+
+  const timestamp = nowIso()
+  db().prepare(
+    `INSERT INTO operator_profiles (
+      operator_name,
+      operator_code,
+      role,
+      task_type,
+      full_name,
+      last_used_at,
+      password_salt,
+      password_hash
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(operator_name, operator_code, role) DO UPDATE SET
+      task_type = excluded.task_type,
+      full_name = excluded.full_name,
+      last_used_at = excluded.last_used_at,
+      password_salt = excluded.password_salt,
+      password_hash = excluded.password_hash`,
+  ).run(operatorName, operatorCode, role, taskType, input.fullName?.trim() || null, timestamp, passwordSalt, passwordHash)
+
+  db().prepare(
+    `UPDATE operator_sessions
+     SET task_type = ?, updated_at = ?
+     WHERE LOWER(operator_name) = LOWER(?)
+       AND LOWER(operator_code) = LOWER(?)
+       AND role = ?`,
+  ).run(taskType, timestamp, operatorName, operatorCode, role)
+
+  broadcastBackendEvent('operators-updated', { operatorName, operatorCode, role, taskType, updatedAt: timestamp })
+  broadcastBackendEvent('sessions-updated', { operatorName, operatorCode, role, taskType, updatedAt: timestamp })
+  return findOperatorProfile(operatorName, operatorCode, role)
+}
+
+export function deleteOperatorProfile(operatorName: string, operatorCode: string, role: OperatorRole) {
+  const profile = findOperatorProfile(operatorName, operatorCode, role)
+
+  if (!profile) {
+    return false
+  }
+
+  const adminCount = db()
+    .prepare(`SELECT COUNT(*) AS count FROM operator_profiles WHERE role = 'admin'`)
+    .get() as { count: number }
+
+  if (role === 'admin' && (adminCount.count ?? 0) <= 1) {
+    throw new Error('Minimal satu akun admin harus tetap ada.')
+  }
+
+  db()
+    .prepare(
+      `DELETE FROM operator_profiles
+       WHERE LOWER(operator_name) = LOWER(?)
+         AND LOWER(operator_code) = LOWER(?)
+         AND role = ?`,
+    )
+    .run(normalizeOperatorName(operatorName), normalizeOperatorCode(operatorCode), role)
+
+  db()
+    .prepare(
+      `DELETE FROM operator_sessions
+       WHERE LOWER(operator_name) = LOWER(?)
+         AND LOWER(operator_code) = LOWER(?)
+         AND role = ?`,
+    )
+    .run(normalizeOperatorName(operatorName), normalizeOperatorCode(operatorCode), role)
+
+  broadcastBackendEvent('operators-updated', { operatorName, operatorCode, role, deleted: true })
+  broadcastBackendEvent('sessions-updated', { operatorName, operatorCode, role, deleted: true })
+  return true
+}
+
+export function resetOperatorPassword(
+  operatorName: string,
+  operatorCode: string,
+  role: OperatorRole,
+  password: string,
+) {
+  const profile = findOperatorProfile(operatorName, operatorCode, role)
+  if (!profile) {
+    throw new Error('Akun tidak ditemukan.')
+  }
+
+  const digest = createPasswordDigest(password)
+  db()
+    .prepare(
+      `UPDATE operator_profiles
+       SET password_salt = ?, password_hash = ?, last_used_at = ?
+       WHERE LOWER(operator_name) = LOWER(?)
+         AND LOWER(operator_code) = LOWER(?)
+         AND role = ?`,
+    )
+    .run(digest.salt, digest.hash, nowIso(), normalizeOperatorName(operatorName), normalizeOperatorCode(operatorCode), role)
+
+  broadcastBackendEvent('operators-updated', { operatorName, operatorCode, role, passwordReset: true })
+  return findOperatorProfile(operatorName, operatorCode, role)
+}
+
+export function createSession(operatorName: string, operatorCode: string, role: OperatorRole, taskType: WorkTask) {
+  const sessionId = makeId('session')
+  const timestamp = nowIso()
+  db().prepare(
+    `INSERT INTO operator_sessions (session_id, operator_name, operator_code, role, task_type, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run(sessionId, operatorName, operatorCode, role, taskType, timestamp, timestamp)
+
+  const session = getSessionById(sessionId)
+  if (!session) {
+    throw new Error('Gagal membuat sesi login.')
+  }
+
+  broadcastBackendEvent('sessions-updated', { sessionId, operatorName, operatorCode, role, taskType, createdAt: timestamp })
+  return session
+}
+
+export function updateSessionTaskType(sessionId: string, taskType: WorkTask) {
+  const timestamp = nowIso()
+  const updated = db().prepare(
+    `UPDATE operator_sessions
+     SET task_type = ?, updated_at = ?
+     WHERE session_id = ?`,
+  ).run(taskType, timestamp, sessionId)
+
+  if ((updated.changes ?? 0) === 0) {
+    return null
+  }
+
+  broadcastBackendEvent('sessions-updated', { sessionId, taskType, updatedAt: timestamp })
+  return getSessionById(sessionId)
+}
+
+export function getSessionById(sessionId: string) {
+  const row = db()
+    .prepare(
+      `SELECT session_id, operator_name, operator_code, role, task_type, created_at, updated_at
+       FROM operator_sessions
+       WHERE session_id = ?
+       LIMIT 1`,
+    )
+    .get(sessionId) as SessionRow | undefined
+
+  return row ? mapSession(row) : null
+}
+
+export function deleteSessionById(sessionId: string) {
+  db().prepare(`DELETE FROM operator_sessions WHERE session_id = ?`).run(sessionId)
+  broadcastBackendEvent('sessions-updated', { sessionId, deleted: true })
+}
+
+export function findSessionByIdentity(operatorName: string, operatorCode: string, role: OperatorRole) {
+  const row = db()
+    .prepare(
+      `SELECT session_id, operator_name, operator_code, role, task_type, created_at, updated_at
+       FROM operator_sessions
+       WHERE LOWER(operator_name) = LOWER(?)
+         AND LOWER(operator_code) = LOWER(?)
+         AND role = ?
+       ORDER BY updated_at DESC
+       LIMIT 1`,
+    )
+    .get(normalizeOperatorName(operatorName), normalizeOperatorCode(operatorCode), role) as SessionRow | undefined
+
+  return row ? mapSession(row) : null
+}
+
+export function authenticateOperator(input: {
+  operatorName: string
+  operatorCode?: string | null
+  password: string
+  role?: OperatorRole | null
+}) {
+  const role = normalizeRole(input.role)
+  const operatorName = normalizeOperatorName(input.operatorName)
+  const operatorCode = input.operatorCode?.trim() || ''
+
+  const profile = operatorCode
+    ? findOperatorProfile(operatorName, operatorCode, role)
+    : findProfileByName(operatorName)
+
+  if (!profile) {
+    throw new Error('Username atau password salah.')
+  }
+
+  if (!profile.passwordSalt || !profile.passwordHash) {
+    throw new Error('Akun ini belum punya password. Hubungi admin.')
+  }
+
+  if (!verifyPassword(input.password, profile.passwordSalt, profile.passwordHash)) {
+    throw new Error('Username atau password salah.')
+  }
+
+  const session = createSession(profile.operatorName, profile.operatorCode, profile.role, profile.taskType)
+  return {
+    session,
+    profile,
+  }
+}
+
+export function resolveSession(sessionId: string | null | undefined) {
+  if (!sessionId) {
+    return null
+  }
+
+  return getSessionById(sessionId)
+}
+
+export function listRecordings() {
+  const rows = db()
+    .prepare(
+      `SELECT id, resi_number, task_type, operator_name, operator_code, file_name, file_path, file_size_bytes,
+              record_date, start_time, end_time, duration_seconds, status, note, created_at, updated_at
+       FROM recordings
+       ORDER BY start_time DESC`,
+    )
+    .all() as RecordingRow[]
+
+  return rows
+}
+
+export function getRecordingById(id: string) {
+  const row = db()
+    .prepare(
+      `SELECT id, resi_number, task_type, operator_name, operator_code, file_name, file_path, file_size_bytes,
+              record_date, start_time, end_time, duration_seconds, status, note, created_at, updated_at
+       FROM recordings
+       WHERE id = ?
+       LIMIT 1`,
+    )
+    .get(id) as RecordingRow | undefined
+
+  return row ?? null
+}
+
+export function createRecordingDraft(input: RecordingDraftInput) {
+  const id = input.id ?? makeId('recording')
+  const startedAt = input.startedAt ? new Date(input.startedAt) : new Date()
+  const startTime = startedAt.toISOString()
+  const recordDate = startTime.slice(0, 10)
+  const taskType = normalizeTaskType(input.taskType)
+  if (taskType === 'packing' && !canStartPackingForResi(input.resiNumber)) {
+    throw new Error('Packing hanya bisa dimulai setelah QC selesai untuk resi ini.')
+  }
+  const fileName = input.fileName ?? buildRecordingFileName(input.resiNumber, DEFAULT_APP_SETTINGS.videoFormat, taskType, startedAt)
+  const filePath = input.filePath ?? path.posix.join(DEFAULT_APP_SETTINGS.videoRootPath, fileName)
+  const timestamp = nowIso()
+
+  db().prepare(
+      `INSERT INTO recordings (
+      id,
+      resi_number,
+      task_type,
+      operator_name,
+      operator_code,
+      file_name,
+      file_path,
+      file_size_bytes,
+      record_date,
+      start_time,
+      end_time,
+      duration_seconds,
+      status,
+      note,
+      created_at,
+      updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      resi_number = excluded.resi_number,
+      task_type = excluded.task_type,
+      operator_name = excluded.operator_name,
+      operator_code = excluded.operator_code,
+      file_name = excluded.file_name,
+      file_path = excluded.file_path,
+      file_size_bytes = excluded.file_size_bytes,
+      record_date = excluded.record_date,
+      start_time = excluded.start_time,
+      status = excluded.status,
+      note = excluded.note,
+      updated_at = excluded.updated_at`,
+  ).run(
+    id,
+    input.resiNumber.trim(),
+    taskType,
+    input.operatorName.trim() || null,
+    input.operatorCode.trim() || null,
+    fileName,
+    filePath,
+    input.fileSizeBytes ?? null,
+    recordDate,
+    startTime,
+    null,
+    null,
+    input.status ?? 'recording',
+    input.note ?? null,
+    timestamp,
+    timestamp,
+  )
+
+  broadcastBackendEvent('recordings-updated', { recordingId: id, action: 'draft-created', resiNumber: input.resiNumber.trim() })
+  return getRecordingById(id)
+}
+
+export function finalizeRecording(
+  id: string,
+  payload: { fileSizeBytes?: number | null; endTime?: string; note?: string | null },
+) {
+  const recording = getRecordingById(id)
+  if (!recording) {
+    throw new Error('Recording tidak ditemukan.')
+  }
+
+  const pendingPath = getPendingRecordingPath(id)
+  if (fs.existsSync(pendingPath)) {
+    return finalizePendingRecording(recording, {
+      endTime: payload.endTime,
+      note: payload.note ?? null,
+    })
+  }
+
+  const endTime = payload.endTime ?? nowIso()
+  const durationSeconds = Math.max(1, Math.round((new Date(endTime).getTime() - new Date(recording.start_time).getTime()) / 1000))
+
+  db().prepare(
+    `UPDATE recordings
+     SET end_time = ?, duration_seconds = ?, file_size_bytes = COALESCE(?, file_size_bytes), status = 'completed', note = COALESCE(?, note), updated_at = ?
+     WHERE id = ?`,
+  ).run(endTime, durationSeconds, payload.fileSizeBytes ?? null, payload.note ?? null, nowIso(), id)
+
+  broadcastBackendEvent('recordings-updated', { recordingId: id, action: 'finalized', resiNumber: recording.resi_number })
+  return getRecordingById(id)
+}
+
+export function appendRecordingChunk(id: string, chunk: Buffer) {
+  const recording = getRecordingById(id)
+  if (!recording) {
+    throw new Error('Recording tidak ditemukan.')
+  }
+
+  if (recording.status !== 'recording') {
+    throw new Error('Recording sudah tidak aktif.')
+  }
+
+  return appendBufferToPendingRecording(id, chunk)
+}
+
+export function recoverRecordingDraft(id: string) {
+  const recording = getRecordingById(id)
+  if (!recording) {
+    throw new Error('Recording tidak ditemukan.')
+  }
+
+  if (recording.status !== 'recording') {
+    return recording
+  }
+
+  const finalized = finalizePendingRecording(recording, {
+    endTime: nowIso(),
+    note: 'Rekaman dipulihkan dari chunk sementara server.',
+  })
+
+  return finalized
+}
+
+export function invalidateCompletedRecordingsForResi(resiNumber: string) {
+  const normalizedResi = resiNumber.trim()
+  if (!normalizedResi) {
+    throw new Error('Resi tidak boleh kosong.')
+  }
+
+  const timestamp = nowIso()
+  const note = 'QC diulang. Rekaman sebelumnya tidak valid dan packing harus diulang.'
+  const updatedRows = db()
+    .prepare(
+      `UPDATE recordings
+       SET status = 'error',
+           note = ?,
+           updated_at = ?
+       WHERE resi_number = ?
+         AND status = 'completed'
+         AND task_type IN ('qc', 'packing')`,
+    )
+    .run(note, timestamp, normalizedResi)
+
+  if ((updatedRows.changes ?? 0) === 0) {
+    throw new Error('Tidak ada QC atau packing selesai yang bisa diulang.')
+  }
+
+  broadcastBackendEvent('recordings-updated', { resiNumber: normalizedResi, action: 'repeat-qc' })
+  return db()
+    .prepare(
+      `SELECT id, resi_number, task_type, operator_name, operator_code, file_name, file_path, file_size_bytes,
+              record_date, start_time, end_time, duration_seconds, status, note, created_at, updated_at
+       FROM recordings
+       WHERE resi_number = ?
+         AND task_type IN ('qc', 'packing')
+       ORDER BY start_time DESC`,
+    )
+    .all(normalizedResi) as RecordingRow[]
+}
+
+export function markRecordingError(id: string, message: string) {
+  const recording = getRecordingById(id)
+  if (!recording) {
+    return null
+  }
+
+  db().prepare(
+    `UPDATE recordings
+     SET status = 'error', note = ?, updated_at = ?
+     WHERE id = ?`,
+  ).run(message, nowIso(), id)
+
+  broadcastBackendEvent('recordings-updated', { recordingId: id, action: 'error', message })
+  return getRecordingById(id)
+}
+
+export function deleteRecording(id: string) {
+  const recording = getRecordingById(id)
+  if (!recording) {
+    return false
+  }
+
+  db().prepare(`DELETE FROM recordings WHERE id = ?`).run(id)
+  const absolutePath = path.join(getUploadsDir(), recording.file_path)
+  if (fs.existsSync(absolutePath)) {
+    fs.rmSync(absolutePath, { force: true })
+  }
+  removePendingRecordingArtifact(id)
+
+  broadcastBackendEvent('recordings-updated', { recordingId: id, action: 'deleted', resiNumber: recording.resi_number })
+  return true
+}
+
+function getPendingRecordingPath(recordingId: string) {
+  return path.join(getPendingRecordingsDir(), `${recordingId}.part`)
+}
+
+function ensurePendingRecordingDir() {
+  fs.mkdirSync(getPendingRecordingsDir(), { recursive: true })
+}
+
+function removePendingRecordingArtifact(recordingId: string) {
+  const pendingPath = getPendingRecordingPath(recordingId)
+  if (fs.existsSync(pendingPath)) {
+    fs.rmSync(pendingPath, { force: true })
+  }
+}
+
+function appendBufferToPendingRecording(recordingId: string, buffer: Buffer) {
+  const pendingPath = getPendingRecordingPath(recordingId)
+  ensurePendingRecordingDir()
+  fs.appendFileSync(pendingPath, buffer)
+  return pendingPath
+}
+
+function finalizePendingRecording(
+  recording: RecordingRow,
+  payload: { endTime?: string; note?: string | null },
+) {
+  const pendingPath = getPendingRecordingPath(recording.id)
+  const finalPath = getUploadedFilePath(recording)
+
+  if (!fs.existsSync(pendingPath)) {
+    if (!fs.existsSync(finalPath)) {
+      throw new Error('Chunk sementara recording tidak ditemukan.')
+    }
+
+    const fileStats = fs.statSync(finalPath)
+    const endTime = payload.endTime ?? nowIso()
+    const durationSeconds = Math.max(1, Math.round((new Date(endTime).getTime() - new Date(recording.start_time).getTime()) / 1000))
+
+    db().prepare(
+      `UPDATE recordings
+       SET end_time = ?, duration_seconds = ?, file_size_bytes = COALESCE(?, file_size_bytes), status = 'completed', note = COALESCE(?, note), updated_at = ?
+       WHERE id = ?`,
+    ).run(endTime, durationSeconds, fileStats.size, payload.note ?? null, nowIso(), recording.id)
+
+    return getRecordingById(recording.id)
+  }
+
+  fs.mkdirSync(path.dirname(finalPath), { recursive: true })
+  fs.renameSync(pendingPath, finalPath)
+  const fileStats = fs.statSync(finalPath)
+  const endTime = payload.endTime ?? nowIso()
+  const durationSeconds = Math.max(1, Math.round((new Date(endTime).getTime() - new Date(recording.start_time).getTime()) / 1000))
+
+  db().prepare(
+    `UPDATE recordings
+     SET end_time = ?, duration_seconds = ?, file_size_bytes = COALESCE(?, file_size_bytes), status = 'completed', note = COALESCE(?, note), updated_at = ?
+     WHERE id = ?`,
+  ).run(endTime, durationSeconds, fileStats.size, payload.note ?? null, nowIso(), recording.id)
+
+  broadcastBackendEvent('recordings-updated', { recordingId: recording.id, action: 'finalized', resiNumber: recording.resi_number })
+  return getRecordingById(recording.id)
+}
+
+function clearUploadArtifacts() {
+  for (const dir of [getUploadsDir(), getPendingRecordingsDir()]) {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+      continue
+    }
+
+    for (const entry of fs.readdirSync(dir)) {
+      fs.rmSync(path.join(dir, entry), { recursive: true, force: true })
+    }
+
+    fs.mkdirSync(dir, { recursive: true })
+  }
+}
+
+export function listScanLogs() {
+  const rows = db()
+    .prepare(
+      `SELECT id, resi_number, task_type, operator_name, operator_code, scan_time, action, message
+       FROM scan_logs
+       ORDER BY scan_time DESC
+       LIMIT ${MAX_SCAN_LOGS}`,
+    )
+    .all() as ScanLogRow[]
+
+  return rows
+}
+
+export function createScanLog(input: {
+  resiNumber: string
+  taskType: WorkTask
+  action: ScanLogRow['action']
+  message?: string | null
+  operatorName?: string | null
+  operatorCode?: string | null
+}) {
+  const row: ScanLogRow = {
+    id: makeId('scanlog'),
+    resi_number: input.resiNumber.trim(),
+    task_type: normalizeTaskType(input.taskType),
+    operator_name: input.operatorName?.trim() || null,
+    operator_code: input.operatorCode?.trim() || null,
+    scan_time: nowIso(),
+    action: input.action,
+    message: input.message?.trim() || null,
+  }
+
+  db().prepare(
+      `INSERT INTO scan_logs (id, resi_number, task_type, operator_name, operator_code, scan_time, action, message)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(row.id, row.resi_number, row.task_type, row.operator_name, row.operator_code, row.scan_time, row.action, row.message)
+
+  const totalRows = db().prepare(`SELECT COUNT(*) AS count FROM scan_logs`).get() as { count: number }
+  const extra = Math.max(0, (totalRows.count ?? 0) - MAX_SCAN_LOGS)
+  if (extra > 0) {
+    db().prepare(
+      `DELETE FROM scan_logs
+       WHERE id IN (
+         SELECT id FROM scan_logs
+         ORDER BY scan_time ASC
+         LIMIT ?
+      )`,
+    ).run(extra)
+  }
+
+  broadcastBackendEvent('scan-logs-updated', { scanLogId: row.id, resiNumber: row.resi_number, action: row.action })
+  return row
+}
+
+export function readLastError() {
+  const row = db()
+    .prepare(`SELECT value FROM last_error WHERE key = ? LIMIT 1`)
+    .get(JSON_STATE_KEY) as { value?: string } | undefined
+
+  if (!row?.value) {
+    return null
+  }
+
+  try {
+    return JSON.parse(row.value) as LastErrorRow
+  } catch {
+    return null
+  }
+}
+
+export function reportLastError(message: string) {
+  const payload: LastErrorRow = {
+    message,
+    createdAt: nowIso(),
+  }
+
+  writeJsonRow('last_error', payload)
+  broadcastBackendEvent('last-error-updated', payload)
+  return payload
+}
+
+export function clearLastError() {
+  removeJsonRow('last_error')
+  broadcastBackendEvent('last-error-updated', { cleared: true })
+}
+
+export function clearScanData() {
+  db().prepare(`DELETE FROM recordings`).run()
+  db().prepare(`DELETE FROM scan_logs`).run()
+  db().prepare(`DELETE FROM last_error`).run()
+  clearUploadArtifacts()
+  broadcastBackendEvent('recordings-updated', { cleared: true })
+  broadcastBackendEvent('scan-logs-updated', { cleared: true })
+  broadcastBackendEvent('last-error-updated', { cleared: true })
+}
+
+export function clearAllData() {
+  db().prepare(`DELETE FROM operator_sessions`).run()
+  db().prepare(`DELETE FROM operator_profiles`).run()
+  db().prepare(`DELETE FROM recordings`).run()
+  db().prepare(`DELETE FROM scan_logs`).run()
+  db().prepare(`DELETE FROM system_config`).run()
+  db().prepare(`DELETE FROM app_settings`).run()
+  db().prepare(`DELETE FROM bootstrap_state`).run()
+  db().prepare(`DELETE FROM last_error`).run()
+  clearUploadArtifacts()
+  broadcastBackendEvent('sessions-updated', { cleared: true })
+  broadcastBackendEvent('operators-updated', { cleared: true })
+  broadcastBackendEvent('recordings-updated', { cleared: true })
+  broadcastBackendEvent('scan-logs-updated', { cleared: true })
+  broadcastBackendEvent('system-config-updated', { cleared: true })
+  broadcastBackendEvent('settings-updated', { cleared: true })
+  broadcastBackendEvent('last-error-updated', { cleared: true })
+}
+
+export function getUploadedFilePath(recording: RecordingRow) {
+  return path.join(getUploadsDir(), recording.file_path)
+}

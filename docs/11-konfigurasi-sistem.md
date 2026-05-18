@@ -2,7 +2,7 @@
 
 ## Tujuan
 
-Menyediakan pusat konfigurasi untuk identitas dan tampilan aplikasi agar PackCam mudah disesuaikan tanpa mengubah banyak kode.
+Menyediakan pusat konfigurasi untuk identitas dan tampilan aplikasi agar Pakti mudah disesuaikan tanpa mengubah banyak kode.
 
 ## Ruang Lingkup
 
@@ -54,7 +54,7 @@ Menyediakan pusat konfigurasi untuk identitas dan tampilan aplikasi agar PackCam
 - Nama aplikasi bisa diganti tanpa ubah banyak file.
 - Tagline bisa diubah dari satu tempat.
 - Warna utama aplikasi konsisten di seluruh UI.
-- Brand PackCam mudah diubah ke identitas sistem lain jika diperlukan.
+- Brand Pakti mudah diubah ke identitas sistem lain jika diperlukan.
 
 ## Selesai Jika
 

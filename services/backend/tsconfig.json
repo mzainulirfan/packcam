@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "paths": {
+      "@pakti/types": ["../../packages/types/src/index.ts"],
+      "@pakti/shared": ["../../packages/shared/src/index.ts"],
+      "@pakti/shared/defaults": ["../../packages/shared/src/defaults.ts"],
+      "@pakti/shared/exporters": ["../../packages/shared/src/exporters.ts"],
+      "@pakti/shared/recordings": ["../../packages/shared/src/recordings.ts"],
+      "@pakti/shared/systemConfig": ["../../packages/shared/src/systemConfig.ts"],
+      "@pakti/shared/videoPath": ["../../packages/shared/src/videoPath.ts"],
+      "@pakti/api-client": ["../../packages/api-client/src/index.ts"]
+    },
+    "target": "es2023",
+    "lib": ["ES2023"],
+    "module": "esnext",
+    "types": ["node"],
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": false,
+    "outDir": "./dist",
+    "rootDir": "../..",
+    "declaration": true,
+    "declarationMap": true
+  },
+  "include": ["src/**/*"]
+}

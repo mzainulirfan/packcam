@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "ignoreDeprecations": "6.0",
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@pakti/api-client": ["../../packages/api-client/src/index.ts"],
+      "@pakti/shared": ["../../packages/shared/src/index.ts"],
+      "@pakti/shared/*": ["../../packages/shared/src/*"],
+      "@pakti/types": ["../../packages/types/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}

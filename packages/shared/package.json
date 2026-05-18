@@ -1,0 +1,5 @@
+{
+  "name": "@pakti/shared",
+  "private": true,
+  "type": "module"
+}

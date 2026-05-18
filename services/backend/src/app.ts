@@ -1,0 +1,517 @@
+import fs from 'node:fs'
+import { spawn } from 'node:child_process'
+import path from 'node:path'
+import cors from 'cors'
+import express from 'express'
+import multer from 'multer'
+import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
+import type { AppSettings } from '@pakti/types'
+
+import { clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deleteRecording, deleteSessionById, finalizeRecording, getBootstrapStatus, getHealthSnapshot, getRecordingById, invalidateCompletedRecordingsForResi, listOperatorProfiles, listRecordings, listScanLogs, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, saveSettings, saveSystemConfig, updateSessionTaskType, upsertOperatorProfile } from './store'
+import { clearSessionCookie, getCookie, normalizeRole, readStringField, sendError, sendOk, setSessionCookie } from './http'
+import { ensureServerStorage, getUploadsDir } from './db'
+import { subscribeBackendRealtime } from './realtime'
+
+const app = express()
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 750 * 1024 * 1024,
+  },
+})
+const port = Number(process.env.PORT ?? 3001)
+
+ensureServerStorage()
+
+app.set('trust proxy', 1)
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+  }),
+)
+app.use(express.json({ limit: '4mb' }))
+app.use(express.urlencoded({ extended: true }))
+app.use('/files', express.static(getUploadsDir()))
+
+app.get('/api/health', (_req, res) => {
+  sendOk(res, {
+    status: 'ok',
+    build: {
+      appName: DEFAULT_SYSTEM_CONFIG.appName,
+      tagline: DEFAULT_SYSTEM_CONFIG.tagline,
+    },
+    system: readSystemConfig(),
+    settings: readSettings(),
+    bootstrap: getBootstrapStatus(),
+    storage: getHealthSnapshot(),
+    lastError: readLastError(),
+  })
+})
+
+app.get('/api/bootstrap', (_req, res) => {
+  sendOk(res, getBootstrapStatus())
+})
+
+app.post('/api/bootstrap/admin', (req, res) => {
+  const bootstrap = getBootstrapStatus()
+  if (!bootstrap.needsSetup) {
+    return sendError(res, 409, 'Bootstrap sudah selesai.')
+  }
+
+  const operatorName = readStringField(req.body?.operatorName, 'operatorName')
+  const operatorCode = readStringField(req.body?.operatorCode, 'operatorCode')
+  const password = readStringField(req.body?.password, 'password')
+  const fullName = typeof req.body?.fullName === 'string' ? req.body.fullName.trim() : null
+
+  if (!operatorName || !operatorCode || !password) {
+    return sendError(res, 400, 'operatorName, operatorCode, dan password wajib diisi.')
+  }
+
+  try {
+    const profile = upsertOperatorProfile({
+      operatorName,
+      operatorCode,
+      role: 'admin',
+      taskType: 'qc',
+      fullName,
+      password,
+    })
+
+    if (!profile) {
+      return sendError(res, 500, 'Gagal membuat admin.')
+    }
+
+    const session = createSession(profile.operatorName, profile.operatorCode, profile.role, profile.taskType)
+    setSessionCookie(res, session.sessionId)
+
+    return sendOk(res, {
+      profile,
+      session,
+    })
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Bootstrap gagal.')
+  }
+})
+
+app.post('/api/auth/login', (req, res) => {
+  const operatorName = readStringField(req.body?.operatorName, 'operatorName')
+  const operatorCode = typeof req.body?.operatorCode === 'string' ? req.body.operatorCode.trim() : ''
+  const password = readStringField(req.body?.password, 'password')
+  const role = normalizeRole(req.body?.role)
+
+  if (!operatorName || !password) {
+    return sendError(res, 400, 'Username dan password wajib diisi.')
+  }
+
+  try {
+    const result = authenticateOperator({
+      operatorName,
+      operatorCode,
+      password,
+      role,
+    })
+
+    setSessionCookie(res, result.session.sessionId)
+
+    return sendOk(res, {
+      session: result.session,
+      profile: result.profile,
+    })
+  } catch (error) {
+    return sendError(res, 401, error instanceof Error ? error.message : 'Login gagal.')
+  }
+})
+
+app.post('/api/auth/logout', (req, res) => {
+  const sessionId = getCookie(req, 'pakti_session')
+  if (sessionId) {
+    deleteSessionById(sessionId)
+  }
+
+  clearSessionCookie(res)
+  return sendOk(res, { loggedOut: true })
+})
+
+app.get('/api/session', (req, res) => {
+  const sessionId = getCookie(req, 'pakti_session')
+  const session = resolveSession(sessionId)
+  return sendOk(res, { session })
+})
+
+app.put('/api/session/task', (req, res) => {
+  const session = resolveSession(getCookie(req, 'pakti_session'))
+  if (!session) {
+    return sendError(res, 401, 'Sesi login diperlukan.')
+  }
+
+  if (session.role !== 'admin') {
+    return sendError(res, 403, 'Hanya admin yang dapat mengganti task aktif.')
+  }
+
+  const nextTaskType = req.body?.taskType === 'packing' ? 'packing' : req.body?.taskType === 'qc' ? 'qc' : null
+  if (!nextTaskType) {
+    return sendError(res, 400, 'taskType harus qc atau packing.')
+  }
+
+  try {
+    const updatedSession = updateSessionTaskType(session.sessionId, nextTaskType)
+    if (!updatedSession) {
+      return sendError(res, 404, 'Sesi tidak ditemukan.')
+    }
+
+    return sendOk(res, { session: updatedSession })
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal mengganti task aktif.')
+  }
+})
+
+app.use('/api', (req, res, next) => {
+  const protectedPrefixes = [
+    '/system-config',
+    '/settings',
+    '/operators',
+    '/recordings',
+    '/scan-logs',
+    '/last-error',
+    '/events',
+    '/data',
+  ]
+
+  if (protectedPrefixes.some((prefix) => req.path.startsWith(prefix))) {
+    const session = resolveSession(getCookie(req, 'pakti_session'))
+    if (!session) {
+      return sendError(res, 401, 'Sesi login diperlukan.')
+    }
+  }
+
+  next()
+})
+
+app.get('/api/events', (req, res) => {
+  subscribeBackendRealtime(req, res)
+})
+
+app.get('/api/admin/status', (req, res) => {
+  const session = resolveSession(getCookie(req, 'pakti_session'))
+  if (!session) {
+    return sendError(res, 401, 'Sesi login diperlukan.')
+  }
+
+  if (session.role !== 'admin') {
+    return sendError(res, 403, 'Hanya admin yang dapat membuka panel status.')
+  }
+
+  const recordings = listRecordings()
+  const scanLogs = listScanLogs()
+  const health = getHealthSnapshot()
+
+  return sendOk(res, {
+    bootstrap: getBootstrapStatus(),
+    health,
+    counts: {
+      operatorProfiles: health.counts.operatorProfiles,
+      sessions: health.counts.sessions,
+      recordings: health.counts.recordings,
+      scanLogs: health.counts.scanLogs,
+    },
+    recentRecordings: recordings.slice(0, 8),
+    recentScanLogs: scanLogs.slice(0, 8),
+    lastError: readLastError(),
+  })
+})
+
+app.get('/api/system-config', (_req, res) => {
+  sendOk(res, readSystemConfig())
+})
+
+app.put('/api/system-config', (req, res) => {
+  try {
+    const nextConfig = saveSystemConfig({
+      appName: readStringField(req.body?.appName, 'appName') || DEFAULT_SYSTEM_CONFIG.appName,
+      tagline: readStringField(req.body?.tagline, 'tagline') || DEFAULT_SYSTEM_CONFIG.tagline,
+      brandMark: readStringField(req.body?.brandMark, 'brandMark') || DEFAULT_SYSTEM_CONFIG.brandMark,
+    })
+
+    return sendOk(res, nextConfig)
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal menyimpan system config.')
+  }
+})
+
+app.get('/api/settings', (_req, res) => {
+  sendOk(res, readSettings())
+})
+
+app.put('/api/settings', (req, res) => {
+  try {
+    const nextSettings = saveSettings({
+      videoRootPath: readStringField(req.body?.videoRootPath, 'videoRootPath') || DEFAULT_APP_SETTINGS.videoRootPath,
+      videoFormat: req.body?.videoFormat === 'mp4' ? 'mp4' : 'webm',
+      videoResolution: readStringField(req.body?.videoResolution, 'videoResolution') || DEFAULT_APP_SETTINGS.videoResolution,
+      videoBitrate: readStringField(req.body?.videoBitrate, 'videoBitrate') || DEFAULT_APP_SETTINGS.videoBitrate,
+      cameraDeviceId: typeof req.body?.cameraDeviceId === 'string' ? req.body.cameraDeviceId.trim() : '',
+      autoOpenFolder: Boolean(req.body?.autoOpenFolder),
+    } satisfies AppSettings)
+
+    return sendOk(res, nextSettings)
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal menyimpan settings.')
+  }
+})
+
+app.post('/api/settings/open-folder', (_req, res) => {
+  try {
+    const settings = readSettings()
+    const absolutePath = path.join(getUploadsDir(), ...settings.videoRootPath.split('/').filter(Boolean))
+    fs.mkdirSync(absolutePath, { recursive: true })
+
+    if (process.platform === 'darwin') {
+      spawn('open', [absolutePath], { detached: true, stdio: 'ignore' }).unref()
+    } else if (process.platform === 'win32') {
+      spawn('explorer', [absolutePath], { detached: true, stdio: 'ignore' }).unref()
+    } else {
+      spawn('xdg-open', [absolutePath], { detached: true, stdio: 'ignore' }).unref()
+    }
+
+    return sendOk(res, { path: absolutePath })
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal membuka folder video.')
+  }
+})
+
+app.get('/api/operators', (_req, res) => {
+  sendOk(res, listOperatorProfiles())
+})
+
+app.post('/api/operators', (req, res) => {
+  try {
+    const profile = upsertOperatorProfile({
+      operatorName: readStringField(req.body?.operatorName, 'operatorName'),
+      operatorCode: readStringField(req.body?.operatorCode, 'operatorCode'),
+      role: normalizeRole(req.body?.role),
+      taskType: req.body?.taskType === 'packing' ? 'packing' : 'qc',
+      fullName: typeof req.body?.fullName === 'string' ? req.body.fullName.trim() : null,
+      password: typeof req.body?.password === 'string' ? req.body.password : null,
+    })
+
+    return sendOk(res, profile)
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal menyimpan operator.')
+  }
+})
+
+app.put('/api/operators/:operatorName/:operatorCode/:role', (req, res) => {
+  try {
+    const params = req.params as Record<string, string | undefined>
+    const profile = upsertOperatorProfile({
+      operatorName: params.operatorName ?? '',
+      operatorCode: params.operatorCode ?? '',
+      role: normalizeRole(params.role),
+      taskType: req.body?.taskType === 'packing' ? 'packing' : 'qc',
+      fullName: typeof req.body?.fullName === 'string' ? req.body.fullName.trim() : null,
+      password: typeof req.body?.password === 'string' ? req.body.password : null,
+    })
+
+    return sendOk(res, profile)
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal memperbarui operator.')
+  }
+})
+
+app.delete('/api/operators/:operatorName/:operatorCode/:role', (req, res) => {
+  try {
+    const params = req.params as Record<string, string | undefined>
+    const deleted = deleteOperatorProfile(params.operatorName ?? '', params.operatorCode ?? '', normalizeRole(params.role))
+    if (!deleted) {
+      return sendError(res, 404, 'Operator tidak ditemukan.')
+    }
+
+    return sendOk(res, { deleted: true })
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal menghapus operator.')
+  }
+})
+
+app.post('/api/operators/:operatorName/:operatorCode/:role/password', (req, res) => {
+  try {
+    const password = readStringField(req.body?.password, 'password')
+    if (!password) {
+      return sendError(res, 400, 'password wajib diisi.')
+    }
+
+    const params = req.params as Record<string, string | undefined>
+    const profile = resetOperatorPassword(
+      params.operatorName ?? '',
+      params.operatorCode ?? '',
+      normalizeRole(params.role),
+      password,
+    )
+
+    return sendOk(res, profile)
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal reset password.')
+  }
+})
+
+app.get('/api/recordings', (_req, res) => {
+  sendOk(res, listRecordings())
+})
+
+app.post('/api/recordings', (req, res) => {
+  try {
+    const draft = createRecordingDraft({
+      id: typeof req.body?.id === 'string' ? req.body.id : undefined,
+      resiNumber: readStringField(req.body?.resiNumber, 'resiNumber'),
+      taskType: req.body?.taskType === 'packing' ? 'packing' : 'qc',
+      operatorName: readStringField(req.body?.operatorName, 'operatorName'),
+      operatorCode: readStringField(req.body?.operatorCode, 'operatorCode'),
+      startedAt: typeof req.body?.startedAt === 'string' ? req.body.startedAt : undefined,
+      fileName: typeof req.body?.fileName === 'string' ? req.body.fileName.trim() : undefined,
+      filePath: typeof req.body?.filePath === 'string' ? req.body.filePath.trim() : undefined,
+      fileSizeBytes: typeof req.body?.fileSizeBytes === 'number' ? req.body.fileSizeBytes : null,
+      status: typeof req.body?.status === 'string' && req.body.status === 'error' ? 'error' : 'recording',
+      note: typeof req.body?.note === 'string' ? req.body.note.trim() : null,
+    })
+
+    return sendOk(res, draft)
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal membuat draft recording.')
+  }
+})
+
+app.post('/api/recordings/:id/chunks', upload.single('chunk'), (req, res) => {
+  const params = req.params as Record<string, string | undefined>
+  const recording = getRecordingById(params.id ?? '')
+  if (!recording) {
+    return sendError(res, 404, 'Recording tidak ditemukan.')
+  }
+
+  if (!req.file) {
+    return sendError(res, 400, 'Field chunk wajib diisi.')
+  }
+
+  try {
+    const pendingPath = appendRecordingChunk(recording.id, req.file.buffer)
+    return sendOk(res, {
+      recording: getRecordingById(recording.id),
+      chunk: {
+        path: pendingPath,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+      },
+    })
+  } catch (error) {
+    reportLastError(error instanceof Error ? error.message : 'Upload chunk gagal.')
+    return sendError(res, 500, error instanceof Error ? error.message : 'Upload chunk gagal.')
+  }
+})
+
+app.post('/api/recordings/:id/finalize', (req, res) => {
+  try {
+    const params = req.params as Record<string, string | undefined>
+    const finalized = finalizeRecording(params.id ?? '', {
+      fileSizeBytes: typeof req.body?.fileSizeBytes === 'number' ? req.body.fileSizeBytes : null,
+      endTime: typeof req.body?.endTime === 'string' ? req.body.endTime : undefined,
+      note: typeof req.body?.note === 'string' ? req.body.note : undefined,
+    })
+
+    return sendOk(res, finalized)
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal finalize recording.')
+  }
+})
+
+app.post('/api/recordings/:id/recover', (req, res) => {
+  try {
+    const params = req.params as Record<string, string | undefined>
+    const recovered = recoverRecordingDraft(params.id ?? '')
+
+    if (!recovered) {
+      return sendError(res, 404, 'Recording belum punya chunk yang bisa dipulihkan.')
+    }
+
+    return sendOk(res, recovered)
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal recovery recording.')
+  }
+})
+
+app.post('/api/recordings/repeat-qc', (req, res) => {
+  try {
+    const resiNumber = typeof req.body?.resiNumber === 'string' ? req.body.resiNumber.trim() : ''
+    const updated = invalidateCompletedRecordingsForResi(resiNumber)
+    return sendOk(res, updated)
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal menyiapkan ulang QC.')
+  }
+})
+
+app.delete('/api/recordings/:id', (req, res) => {
+  const params = req.params as Record<string, string | undefined>
+  const deleted = deleteRecording(params.id ?? '')
+  if (!deleted) {
+    return sendError(res, 404, 'Recording tidak ditemukan.')
+  }
+
+  return sendOk(res, { deleted: true })
+})
+
+app.get('/api/scan-logs', (_req, res) => {
+  sendOk(res, listScanLogs())
+})
+
+app.post('/api/scan-logs', (req, res) => {
+  try {
+    const actionValue = typeof req.body?.action === 'string' ? req.body.action : undefined
+    const log = createScanLog({
+      resiNumber: readStringField(req.body?.resiNumber, 'resiNumber'),
+      taskType: req.body?.taskType === 'packing' ? 'packing' : 'qc',
+      action: actionValue === 'stop' || actionValue === 'duplicate' || actionValue === 'invalid' ? actionValue : 'start',
+      message: typeof req.body?.message === 'string' ? req.body.message.trim() : null,
+      operatorName: typeof req.body?.operatorName === 'string' ? req.body.operatorName.trim() : null,
+      operatorCode: typeof req.body?.operatorCode === 'string' ? req.body.operatorCode.trim() : null,
+    })
+
+    return sendOk(res, log)
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal membuat scan log.')
+  }
+})
+
+app.get('/api/last-error', (_req, res) => {
+  sendOk(res, readLastError())
+})
+
+app.post('/api/last-error', (req, res) => {
+  try {
+    const message = readStringField(req.body?.message, 'message')
+    const payload = reportLastError(message || 'Unknown error')
+    sendOk(res, payload)
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal menyimpan last error.')
+  }
+})
+
+app.delete('/api/last-error', (_req, res) => {
+  clearLastError()
+  sendOk(res, { cleared: true })
+})
+
+app.delete('/api/data/scan', (_req, res) => {
+  clearScanData()
+  sendOk(res, { cleared: true })
+})
+
+app.delete('/api/data/all', (_req, res) => {
+  clearAllData()
+  sendOk(res, { cleared: true })
+})
+
+app.use((_req, res) => {
+  sendError(res, 404, 'Endpoint tidak ditemukan.')
+})
+
+app.listen(port, () => {
+  console.log(`Pakti API listening on http://localhost:${port}`)
+})

@@ -1,6 +1,6 @@
-# PackCam Design System
+# Pakti Design System
 
-Dokumen ini merangkum gaya visual PackCam yang saat ini sudah dipakai di UI, supaya konsisten saat menambah halaman, komponen, atau detail interaksi baru.
+Dokumen ini merangkum gaya visual Pakti yang saat ini sudah dipakai di UI, supaya konsisten saat menambah halaman, komponen, atau detail interaksi baru.
 
 ## Prinsip Dasar
 

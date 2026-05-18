@@ -1,6 +1,6 @@
-# PackCam Implementation Plan
+# Pakti Implementation Plan
 
-Dokumen ini memecah rencana pengerjaan PackCam menjadi beberapa tahap kecil agar implementasi lebih ringan dan mudah diverifikasi.
+Dokumen ini memecah rencana pengerjaan Pakti menjadi beberapa tahap kecil agar implementasi lebih ringan dan mudah diverifikasi.
 
 ## Daftar Tahap
 
@@ -17,8 +17,15 @@ Dokumen ini memecah rencana pengerjaan PackCam menjadi beberapa tahap kecil agar
 11. [10 - Hardening dan Distribusi](./10-hardening-dan-distribusi.md)
 12. [11 - Konfigurasi Sistem](./11-konfigurasi-sistem.md)
 13. [12 - Design System](./12-design-system.md)
-14. [13 - Plan Tauri / Desktop](./13-tauri-desktop-plan.md)
-15. [14 - Checklist File Tauri / Desktop](./14-tauri-file-checklist.md)
+14. [16 - Redesign Halaman Login](./16-redesign-halaman-login.md)
+15. [17 - Bugfix Perekaman Video Proses Packing](./17-bugfix-perekaman-video-proses-packing.md)
+16. [18 - Web Full SQLite Plan](./18-web-full-sqlite-plan.md)
+17. [19 - Backend API SQLite Server-Side Plan](./19-backend-api-sqlite-server-plan.md)
+18. [24 - Rencana Pengembangan Users](./24-rencana-pengembangan-user.md)
+19. [25 - Rencana Admin Multi-Task](./25-rencana-admin-multi-task.md)
+20. [26 - Stack dan Arsitektur Aplikasi](./26-stack-dan-arsitektur.md)
+21. [27 - Rencana Migrasi shadcn/ui](./27-rencana-migrasi-shadcn-ui.md)
+22. [28 - Rencana Migrasi Monorepo Aman](./28-rencana-migrasi-monorepo-aman.md)
 
 ## Cara Pakai
 
