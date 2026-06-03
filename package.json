@@ -24,6 +24,7 @@
     "test:web": "tsx scripts/unit-web-scanner.ts",
     "prebuild": "npm run clean:build",
     "build": "tsc -b && vite build",
+    "build:vercel": "npm run build && npm run build -w @pakti/mobile -- --base /mobile/ --outDir ../../dist/mobile",
     "build:mobile": "npm run build -w @pakti/mobile",
     "lint": "eslint .",
     "preview": "vite preview",
