@@ -17,4 +17,4 @@ if (-not (Test-Path -LiteralPath $TunnelConfigPath)) {
 }
 
 "[$(Get-Date -Format o)] Starting Pakti Cloudflare Tunnel..." | Tee-Object -FilePath $LogFile -Append
-& $CloudflaredPath tunnel --config $TunnelConfigPath run *>&1 | Tee-Object -FilePath $LogFile -Append
+& $CloudflaredPath tunnel --config $TunnelConfigPath run --logfile $LogFile --loglevel info
