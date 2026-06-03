@@ -11,9 +11,6 @@ const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url))
 const ROOT_DIR = path.resolve(MODULE_DIR, '..')
 const BACKEND_DATA_DIR = path.join(ROOT_DIR, 'server-data')
 const BACKEND_DB_PATH = path.join(BACKEND_DATA_DIR, 'pakti.sqlite')
-const LEGACY_DATA_DIR = path.resolve(ROOT_DIR, '..', '..', 'server-data')
-const LEGACY_DB_PATH = path.join(LEGACY_DATA_DIR, 'pakti.sqlite')
-const STORAGE_TABLES = ['operator_profiles', 'operator_sessions', 'recordings', 'scan_logs', 'system_config'] as const
 
 let db: SQLiteDatabase | null = null
 
@@ -21,83 +18,7 @@ function ensureDataDir(dataDir: string) {
   fs.mkdirSync(dataDir, { recursive: true })
 }
 
-function countStoredRows(databasePath: string) {
-  if (!fs.existsSync(databasePath)) {
-    return 0
-  }
-
-  try {
-    const database = new Database(databasePath, { readonly: true })
-    const total = STORAGE_TABLES.reduce((sum, table) => {
-      try {
-        const result = database.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get() as { count?: number }
-        return sum + (result.count ?? 0)
-      } catch {
-        return sum
-      }
-    }, 0)
-    database.close()
-    return total
-  } catch {
-    return 0
-  }
-}
-
-function removeStorageSidecars(databasePath: string) {
-  for (const suffix of ['', '-wal', '-shm']) {
-    const targetPath = `${databasePath}${suffix}`
-
-    if (fs.existsSync(targetPath)) {
-      fs.rmSync(targetPath, { force: true })
-    }
-  }
-}
-
-function copyStorageTree(sourceDir: string, targetDir: string) {
-  if (!fs.existsSync(sourceDir)) {
-    return
-  }
-
-  fs.rmSync(targetDir, { recursive: true, force: true })
-  fs.cpSync(sourceDir, targetDir, { recursive: true, force: true })
-}
-
-function migrateLegacyStorageIfNeeded() {
-  const legacyRows = countStoredRows(LEGACY_DB_PATH)
-  const backendRows = countStoredRows(BACKEND_DB_PATH)
-
-  if (legacyRows <= backendRows) {
-    return
-  }
-
-  ensureDataDir(BACKEND_DATA_DIR)
-  removeStorageSidecars(BACKEND_DB_PATH)
-
-  if (fs.existsSync(LEGACY_DB_PATH)) {
-    fs.copyFileSync(LEGACY_DB_PATH, BACKEND_DB_PATH)
-  }
-
-  const legacyWalPath = `${LEGACY_DB_PATH}-wal`
-  const legacyShmPath = `${LEGACY_DB_PATH}-shm`
-
-  if (fs.existsSync(legacyWalPath)) {
-    fs.copyFileSync(legacyWalPath, `${BACKEND_DB_PATH}-wal`)
-  }
-
-  if (fs.existsSync(legacyShmPath)) {
-    fs.copyFileSync(legacyShmPath, `${BACKEND_DB_PATH}-shm`)
-  }
-
-  copyStorageTree(path.join(LEGACY_DATA_DIR, 'uploads'), path.join(BACKEND_DATA_DIR, 'uploads'))
-  copyStorageTree(path.join(LEGACY_DATA_DIR, 'pending-recordings'), path.join(BACKEND_DATA_DIR, 'pending-recordings'))
-}
-
-function selectDatabasePath() {
-  migrateLegacyStorageIfNeeded()
-  return fs.existsSync(BACKEND_DB_PATH) ? BACKEND_DB_PATH : LEGACY_DB_PATH
-}
-
-const DB_PATH = selectDatabasePath()
+const DB_PATH = BACKEND_DB_PATH
 const DATA_DIR = path.dirname(DB_PATH)
 const PENDING_RECORDINGS_DIR = path.join(DATA_DIR, 'pending-recordings')
 

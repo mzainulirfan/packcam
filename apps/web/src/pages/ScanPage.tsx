@@ -21,6 +21,13 @@ import { useCameraStream } from '../hooks/useCameraStream'
 import { useRecordingSession } from '../hooks/useRecordingSession'
 import { useWatermarkedStream } from '../hooks/useWatermarkedStream'
 import { useVideoBarcodeScanner } from '../hooks/useVideoBarcodeScanner'
+import {
+  DEFAULT_SCAN_AREA_RATIO,
+  DEFAULT_SCAN_INTERVAL_MS,
+} from '../hooks/useVideoBarcodeScanner.logic'
+import type { ScanMode } from '../hooks/useVideoBarcodeScanner.logic'
+
+const SCAN_MODE_STORAGE_KEY = 'pakti.web.scanMode'
 
 export function ScanPage() {
   const operatorSession = useOperatorSession()
@@ -35,9 +42,10 @@ export function ScanPage() {
   const [repeatQcResi, setRepeatQcResi] = useState(() => readRepeatQcResi())
   const [watermarkResi, setWatermarkResi] = useState<string | null>(null)
   const [clockText, setClockText] = useState(() => formatClock(new Date()))
+  const [scanMode, setScanMode] = useState<ScanMode>(() => readScanMode())
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null)
   const cameraDevices = useCameraDevices(true)
-  const cameraState = useCameraStream(settings.cameraDeviceId)
+  const cameraState = useCameraStream(settings.cameraDeviceId, settings.videoResolution)
   const watermarkedStream = useWatermarkedStream({
     sourceStream: cameraState.stream,
     watermarkResi,
@@ -106,6 +114,41 @@ export function ScanPage() {
     }
   }, [])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.sessionStorage.setItem(SCAN_MODE_STORAGE_KEY, scanMode)
+  }, [scanMode])
+
+  useEffect(() => {
+    if (!scanAlert) {
+      return
+    }
+
+    const timeoutMs = scanAlert.kind === 'error' ? 3500 : 2500
+    const timer = window.setTimeout(() => {
+      setScanAlert(null)
+    }, timeoutMs)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [scanAlert])
+
+  function handleAutoSwitchToFullFrame() {
+    if (scanMode === 'full-frame') {
+      return
+    }
+
+    setScanMode('full-frame')
+    setScanAlert({
+      kind: 'warning',
+      message: 'Scanner sulit membaca dari area tengah, jadi mode otomatis pindah ke full-frame.',
+    })
+  }
+
   const barcodeScanner = useBarcodeScanner({
     onValidScan: (value) => {
       void recordingSession.handleScan(value).then((outcome) => {
@@ -129,6 +172,10 @@ export function ScanPage() {
   useVideoBarcodeScanner({
     videoRef: cameraVideoRef,
     enabled: Boolean(recordingStream),
+    scanIntervalMs: DEFAULT_SCAN_INTERVAL_MS,
+    scanAreaRatio: DEFAULT_SCAN_AREA_RATIO,
+    scanMode,
+    onAutoSwitchToFullFrame: handleAutoSwitchToFullFrame,
     onDetected: (value) => {
       barcodeScanner.setValue(value)
       barcodeScanner.submitBarcode(value)
@@ -386,6 +433,9 @@ export function ScanPage() {
             <div className="flex items-start justify-between gap-4">
               <div className="grid gap-2">
                 <CardTitle className="text-lg text-slate-950">Preview kamera</CardTitle>
+                <p className="text-xs leading-5 text-slate-500">
+                  Mode scan aktif: <strong className="text-slate-950">{scanMode === 'full-frame' ? 'full-frame' : 'center-first'}</strong>
+                </p>
               </div>
             </div>
 
@@ -411,6 +461,38 @@ export function ScanPage() {
               </Select>
             </div>
 
+            <div className="grid gap-2">
+              <Label className="text-xs uppercase tracking-[0.18em] text-slate-500">Mode scan</Label>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  variant={scanMode === 'center-first' ? 'default' : 'outline'}
+                  className="h-auto justify-start rounded-2xl px-4 py-3 text-left"
+                  onClick={() => setScanMode('center-first')}
+                >
+                  <div className="grid gap-1">
+                    <span className="text-sm font-semibold">Mode cepat</span>
+                    <span className="text-xs leading-5 opacity-80">
+                      Prioritas area tengah, dengan fallback full-frame berkala.
+                    </span>
+                  </div>
+                </Button>
+                <Button
+                  type="button"
+                  variant={scanMode === 'full-frame' ? 'default' : 'outline'}
+                  className="h-auto justify-start rounded-2xl px-4 py-3 text-left"
+                  onClick={() => setScanMode('full-frame')}
+                >
+                  <div className="grid gap-1">
+                    <span className="text-sm font-semibold">Mode longgar</span>
+                    <span className="text-xs leading-5 opacity-80">
+                      Scan seluruh frame terus-menerus untuk barcode yang sulit terbaca.
+                    </span>
+                  </div>
+                </Button>
+              </div>
+            </div>
+
             <CameraPreview
               stream={recordingStream}
               isLoading={cameraState.loading}
@@ -418,6 +500,11 @@ export function ScanPage() {
               videoRef={cameraVideoRef}
               scanGuide
               scanGuideLabel="Pusatkan resi di kotak ini"
+              scanGuideDetail={
+                scanMode === 'full-frame'
+                  ? 'Mode longgar aktif. Pastikan barcode tetap terlihat jelas di seluruh layar.'
+                  : 'Jika belum terbaca, geser perlahan sampai barcode masuk kotak penuh.'
+              }
               emptyMessage="Pilih kamera untuk memulai preview."
               topSlot={
                 <div className="grid gap-2 rounded-2xl border border-black/10 bg-white/90 px-4 py-3 text-slate-950 shadow-2xl backdrop-blur">
@@ -495,6 +582,15 @@ export function ScanPage() {
       </div>
     </StageCard>
   )
+}
+
+function readScanMode(): ScanMode {
+  if (typeof window === 'undefined') {
+    return 'full-frame'
+  }
+
+  const stored = window.sessionStorage.getItem(SCAN_MODE_STORAGE_KEY)
+  return stored === 'center-first' ? 'center-first' : 'full-frame'
 }
 
 function mapScanOutcomeToAlert(

@@ -1,3 +1,582 @@
+﻿# Task Pakti Packcam
+
+Tanggal konsolidasi: 2026-06-03
+
+Dokumen ini menjadi sumber roadmap task dan rencana implementasi Pakti Packcam.
+
+## Prioritas P0
+
+- Validasi recording end-to-end.
+- Hardening error recording.
+- Validasi session dan role.
+- Stabilkan mobile LAN HTTPS.
+
+## Prioritas P1
+
+- Perjelas duplicate dan repeat QC.
+- Improve History untuk audit cepat.
+- Tambahkan validasi Settings.
+- Perkuat Health dan Recovery Admin.
+
+## Prioritas P2
+
+- Perluas test scanner logic.
+- Perluas test shared exporter dan recording utilities.
+- Rapikan batas package.
+- Lengkapi dokumentasi operasional.
+
+## Definition of Done
+
+- Kode mengikuti struktur monorepo.
+- UI mengikuti design system.
+- Role dan session divalidasi di backend.
+- Error state terlihat di UI.
+- Data penting tercatat di SQLite.
+- Rekaman dapat ditemukan di History.
+- Test relevan dijalankan atau keterbatasannya dicatat.
+
+## Sumber Gabungan
+
+- `00-persiapan-project.md`
+- `10-hardening-dan-distribusi.md`
+- `17-bugfix-perekaman-video-proses-packing.md`
+- `20-full-web-migration-plan.md`
+- `28-rencana-migrasi-monorepo-aman.md`
+
+---
+
+## Sumber: `00-persiapan-project.md`
+
+# Tahap 0 - Persiapan Project
+
+## Tujuan
+
+Menyiapkan fondasi proyek agar tahap fitur inti bisa dikerjakan tanpa hambatan teknis.
+
+## Ruang Lingkup
+
+- Setup struktur project `Tauri + React + TypeScript`.
+- Konfigurasi formatter, linter, dan struktur folder dasar.
+- Siapkan halaman kosong untuk `Scan`, `History`, dan `Settings`.
+- Siapkan baseline konfigurasi untuk penyimpanan lokal.
+
+## Tugas
+
+1. Pastikan repo bisa dijalankan lokal.
+2. Rapikan struktur folder frontend dan backend.
+3. Siapkan routing dasar atau navigasi halaman.
+4. Siapkan placeholder UI tanpa logika bisnis.
+
+## Hasil yang Diharapkan
+
+- Project build dan run tanpa error.
+- Struktur awal siap untuk pengembangan fitur.
+- Tidak ada fitur bisnis yang kompleks di tahap ini.
+
+## Selesai Jika
+
+- Aplikasi tampil dengan halaman dasar.
+- Tidak ada error konfigurasi utama.
+- Developer lain bisa lanjut ke tahap database tanpa menebak struktur project.
+
+---
+
+## Sumber: `10-hardening-dan-distribusi.md`
+
+# Tahap 10 - Hardening dan Distribusi
+
+## Tujuan
+
+Memastikan aplikasi siap dipakai di mesin operator secara stabil.
+
+## Ruang Lingkup
+
+- Uji crash recovery.
+- Uji disk penuh.
+- Uji kamera ditolak atau dipakai aplikasi lain.
+- Build installer.
+- Buat dokumentasi singkat user.
+
+## Tugas
+
+1. Jalankan skenario gagal yang umum.
+2. Perbaiki bug stabilitas terakhir.
+3. Siapkan package instalasi.
+4. Tulis panduan penggunaan minimal.
+
+## Hasil yang Diharapkan
+
+- Aplikasi siap didistribusikan.
+- Risiko error lapangan lebih kecil.
+- Operator punya panduan dasar.
+
+## Selesai Jika
+
+- Build installer sukses.
+- Kasus gagal utama sudah diuji.
+- Dokumentasi cukup untuk onboarding awal.
+
+---
+
+## Sumber: `17-bugfix-perekaman-video-proses-packing.md`
+
+# Tahap 17 - Bugfix Perekaman Video Proses Packing
+
+## Tujuan
+
+Memperbaiki bug perekaman video saat pergantian resi agar video baru tidak freeze, proses saving berjalan berurutan, dan preview tetap aktif setelah rekaman sebelumnya selesai disimpan.
+
+## Latar Belakang Masalah
+
+Sistem saat ini bekerja dengan alur:
+
+- resi discan
+- recording dimulai
+- scan resi berikutnya memicu penyimpanan video sebelumnya
+- setelah itu sistem memulai recording baru
+
+Bug yang terjadi:
+
+- setelah recording berjalan cukup lama, sekitar 2-3 menit, scan resi kedua memicu pergantian rekaman
+- video pertama berhasil diarahkan ke proses penyimpanan
+- video kedua mulai secara logis, tetapi preview tampak diam atau freeze
+- timer perekaman tetap berjalan, sehingga state terlihat aktif padahal frame video tidak benar-benar bergerak
+
+## Hipotesis Penyebab Bug
+
+Kemungkinan penyebab yang perlu dianalisis:
+
+- recording baru dimulai terlalu cepat sebelum proses encoding/saving video sebelumnya benar-benar selesai
+- `MediaRecorder` atau stream output masih berada pada state transisi saat instance baru dibuat
+- stream kamera dipakai ulang tanpa sinkronisasi yang cukup setelah stop/save selesai
+- preview dan recording session saling bergantung pada objek stream yang belum stabil
+- proses background save masih berjalan, tetapi sistem sudah menganggap recording berikutnya siap
+- ada race condition antara event `stop`, event `onstop`, pembuatan draft baru, dan pengaktifan recorder baru
+
+## Ruang Lingkup
+
+- Perbaikan alur recording di `src/hooks/useRecordingSession.ts`
+- Penyesuaian status/state recording untuk mendukung proses saving yang eksplisit
+- Penambahan indikator progress atau loading pada area preview saat saving berjalan
+- Penyesuaian UI di halaman scan agar status proses lebih jelas
+- Penambahan checklist testing untuk skenario scan beruntun dan recording panjang
+
+## State Management yang Diusulkan
+
+Gunakan state machine yang lebih eksplisit agar transisi lebih aman:
+
+- `idle`
+- `recording`
+- `stopping`
+- `saving`
+- `ready_to_record_next`
+- `error`
+
+Makna tiap state:
+
+- `idle`: kamera siap, belum ada recording aktif
+- `recording`: frame sedang direkam untuk resi aktif
+- `stopping`: recorder sedang dihentikan, data sedang dipindahkan ke proses finalisasi
+- `saving`: file video sedang di-encode / disimpan ke storage
+- `ready_to_record_next`: saving selesai, kamera siap dipakai untuk recording berikutnya
+- `error`: ada gangguan pada recorder, kamera, atau proses save
+
+## Flow Baru yang Diharapkan
+
+Urutan proses yang harus dipakai:
+
+1. resi discan
+2. recording lama dihentikan
+3. proses saving video lama dimulai
+4. tampil progress bar / loading di area preview
+5. proses saving selesai 100%
+6. baru mulai recording baru untuk resi berikutnya
+
+## Aturan Penting
+
+- Scan resi baru tidak boleh langsung memulai recording baru jika saving belum selesai.
+- Camera stream jangan dimatikan jika masih dibutuhkan untuk recording berikutnya.
+- Proses encoding dan saving harus ditunggu sampai benar-benar selesai sebelum recorder baru dibuat.
+- State `saving` harus menjadi blok transisi yang mencegah start recording baru.
+- Jika ada antrian resi berikutnya, resi itu disimpan sebagai pending sampai state `ready_to_record_next`.
+- UI harus memperlihatkan bahwa sistem sedang menyimpan, bukan seolah-olah recording baru sudah aktif.
+
+## Rancangan Implementasi
+
+### 1. Refactor Session Flow
+
+- Pisahkan logika `stop recording`, `save artifact`, dan `start next recording`.
+- Hindari start recorder baru di callback yang masih berada dalam siklus save lama.
+- Jadikan penyimpanan video lama sebagai operasi yang selesai dulu baru mengizinkan start berikutnya.
+
+### 2. Tambahkan Guard untuk Transisi
+
+- Pastikan `handleScan()` tidak memanggil `startRecording()` saat state masih `stopping` atau `saving`.
+- Simpan resi berikutnya ke `queuedResi` atau `pendingResi`.
+- Setelah save selesai, cek apakah ada resi pending lalu start recording berikutnya.
+
+### 3. Progress UI di Preview
+
+- Saat state `saving`, tampilkan progress bar atau loading indicator pada area preview.
+- Jika progress detail sulit diukur, tampilkan loading bar indeterminate yang jelas.
+- Ubah pesan status di preview agar operator tahu video sedang diproses.
+
+### 4. Kualitas Preview
+
+- Preview kamera harus tetap aktif dan tidak freeze setelah pergantian resi.
+- Pastikan sumber stream tetap valid saat berpindah dari recording lama ke recording baru.
+- Jika perlu, delay singkat bisa dipakai hanya untuk memastikan recorder lama benar-benar release sebelum recorder baru dibuat.
+
+### 5. Penanganan Error
+
+- Jika save gagal, state masuk ke `error`.
+- Tampilkan pesan error yang jelas di UI.
+- Pastikan user bisa retry tanpa harus refresh aplikasi.
+
+## Rekomendasi Teknis
+
+- Gunakan `async/await` untuk membuat alur transisi lebih mudah diikuti.
+- Simpan operasi save dalam satu fungsi finalisasi yang mengembalikan promise selesai.
+- Pisahkan:
+  - `beginRecording(resi)`
+  - `stopCurrentRecording()`
+  - `saveCurrentRecording()`
+  - `startQueuedRecording()`
+- Gunakan boolean guard atau token transisi untuk mencegah start ganda.
+- Pertimbangkan `AbortController` atau token session untuk membatalkan proses lama jika state sudah berubah.
+- Tambahkan log debugging sementara untuk memantau urutan event:
+  - scan diterima
+  - stop dipanggil
+  - save mulai
+  - save selesai
+  - recording berikutnya mulai
+
+## Contoh Alur Logika
+
+```text
+state = recording
+pendingResi = null
+
+scan(resiBaru):
+  if state == recording:
+    pendingResi = resiBaru
+    stopCurrentRecording()
+    state = stopping
+    return
+
+  if state in (stopping, saving):
+    pendingResi = resiBaru
+    return
+
+  if state == idle or state == ready_to_record_next:
+    beginRecording(resiBaru)
+    state = recording
+
+onStopRecorder():
+  state = saving
+  showProgressPreview()
+  await saveCurrentRecording()
+  state = ready_to_record_next
+
+  if pendingResi exists:
+    beginRecording(pendingResi)
+    pendingResi = null
+    state = recording
+  else:
+    state = idle
+```
+
+## Checklist Testing
+
+### Skenario Dasar
+
+- Scan resi pertama lalu pastikan recording mulai normal.
+- Scan resi kedua setelah 2-3 menit recording berjalan.
+- Pastikan recording lama berhenti dulu.
+- Pastikan progress saving tampil pada preview.
+- Pastikan recording baru hanya mulai setelah saving selesai.
+
+### Skenario Freeze
+
+- Uji pergantian resi berulang dalam waktu singkat.
+- Pastikan preview video tidak freeze setelah recording kedua dimulai.
+- Pastikan timer tidak berjalan sementara frame diam tanpa alasan.
+
+### Skenario Saving
+
+- Uji saat storage lambat atau file video besar.
+- Pastikan state tetap di `saving` sampai promise save selesai.
+- Pastikan tidak ada recording baru yang start prematur.
+
+### Skenario Error
+
+- Simulasikan gagal save.
+- Pastikan masuk ke state `error`.
+- Pastikan pesan error tampil jelas.
+- Pastikan user bisa retry tanpa restart aplikasi.
+
+### Skenario Recovery
+
+- Setelah error, coba scan resi baru.
+- Pastikan sistem kembali bisa merekam normal.
+- Pastikan kamera stream tetap tersedia jika tidak ada gangguan hardware.
+
+### Skenario UI
+
+- Progress bar/loading terlihat jelas saat saving.
+- Tombol aksi tidak membingungkan user saat transisi.
+- Status di preview sesuai dengan state aktual.
+
+## File yang Kemungkinan Terdampak
+
+- `src/hooks/useRecordingSession.ts`
+- `src/pages/ScanPage.tsx`
+- `src/components/CameraPreview.tsx`
+- `src/data/recordings.ts`
+- `src/data/scanLogs.ts`
+- `src/data/types.ts`
+
+## Hasil yang Diharapkan
+
+- Recording baru tidak freeze setelah pergantian resi.
+- Saving video lama selalu selesai dulu sebelum recording baru dimulai.
+- UI menampilkan progress yang jelas selama proses saving.
+- Preview kamera tetap stabil dan sinkron dengan state sistem.
+- Alur scan menjadi lebih dapat diprediksi dan aman untuk pemakaian harian.
+
+## Selesai Jika
+
+- Skenario recording lama lalu scan resi kedua berjalan tanpa freeze.
+- Saving muncul sebagai proses eksplisit di UI.
+- Recording baru selalu dimulai setelah saving selesai.
+- Tidak ada race condition yang membuat preview diam atau state salah.
+- Checklist testing lulus untuk durasi rekaman pendek dan panjang.
+
+---
+
+## Sumber: `20-full-web-migration-plan.md`
+
+# Plan Migrasi Penuh ke Aplikasi Web
+
+Dokumen ini mencatat sisa pekerjaan agar Pakti benar-benar menjadi aplikasi web penuh dengan `SQLite` di server sebagai sumber data utama, tanpa fallback browser yang masih aktif.
+
+## Target Akhir
+
+- Aplikasi dibuka penuh di browser.
+- Semua data operasional disimpan dan dibaca dari server.
+- Browser hanya berperan sebagai UI dan pengendali kamera/scan.
+- Tidak ada storage data bisnis penting yang masih bergantung pada cache browser.
+- Setup admin, login, history, settings, users, health, dan admin audit seluruhnya berjalan via backend API.
+- Proses recording video tetap stabil, tetapi penyimpanan final berada di server.
+
+## Status Saat Ini
+
+Sudah ada:
+
+- Frontend React/Vite.
+- Backend API Express.
+- Database server-side SQLite.
+- Upload file video ke server.
+- Setup admin via endpoint bootstrap.
+- Halaman utama sudah mengarah ke API.
+- Error boundary agar runtime error tidak blank total.
+
+Masih tersisa beberapa bagian transisi yang perlu dirapikan agar migrasi benar-benar selesai.
+
+## Sisa Pekerjaan Utama
+
+### 1. Hapus semua fallback browser untuk data inti
+
+Hal yang masih perlu dibuang atau dipastikan tidak dipakai lagi:
+
+- cache lokal untuk `operatorSession`
+- cache lokal untuk `operatorProfiles`
+- cache lokal untuk `settings`
+- cache lokal untuk `systemConfig`
+- cache lokal untuk `scanLogs`
+- cache lokal untuk `recordings`
+- cache lokal untuk `lastError`
+
+Target:
+
+- Semua halaman data membaca dari API server sebagai sumber utama.
+- Browser cache hanya boleh dipakai untuk hal non-kritis seperti preferensi UI murni, jika masih dibutuhkan.
+
+### 2. Pindahkan state recording sementara ke alur server yang lebih eksplisit
+
+Bagian yang masih perlu diperjelas:
+
+- chunk sementara saat recording
+- state transisi `idle -> recording -> stopping -> saving -> ready_to_record_next`
+- recovery jika browser refresh saat recording belum selesai
+
+Target:
+
+- Draft recording dibuat di server sejak awal.
+- Upload video final tetap ke server.
+- Chunk sementara hanya dipakai bila benar-benar diperlukan untuk recovery, dan harus punya jalur bersih di server.
+- Tidak ada penyimpanan media bisnis penting yang tersisa di browser.
+
+### 3. Bersihkan storage browser yang tidak lagi dibutuhkan
+
+Yang masih perlu dievaluasi untuk dihapus:
+
+- `src/data/storage.ts`
+- `src/data/storageBackend.ts`
+- `src/data/backends/webStorageBackend.ts`
+- `src/data/backends/webSqliteStorageBackend.ts`
+- helper migrasi/backup lokal yang sudah tidak dipakai
+
+Target:
+
+- Repository tidak lagi membawa layer penyimpanan browser yang statusnya hanya transisi.
+- Kode storage lebih kecil, lebih mudah dirawat, dan tidak membingungkan.
+
+### 4. Jadikan backend API satu-satunya sumber data operasional
+
+Yang perlu dipastikan:
+
+- `History` hanya baca dari server.
+- `Users` hanya baca/tulis ke server.
+- `Settings` hanya baca/tulis ke server.
+- `Admin` hanya audit server.
+- `Health` hanya ringkasan runtime + data server.
+- `Scan` hanya memakai konfigurasi server.
+- `Welcome` bootstrap admin hanya lewat server.
+
+Target:
+
+- Tidak ada fallback cache lokal di halaman data.
+- Jika server tidak aktif, UI menampilkan pesan yang jelas, bukan mode diam-diam memakai cache.
+
+### 5. Rapikan auth/session supaya benar-benar server-only
+
+Masih perlu dipastikan:
+
+- login selalu lewat backend
+- session dibaca dari backend
+- logout memutus session server
+- reset password dan CRUD user tidak bisa jalan tanpa sesi yang valid
+- bootstrap admin tetap punya jalur khusus yang aman
+
+Target:
+
+- Tidak ada lagi session yang bergantung pada local storage atau cache browser.
+
+### 6. Rapikan health, admin, dan pesan fallback
+
+Masih perlu dijaga:
+
+- pesan saat server offline tetap user-friendly
+- tidak ada error teknis yang bocor ke UI
+- admin panel harus jelas membedakan server aktif, server mati, dan mode terbatas
+
+Target:
+
+- Pengguna tahu tindakan apa yang harus dilakukan, tanpa melihat detail teknis.
+
+### 7. Pastikan startup web tidak pernah blank
+
+Langkah yang masih perlu dipastikan:
+
+- app tetap render walau fetch awal server gagal
+- error boundary hanya jadi lapisan darurat, bukan jalur normal
+- loading awal tidak menahan render layar utama
+
+Target:
+
+- Layar putih tidak muncul lagi.
+- Kalau ada masalah, muncul pesan yang jelas dan UI tetap hidup.
+
+### 8. Bersihkan sisa kode yang hanya relevan untuk fase migrasi
+
+Yang perlu dicari dan dievaluasi:
+
+- helper sinkronisasi lama
+- endpoint migrasi yang hanya dipakai sekali
+- util fallback browser yang tidak lagi dibutuhkan
+- event atau state yang dulu dipakai untuk transisi desktop/web
+
+Target:
+
+- Kode akhir lebih kecil, lebih tegas, dan tidak menyisakan mode dual-stack tanpa kebutuhan.
+
+### 9. Kunci kontrak API dan tipe data
+
+Masih perlu dipastikan:
+
+- response shape setiap endpoint stabil
+- error format seragam
+- tipe frontend dan backend tidak divergen
+- `RecordingRow`, `OperatorProfile`, `OperatorSession`, `SystemConfig`, `AppSettings`, dan `ScanLogRow` sinkron
+
+Target:
+
+- Perubahan API tidak merusak halaman frontend.
+
+### 10. Perkuat testing migrasi penuh
+
+Yang perlu dites ulang:
+
+- login admin pertama
+- login operator
+- scan -> recording -> stop -> save -> scan berikutnya
+- refresh saat recording berjalan
+- refresh saat saving
+- history preview video dari server
+- users CRUD
+- settings save/load
+- admin audit status server
+- health saat server hidup dan mati
+
+Target:
+
+- Tidak ada regresi pada alur kerja utama.
+
+## Rekomendasi Urutan Eksekusi
+
+### Tahap 1
+
+- Hapus fallback browser untuk session, users, settings, system config, scan logs, dan history.
+- Pastikan semua halaman data benar-benar API-first.
+
+### Tahap 2
+
+- Finalisasi pipeline recording agar recovery dan penyimpanan media sepenuhnya jelas di server.
+- Hapus storage browser yang tidak lagi dipakai.
+
+### Tahap 3
+
+- Rapikan startup, health, dan admin supaya mode offline hanya jadi pesan, bukan jalur data alternatif.
+
+### Tahap 4
+
+- Lakukan cleanup besar terhadap kode transisi.
+- Perkuat testing end-to-end.
+
+## Checklist Selesai
+
+- [ ] Tidak ada fallback cache lokal untuk data inti
+- [ ] Session dan auth sepenuhnya server-side
+- [ ] Recording final disimpan ke server
+- [ ] Recovery recording jelas dan konsisten
+- [ ] History, Users, Settings, Admin, Health, dan Scan semuanya API-first
+- [ ] Startup tidak blank saat server belum aktif
+- [ ] Pesan error user-facing sudah seragam
+- [ ] Kode storage browser transisi sudah dibersihkan
+- [ ] Tipe frontend/backend tetap sinkron
+- [ ] Testing alur utama sudah lolos
+
+## Catatan Penting
+
+- Jika tujuan akhirnya adalah `full web` yang ketat, server harus dianggap sumber kebenaran tunggal.
+- Browser cache hanya boleh dipakai untuk preferensi UI atau cache sementara yang tidak memengaruhi integritas data.
+- Selama masih ada fallback data bisnis di browser, migrasi belum bisa dianggap selesai.
+
+---
+
+## Sumber: `28-rencana-migrasi-monorepo-aman.md`
+
 # Rencana Migrasi Monorepo Aman
 
 Tujuan plan ini adalah menyiapkan struktur monorepo tanpa merusak web yang sudah berjalan. Migrasi harus bertahap, non-breaking, dan mudah diuji di setiap langkah.
@@ -633,3 +1212,4 @@ setelah itu:
 - `npm run build:backend`
 - `npm run build:mobile`
 - smoke test login, scan, rekam, history, settings, dan admin web
+

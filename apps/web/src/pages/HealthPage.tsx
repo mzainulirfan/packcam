@@ -139,6 +139,11 @@ export function HealthPage() {
       value: typeof navigator !== 'undefined' && !!navigator.mediaDevices,
     },
     {
+      label: 'Secure Context',
+      description: 'Kamera hanya bisa dipakai di HTTPS atau localhost.',
+      value: typeof window !== 'undefined' && window.isSecureContext,
+    },
+    {
       label: 'MediaRecorder',
       description: 'Mesin perekaman video dapat dipakai.',
       value: typeof MediaRecorder !== 'undefined',

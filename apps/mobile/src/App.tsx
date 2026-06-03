@@ -1,5 +1,20 @@
-import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Camera, CheckCircle2, History, LogOut, Menu, RefreshCw, ScanLine, Shield, UserRound } from 'lucide-react'
+﻿import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  AlertTriangle,
+  Camera,
+  Eye,
+  EyeOff,
+  History,
+  LogOut,
+  Menu,
+  MoonStar,
+  RefreshCw,
+  ScanLine,
+  ScanSearch,
+  Shield,
+  SunMedium,
+  UserRound,
+} from 'lucide-react'
 import {
   readServerSettingsApi,
   loginServerOperatorApi,
@@ -11,6 +26,14 @@ import {
 } from '@pakti/api-client'
 import { DEFAULT_APP_SETTINGS } from '@pakti/shared/defaults'
 import type { AppSettings, OperatorSession, RecordingRow, SystemConfig, WorkTask } from '@pakti/types'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { CameraPreview } from './components/CameraPreview'
 import { useBarcodeScanner } from './hooks/useBarcodeScanner'
 import { useCameraStream } from './hooks/useCameraStream'
@@ -19,6 +42,7 @@ import { useWatermarkedStream } from './hooks/useWatermarkedStream'
 import './App.css'
 
 type TabKey = 'scan' | 'history' | 'session'
+type HistoryTaskFilter = 'all' | WorkTask
 
 type LoginFormState = {
   operatorName: string
@@ -55,6 +79,25 @@ function formatTask(taskType: WorkTask) {
   return taskType === 'qc' ? 'QC' : 'Packing'
 }
 
+function formatOperatorIdentity(operatorName?: string | null, operatorCode?: string | null) {
+  const name = operatorName?.trim() ?? ''
+  const code = operatorCode?.trim() ?? ''
+
+  if (name && code) {
+    return `${name} (${code})`
+  }
+
+  return name || code || 'operator lain'
+}
+
+type HistoryEmptyState = {
+  tone: 'neutral' | 'warning'
+  title: string
+  message: string
+  detail: string
+  taskType?: WorkTask
+}
+
 function formatStatus(status: RecordingRow['status']) {
   if (status === 'completed') return 'Selesai'
   if (status === 'recording') return 'Rekam'
@@ -89,9 +132,33 @@ type StartScanRecordingFn = (
 ) => Promise<'started' | 'duplicate' | 'error'>
 
 const ACTIVE_TAB_STORAGE_KEY = 'pakti_mobile_active_tab'
+const THEME_STORAGE_KEY = 'pakti_mobile_theme'
+
+type ThemeMode = 'light' | 'dark'
 
 function isTabKey(value: string | null): value is TabKey {
   return value === 'scan' || value === 'history' || value === 'session'
+}
+
+function isThemeMode(value: string | null): value is ThemeMode {
+  return value === 'light' || value === 'dark'
+}
+
+function getInitialTheme(): ThemeMode {
+  if (typeof window === 'undefined') {
+    return 'dark'
+  }
+
+  try {
+    const savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY)
+    if (isThemeMode(savedTheme)) {
+      return savedTheme
+    }
+
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  } catch {
+    return 'dark'
+  }
 }
 
 function App() {
@@ -114,6 +181,7 @@ function App() {
   })
   const [loginForm, setLoginForm] = useState<LoginFormState>(initialLoginForm)
   const [loginBusy, setLoginBusy] = useState(false)
+  const [showLoginPassword, setShowLoginPassword] = useState(false)
   const [taskBusy, setTaskBusy] = useState(false)
   const [scanResi, setScanResi] = useState('')
   const [scanBusy, setScanBusy] = useState(false)
@@ -121,9 +189,19 @@ function App() {
   const [historyBusy, setHistoryBusy] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [recordings, setRecordings] = useState<RecordingRow[]>([])
+  const [historyTaskFilter, setHistoryTaskFilter] = useState<HistoryTaskFilter>('all')
+  const [historyResiQuery, setHistoryResiQuery] = useState('')
+  const [historyAllAccounts, setHistoryAllAccounts] = useState(false)
+  const [historyScanOpen, setHistoryScanOpen] = useState(false)
+  const [historyScanError, setHistoryScanError] = useState<string | null>(null)
+  const [historyScanVideoElement, setHistoryScanVideoElement] = useState<HTMLVideoElement | null>(null)
+  const [historyScanResetToken, setHistoryScanResetToken] = useState(0)
+  const [historyHighlightedResi, setHistoryHighlightedResi] = useState<string | null>(null)
   const [watermarkResi, setWatermarkResi] = useState<string | null>(null)
   const [scanClockTick, setScanClockTick] = useState(() => Date.now())
   const [menuOpen, setMenuOpen] = useState(false)
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
+  const [theme, setTheme] = useState<ThemeMode>(getInitialTheme)
   const [scanVideoElement, setScanVideoElement] = useState<HTMLVideoElement | null>(null)
   const [scannerResetToken, setScannerResetToken] = useState(0)
   const scanNoticeTimerRef = useRef<number | null>(null)
@@ -139,9 +217,11 @@ function App() {
   const appName = systemConfig?.appName ?? 'Pakti'
   const tagline = systemConfig?.tagline ?? 'Paket Tercatat, Bukti Terjaga'
   const brandMark = systemConfig?.brandMark ?? 'PK'
+  const isDarkTheme = theme === 'dark'
   const currentTaskType: WorkTask = session?.taskType ?? 'qc'
   const isPackingMode = String(currentTaskType) === 'packing'
   const cameraState = useCameraStream(settings.cameraDeviceId, Boolean(session) && activeTab === 'scan', 'environment')
+  const historyCameraState = useCameraStream(settings.cameraDeviceId, historyScanOpen, 'environment')
   const watermarkedStream = useWatermarkedStream({
     sourceStream: cameraState.stream,
     watermarkResi,
@@ -163,6 +243,10 @@ function App() {
     operatorCode: session?.operatorCode ?? '',
     taskType: session?.taskType ?? 'qc',
   })
+  const activeRecordingResi =
+    recordingSession.state.mode === 'recording'
+      ? recordingSession.state.activeResi ?? watermarkResi ?? (scanResi.trim() || null)
+      : null
 
   const recordingStateRef = useRef(recordingSession.state)
   const sessionRef = useRef(session)
@@ -228,9 +312,32 @@ function App() {
     }
   }, [])
 
-  const playScanFeedback = useCallback(async (kind: 'success' | 'warning') => {
+  const requestFullscreen = useCallback(async () => {
+    if (typeof document === 'undefined' || document.fullscreenElement) {
+      return
+    }
+
+    const root = document.documentElement as HTMLElement & {
+      webkitRequestFullscreen?: () => Promise<void> | void
+      msRequestFullscreen?: () => void
+    }
+
+    try {
+      if (root.requestFullscreen) {
+        await root.requestFullscreen()
+      } else if (root.webkitRequestFullscreen) {
+        await root.webkitRequestFullscreen()
+      } else if (root.msRequestFullscreen) {
+        root.msRequestFullscreen()
+      }
+    } catch {
+      // Some browsers block fullscreen unless it is triggered by a direct gesture.
+    }
+  }, [])
+
+  const playScanFeedback = useCallback(async (kind: 'success' | 'warning', mode: 'default' | 'history' = 'default') => {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-      navigator.vibrate(kind === 'success' ? 40 : [60, 35, 60])
+      navigator.vibrate(kind === 'success' ? 55 : [70, 40, 90])
     }
 
     if (typeof window === 'undefined') {
@@ -255,17 +362,47 @@ function App() {
     }
 
     try {
-      const oscillator = context.createOscillator()
-      const gainNode = context.createGain()
+      const compressor = context.createDynamicsCompressor()
+      compressor.threshold.value = -24
+      compressor.knee.value = 18
+      compressor.ratio.value = 16
+      compressor.attack.value = 0.003
+      compressor.release.value = 0.12
 
-      oscillator.type = 'sine'
-      oscillator.frequency.value = kind === 'success' ? 1320 : 620
-      gainNode.gain.value = kind === 'success' ? 0.055 : 0.075
+      compressor.connect(context.destination)
 
-      oscillator.connect(gainNode)
-      gainNode.connect(context.destination)
-      oscillator.start()
-      oscillator.stop(context.currentTime + (kind === 'success' ? 0.08 : 0.14))
+      const playTone = (
+        frequency: number,
+        duration: number,
+        startTime: number,
+        gainValue: number,
+        type: OscillatorType,
+      ) => {
+        const oscillator = context.createOscillator()
+        const gainNode = context.createGain()
+
+        oscillator.type = type
+        oscillator.frequency.value = frequency
+        gainNode.gain.value = gainValue
+
+        oscillator.connect(gainNode)
+        gainNode.connect(compressor)
+        oscillator.start(startTime)
+        oscillator.stop(startTime + duration)
+      }
+
+      if (kind === 'success') {
+        if (mode === 'history') {
+          playTone(1080, 0.08, context.currentTime, 0.3, 'square')
+          playTone(1380, 0.08, context.currentTime + 0.09, 0.26, 'square')
+        } else {
+          playTone(1560, 0.11, context.currentTime, 0.42, 'square')
+          playTone(1980, 0.09, context.currentTime + 0.12, 0.38, 'square')
+        }
+      } else {
+        playTone(680, 0.13, context.currentTime, 0.24, 'triangle')
+        playTone(520, 0.16, context.currentTime + 0.12, 0.22, 'triangle')
+      }
     } catch {
       // Ignore audio failures. Vibration still provides feedback when supported.
     }
@@ -359,6 +496,8 @@ function App() {
     videoElement: scanVideoElement,
     enabled: Boolean(session) && activeTab === 'scan',
     resetToken: scannerResetToken,
+    intervalMs: 320,
+    cooldownMs: 1100,
     onDetected: (value) => {
       if (!session || activeTab !== 'scan') {
         return
@@ -375,6 +514,31 @@ function App() {
     },
     onUnsupported: () => {
       setBootError('Browser ini belum mendukung scan barcode otomatis.')
+    },
+  })
+
+  useBarcodeScanner({
+    videoElement: historyScanVideoElement,
+    enabled: historyScanOpen,
+    resetToken: historyScanResetToken,
+    intervalMs: 420,
+    cooldownMs: 1400,
+    onDetected: (value) => {
+      const normalizedValue = value.trim()
+      if (!normalizedValue) {
+        return
+      }
+
+      void primeScanFeedbackAudio()
+      void playScanFeedback('success', 'history')
+      setHistoryResiQuery(normalizedValue)
+      setHistoryHighlightedResi(normalizedValue)
+      setHistoryScanOpen(false)
+      setHistoryScanError(null)
+      setHistoryScanResetToken((current) => current + 1)
+    },
+    onUnsupported: () => {
+      setHistoryScanError('Browser ini belum mendukung scan barcode otomatis.')
     },
   })
 
@@ -409,6 +573,161 @@ function App() {
   }, [processCameraScanQueue, recordingSession.state.mode])
 
   const visibleRecordings = useMemo(() => recordings.slice(0, 10), [recordings])
+  const currentOperatorName = session?.operatorName.trim().toLowerCase() ?? ''
+  const currentOperatorCode = session?.operatorCode.trim().toLowerCase() ?? ''
+  const historyQuery = historyResiQuery.trim()
+  const normalizedHistoryQuery = historyQuery.toLowerCase()
+  const historySourceRecordings = historyQuery ? recordings : visibleRecordings
+  const filteredRecordings = useMemo(() => {
+    return historySourceRecordings.filter((record) => {
+      const recordOperatorName = record.operatorName?.trim().toLowerCase() ?? ''
+      const recordOperatorCode = record.operatorCode?.trim().toLowerCase() ?? ''
+      const matchesTask = historyTaskFilter === 'all' ? true : record.taskType === historyTaskFilter
+      const matchesQuery = normalizedHistoryQuery
+        ? record.resiNumber.trim().toLowerCase().includes(normalizedHistoryQuery)
+        : true
+      const matchesAccount = historyAllAccounts
+        ? true
+        : currentOperatorCode
+          ? recordOperatorCode === currentOperatorCode ||
+            (recordOperatorName === currentOperatorName && recordOperatorCode === '')
+          : recordOperatorName === currentOperatorName
+
+      return matchesTask && matchesQuery && matchesAccount
+    })
+  }, [
+    currentOperatorCode,
+    currentOperatorName,
+    historyAllAccounts,
+    historyTaskFilter,
+    historySourceRecordings,
+    normalizedHistoryQuery,
+  ])
+  const hasHistoryFilters = historyTaskFilter !== 'all' || Boolean(historyQuery) || historyAllAccounts
+  const matchingResiRecords = useMemo(() => {
+    if (!normalizedHistoryQuery) {
+      return []
+    }
+
+    return recordings.filter((record) => record.resiNumber.trim().toLowerCase().includes(normalizedHistoryQuery))
+  }, [normalizedHistoryQuery, recordings])
+  const latestMatchingResiRecord = useMemo(() => {
+    if (!historyQuery || matchingResiRecords.length === 0) {
+      return null
+    }
+
+    return [...matchingResiRecords].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0] ?? null
+  }, [historyQuery, matchingResiRecords])
+
+  useEffect(() => {
+    if (!historyHighlightedResi) {
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      setHistoryHighlightedResi(null)
+    }, 4000)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [historyHighlightedResi])
+
+  const groupedRecordings = useMemo(() => {
+    const groups = new Map<string, RecordingRow[]>()
+    const order: string[] = []
+
+    for (const record of filteredRecordings) {
+      const key = record.resiNumber.trim()
+
+      if (!groups.has(key)) {
+        groups.set(key, [])
+        order.push(key)
+      }
+
+      groups.get(key)?.push(record)
+    }
+
+    return order.map((resiNumber) => {
+      const rows = groups.get(resiNumber) ?? []
+      const sortedRows = [...rows].sort((a, b) => {
+        if (a.taskType !== b.taskType) {
+          return a.taskType === 'qc' ? -1 : 1
+        }
+
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      })
+
+      return {
+        resiNumber,
+        rows: sortedRows,
+        latestRow: sortedRows[0] ?? null,
+      }
+    })
+  }, [filteredRecordings])
+  const historyEmptyState = useMemo<HistoryEmptyState | null>(() => {
+    if (groupedRecordings.length > 0) {
+      return null
+    }
+
+    if (!historyQuery) {
+      return {
+        tone: 'neutral',
+        title: 'Belum ada history',
+        message: 'Belum ada history untuk akun ini.',
+        detail: 'Coba scan resi atau ubah filter untuk melihat data lain.',
+      }
+    }
+
+    if (matchingResiRecords.length === 0) {
+      return {
+        tone: 'neutral',
+        title: 'Resi tidak ada',
+        message: 'Resi tidak ada.',
+        detail: 'Nomor resi ini belum masuk ke server.',
+      }
+    }
+
+    const hasCurrentAccountMatch = matchingResiRecords.some((record) => {
+      const recordOperatorName = record.operatorName?.trim().toLowerCase() ?? ''
+      const recordOperatorCode = record.operatorCode?.trim().toLowerCase() ?? ''
+
+      return historyAllAccounts
+        ? true
+        : currentOperatorCode
+          ? recordOperatorCode === currentOperatorCode ||
+            (recordOperatorName === currentOperatorName && recordOperatorCode === '')
+          : recordOperatorName === currentOperatorName
+    })
+
+    if (!hasCurrentAccountMatch && !historyAllAccounts) {
+      return {
+        tone: 'warning',
+        title: 'Sudah diproses',
+        message: `Resi ini sudah diproses oleh ${formatOperatorIdentity(
+          latestMatchingResiRecord?.operatorName,
+          latestMatchingResiRecord?.operatorCode,
+        )}.`,
+        detail: 'Aktifkan mode semua akun bila ingin melihat riwayat lengkapnya.',
+        taskType: latestMatchingResiRecord?.taskType,
+      }
+    }
+
+    return {
+      tone: 'neutral',
+      title: 'Belum ada hasil',
+      message: 'Belum ada history yang cocok dengan filter ini.',
+      detail: 'Coba ubah filter task atau pencarian resi.',
+    }
+  }, [
+    currentOperatorCode,
+    currentOperatorName,
+    groupedRecordings.length,
+    historyAllAccounts,
+    historyQuery,
+    matchingResiRecords,
+    latestMatchingResiRecord,
+  ])
 
   const scanProgressState = useMemo<ScanProgressState | null>(() => {
     const resiNumber = scanResi.trim()
@@ -439,7 +758,7 @@ function App() {
           return {
             tone: 'success',
             title: 'QC selesai',
-            message: 'Packing sedang direkam.',
+            message: 'Resi siap packing.',
           }
         }
 
@@ -453,7 +772,7 @@ function App() {
       if (qc?.status === 'recording') {
         return {
           tone: 'warning',
-          title: 'QC sedang direkam',
+          title: 'QC sedang jalan',
           message: 'Tunggu QC selesai dulu.',
         }
       }
@@ -461,7 +780,7 @@ function App() {
       return {
         tone: 'warning',
         title: 'QC belum selesai',
-        message: 'Resi ini harus QC dulu sebelum packing.',
+        message: 'Resi ini belum masuk QC. Packing belum bisa jalan.',
       }
     }
 
@@ -469,22 +788,22 @@ function App() {
       if (packing?.status === 'completed') {
         return {
           tone: 'success',
-          title: 'QC & Packing selesai',
-          message: 'Resi ini sudah lengkap.',
+          title: 'Sudah lengkap',
+          message: 'QC dan Packing sudah selesai.',
         }
       }
 
       return {
         tone: 'success',
         title: 'QC selesai',
-        message: 'Resi ini siap lanjut packing.',
+        message: 'Resi siap packing.',
       }
     }
 
     if (qc?.status === 'recording') {
       return {
         tone: 'warning',
-        title: 'QC sedang direkam',
+        title: 'QC sedang jalan',
         message: 'Tunggu proses QC selesai.',
       }
     }
@@ -581,12 +900,33 @@ function App() {
 
   const isAdmin = session?.role === 'admin'
 
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return
+    }
+
+    const root = document.documentElement
+    root.classList.toggle('dark', isDarkTheme)
+    root.style.colorScheme = isDarkTheme ? 'dark' : 'light'
+
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, theme)
+    } catch {
+      // Ignore storage failures.
+    }
+  }, [isDarkTheme, theme])
+
+  const toggleTheme = useCallback(() => {
+    setTheme((current) => (current === 'dark' ? 'light' : 'dark'))
+  }, [])
+
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setLoginBusy(true)
     setBootError(null)
 
     try {
+      void requestFullscreen()
       const result = await loginServerOperatorApi({
         operatorName: loginForm.operatorName.trim(),
         password: loginForm.password,
@@ -612,6 +952,10 @@ function App() {
     } finally {
       setSession(null)
       setRecordings([])
+      setHistoryAllAccounts(false)
+      setHistoryTaskFilter('all')
+      setHistoryResiQuery('')
+      setHistoryHighlightedResi(null)
       setActiveTab('scan')
       setMenuOpen(false)
       try {
@@ -736,12 +1080,18 @@ function App() {
 
     const taskProgress = session.taskType === 'packing' ? await resolveLatestTaskProgress(resiNumber) : null
     if (session.taskType === 'packing' && taskProgress?.qc?.status !== 'completed') {
+      const qcMessage =
+        taskProgress?.qc?.status === 'recording'
+          ? 'Resi ini masih di QC. Tunggu selesai dulu.'
+          : 'Resi ini belum masuk QC. Packing belum bisa jalan.'
+
       playScanFeedback('warning')
       showScanNotice({
         kind: 'warning',
         title: 'QC belum selesai',
-        message: `Resi ${resiNumber} harus diproses QC dulu sebelum packing.`,
+        message: qcMessage,
       })
+      setScanResi('')
       return 'error'
     }
 
@@ -758,17 +1108,30 @@ function App() {
             rejectedResiRef.current = null
           }
         }, 4000)
+        const currentTaskName = formatTask(session.taskType)
+        const duplicateTitle =
+          existing.status === 'completed'
+            ? session.taskType === 'packing' && taskProgress?.qc?.status === 'completed'
+              ? 'Sudah lengkap'
+              : `${currentTaskName} selesai`
+            : `${currentTaskName} sedang jalan`
+
+        const duplicateMessage =
+          existing.status === 'completed'
+            ? session.taskType === 'packing' && taskProgress?.qc?.status === 'completed'
+              ? 'QC dan Packing sudah selesai.'
+              : `Resi ini sudah diproses di ${currentTaskName}.`
+            : existing.status === 'recording'
+              ? `Resi ini sedang diproses di ${currentTaskName}.`
+              : `Resi ini sudah tercatat di ${currentTaskName}.`
+
         showScanNotice({
           kind: 'warning',
-          title: existing.status === 'completed' ? 'Resi sudah diproses' : 'Resi terdeteksi ganda',
-          message:
-            existing.status === 'completed'
-              ? `Resi ${resiNumber} sudah diproses.`
-              : existing.status === 'recording'
-                ? `Resi ${resiNumber} sedang diproses.`
-                : `Resi ${resiNumber} sudah ada di database.`,
+          title: duplicateTitle,
+          message: duplicateMessage,
         })
         setWatermarkResi((current) => (current === resiNumber ? null : current))
+        setScanResi('')
         return 'duplicate'
       }
 
@@ -777,12 +1140,13 @@ function App() {
       commitWatermarkFrame(resiNumber)
       await recordingSession.startRecording(resiNumber)
 
+      playScanFeedback('success')
+
       if (source === 'camera') {
-        playScanFeedback('success')
         showScanNotice({
           kind: 'success',
           title: 'Scan berhasil',
-          message: `Resi ${resiNumber} masuk ke rekaman.`,
+          message: `Resi ${resiNumber} masuk ke ${formatTask(session.taskType)}.`,
         })
       }
 
@@ -799,6 +1163,7 @@ function App() {
   },
     [
       findRecordingByResi,
+      commitWatermarkFrame,
       primeScanFeedbackAudio,
       playScanFeedback,
       recordingSession,
@@ -838,7 +1203,13 @@ function App() {
 
   if (booting) {
     return (
-      <main className="mobile-app mobile-app--boot">
+      <main
+        className="mobile-app mobile-app--boot"
+        onPointerDownCapture={() => {
+          void primeScanFeedbackAudio()
+          void requestFullscreen()
+        }}
+      >
         <div className="mobile-boot-card">
           <span className="brand-badge">{brandMark}</span>
           <h1>{appName}</h1>
@@ -851,317 +1222,803 @@ function App() {
 
   if (!session) {
     return (
-      <main className="mobile-app mobile-app--auth">
-        <section className="hero-card">
-          <div className="brand-row">
+      <main
+        className="mobile-app mobile-app--auth"
+        onPointerDownCapture={() => {
+          void primeScanFeedbackAudio()
+          void requestFullscreen()
+        }}
+      >
+        <div className="auth-backdrop" aria-hidden="true">
+          <div className="auth-orb auth-orb--one" />
+          <div className="auth-orb auth-orb--two" />
+        </div>
+
+        <section className="auth-hero">
+          <div className="auth-hero__brand">
             <span className="brand-badge">{brandMark}</span>
-            <div>
+            <div className="grid gap-1">
               <p className="eyebrow">Pakti Mobile</p>
               <h1>{appName}</h1>
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              className="theme-toggle ml-auto"
+              onClick={toggleTheme}
+              aria-label={isDarkTheme ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}
+            >
+              {isDarkTheme ? <SunMedium size={16} /> : <MoonStar size={16} />}
+            </Button>
           </div>
+
           <p className="tagline">{tagline}</p>
         </section>
 
-        <section className="panel-card">
-          <div className="panel-card__header">
-            <div>
-              <p className="section-label">Login operator</p>
-              <h2>Masuk ke sesi mobile</h2>
+        <Card className="auth-card border-border bg-card/80 backdrop-blur-xl">
+          <CardHeader>
+            <div className="auth-card__header">
+              <div className="grid gap-1">
+                <p className="section-label">Login operator</p>
+                <CardTitle>Masuk ke sesi mobile</CardTitle>
+                <CardDescription>Gunakan akun operator untuk memulai scan.</CardDescription>
+              </div>
+              <div className="auth-card__icon">
+                <Shield className="size-4 shrink-0 text-[#f6c47c]" />
+              </div>
             </div>
-            <Shield className="panel-card__icon" />
-          </div>
+          </CardHeader>
 
-          <form className="form-grid" onSubmit={handleLogin}>
-            <label className="field">
-              <span>Username</span>
-              <input
-                value={loginForm.operatorName}
-                onChange={(event) => setLoginForm((current) => ({ ...current, operatorName: event.target.value }))}
-                autoComplete="username"
-                autoCapitalize="none"
-                autoCorrect="off"
-                placeholder="Masukkan username"
-                required
-              />
-            </label>
+          <CardContent className="pt-0">
+            <form className="grid gap-4" onSubmit={handleLogin}>
+              <div className="grid gap-2">
+                <Label htmlFor="mobile-operator-name">Username</Label>
+                <Input
+                  id="mobile-operator-name"
+                  value={loginForm.operatorName}
+                  onChange={(event) => setLoginForm((current) => ({ ...current, operatorName: event.target.value }))}
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  placeholder="Masukkan username"
+                  required
+                />
+              </div>
 
-            <label className="field">
-              <span>Password</span>
-              <input
-                type="password"
-                value={loginForm.password}
-                onChange={(event) => setLoginForm((current) => ({ ...current, password: event.target.value }))}
-                autoComplete="current-password"
-                placeholder="Masukkan password"
-                required
-              />
-            </label>
+              <div className="grid gap-2">
+                <Label htmlFor="mobile-password">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="mobile-password"
+                    type={showLoginPassword ? 'text' : 'password'}
+                    value={loginForm.password}
+                    onChange={(event) => setLoginForm((current) => ({ ...current, password: event.target.value }))}
+                    autoComplete="current-password"
+                    placeholder="Masukkan password"
+                    className="pr-12"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-1 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-[min(var(--radius-md),12px)] border border-transparent bg-transparent text-slate-500 transition-colors outline-none hover:bg-muted hover:text-slate-950 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                    onClick={() => setShowLoginPassword((current) => !current)}
+                    aria-label={showLoginPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                  >
+                    {showLoginPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
+              </div>
 
-            {bootError ? <div className="status status--error">{bootError}</div> : null}
+              {bootError ? (
+                <Alert variant="destructive">
+                  <AlertTitle>Gagal masuk</AlertTitle>
+                  <AlertDescription>{bootError}</AlertDescription>
+                </Alert>
+              ) : null}
 
-            <button
-              className="primary-button"
-              type="submit"
-              disabled={loginBusy || !loginForm.operatorName.trim() || !loginForm.password}
-            >
-              {loginBusy ? 'Masuk...' : 'Masuk'}
-            </button>
-          </form>
-        </section>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={loginBusy || !loginForm.operatorName.trim() || !loginForm.password}
+                >
+                {loginBusy ? 'Masuk...' : 'Masuk'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </main>
     )
   }
 
   return (
-    <main className="mobile-app" onPointerDownCapture={() => void primeScanFeedbackAudio()}>
-      <header className="topbar">
-        <div className="brand-row">
+    <main
+      className="mobile-app"
+      onPointerDownCapture={() => {
+        void primeScanFeedbackAudio()
+        void requestFullscreen()
+      }}
+    >
+      <header className="flex items-center justify-between gap-3 px-0.5 py-0.5">
+        <div className="flex items-center gap-3">
           <span className="brand-badge">{brandMark}</span>
           <div>
             <p className="eyebrow">Pakti Mobile</p>
-            <h1>{appName}</h1>
+            <h1 className="m-0 text-[1.22rem] tracking-[-0.04em]">{appName}</h1>
           </div>
         </div>
-        <div className="topbar-actions">
-          <button className="ghost-button ghost-button--icon" type="button" onClick={() => setMenuOpen((current) => !current)}>
-            <Menu size={16} />
-          </button>
-          <button className="ghost-button" type="button" onClick={() => void handleLogout()}>
-            <LogOut size={16} />
-            Keluar
-          </button>
-        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          className="theme-toggle"
+          onClick={toggleTheme}
+          aria-label={isDarkTheme ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}
+        >
+          {isDarkTheme ? <SunMedium size={16} /> : <MoonStar size={16} />}
+        </Button>
       </header>
 
-      {menuOpen ? (
-        <section className="mobile-menu" aria-label="Navigasi mobile">
-          {tabOptions.map((tab) => {
-            const Icon = tab.icon
-            const isActive = activeTab === tab.key
+      <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+        <SheetContent
+          side="bottom"
+          className={menuOpen ? 'menu-panel menu-panel--open w-full rounded-t-3xl border-border bg-popover/95 p-0' : 'menu-panel w-full rounded-t-3xl border-border bg-popover/95 p-0'}
+        >
+          <SheetHeader className="px-4 pt-5">
+            <SheetTitle>Navigasi mobile</SheetTitle>
+            <SheetDescription>Pilih layar yang ingin dibuka.</SheetDescription>
+          </SheetHeader>
 
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                className={isActive ? 'mobile-menu__button mobile-menu__button--active' : 'mobile-menu__button'}
-                onClick={() => openTab(tab.key)}
-              >
-                <Icon size={15} />
-                <span>{tab.label}</span>
-              </button>
-            )
-          })}
-        </section>
-      ) : null}
+          <div className="grid gap-2 px-4 pb-4 pt-2">
+            {tabOptions.map((tab) => {
+              const Icon = tab.icon
+              const isActive = activeTab === tab.key
+
+              return (
+                <Button
+                  key={tab.key}
+                  type="button"
+                  variant={isActive ? 'secondary' : 'outline'}
+                  className="w-full justify-start gap-2 rounded-xl"
+                  onClick={() => openTab(tab.key)}
+                >
+                  <Icon size={16} />
+                  <span>{tab.label}</span>
+                </Button>
+              )
+            })}
+          </div>
+
+          <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <Separator className="mb-4 bg-white/10" />
+            <Button
+              type="button"
+              variant="destructive"
+              className="w-full justify-start gap-2 rounded-xl shadow-[0_14px_28px_rgba(185,28,28,0.24)]"
+              onClick={() => {
+                setMenuOpen(false)
+                setLogoutConfirmOpen(true)
+              }}
+            >
+              <LogOut size={16} />
+              <span>Keluar</span>
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Dialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
+        <DialogContent className="border-border bg-popover text-popover-foreground">
+          <DialogHeader>
+            <div className="mb-1 inline-flex h-10 w-10 items-center justify-center rounded-full bg-red-500/15 text-red-200">
+              <AlertTriangle size={18} />
+            </div>
+            <DialogTitle>Keluar sekarang?</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Sesi ini akan ditutup.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="border-border bg-muted/50">
+            <Button type="button" variant="outline" onClick={() => setLogoutConfirmOpen(false)}>
+              Batal
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="gap-2"
+              onClick={() => {
+                setLogoutConfirmOpen(false)
+                void handleLogout()
+              }}
+            >
+              <LogOut size={16} />
+              <span>Keluar</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {activeTab === 'scan' ? (
-        <section className="panel-card panel-card--dense panel-card--scan">
-          {scanNotice ? (
-            <div
-              className={
-                scanNotice.kind === 'success'
-                  ? 'scan-toast scan-toast--success'
-                  : 'scan-toast scan-toast--warning'
-              }
-            >
-              <strong>{scanNotice.title}</strong>
-              <span>{scanNotice.message}</span>
-            </div>
-          ) : null}
+        <Card className="border-border bg-card/80 p-3 backdrop-blur-xl">
+          <div className="relative">
+            {scanNotice ? (
+              <div
+                className={
+                  scanNotice.kind === 'success'
+                    ? isDarkTheme
+                      ? 'pointer-events-none absolute left-3 right-3 top-14 z-20 mx-auto max-w-[calc(100%-1.5rem)] rounded-2xl border border-emerald-400/20 bg-emerald-500/12 px-3 py-2 shadow-[0_12px_24px_rgba(0,0,0,0.18)] backdrop-blur-sm'
+                      : 'pointer-events-none absolute left-3 right-3 top-14 z-20 mx-auto max-w-[calc(100%-1.5rem)] rounded-2xl border border-emerald-400/20 bg-emerald-50/90 px-3 py-2 shadow-[0_12px_24px_rgba(15,23,42,0.08)] backdrop-blur-sm'
+                    : isDarkTheme
+                      ? 'pointer-events-none absolute left-3 right-3 top-14 z-20 mx-auto max-w-[calc(100%-1.5rem)] rounded-2xl border border-amber-400/20 bg-amber-500/12 px-3 py-2 shadow-[0_12px_24px_rgba(0,0,0,0.18)] backdrop-blur-sm'
+                      : 'pointer-events-none absolute left-3 right-3 top-14 z-20 mx-auto max-w-[calc(100%-1.5rem)] rounded-2xl border border-amber-400/20 bg-amber-50/90 px-3 py-2 shadow-[0_12px_24px_rgba(15,23,42,0.08)] backdrop-blur-sm'
+                }
+              >
+                <div className="grid gap-0.5">
+                  <strong className="text-[0.75rem] font-semibold leading-none text-foreground">{scanNotice.title}</strong>
+                  <span className="text-[0.66rem] leading-snug text-muted-foreground">{scanNotice.message}</span>
+                </div>
+              </div>
+            ) : null}
 
-          <CameraPreview
-            onVideoElement={setScanVideoElement}
-            stream={watermarkedVideoStream ?? cameraState.stream}
-            isLoading={cameraState.loading}
-            error={cameraState.error}
-            emptyMessage="Arahkan kamera ke area kerja."
-            topSlot={
-              <div className="scan-top-overlay">
-                <span className="preview-pill">
-                  <Camera size={14} />
-                  {recordingSession.state.mode === 'recording' ? 'Recording aktif' : 'Preview kamera'}
-                </span>
-                <div className="scan-top-overlay__actions">
-                  {isAdmin ? (
-                    <button
-                      type="button"
-                      className={session.taskType === 'qc' ? 'task-switch__button task-switch__button--active' : 'task-switch__button'}
-                      onClick={() => void handleTaskChange(session.taskType === 'qc' ? 'packing' : 'qc')}
-                      disabled={taskBusy}
-                      aria-label={`Ganti task aktif ke ${session.taskType === 'qc' ? 'Packing' : 'QC'}`}
-                    >
-                      {formatTask(session.taskType)}
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-            }
-            centerSlot={
-              <div className="scan-guide" aria-hidden="true">
-                <div className="scan-guide__frame">
-                  <span className="scan-guide__corner scan-guide__corner--tl" />
-                  <span className="scan-guide__corner scan-guide__corner--tr" />
-                  <span className="scan-guide__corner scan-guide__corner--bl" />
-                  <span className="scan-guide__corner scan-guide__corner--br" />
-                </div>
-                <div className="scan-guide__label">
-                  <span>Pusatkan barcode di kotak ini</span>
-                </div>
-              </div>
-            }
-            bottomSlot={
-              <div className="scan-dock">
-                {scanProgressState ? (
-                  <div className={scanProgressState.tone === 'success' ? 'scan-progress scan-progress--success' : scanProgressState.tone === 'warning' ? 'scan-progress scan-progress--warning' : 'scan-progress'}>
-                    <strong>{scanProgressState.title}</strong>
-                    <span>{scanProgressState.message}</span>
+            <CameraPreview
+              onVideoElement={setScanVideoElement}
+              stream={watermarkedVideoStream ?? cameraState.stream}
+              isLoading={cameraState.loading}
+              error={cameraState.error}
+              emptyMessage="Arahkan kamera ke area kerja."
+              topSlot={
+                <div className="flex w-full max-w-full flex-nowrap items-start justify-between gap-2">
+                  <span
+                    className={
+                      isDarkTheme
+                        ? 'inline-flex items-center gap-2 rounded-full bg-[rgba(10,13,18,0.86)] px-3 py-1.5 text-[0.72rem] font-bold text-[#f8d9a7] shadow-[0_10px_24px_rgba(0,0,0,0.28)]'
+                        : 'inline-flex items-center gap-2 rounded-full border border-amber-200/80 bg-amber-50/90 px-3 py-1.5 text-[0.72rem] font-bold text-amber-900 shadow-[0_10px_24px_rgba(15,23,42,0.08)]'
+                    }
+                  >
+                    <Camera size={14} />
+                    {activeRecordingResi ? `${formatTask(currentTaskType)}: ${activeRecordingResi}` : 'Preview kamera'}
+                  </span>
+                  <div className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap">
+                    {isAdmin ? (
+                      <Button
+                        type="button"
+                        variant={session.taskType === 'qc' ? 'secondary' : 'outline'}
+                        size="xs"
+                        onClick={() => void handleTaskChange(session.taskType === 'qc' ? 'packing' : 'qc')}
+                        disabled={taskBusy}
+                        aria-label={`Ganti task aktif ke ${session.taskType === 'qc' ? 'Packing' : 'QC'}`}
+                      >
+                        {formatTask(session.taskType)}
+                      </Button>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full border border-border bg-muted/60 px-3 py-1.5 text-[0.72rem] font-bold text-foreground/80">
+                        Task: {formatTask(session.taskType)}
+                      </span>
+                    )}
                   </div>
-                ) : null}
+                </div>
+              }
+              centerSlot={
+                <div className="scan-guide w-[min(96%,36rem)] grid justify-items-center gap-1.5 self-center pointer-events-none" aria-hidden="true">
+                  <div className="scan-guide__frame relative aspect-[4/2.15] w-full rounded-[24px] border-2 border-[#f6c47c] bg-[linear-gradient(90deg,rgba(246,196,124,0.08),rgba(246,196,124,0.02)),rgba(7,10,15,0.18)] shadow-[0_0_0_9999px_rgba(3,6,11,0.26),0_0_0_1px_rgba(255,255,255,0.04),0_18px_42px_rgba(0,0,0,0.22)] backdrop-blur-[1px]">
+                    <span className="absolute left-[0.7rem] top-[0.7rem] h-[1.25rem] w-[1.25rem] rounded-tl-[0.8rem] border-l-[3px] border-t-[3px] border-[#fff2d9]" />
+                    <span className="absolute right-[0.7rem] top-[0.7rem] h-[1.25rem] w-[1.25rem] rounded-tr-[0.8rem] border-r-[3px] border-t-[3px] border-[#fff2d9]" />
+                    <span className="absolute bottom-[0.7rem] left-[0.7rem] h-[1.25rem] w-[1.25rem] rounded-bl-[0.8rem] border-b-[3px] border-l-[3px] border-[#fff2d9]" />
+                    <span className="absolute bottom-[0.7rem] right-[0.7rem] h-[1.25rem] w-[1.25rem] rounded-br-[0.8rem] border-b-[3px] border-r-[3px] border-[#fff2d9]" />
+                  </div>
+                  <div
+                    className={
+                      isDarkTheme
+                        ? 'scan-guide__label grid gap-[0.08rem] rounded-full bg-[rgba(7,10,15,0.82)] px-[0.58rem] py-[0.28rem] text-center text-[0.68rem] font-bold leading-[1.2] text-[#f8d9a7] shadow-[0_16px_30px_rgba(0,0,0,0.24)]'
+                        : 'scan-guide__label grid gap-[0.08rem] rounded-full border border-amber-200/80 bg-amber-50/90 px-[0.58rem] py-[0.28rem] text-center text-[0.68rem] font-bold leading-[1.2] text-amber-900 shadow-[0_16px_30px_rgba(15,23,42,0.08)]'
+                    }
+                  >
+                    <span>Pusatkan barcode di kotak ini</span>
+                  </div>
+                </div>
+              }
+              bottomSlot={
+                <Card className="border-border bg-card/80 backdrop-blur-xl">
+                  <CardContent className="grid gap-3 px-4 py-4">
+                    {scanProgressState ? (
+                      <Card
+                        className={
+                          scanProgressState.tone === 'success'
+                            ? 'border-emerald-400/25 bg-emerald-50/90 dark:bg-emerald-500/10'
+                            : scanProgressState.tone === 'warning'
+                              ? 'border-amber-400/25 bg-amber-50/90 dark:bg-amber-500/10'
+                            : 'border-border bg-muted/60'
+                        }
+                      >
+                        <CardContent className="grid gap-1 px-4 py-3">
+                          <strong className="text-[0.82rem] tracking-[-0.01em] text-foreground">{scanProgressState.title}</strong>
+                          <span className="text-[0.72rem] leading-[1.35] text-muted-foreground">{scanProgressState.message}</span>
+                        </CardContent>
+                      </Card>
+                    ) : null}
 
-                <label className="field field--compact">
-                  <span>Nomor resi</span>
-                  <input
-                    value={scanResi}
-                    onChange={(event) => setScanResi(event.target.value)}
-                    placeholder="Ketik atau scan barcode"
-                    inputMode="text"
-                    autoCapitalize="characters"
-                  />
-                </label>
+                    <div className="grid gap-2">
+                      <Label htmlFor="mobile-scan-resi">Nomor resi</Label>
+                      <Input
+                        id="mobile-scan-resi"
+                        value={scanResi}
+                        onChange={(event) => setScanResi(event.target.value)}
+                        placeholder="Ketik atau scan barcode"
+                        inputMode="text"
+                        autoCapitalize="characters"
+                      />
+                    </div>
 
-                <button
-                  className="primary-button"
-                  type="button"
-                  disabled={
-                    scanBusy ||
-                    recordingSession.state.mode === 'stopping' ||
-                    recordingSession.state.mode === 'saving' ||
-                    (recordingSession.state.mode === 'idle' && !scanResi.trim())
-                  }
-                  onClick={() =>
-                    void (recordingSession.state.mode === 'recording' ? stopScanRecording() : startScanRecording(scanResi, 'manual'))
-                  }
-                >
-                  {scanBusy || recordingSession.state.mode === 'stopping' || recordingSession.state.mode === 'saving'
-                    ? 'Memproses...'
-                    : recordingSession.state.mode === 'recording'
-                      ? 'Hentikan Rekaman'
-                      : 'Scan & Rekam'}
-                </button>
-              </div>
-            }
-          />
-        </section>
+                    <Button
+                      type="button"
+                      className="w-full"
+                      disabled={
+                        scanBusy ||
+                        recordingSession.state.mode === 'stopping' ||
+                        recordingSession.state.mode === 'saving' ||
+                        (recordingSession.state.mode === 'idle' && !scanResi.trim())
+                      }
+                      onClick={() =>
+                        void (recordingSession.state.mode === 'recording' ? stopScanRecording() : startScanRecording(scanResi, 'manual'))
+                      }
+                    >
+                      {scanBusy || recordingSession.state.mode === 'stopping' || recordingSession.state.mode === 'saving'
+                        ? 'Memproses...'
+                        : recordingSession.state.mode === 'recording'
+                          ? 'Hentikan Rekaman'
+                          : 'Scan & Rekam'}
+                    </Button>
+                  </CardContent>
+                </Card>
+              }
+            />
+          </div>
+        </Card>
       ) : null}
 
+      <Button
+        type="button"
+        variant="secondary"
+        size="icon-lg"
+        className={`menu-fab fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-50 rounded-full shadow-[0_18px_50px_rgba(0,0,0,0.35)] ${menuOpen ? 'menu-fab--open' : ''}`}
+        onClick={() => setMenuOpen((current) => !current)}
+        aria-label={menuOpen ? 'Tutup menu navigasi' : 'Buka menu navigasi'}
+      >
+        <Menu size={18} />
+      </Button>
+
       {activeTab === 'history' ? (
-        <section className="panel-card panel-card--dense">
-          <div className="panel-card__header">
-            <div>
-              <p className="section-label">History ringkas</p>
-              <h2>Rekaman terbaru</h2>
-            </div>
-            <button className="ghost-button" type="button" onClick={() => void refreshHistory()} disabled={historyBusy}>
-              <RefreshCw size={16} />
-              {historyBusy ? 'Memuat...' : 'Refresh'}
-            </button>
-          </div>
-
-          {historyError ? <div className="status status--error">{historyError}</div> : null}
-
-          <div className="history-list">
-            {visibleRecordings.length > 0 ? (
-              visibleRecordings.map((record) => (
-                <article key={record.id} className="history-item">
-                  <div className="history-item__main">
-                    <strong>{record.resiNumber}</strong>
-                    <span>
-                      {formatTask(record.taskType)} · {formatStatus(record.status)}
-                    </span>
-                  </div>
-                  <div className="history-item__meta">
-                    <span>{formatDateTime(record.updatedAt)}</span>
-                    <span>{record.operatorName || '-'}</span>
-                  </div>
-                </article>
-              ))
-            ) : (
-              <div className="empty-state">
-                <CheckCircle2 size={18} />
-                <p>Belum ada history yang ditampilkan.</p>
+        <Card className="border-border bg-card/80 backdrop-blur-xl">
+          <CardHeader>
+            <div className="flex items-start justify-between gap-3">
+              <div className="grid gap-1">
+                <p className="section-label">History ringkas</p>
+                <div className="flex items-center gap-2">
+                  <CardTitle>Rekaman terbaru</CardTitle>
+                  <span className="rounded-full border border-border bg-muted/60 px-2 py-1 text-[0.7rem] font-medium text-foreground/80">
+                    {groupedRecordings.length} resi
+                  </span>
+                </div>
+                <CardDescription>
+                  10 data terakhir untuk akun aktif
+                  {historyAllAccounts && isAdmin ? ' dan semua akun' : ''}
+                  {session?.operatorCode ? ` (${session.operatorCode})` : ''}.
+                </CardDescription>
               </div>
-            )}
-          </div>
-        </section>
+              <Button variant="outline" size="sm" type="button" onClick={() => void refreshHistory()} disabled={historyBusy}>
+                <RefreshCw size={16} />
+                {historyBusy ? 'Memuat...' : 'Refresh'}
+              </Button>
+            </div>
+          </CardHeader>
+
+          <CardContent className="pt-0">
+            <div className="grid gap-3 pb-3">
+              <div className="grid gap-2">
+                <Label htmlFor="history-resi-search">Cari resi</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="history-resi-search"
+                    value={historyResiQuery}
+                    onChange={(event) => {
+                      setHistoryResiQuery(event.target.value)
+                      setHistoryHighlightedResi(null)
+                    }}
+                    placeholder="Masukkan nomor resi"
+                    inputMode="text"
+                    autoCapitalize="characters"
+                    className="min-w-0"
+                  />
+                  <Button type="button" variant="outline" size="icon-sm" onClick={() => setHistoryScanOpen(true)}>
+                    <ScanSearch size={16} />
+                    <span className="sr-only">Scan resi</span>
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.18em] text-[#f6c47c]">Filter task</span>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button
+                    type="button"
+                    variant={historyTaskFilter === 'all' ? 'secondary' : 'outline'}
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setHistoryTaskFilter('all')}
+                  >
+                    Semua
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={historyTaskFilter === 'qc' ? 'secondary' : 'outline'}
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setHistoryTaskFilter('qc')}
+                  >
+                    QC
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={historyTaskFilter === 'packing' ? 'secondary' : 'outline'}
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setHistoryTaskFilter('packing')}
+                  >
+                    Packing
+                  </Button>
+                </div>
+                {isAdmin ? (
+                  <Button
+                    type="button"
+                    variant={historyAllAccounts ? 'secondary' : 'outline'}
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setHistoryAllAccounts((current) => !current)}
+                  >
+                    {historyAllAccounts ? 'Semua akun aktif' : 'Semua akun'}
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => {
+                    setHistoryTaskFilter('all')
+                    setHistoryResiQuery('')
+                    setHistoryHighlightedResi(null)
+                    setHistoryAllAccounts(false)
+                  }}
+                  disabled={!hasHistoryFilters}
+                >
+                  Reset filter
+                </Button>
+              </div>
+            </div>
+
+            <Sheet
+              open={historyScanOpen}
+              onOpenChange={(open) => {
+                setHistoryScanOpen(open)
+                if (!open) {
+                  setHistoryScanError(null)
+                  setHistoryScanResetToken((current) => current + 1)
+                }
+              }}
+            >
+              <SheetContent side="bottom" className="w-full rounded-t-3xl border-border bg-popover/95 p-0">
+                <SheetHeader className="px-4 pt-5">
+                  <SheetTitle>Scan resi untuk cari history</SheetTitle>
+                  <SheetDescription>Arahkan barcode ke kamera agar langsung masuk ke pencarian.</SheetDescription>
+                </SheetHeader>
+
+                <div className="grid gap-3 px-4 pb-4 pt-3">
+            {historyScanError ? (
+                    <Alert variant="destructive">
+                      <AlertTitle>Gagal membuka kamera</AlertTitle>
+                      <AlertDescription>{historyScanError}</AlertDescription>
+                    </Alert>
+                  ) : null}
+
+                  <CameraPreview
+                    onVideoElement={setHistoryScanVideoElement}
+                    stream={historyCameraState.stream}
+                    isLoading={historyCameraState.loading}
+                    error={historyCameraState.error}
+                    emptyMessage="Arahkan barcode untuk mengisi pencarian."
+                    topSlot={
+                      <div className="flex w-full items-start justify-between gap-2">
+                        <span className="inline-flex items-center gap-2 rounded-full border border-amber-200/80 bg-amber-50/90 px-3 py-1.5 text-[0.72rem] font-bold text-amber-900 shadow-[0_10px_24px_rgba(15,23,42,0.08)] dark:border-transparent dark:bg-[rgba(10,13,18,0.86)] dark:text-[#f8d9a7] dark:shadow-[0_10px_24px_rgba(0,0,0,0.28)]">
+                          <ScanSearch size={14} />
+                          Scan pencarian
+                        </span>
+                      </div>
+                    }
+                    centerSlot={
+                      <div className="grid w-[min(96%,36rem)] justify-items-center gap-1.5 self-center pointer-events-none" aria-hidden="true">
+                        <div className="relative aspect-[4/2.15] w-full rounded-[24px] border-2 border-amber-300/80 bg-[linear-gradient(90deg,rgba(246,196,124,0.08),rgba(246,196,124,0.02)),rgba(255,255,255,0.34)] shadow-[0_0_0_9999px_rgba(15,23,42,0.12),0_0_0_1px_rgba(255,255,255,0.35),0_18px_42px_rgba(15,23,42,0.12)] backdrop-blur-[1px] dark:border-[#f6c47c] dark:bg-[linear-gradient(90deg,rgba(246,196,124,0.08),rgba(246,196,124,0.02)),rgba(7,10,15,0.18)] dark:shadow-[0_0_0_9999px_rgba(3,6,11,0.26),0_0_0_1px_rgba(255,255,255,0.04),0_18px_42px_rgba(0,0,0,0.22)]">
+                          <span className="absolute left-[0.7rem] top-[0.7rem] h-[1.25rem] w-[1.25rem] rounded-tl-[0.8rem] border-l-[3px] border-t-[3px] border-amber-100 dark:border-[#fff2d9]" />
+                          <span className="absolute right-[0.7rem] top-[0.7rem] h-[1.25rem] w-[1.25rem] rounded-tr-[0.8rem] border-r-[3px] border-t-[3px] border-amber-100 dark:border-[#fff2d9]" />
+                          <span className="absolute bottom-[0.7rem] left-[0.7rem] h-[1.25rem] w-[1.25rem] rounded-bl-[0.8rem] border-b-[3px] border-l-[3px] border-amber-100 dark:border-[#fff2d9]" />
+                          <span className="absolute bottom-[0.7rem] right-[0.7rem] h-[1.25rem] w-[1.25rem] rounded-br-[0.8rem] border-b-[3px] border-r-[3px] border-amber-100 dark:border-[#fff2d9]" />
+                        </div>
+                        <div className="grid gap-[0.08rem] rounded-full bg-[rgba(7,10,15,0.82)] px-[0.58rem] py-[0.28rem] text-center text-[0.68rem] font-bold leading-[1.2] text-[#f8d9a7] shadow-[0_16px_30px_rgba(0,0,0,0.24)]">
+                          <span>Pusatkan barcode di kotak ini</span>
+                        </div>
+                      </div>
+                    }
+                    bottomSlot={
+                      <div className="grid gap-2">
+                        <Button type="button" className="w-full" variant="outline" onClick={() => setHistoryScanOpen(false)}>
+                          Tutup
+                        </Button>
+                      </div>
+                    }
+                  />
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            {historyError ? (
+              <Alert variant="destructive" className="mb-3">
+                <AlertTitle>Gagal memuat history</AlertTitle>
+                <AlertDescription>{historyError}</AlertDescription>
+              </Alert>
+            ) : null}
+
+            <div className="grid gap-3">
+              {groupedRecordings.length > 0 ? (
+                groupedRecordings.map((group) => (
+                  <Card
+                    key={group.resiNumber}
+                    size="sm"
+                    className={
+                      historyHighlightedResi === group.resiNumber
+                        ? 'border-amber-300/60 bg-amber-500/10 ring-2 ring-amber-300/40 shadow-[0_0_0_1px_rgba(245,158,11,0.2)]'
+                        : 'border-border/80 bg-muted/40'
+                    }
+                  >
+                    <CardContent className="grid gap-3 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="grid gap-1">
+                          <div className="flex items-center gap-2">
+                            <strong className="text-base leading-none">{group.resiNumber}</strong>
+                            {historyHighlightedResi === group.resiNumber ? (
+                              <span className="rounded-full border border-amber-300/30 bg-amber-500/10 px-2 py-1 text-[0.68rem] font-medium text-amber-200">
+                                hasil scan
+                              </span>
+                            ) : null}
+                          </div>
+                          <span className="text-sm text-muted-foreground">
+                            {group.rows.length} catatan
+                          </span>
+                        </div>
+                        {group.latestRow ? (
+                          <span className="rounded-full border border-border bg-muted/60 px-2 py-1 text-[0.7rem] font-medium text-foreground/80">
+                            {formatStatus(group.latestRow.status)}
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <div className="grid gap-2">
+                        {group.rows.map((record, index) => (
+                          <div key={record.id}>
+                            {index > 0 ? <Separator className="my-2" /> : null}
+                            <div className="grid gap-2">
+                              <div className="flex items-start justify-between gap-3">
+                                <span className="text-sm font-medium text-foreground">{formatTask(record.taskType)}</span>
+                                <div className="flex items-center gap-2">
+                                  {index === 0 ? (
+                                    <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-1 text-[0.68rem] font-medium text-emerald-700 dark:text-emerald-200">
+                                      terbaru
+                                    </span>
+                                  ) : null}
+                                  <span className="rounded-full border border-border bg-muted/60 px-2 py-1 text-[0.7rem] font-medium text-foreground/80">
+                                    {formatStatus(record.status)}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+                                <span>{formatDateTime(record.updatedAt)}</span>
+                                <span className="max-w-[55%] truncate">{record.operatorName || '-'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <div
+                  className={
+                    historyEmptyState?.tone === 'warning'
+                      ? 'grid gap-3 rounded-[18px] border border-amber-300/30 bg-amber-500/10 px-4 py-4 text-center text-amber-900 dark:text-amber-100'
+                      : 'grid gap-3 rounded-[18px] border border-dashed border-border px-4 py-4 text-center text-foreground/75'
+                  }
+                >
+                  <div className="flex justify-center">
+                    {historyEmptyState?.tone === 'warning' ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/30 bg-amber-500/10 px-3 py-1.5 text-[0.68rem] font-semibold text-amber-700 dark:text-amber-200">
+                        <span>Sudah diproses</span>
+                        {historyEmptyState.taskType ? (
+                          <>
+                            <span className="text-amber-700/60 dark:text-amber-200/60">·</span>
+                            <span>{formatTask(historyEmptyState.taskType)}</span>
+                          </>
+                        ) : null}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full border border-border bg-muted/60 px-3 py-1.5 text-[0.68rem] font-semibold text-foreground/80">
+                        {historyEmptyState?.title ?? 'History'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid gap-1">
+                    <p className="text-sm font-medium leading-6">{historyEmptyState?.message ?? 'Belum ada history untuk akun ini.'}</p>
+                    <p className="text-sm leading-6 text-muted-foreground">{historyEmptyState?.detail ?? 'Coba ubah filter atau scan resi lain.'}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       ) : null}
 
       {activeTab === 'session' ? (
-        <section className="panel-card panel-card--dense">
-          <div className="panel-card__header">
-            <div>
-              <p className="section-label">Session detail</p>
-              <h2>Informasi akun aktif</h2>
+        <Card className="border-border bg-card/80 backdrop-blur-xl">
+          <CardHeader>
+            <div className="flex items-start justify-between gap-3">
+              <div className="grid gap-1">
+                <p className="section-label">Session detail</p>
+                <CardTitle>Akun aktif</CardTitle>
+                <CardDescription>Status login, task aktif, dan hak akses yang sedang dipakai.</CardDescription>
+              </div>
+              <UserRound className="size-4 shrink-0 text-[#f6c47c]" />
             </div>
-            <UserRound className="panel-card__icon" />
-          </div>
+          </CardHeader>
 
-          <div className="detail-grid">
-            <div className="detail-row">
-              <span>Nama</span>
-              <strong>{session.operatorName}</strong>
-            </div>
-            <div className="detail-row">
-              <span>Kode</span>
-              <strong>{session.operatorCode || '-'}</strong>
-            </div>
-            <div className="detail-row">
-              <span>Role</span>
-              <strong>{session.role}</strong>
-            </div>
-            <div className="detail-row">
-              <span>Task</span>
-              <strong>{formatTask(session.taskType)}</strong>
-            </div>
-            <div className="detail-row">
-              <span>Login</span>
-              <strong>{formatDateTime(session.loggedInAt)}</strong>
-            </div>
-          </div>
+          <CardContent className="pt-0">
+            <div className="grid gap-3">
+              <div className="grid gap-3 rounded-[28px] border border-border bg-[linear-gradient(180deg,var(--mobile-surface-strong),var(--mobile-surface))] p-4 shadow-[0_18px_54px_rgba(0,0,0,0.18)]">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[linear-gradient(145deg,#f6c47c_0%,#b85e1d_100%)] text-sm font-extrabold text-[#0a0d12] shadow-[inset_0_1px_0_rgba(255,255,255,0.28)]">
+                      {session.operatorName
+                        .split(' ')
+                        .map((part) => part[0])
+                        .filter(Boolean)
+                        .slice(0, 2)
+                        .join('')
+                        .toUpperCase() || 'OP'}
+                    </div>
+                    <div className="grid gap-0.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#b85e1d] dark:text-[#f6c47c]">
+                          {session.role === 'admin' ? 'Admin' : 'Operator'}
+                        </p>
+                        <span
+                          className={
+                            session.role === 'admin'
+                              ? 'rounded-full border border-amber-300/30 bg-amber-500/10 px-2 py-1 text-[0.68rem] font-semibold text-amber-700 dark:text-amber-200'
+                              : 'rounded-full border border-sky-300/25 bg-sky-500/10 px-2 py-1 text-[0.68rem] font-semibold text-sky-700 dark:text-sky-200'
+                          }
+                        >
+                          {session.role === 'admin' ? 'Akses penuh' : 'Akses operasional'}
+                        </span>
+                      </div>
+                      <strong className="text-lg leading-tight tracking-[-0.03em]">{session.operatorName}</strong>
+                      <span className="text-sm text-muted-foreground">{session.operatorCode || 'Kode operator tidak tersedia'}</span>
+                    </div>
+                  </div>
+                  <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1.5 text-[0.72rem] font-semibold text-emerald-200">
+                    Login aktif
+                  </span>
+                </div>
 
-          <div className="session-actions">
-            {isAdmin ? (
-              <>
-                <button
-                  type="button"
-                  className={session.taskType === 'qc' ? 'ghost-button ghost-button--active' : 'ghost-button'}
-                  onClick={() => void handleTaskChange('qc')}
-                  disabled={taskBusy}
-                >
-                  QC
-                </button>
-                <button
-                  type="button"
-                  className={session.taskType === 'packing' ? 'ghost-button ghost-button--active' : 'ghost-button'}
-                  onClick={() => void handleTaskChange('packing')}
-                  disabled={taskBusy}
-                >
-                  Packing
-                </button>
-              </>
-            ) : null}
-          </div>
-        </section>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-2xl border border-border bg-muted/40 px-3 py-3">
+                    <span className="block text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground">Task aktif</span>
+                    <strong className="mt-1 block text-sm">{formatTask(session.taskType)}</strong>
+                  </div>
+                  <div className="rounded-2xl border border-border bg-muted/40 px-3 py-3">
+                    <span className="block text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground">Login sejak</span>
+                    <strong className="mt-1 block text-sm">{formatDateTime(session.loggedInAt)}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-2xl border border-border bg-muted/40 px-3 py-3">
+                  <span className="block text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground">Nama</span>
+                  <strong className="mt-1 block text-sm leading-tight">{session.operatorName}</strong>
+                </div>
+                <div className="rounded-2xl border border-border bg-muted/40 px-3 py-3">
+                  <span className="block text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground">Kode</span>
+                  <strong className="mt-1 block text-sm leading-tight">{session.operatorCode || '-'}</strong>
+                </div>
+                <div className="rounded-2xl border border-border bg-muted/40 px-3 py-3">
+                  <span className="block text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground">Role</span>
+                  <strong className="mt-1 block text-sm leading-tight">{session.role}</strong>
+                </div>
+                <div className="rounded-2xl border border-border bg-muted/40 px-3 py-3">
+                  <span className="block text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground">Akses</span>
+                  <strong className="mt-1 block text-sm leading-tight">
+                    {isAdmin ? 'Task bisa diubah' : 'Informasi saja'}
+                  </strong>
+                </div>
+              </div>
+
+              {isAdmin ? (
+                <div className="grid gap-2 rounded-[28px] border border-border bg-card/70 p-4">
+                  <div className="grid gap-1">
+                    <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#f6c47c]">Kontrol task</p>
+                    <p className="text-sm text-muted-foreground">Admin dapat mengganti task aktif untuk sesi ini.</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant={session.taskType === 'qc' ? 'secondary' : 'outline'}
+                      className="w-full"
+                      onClick={() => void handleTaskChange('qc')}
+                      disabled={taskBusy}
+                    >
+                      QC
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={session.taskType === 'packing' ? 'secondary' : 'outline'}
+                      className="w-full"
+                      onClick={() => void handleTaskChange('packing')}
+                      disabled={taskBusy}
+                    >
+                      Packing
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid gap-2 rounded-[28px] border border-border bg-card/70 p-4">
+                  <div className="grid gap-1">
+                    <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#f6c47c]">Status task</p>
+                    <p className="text-sm text-muted-foreground">Hanya informasi. Task tidak bisa diubah dari role operator.</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div
+                      className={
+                        session.taskType === 'qc'
+                          ? 'rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-3 text-center text-sm font-medium text-emerald-700 dark:text-emerald-200'
+                          : 'rounded-2xl border border-border bg-muted/60 px-3 py-3 text-center text-sm font-medium text-foreground/80'
+                      }
+                    >
+                      {session.taskType === 'qc' ? 'QC aktif' : 'QC nonaktif'}
+                    </div>
+                    <div
+                      className={
+                        session.taskType === 'packing'
+                          ? 'rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-3 text-center text-sm font-medium text-emerald-700 dark:text-emerald-200'
+                          : 'rounded-2xl border border-border bg-muted/60 px-3 py-3 text-center text-sm font-medium text-foreground/80'
+                      }
+                    >
+                      {session.taskType === 'packing' ? 'Packing aktif' : 'Packing nonaktif'}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       ) : null}
 
       {bootError ? (
-        <section className="panel-card panel-card--error">
-          <div className="status status--error">{bootError}</div>
-        </section>
+        <Alert variant="destructive">
+          <AlertTitle>Terjadi kesalahan</AlertTitle>
+          <AlertDescription>{bootError}</AlertDescription>
+        </Alert>
       ) : null}
     </main>
   )
 }
 
 export default App
+
 

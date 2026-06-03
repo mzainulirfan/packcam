@@ -187,106 +187,111 @@ function App() {
     }
   }, [operatorSession])
 
-  if (startupMode === 'setup-admin') {
-    return <WelcomePage />
-  }
+  let content: ReactElement
 
-  if (!operatorSession) {
-    return <OperatorLoginPage />
+  if (startupMode === 'setup-admin') {
+    content = <WelcomePage />
+  } else if (!operatorSession) {
+    content = <OperatorLoginPage />
+  } else {
+    content = (
+      <div className={isMobileSidebarOpen ? 'dashboard-shell dashboard-shell--sidebar-open' : 'dashboard-shell'}>
+        <button
+          type="button"
+          className="dashboard-sidebar-backdrop"
+          aria-label="Tutup sidebar"
+          onClick={() => setIsMobileSidebarOpen(false)}
+        />
+        <aside className="dashboard-sidebar">
+          <div className="sidebar-brand">
+            <div className="sidebar-brand__row">
+              <div className="sidebar-brand__mark" aria-hidden="true">
+                {systemConfig.brandMark || systemConfig.appName.charAt(0).toUpperCase()}
+              </div>
+              <div className="sidebar-brand__text">
+                <h1>{systemConfig.appName}</h1>
+                <p>{systemConfig.tagline}</p>
+              </div>
+            </div>
+          </div>
+
+          <nav className="sidebar-nav" aria-label="Navigasi utama">
+            {sidebarSections.map((section) => (
+              <div className="sidebar-nav__group" key={section.id}>
+                <p className="sidebar-nav__group-title">{section.label}</p>
+                <ul className="sidebar-nav__list">
+                  {section.items.map((item) => (
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        className={item.id === activePage ? 'nav-tab active' : 'nav-tab'}
+                        onClick={() => {
+                          navigateTo(item.id)
+                          setIsMobileSidebarOpen(false)
+                        }}
+                      >
+                        <i className={`bx ${ICONS[item.icon]} nav-tab__icon`} aria-hidden="true" />
+                        <span className="nav-tab__content">
+                          <span className="nav-tab__label">{item.label}</span>
+                          <small className="nav-tab__hint">{item.hint}</small>
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </nav>
+        </aside>
+
+        <section className="dashboard-main">
+          <header
+            className={
+              hasScrolled ? 'dashboard-header dashboard-header--scrolled' : 'dashboard-header'
+            }
+          >
+            <div className="dashboard-header__title">
+              <button
+                type="button"
+                className="dashboard-header__menu"
+                aria-label="Buka menu"
+                aria-expanded={isMobileSidebarOpen}
+                onClick={() => setIsMobileSidebarOpen((current) => !current)}
+              >
+                <i className="bx bx-menu" aria-hidden="true" />
+              </button>
+              <h2>{activeItem.label}</h2>
+            </div>
+            <div className="dashboard-header__actions">
+              <div className="operator-chip" title={operatorSession.operatorName}>
+                <i className="bx bx-user" aria-hidden="true" />
+                <strong>{operatorSession.operatorName}</strong>
+                <button
+                  type="button"
+                  className="operator-chip__logout"
+                  onClick={() => {
+                    logoutOperator()
+                  }}
+                  aria-label="Keluar"
+                  title="Keluar"
+                >
+                  <i className="bx bx-log-out" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <main className="dashboard-content">{pageContent}</main>
+        </section>
+      </div>
+    )
   }
 
   return (
-    <div className={isMobileSidebarOpen ? 'dashboard-shell dashboard-shell--sidebar-open' : 'dashboard-shell'}>
-      <button
-        type="button"
-        className="dashboard-sidebar-backdrop"
-        aria-label="Tutup sidebar"
-        onClick={() => setIsMobileSidebarOpen(false)}
-      />
-      <aside className="dashboard-sidebar">
-        <div className="sidebar-brand">
-          <div className="sidebar-brand__row">
-            <div className="sidebar-brand__mark" aria-hidden="true">
-              {systemConfig.brandMark || systemConfig.appName.charAt(0).toUpperCase()}
-            </div>
-            <div className="sidebar-brand__text">
-              <h1>{systemConfig.appName}</h1>
-              <p>{systemConfig.tagline}</p>
-            </div>
-          </div>
-        </div>
-
-        <nav className="sidebar-nav" aria-label="Navigasi utama">
-          {sidebarSections.map((section) => (
-            <div className="sidebar-nav__group" key={section.id}>
-              <p className="sidebar-nav__group-title">{section.label}</p>
-              <ul className="sidebar-nav__list">
-                {section.items.map((item) => (
-                  <li key={item.id}>
-                    <button
-                      type="button"
-                      className={item.id === activePage ? 'nav-tab active' : 'nav-tab'}
-                      onClick={() => {
-                        navigateTo(item.id)
-                        setIsMobileSidebarOpen(false)
-                      }}
-                    >
-                      <i className={`bx ${ICONS[item.icon]} nav-tab__icon`} aria-hidden="true" />
-                      <span className="nav-tab__content">
-                        <span className="nav-tab__label">{item.label}</span>
-                        <small className="nav-tab__hint">{item.hint}</small>
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </nav>
-      </aside>
-
-      <section className="dashboard-main">
-        <header
-          className={
-            hasScrolled ? 'dashboard-header dashboard-header--scrolled' : 'dashboard-header'
-          }
-        >
-          <div className="dashboard-header__title">
-            <button
-              type="button"
-              className="dashboard-header__menu"
-              aria-label="Buka menu"
-              aria-expanded={isMobileSidebarOpen}
-              onClick={() => setIsMobileSidebarOpen((current) => !current)}
-            >
-              <i className="bx bx-menu" aria-hidden="true" />
-            </button>
-            <h2>{activeItem.label}</h2>
-          </div>
-          <div className="dashboard-header__actions">
-            <div className="operator-chip" title={operatorSession.operatorName}>
-              <i className="bx bx-user" aria-hidden="true" />
-              <strong>{operatorSession.operatorName}</strong>
-              <button
-                type="button"
-                className="operator-chip__logout"
-                onClick={() => {
-                  logoutOperator()
-                }}
-                aria-label="Keluar"
-                title="Keluar"
-              >
-                <i className="bx bx-log-out" aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-        </header>
-
-        <main className="dashboard-content">{pageContent}</main>
-      </section>
-
+    <>
+      {content}
       <ToastViewport />
-    </div>
+    </>
   )
 }
 

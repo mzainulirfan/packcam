@@ -1,7 +1,7 @@
 import { AlertCircle, CheckCircle2, Info } from 'lucide-react'
 
 import { Card, CardContent } from '@/components/ui/card'
-import { useToasts, dismissToast } from '@/app/toastState'
+import { dismissToast, useToasts } from '@/app/toastState'
 
 function getToastIcon(variant: 'default' | 'info' | 'success' | 'destructive') {
   switch (variant) {

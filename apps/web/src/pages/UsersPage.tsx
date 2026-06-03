@@ -14,7 +14,13 @@ import {
   Users,
 } from 'lucide-react'
 
-import { useOperatorProfiles, useOperatorSession, useOperatorStoreHydrated } from '../app/operatorSession'
+import {
+  removeOperatorProfile,
+  updateOperatorPassword,
+  upsertOperatorProfile,
+  useOperatorProfiles,
+  useOperatorSession,
+} from '../app/operatorSession'
 import { StageCard } from '../components/StageCard'
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
@@ -24,11 +30,6 @@ import { Label } from '../components/ui/label'
 import { ModalOverlay } from '../components/ui/ModalOverlay'
 import { DialogCloseButton, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog'
 import { notify } from '../app/notify'
-import {
-  deleteServerOperatorProfileApi,
-  resetServerOperatorPasswordApi,
-  upsertServerOperatorProfileApi,
-} from '@pakti/api-client'
 import type { OperatorProfile, OperatorRole, WorkTask } from '@pakti/types'
 
 const ROLE_OPTIONS: Array<{ value: OperatorRole; label: string }> = [
@@ -138,7 +139,6 @@ function writeStoredUserFilters(filters: UserFilterState) {
 export function UsersPage() {
   const operatorSession = useOperatorSession()
   const operatorProfiles = useOperatorProfiles()
-  const isStoreHydrated = useOperatorStoreHydrated()
   const initialFilters = useMemo(() => readStoredUserFilters(), [])
   const [searchText, setSearchText] = useState(initialFilters.searchText)
   const [roleFilter, setRoleFilter] = useState<UserRoleFilter>(initialFilters.roleFilter)
@@ -411,16 +411,17 @@ export function UsersPage() {
     }
 
     try {
-      const savedProfile = await upsertServerOperatorProfileApi({
-        operatorName: name,
-        operatorCode: code,
-        role,
+      const savedProfile = await upsertOperatorProfile(
+        name,
+        code,
         taskType,
-        fullName: fullNameValue,
-        password: isEditMode ? undefined : DEFAULT_NEW_USER_PASSWORD,
-      })
+        isEditMode,
+        isEditMode ? undefined : DEFAULT_NEW_USER_PASSWORD,
+        fullNameValue,
+        role,
+        sourceProfile,
+      )
 
-      setOperatorProfiles((current) => mergeProfiles(current, savedProfile))
       setSelectedKey(profileKey(savedProfile))
       setMessage(`Profil ${savedProfile.operatorName} tersimpan di server.`)
       setMessageTone('info')
@@ -513,8 +514,7 @@ export function UsersPage() {
 
   async function handleDeleteProfile(profile: OperatorProfile) {
     try {
-      await deleteServerOperatorProfileApi(profile.operatorName, profile.operatorCode, profile.role)
-      setOperatorProfiles((current) => current.filter((item) => profileKey(item) !== profileKey(profile)))
+      await removeOperatorProfile(profile.operatorName, profile.operatorCode, profile.role)
 
       if (selectedKey === profileKey(profile)) {
         setSelectedKey(null)
@@ -560,13 +560,12 @@ export function UsersPage() {
     setIsResetting(true)
 
     try {
-      const updatedProfile = await resetServerOperatorPasswordApi(
+      await updateOperatorPassword(
         resetTarget.operatorName,
         resetTarget.operatorCode,
-        resetTarget.role,
         password,
+        resetTarget.role,
       )
-      setOperatorProfiles((current) => mergeProfiles(current, updatedProfile))
       setMessage(`Kata sandi ${resetTarget.operatorName} direset di server.`)
       setMessageTone('info')
       notify.reset('Password direset', `Kata sandi ${resetTarget.operatorName} berhasil direset.`)
@@ -938,6 +937,9 @@ export function UsersPage() {
                         ? 'Akun ini sedang dipakai pada sesi login saat ini. Simpan perubahan dengan hati-hati.'
                         : `Perubahan akan diterapkan ke ${formatOperator(formSourceProfile.operatorName, formSourceProfile.operatorCode)}.`}
                     </p>
+                    <p className="text-sm leading-6 text-current/70">
+                      Username dan operator code dikunci saat edit. Gunakan reset password bila hanya ingin mengganti kata sandi.
+                    </p>
                   </div>
                 </Alert>
               ) : null}
@@ -960,6 +962,7 @@ export function UsersPage() {
                   placeholder="Username"
                   helperText={nameFieldHelp}
                   tone={nameConflict ? 'error' : 'default'}
+                  readOnly={formMode === 'edit'}
                 />
 
                 <div className="grid gap-2">
@@ -1332,11 +1335,4 @@ function formatOperator(operatorName: string, operatorCode: string) {
 
 function isLastAdminProfile(profile: OperatorProfile, profiles: OperatorProfile[]) {
   return profile.role === 'admin' && profiles.filter((item) => item.role === 'admin').length <= 1
-}
-
-function mergeProfiles(profiles: OperatorProfile[], nextProfile: OperatorProfile) {
-  const nextKey = profileKey(nextProfile)
-  return [...profiles.filter((profile) => profileKey(profile) !== nextKey), nextProfile].sort((left, right) =>
-    right.lastUsedAt.localeCompare(left.lastUsedAt),
-  )
 }

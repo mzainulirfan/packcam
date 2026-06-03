@@ -200,6 +200,7 @@ export async function upsertOperatorProfile(
   operatorName: string,
   operatorCode: string,
   taskType: 'qc' | 'packing' = 'qc',
+  isEditMode = false,
   password?: string,
   fullName: string | null = null,
   role: OperatorRole = 'operator',
@@ -209,29 +210,34 @@ export async function upsertOperatorProfile(
     role: OperatorRole
   } | null,
 ) {
-  void previousIdentity
   const savedProfile = await upsertServerOperatorProfileApi({
     operatorName: operatorName.trim(),
     operatorCode: operatorCode.trim(),
     role,
     taskType,
     fullName,
-    password: password ?? DEFAULT_NEW_USER_PASSWORD,
+    password: isEditMode ? undefined : password ?? DEFAULT_NEW_USER_PASSWORD,
   })
 
-  if (
-    currentSession &&
-    currentSession.operatorName.trim().toLowerCase() === savedProfile.operatorName.trim().toLowerCase() &&
-    currentSession.operatorCode.trim().toLowerCase() === savedProfile.operatorCode.trim().toLowerCase() &&
-    currentSession.role === savedProfile.role
-  ) {
-    currentSession =
-      currentSession.role === 'admin'
-        ? currentSession
-        : {
-            ...currentSession,
-            taskType: savedProfile.taskType,
-          }
+  const existingSession = currentSession
+  const shouldUpdateCurrentSession =
+    existingSession &&
+    ((previousIdentity &&
+      isSameIdentity(existingSession, {
+        operatorName: previousIdentity.operatorName,
+        operatorCode: previousIdentity.operatorCode,
+        role: previousIdentity.role,
+      })) ||
+      isSameIdentity(existingSession, savedProfile))
+
+  if (shouldUpdateCurrentSession) {
+    currentSession = {
+      operatorName: savedProfile.operatorName,
+      operatorCode: savedProfile.operatorCode,
+      role: savedProfile.role,
+      taskType: savedProfile.taskType,
+      loggedInAt: existingSession.loggedInAt,
+    }
     emitChange()
   }
 

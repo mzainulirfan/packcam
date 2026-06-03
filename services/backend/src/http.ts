@@ -64,12 +64,40 @@ export function normalizeRole(value: unknown): 'admin' | 'operator' {
   return value === 'admin' ? 'admin' : 'operator'
 }
 
+function readCookieSameSite(): 'Lax' | 'Strict' | 'None' {
+  const value = (process.env.COOKIE_SAMESITE ?? '').trim().toLowerCase()
+
+  if (value === 'none') {
+    return 'None'
+  }
+
+  if (value === 'strict') {
+    return 'Strict'
+  }
+
+  return 'Lax'
+}
+
+function readCookieAttributes() {
+  const sameSite = readCookieSameSite()
+  const cookieDomain = (process.env.COOKIE_DOMAIN ?? '').trim()
+  const cookieSecure =
+    process.env.COOKIE_SECURE === 'true' ||
+    sameSite === 'None'
+
+  return [
+    'HttpOnly',
+    `SameSite=${sameSite}`,
+    'Path=/',
+    ...(cookieSecure ? ['Secure'] : []),
+    ...(cookieDomain ? [`Domain=${cookieDomain}`] : []),
+  ]
+}
+
 export function setSessionCookie(res: Response, sessionId: string) {
   const cookie = [
     `pakti_session=${encodeURIComponent(sessionId)}`,
-    'HttpOnly',
-    'SameSite=Lax',
-    'Path=/',
+    ...readCookieAttributes(),
   ].join('; ')
 
   res.setHeader('Set-Cookie', cookie)
@@ -78,9 +106,7 @@ export function setSessionCookie(res: Response, sessionId: string) {
 export function clearSessionCookie(res: Response) {
   res.setHeader('Set-Cookie', [
     'pakti_session=',
-    'HttpOnly',
-    'SameSite=Lax',
-    'Path=/',
+    ...readCookieAttributes(),
     'Max-Age=0',
   ].join('; '))
 }

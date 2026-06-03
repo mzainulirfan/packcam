@@ -43,6 +43,17 @@ export function useCameraStream(deviceId: string, enabled = true, preferredFacin
         return
       }
 
+      if (!window.isSecureContext) {
+        const message = 'Kamera butuh HTTPS atau localhost. Buka mobile lewat HTTPS agar kamera bisa dipakai.'
+        void reportServerLastErrorApi(message).catch(() => undefined)
+        setState({
+          stream: null,
+          loading: false,
+          error: message,
+        })
+        return
+      }
+
       if (!navigator.mediaDevices?.getUserMedia) {
         void reportServerLastErrorApi('Browser tidak mendukung akses kamera.').catch(() => undefined)
         setState({

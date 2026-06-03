@@ -20,13 +20,39 @@ const upload = multer({
   },
 })
 const port = Number(process.env.PORT ?? 3001)
+const host = process.env.HOST ?? '0.0.0.0'
+const corsOrigins = (process.env.CORS_ORIGINS ?? '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean)
+
+function isAllowedCorsOrigin(origin: string) {
+  return corsOrigins.some((allowedOrigin) => {
+    if (allowedOrigin === origin) {
+      return true
+    }
+
+    if (allowedOrigin.startsWith('*.')) {
+      return origin.endsWith(allowedOrigin.slice(1))
+    }
+
+    return false
+  })
+}
 
 ensureServerStorage()
 
 app.set('trust proxy', 1)
 app.use(
   cors({
-    origin: true,
+    origin(origin, callback) {
+      if (!origin || corsOrigins.length === 0 || isAllowedCorsOrigin(origin)) {
+        callback(null, true)
+        return
+      }
+
+      callback(new Error(`Origin ${origin} tidak diizinkan oleh CORS.`))
+    },
     credentials: true,
   }),
 )
@@ -512,6 +538,7 @@ app.use((_req, res) => {
   sendError(res, 404, 'Endpoint tidak ditemukan.')
 })
 
-app.listen(port, () => {
-  console.log(`Pakti API listening on http://localhost:${port}`)
+app.listen(port, host, () => {
+  console.log(`Pakti API listening on http://${host === '0.0.0.0' ? 'localhost' : host}:${port}`)
+  console.log(`LAN access: http://${process.env.LAN_IP ?? '<IP-laptop>'}:${port}`)
 })

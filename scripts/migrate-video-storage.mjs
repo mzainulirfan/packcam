@@ -4,8 +4,9 @@ import process from 'node:process'
 import Database from 'better-sqlite3'
 
 const ROOT_DIR = process.cwd()
-const DB_PATH = path.join(ROOT_DIR, 'server-data', 'pakti.sqlite')
-const UPLOADS_DIR = path.join(ROOT_DIR, 'server-data', 'uploads')
+const STORAGE_DIR = path.join(ROOT_DIR, 'services', 'backend', 'server-data')
+const DB_PATH = path.join(STORAGE_DIR, 'pakti.sqlite')
+const UPLOADS_DIR = path.join(STORAGE_DIR, 'uploads')
 const APPLY = process.argv.includes('--apply')
 
 function sanitizeSegment(segment) {

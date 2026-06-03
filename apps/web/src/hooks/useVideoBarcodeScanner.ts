@@ -2,16 +2,29 @@ import { useCallback, useEffect, useRef } from 'react'
 import type { RefObject } from 'react'
 import { BrowserMultiFormatReader } from '@zxing/browser'
 
+import {
+  DEFAULT_SCAN_AREA_RATIO,
+  DEFAULT_SCAN_INTERVAL_MS,
+  getScanAreaRatioForMode,
+  getScanRegionRect,
+  normalizeBarcodeValue,
+  shouldAutoSwitchToFullFrame,
+  type ScanMode,
+} from './useVideoBarcodeScanner.logic'
+
 type UseVideoBarcodeScannerOptions = {
   videoRef: RefObject<HTMLVideoElement | null>
   enabled: boolean
   onDetected: (value: string) => void
   onUnsupported?: () => void
+  onAutoSwitchToFullFrame?: () => void
   scanIntervalMs?: number
+  scanAreaRatio?: number
+  scanMode?: ScanMode
 }
 
 type BarcodeDetectorInstance = {
-  detect(source: HTMLVideoElement): Promise<Array<{ rawValue?: string }>>
+  detect(source: CanvasImageSource): Promise<Array<{ rawValue?: string }>>
 }
 
 type BarcodeDetectorConstructor = new (
@@ -30,8 +43,21 @@ function getBarcodeDetector(): BarcodeDetectorConstructor | null {
   return detector.BarcodeDetector ?? null
 }
 
-function normalizeBarcodeValue(value: string) {
-  return value.trim()
+function copyScanRegion(
+  videoElement: HTMLVideoElement,
+  canvas: HTMLCanvasElement,
+  context: CanvasRenderingContext2D,
+  scanAreaRatio: number,
+) {
+  const { sourceX, sourceY, sourceWidth, sourceHeight } = getScanRegionRect(
+    videoElement.videoWidth,
+    videoElement.videoHeight,
+    scanAreaRatio,
+  )
+
+  canvas.width = sourceWidth
+  canvas.height = sourceHeight
+  context.drawImage(videoElement, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, sourceWidth, sourceHeight)
 }
 
 export function useVideoBarcodeScanner({
@@ -39,56 +65,34 @@ export function useVideoBarcodeScanner({
   enabled,
   onDetected,
   onUnsupported,
-  scanIntervalMs = 250,
+  onAutoSwitchToFullFrame,
+  scanIntervalMs = DEFAULT_SCAN_INTERVAL_MS,
+  scanAreaRatio = DEFAULT_SCAN_AREA_RATIO,
+  scanMode = 'center-first',
 }: UseVideoBarcodeScannerOptions) {
   const onDetectedRef = useRef(onDetected)
   const onUnsupportedRef = useRef(onUnsupported)
   const lastDetectedValueRef = useRef<string | null>(null)
-  const candidateValueRef = useRef<string | null>(null)
-  const candidateCountRef = useRef(0)
-  const candidateTimerRef = useRef<number | null>(null)
+  const missStreakRef = useRef(0)
+  const scanAttemptRef = useRef(0)
   const activeControlsRef = useRef<ScannerControls | null>(null)
-
-  const clearCandidate = useCallback(() => {
-    candidateValueRef.current = null
-    candidateCountRef.current = 0
-    if (candidateTimerRef.current !== null) {
-      window.clearTimeout(candidateTimerRef.current)
-      candidateTimerRef.current = null
-    }
-  }, [])
 
   const registerDetectedValue = useCallback((rawValue: string) => {
     const value = normalizeBarcodeValue(rawValue)
 
-    if (!value || value === lastDetectedValueRef.current) {
-      clearCandidate()
+    if (!value) {
       return
     }
 
-    if (candidateValueRef.current !== value) {
-      candidateValueRef.current = value
-      candidateCountRef.current = 1
-    } else {
-      candidateCountRef.current += 1
-    }
+    missStreakRef.current = 0
 
-    if (candidateTimerRef.current !== null) {
-      window.clearTimeout(candidateTimerRef.current)
-    }
-
-    candidateTimerRef.current = window.setTimeout(() => {
-      clearCandidate()
-    }, scanIntervalMs * 3)
-
-    if (candidateCountRef.current < 2) {
+    if (value === lastDetectedValueRef.current) {
       return
     }
 
     lastDetectedValueRef.current = value
-    clearCandidate()
     onDetectedRef.current(value)
-  }, [clearCandidate, scanIntervalMs])
+  }, [])
 
   useEffect(() => {
     onDetectedRef.current = onDetected
@@ -99,9 +103,16 @@ export function useVideoBarcodeScanner({
   }, [onUnsupported])
 
   useEffect(() => {
+    if (scanMode === 'full-frame') {
+      missStreakRef.current = 0
+    }
+  }, [scanMode])
+
+  useEffect(() => {
     if (!enabled) {
       lastDetectedValueRef.current = null
-      clearCandidate()
+      missStreakRef.current = 0
+      scanAttemptRef.current = 0
       activeControlsRef.current?.stop()
       activeControlsRef.current = null
       return
@@ -163,6 +174,8 @@ export function useVideoBarcodeScanner({
     const detector = new BarcodeDetector({
       formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'qr_code', 'upc_a', 'upc_e', 'itf'],
     })
+    const canvas = document.createElement('canvas')
+    const context = canvas.getContext('2d', { willReadFrequently: true })
 
     async function scanFrame() {
       if (cancelled) {
@@ -171,19 +184,39 @@ export function useVideoBarcodeScanner({
 
       const videoElement = videoRef.current
 
-      if (!videoElement || videoElement.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+      if (!videoElement || !context || videoElement.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
         timerId = window.setTimeout(scanFrame, scanIntervalMs)
         return
       }
 
       try {
-        const barcodes = await detector.detect(videoElement)
+        const nextScanAreaRatio = getScanAreaRatioForMode(scanMode, scanAttemptRef.current, scanAreaRatio)
+        scanAttemptRef.current += 1
+        copyScanRegion(videoElement, canvas, context, nextScanAreaRatio)
+        const barcodes = await detector.detect(canvas)
         const rawValue = barcodes[0]?.rawValue
         if (rawValue) {
           registerDetectedValue(rawValue)
+        } else {
+          missStreakRef.current += 1
+          if (shouldAutoSwitchToFullFrame(scanMode, missStreakRef.current)) {
+            onAutoSwitchToFullFrame?.()
+            missStreakRef.current = 0
+          }
+          if (missStreakRef.current >= 2) {
+            lastDetectedValueRef.current = null
+          }
         }
       } catch {
         // Ignore transient decode failures and try again on the next tick.
+        missStreakRef.current += 1
+        if (shouldAutoSwitchToFullFrame(scanMode, missStreakRef.current)) {
+          onAutoSwitchToFullFrame?.()
+          missStreakRef.current = 0
+        }
+        if (missStreakRef.current >= 2) {
+          lastDetectedValueRef.current = null
+        }
       }
 
       if (!cancelled) {
@@ -195,12 +228,12 @@ export function useVideoBarcodeScanner({
 
     return () => {
       cancelled = true
-      clearCandidate()
       if (timerId !== null) {
         window.clearTimeout(timerId)
       }
+      scanAttemptRef.current = 0
       activeControlsRef.current?.stop()
       activeControlsRef.current = null
     }
-  }, [clearCandidate, enabled, registerDetectedValue, scanIntervalMs, videoRef])
+  }, [enabled, onAutoSwitchToFullFrame, registerDetectedValue, scanAreaRatio, scanIntervalMs, scanMode, videoRef])
 }

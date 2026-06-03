@@ -1,14 +1,28 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import fs from 'node:fs'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
+const httpsPfxPath = process.env.VITE_DEV_HTTPS_PFX
+const httpsPfxPassword = process.env.VITE_DEV_HTTPS_PFX_PASSWORD ?? ''
 const packageJson = JSON.parse(
   readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
 ) as { version: string }
+
+function resolveHttpsConfig() {
+  if (!httpsPfxPath || !fs.existsSync(httpsPfxPath)) {
+    return undefined
+  }
+
+  return {
+    pfx: fs.readFileSync(httpsPfxPath),
+    passphrase: httpsPfxPassword,
+  }
+}
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -55,9 +69,51 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: 'apps/web/index.html',
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) {
+            return undefined
+          }
+
+          if (id.includes('@fontsource-variable/geist')) {
+            return 'geist-fonts'
+          }
+
+          if (id.includes('boxicons')) {
+            return 'boxicons'
+          }
+
+          if (id.includes('@zxing/browser')) {
+            return 'zxing'
+          }
+
+          if (id.includes('react-dom')) {
+            return 'react-dom'
+          }
+
+          if (id.includes('react')) {
+            return 'react'
+          }
+
+          if (id.includes('lucide-react')) {
+            return 'lucide-react'
+          }
+
+          if (id.includes('radix-ui')) {
+            return 'radix-ui'
+          }
+
+          return 'vendor'
+        },
+      },
     },
   },
   server: {
+    host: '0.0.0.0',
+    port: 4175,
+    strictPort: true,
+    allowedHosts: true,
+    https: resolveHttpsConfig(),
     proxy: {
       '/api': {
         target: 'http://localhost:3001',
@@ -68,6 +124,12 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+  },
+  preview: {
+    host: '0.0.0.0',
+    port: 4176,
+    strictPort: true,
+    https: resolveHttpsConfig(),
   },
   define: {
     __APP_VERSION__: JSON.stringify(packageJson.version),

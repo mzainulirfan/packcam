@@ -8,6 +8,30 @@ type ApiResponse<T> = {
 
 export const SESSION_INVALID_EVENT = 'pakti:session-invalid'
 
+const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL ?? '').trim().replace(/\/+$/, '')
+
+export function getApiBaseUrl() {
+  return API_BASE_URL
+}
+
+export function buildApiUrl(path: string) {
+  if (/^https?:\/\//i.test(path)) {
+    return path
+  }
+
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  return `${API_BASE_URL}${normalizedPath}`
+}
+
+export function buildServerFileUrl(filePath: string) {
+  if (/^https?:\/\//i.test(filePath)) {
+    return filePath
+  }
+
+  const normalizedPath = filePath.startsWith('/') ? filePath : `/${filePath}`
+  return buildApiUrl(`/files${normalizedPath}`)
+}
+
 type ServerRecordingRow = {
   id: string
   resi_number: string
@@ -85,7 +109,7 @@ function normalizeScanLogRow(log: ServerScanLogRow): ScanLogRow {
 }
 
 async function requestApi<T>(path: string, init: RequestInit = {}) {
-  const response = await fetch(path, {
+  const response = await fetch(buildApiUrl(path), {
     credentials: 'include',
     ...init,
     headers: {

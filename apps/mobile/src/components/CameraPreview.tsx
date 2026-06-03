@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react'
+import { Card } from '@/components/ui/card'
 
 type CameraPreviewProps = {
   stream: MediaStream | null
@@ -42,7 +43,7 @@ export function CameraPreview({
 
   return (
     <div className="camera-preview">
-      {topSlot ? <div className="camera-preview__top">{topSlot}</div> : null}
+      {topSlot ? <div className="absolute left-3 top-3 z-10">{topSlot}</div> : null}
       <video
         ref={(element) => {
           videoRef.current = element
@@ -51,10 +52,10 @@ export function CameraPreview({
         autoPlay
         muted
         playsInline
-        className="camera-preview__video"
+        className="block h-full w-full object-cover"
       />
-      {bottomSlot ? <div className="camera-preview__bottom">{bottomSlot}</div> : null}
-      {centerSlot ? <div className="camera-preview__center">{centerSlot}</div> : null}
+      {bottomSlot ? <div className="absolute left-3 right-3 bottom-3 z-10">{bottomSlot}</div> : null}
+      {centerSlot ? <div className="absolute inset-x-2 top-10 bottom-24 z-0 flex items-center justify-center px-2 pointer-events-none">{centerSlot}</div> : null}
       {isLoading ? <Overlay tone="default">Mengaktifkan kamera...</Overlay> : null}
       {!isLoading && !stream && !error ? <Overlay tone="default">{emptyMessage}</Overlay> : null}
       {error ? <Overlay tone="error">{error}</Overlay> : null}
@@ -63,5 +64,15 @@ export function CameraPreview({
 }
 
 function Overlay({ children, tone }: { children: string; tone: 'default' | 'error' }) {
-  return <div className={tone === 'error' ? 'camera-preview__overlay camera-preview__overlay--error' : 'camera-preview__overlay'}>{children}</div>
+  return (
+    <Card
+      className={
+        tone === 'error'
+          ? 'absolute left-3 right-3 bottom-3 z-10 rounded-2xl border border-rose-400/30 bg-rose-50/95 px-4 py-3 text-sm text-rose-950 shadow-lg backdrop-blur-md'
+          : 'absolute left-3 right-3 bottom-3 z-10 rounded-2xl border border-white/14 bg-white/92 px-4 py-3 text-sm text-slate-800 shadow-lg backdrop-blur-md'
+      }
+    >
+      {children}
+    </Card>
+  )
 }

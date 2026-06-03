@@ -29,7 +29,7 @@ import { ModalOverlay } from '../components/ui/ModalOverlay'
 import { DialogCloseButton, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { notify } from '../app/notify'
-import { openServerSettingsFolderApi } from '@pakti/api-client'
+import { buildServerFileUrl, openServerSettingsFolderApi } from '@pakti/api-client'
 import { recordsToCsv, recordsToExcelXml } from '@pakti/shared/exporters'
 import { hydrateRecordings, listRecordings, refreshRecordingsFromServer, type LocalRecordingRecord } from '@pakti/shared/recordings'
 import type { WorkTask } from '@pakti/types'
@@ -328,8 +328,7 @@ export function HistoryPage() {
 
       setPreviewMessage(`Memuat preview untuk ${record.resiNumber}...`)
 
-      const serverPath = record.filePath.startsWith('/') ? record.filePath : `/${record.filePath}`
-      const response = await fetch(`/files${serverPath}`)
+      const response = await fetch(buildServerFileUrl(record.filePath))
       const blob = response.ok ? await response.blob() : null
 
       if (!active) {
@@ -482,8 +481,7 @@ export function HistoryPage() {
 
   function handleDownloadRecord(record: LocalRecordingRecord) {
     const link = document.createElement('a')
-    const serverPath = record.filePath.startsWith('/') ? record.filePath : `/${record.filePath}`
-    link.href = `/files${serverPath}`
+    link.href = buildServerFileUrl(record.filePath)
     link.download = record.fileName
     link.rel = 'noopener'
     link.click()
@@ -1360,7 +1358,7 @@ export function HistoryPage() {
                       </div>
 
                       <video
-                        src={`/files${record.filePath.startsWith('/') ? record.filePath : `/${record.filePath}`}`}
+                        src={buildServerFileUrl(record.filePath)}
                         controls
                         playsInline
                         className="h-[34vh] w-full rounded-[1rem] bg-black sm:h-[40vh] md:h-[44vh] lg:h-[62vh]"
