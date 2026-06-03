@@ -12,6 +12,8 @@ node_modules
 dist
 dist-ssr
 server-data
+.cache
+archive
 *.local
 
 # Editor directories and files
@@ -27,3 +29,5 @@ server-data
 
 # Rust
 **/*.rs.bk
+
+.vercel

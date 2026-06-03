@@ -1,0 +1,10 @@
+.cache
+.git
+.vercel
+archive
+dist
+dist-ssr
+node_modules
+server-data
+*.local
+*.log
