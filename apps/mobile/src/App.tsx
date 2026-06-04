@@ -312,29 +312,6 @@ function App() {
     }
   }, [])
 
-  const requestFullscreen = useCallback(async () => {
-    if (typeof document === 'undefined' || document.fullscreenElement) {
-      return
-    }
-
-    const root = document.documentElement as HTMLElement & {
-      webkitRequestFullscreen?: () => Promise<void> | void
-      msRequestFullscreen?: () => void
-    }
-
-    try {
-      if (root.requestFullscreen) {
-        await root.requestFullscreen()
-      } else if (root.webkitRequestFullscreen) {
-        await root.webkitRequestFullscreen()
-      } else if (root.msRequestFullscreen) {
-        root.msRequestFullscreen()
-      }
-    } catch {
-      // Some browsers block fullscreen unless it is triggered by a direct gesture.
-    }
-  }, [])
-
   const playScanFeedback = useCallback(async (kind: 'success' | 'warning', mode: 'default' | 'history' = 'default') => {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       navigator.vibrate(kind === 'success' ? 55 : [70, 40, 90])
@@ -940,7 +917,6 @@ function App() {
     setBootError(null)
 
     try {
-      void requestFullscreen()
       const result = await loginServerOperatorApi({
         operatorName: loginForm.operatorName.trim(),
         password: loginForm.password,
@@ -1275,7 +1251,6 @@ function App() {
         className="mobile-app mobile-app--boot"
         onPointerDownCapture={() => {
           void primeScanFeedbackAudio()
-          void requestFullscreen()
         }}
       >
         <div className="mobile-boot-card">
@@ -1294,7 +1269,6 @@ function App() {
         className="mobile-app mobile-app--auth"
         onPointerDownCapture={() => {
           void primeScanFeedbackAudio()
-          void requestFullscreen()
         }}
       >
         <div className="auth-backdrop" aria-hidden="true">
@@ -1404,7 +1378,6 @@ function App() {
       className="mobile-app"
       onPointerDownCapture={() => {
         void primeScanFeedbackAudio()
-        void requestFullscreen()
       }}
     >
       <header className="flex items-center justify-between gap-3 px-0.5 py-0.5">
