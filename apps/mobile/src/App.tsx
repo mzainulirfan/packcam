@@ -12,6 +12,8 @@ import {
   RefreshCw,
   ScanLine,
   ScanSearch,
+  Send,
+  Share2,
   Shield,
   SunMedium,
   UserRound,
@@ -199,6 +201,7 @@ function App() {
   const [historyScanVideoElement, setHistoryScanVideoElement] = useState<HTMLVideoElement | null>(null)
   const [historyScanResetToken, setHistoryScanResetToken] = useState(0)
   const [historyHighlightedResi, setHistoryHighlightedResi] = useState<string | null>(null)
+  const [sharingRecordId, setSharingRecordId] = useState<string | null>(null)
   const [watermarkResi, setWatermarkResi] = useState<string | null>(null)
   const [scanClockTick, setScanClockTick] = useState(() => Date.now())
   const [menuOpen, setMenuOpen] = useState(false)
@@ -1215,6 +1218,61 @@ function App() {
     }
   }, [primeScanFeedbackAudio, refreshHistory, scanBusy, session, recordingSession])
 
+  async function handleShareRecording(record: RecordingRow, target: 'native' | 'whatsapp') {
+    if (!record.filePath) {
+      setBootError('File video belum tersedia untuk dibagikan.')
+      return
+    }
+
+    const videoUrl = buildServerFileUrl(record.filePath)
+    const shareText = `Video ${formatTask(record.taskType)} resi ${record.resiNumber}`
+
+    if (target === 'whatsapp') {
+      const text = encodeURIComponent(`${shareText}\n${videoUrl}`)
+      window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer')
+      return
+    }
+
+    if (!navigator.share) {
+      setBootError('Browser ini belum mendukung share ke aplikasi. Coba gunakan tombol WhatsApp.')
+      return
+    }
+
+    setSharingRecordId(record.id)
+
+    try {
+      const response = await fetch(videoUrl, { credentials: 'include' })
+      if (!response.ok) {
+        throw new Error('Video belum bisa diambil untuk dibagikan.')
+      }
+
+      const blob = await response.blob()
+      const extension = record.fileName.split('.').pop() || 'webm'
+      const file = new File([blob], `${record.resiNumber}-${record.taskType}.${extension}`, {
+        type: blob.type || record.mimeType || 'video/webm',
+      })
+      const shareData: ShareData = {
+        title: shareText,
+        text: shareText,
+        files: [file],
+      }
+
+      if (navigator.canShare?.(shareData)) {
+        await navigator.share(shareData)
+      } else {
+        await navigator.share({
+          title: shareText,
+          text: `${shareText}\n${videoUrl}`,
+          url: videoUrl,
+        })
+      }
+    } catch (error) {
+      setBootError(normalizeError(error))
+    } finally {
+      setSharingRecordId(null)
+    }
+  }
+
   function openTab(tab: TabKey) {
     setActiveTab(tab)
     setMenuOpen(false)
@@ -1867,17 +1925,40 @@ function App() {
                                 <span className="max-w-[55%] truncate">{record.operatorName || '-'}</span>
                               </div>
                               {record.status === 'completed' && record.filePath ? (
-                                <div className="overflow-hidden rounded-2xl border border-border bg-black shadow-[0_12px_28px_rgba(0,0,0,0.18)]">
-                                  <video
-                                    className="block aspect-video w-full bg-black object-contain"
-                                    src={buildServerFileUrl(record.filePath)}
-                                    controls
-                                    playsInline
-                                    preload="metadata"
-                                    crossOrigin="use-credentials"
-                                  >
-                                    Browser ini tidak bisa memutar preview video.
-                                  </video>
+                                <div className="grid gap-2">
+                                  <div className="overflow-hidden rounded-2xl border border-border bg-black shadow-[0_12px_28px_rgba(0,0,0,0.18)]">
+                                    <video
+                                      className="block aspect-video w-full bg-black object-contain"
+                                      src={buildServerFileUrl(record.filePath)}
+                                      controls
+                                      playsInline
+                                      preload="metadata"
+                                      crossOrigin="use-credentials"
+                                    >
+                                      Browser ini tidak bisa memutar preview video.
+                                    </video>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => void handleShareRecording(record, 'native')}
+                                      disabled={sharingRecordId === record.id}
+                                    >
+                                      <Share2 size={14} />
+                                      {sharingRecordId === record.id ? 'Menyiapkan...' : 'Share aplikasi'}
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => void handleShareRecording(record, 'whatsapp')}
+                                    >
+                                      <Send size={14} />
+                                      WhatsApp
+                                    </Button>
+                                  </div>
                                 </div>
                               ) : null}
                             </div>

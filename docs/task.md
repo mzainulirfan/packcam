@@ -28,6 +28,7 @@ Dokumen ini menjadi sumber roadmap task dan rencana implementasi Pakti Packcam.
 - Watermark permanen video ditambahkan di backend setelah finalize menggunakan ffmpeg-static dengan isi nomor resi, petugas, dan tanggal-jam-menit.
 - Audio mobile recording ditambahkan lewat microphone track dengan fallback video-only jika izin mic tidak tersedia.
 - History mobile menampilkan preview video untuk rekaman completed langsung di kartu resi.
+- History mobile menambahkan aksi share video ke native share sheet dan WhatsApp.
 
 ## Prioritas P2
 
