@@ -25,7 +25,9 @@
     "prebuild": "npm run clean:build",
     "build": "tsc -b && vite build",
     "build:vercel": "npm run build && npm run build -w @pakti/mobile -- --base /mobile/ --outDir ../../dist/mobile",
+    "build:mobile:vercel": "npm run build -w @pakti/mobile -- --base / --outDir ../../dist-mobile",
     "build:mobile": "npm run build -w @pakti/mobile",
+    "deploy:mobile:vercel": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-mobile-vercel.ps1",
     "lint": "eslint .",
     "preview": "vite preview",
     "preview:mobile": "npm run preview -w @pakti/mobile"

@@ -328,7 +328,9 @@ export function HistoryPage() {
 
       setPreviewMessage(`Memuat preview untuk ${record.resiNumber}...`)
 
-      const response = await fetch(buildServerFileUrl(record.filePath))
+      const response = await fetch(buildServerFileUrl(record.filePath), {
+        credentials: 'include',
+      })
       const blob = response.ok ? await response.blob() : null
 
       if (!active) {
@@ -1359,6 +1361,7 @@ export function HistoryPage() {
 
                       <video
                         src={buildServerFileUrl(record.filePath)}
+                        crossOrigin="use-credentials"
                         controls
                         playsInline
                         className="h-[34vh] w-full rounded-[1rem] bg-black sm:h-[40vh] md:h-[44vh] lg:h-[62vh]"

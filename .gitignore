@@ -10,6 +10,7 @@ lerna-debug.log*
 # Dependencies and build output
 node_modules
 dist
+dist-mobile
 dist-ssr
 server-data
 .cache

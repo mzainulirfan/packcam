@@ -3,12 +3,14 @@ import { spawn } from 'node:child_process'
 import path from 'node:path'
 import cors from 'cors'
 import express from 'express'
+import type { NextFunction, Request, Response } from 'express'
 import multer from 'multer'
 import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
 import type { AppSettings } from '@pakti/types'
 
 import { clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deleteRecording, deleteSessionById, finalizeRecording, getBootstrapStatus, getHealthSnapshot, getRecordingById, invalidateCompletedRecordingsForResi, listOperatorProfiles, listRecordings, listScanLogs, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, saveSettings, saveSystemConfig, updateSessionTaskType, upsertOperatorProfile } from './store'
 import { clearSessionCookie, getCookie, normalizeRole, readStringField, sendError, sendOk, setSessionCookie } from './http'
+import type { HttpSession } from './http'
 import { ensureServerStorage, getUploadsDir } from './db'
 import { subscribeBackendRealtime } from './realtime'
 
@@ -21,10 +23,17 @@ const upload = multer({
 })
 const port = Number(process.env.PORT ?? 3001)
 const host = process.env.HOST ?? '0.0.0.0'
+const loginRateLimitWindowMs = Number(process.env.LOGIN_RATE_LIMIT_WINDOW_MS ?? 15 * 60 * 1000)
+const loginRateLimitMaxAttempts = Number(process.env.LOGIN_RATE_LIMIT_MAX_ATTEMPTS ?? 10)
 const corsOrigins = (process.env.CORS_ORIGINS ?? '')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean)
+const loginAttempts = new Map<string, { count: number; resetAt: number }>()
+
+type AuthenticatedRequest = Request & {
+  session?: HttpSession
+}
 
 function isAllowedCorsOrigin(origin: string) {
   return corsOrigins.some((allowedOrigin) => {
@@ -38,6 +47,64 @@ function isAllowedCorsOrigin(origin: string) {
 
     return false
   })
+}
+
+function getRequestSession(req: Request) {
+  return resolveSession(getCookie(req, 'pakti_session'))
+}
+
+function requireSession(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  const session = getRequestSession(req)
+  if (!session) {
+    return sendError(res, 401, 'Sesi login diperlukan.')
+  }
+
+  req.session = session
+  return next()
+}
+
+function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  const session = req.session ?? getRequestSession(req)
+  if (!session) {
+    return sendError(res, 401, 'Sesi login diperlukan.')
+  }
+
+  if (session.role !== 'admin') {
+    return sendError(res, 403, 'Hanya admin yang dapat mengakses fitur ini.')
+  }
+
+  req.session = session
+  return next()
+}
+
+function getLoginRateLimitKey(req: Request, operatorName: string) {
+  return `${req.ip ?? req.socket.remoteAddress ?? 'unknown'}:${operatorName.trim().toLowerCase()}`
+}
+
+function isLoginRateLimited(key: string) {
+  const now = Date.now()
+  const attempt = loginAttempts.get(key)
+  if (!attempt || attempt.resetAt <= now) {
+    loginAttempts.delete(key)
+    return false
+  }
+
+  return attempt.count >= loginRateLimitMaxAttempts
+}
+
+function recordFailedLogin(key: string) {
+  const now = Date.now()
+  const current = loginAttempts.get(key)
+  const next =
+    current && current.resetAt > now
+      ? { count: current.count + 1, resetAt: current.resetAt }
+      : { count: 1, resetAt: now + loginRateLimitWindowMs }
+
+  loginAttempts.set(key, next)
+}
+
+function clearLoginAttempts(key: string) {
+  loginAttempts.delete(key)
 }
 
 ensureServerStorage()
@@ -58,20 +125,11 @@ app.use(
 )
 app.use(express.json({ limit: '4mb' }))
 app.use(express.urlencoded({ extended: true }))
-app.use('/files', express.static(getUploadsDir()))
+app.use('/files', requireSession, express.static(getUploadsDir()))
 
 app.get('/api/health', (_req, res) => {
   sendOk(res, {
     status: 'ok',
-    build: {
-      appName: DEFAULT_SYSTEM_CONFIG.appName,
-      tagline: DEFAULT_SYSTEM_CONFIG.tagline,
-    },
-    system: readSystemConfig(),
-    settings: readSettings(),
-    bootstrap: getBootstrapStatus(),
-    storage: getHealthSnapshot(),
-    lastError: readLastError(),
   })
 })
 
@@ -130,6 +188,11 @@ app.post('/api/auth/login', (req, res) => {
     return sendError(res, 400, 'Username dan password wajib diisi.')
   }
 
+  const rateLimitKey = getLoginRateLimitKey(req, operatorName)
+  if (isLoginRateLimited(rateLimitKey)) {
+    return sendError(res, 429, 'Terlalu banyak percobaan login. Coba lagi beberapa menit lagi.')
+  }
+
   try {
     const result = authenticateOperator({
       operatorName,
@@ -138,6 +201,7 @@ app.post('/api/auth/login', (req, res) => {
       role,
     })
 
+    clearLoginAttempts(rateLimitKey)
     setSessionCookie(res, result.session.sessionId)
 
     return sendOk(res, {
@@ -145,6 +209,7 @@ app.post('/api/auth/login', (req, res) => {
       profile: result.profile,
     })
   } catch (error) {
+    recordFailedLogin(rateLimitKey)
     return sendError(res, 401, error instanceof Error ? error.message : 'Login gagal.')
   }
 })
@@ -166,7 +231,7 @@ app.get('/api/session', (req, res) => {
 })
 
 app.put('/api/session/task', (req, res) => {
-  const session = resolveSession(getCookie(req, 'pakti_session'))
+  const session = getRequestSession(req)
   if (!session) {
     return sendError(res, 401, 'Sesi login diperlukan.')
   }
@@ -205,10 +270,7 @@ app.use('/api', (req, res, next) => {
   ]
 
   if (protectedPrefixes.some((prefix) => req.path.startsWith(prefix))) {
-    const session = resolveSession(getCookie(req, 'pakti_session'))
-    if (!session) {
-      return sendError(res, 401, 'Sesi login diperlukan.')
-    }
+    return requireSession(req as AuthenticatedRequest, res, next)
   }
 
   next()
@@ -219,7 +281,7 @@ app.get('/api/events', (req, res) => {
 })
 
 app.get('/api/admin/status', (req, res) => {
-  const session = resolveSession(getCookie(req, 'pakti_session'))
+  const session = getRequestSession(req)
   if (!session) {
     return sendError(res, 401, 'Sesi login diperlukan.')
   }
@@ -251,7 +313,7 @@ app.get('/api/system-config', (_req, res) => {
   sendOk(res, readSystemConfig())
 })
 
-app.put('/api/system-config', (req, res) => {
+app.put('/api/system-config', requireAdmin, (req, res) => {
   try {
     const nextConfig = saveSystemConfig({
       appName: readStringField(req.body?.appName, 'appName') || DEFAULT_SYSTEM_CONFIG.appName,
@@ -269,7 +331,7 @@ app.get('/api/settings', (_req, res) => {
   sendOk(res, readSettings())
 })
 
-app.put('/api/settings', (req, res) => {
+app.put('/api/settings', requireAdmin, (req, res) => {
   try {
     const nextSettings = saveSettings({
       videoRootPath: readStringField(req.body?.videoRootPath, 'videoRootPath') || DEFAULT_APP_SETTINGS.videoRootPath,
@@ -286,7 +348,7 @@ app.put('/api/settings', (req, res) => {
   }
 })
 
-app.post('/api/settings/open-folder', (_req, res) => {
+app.post('/api/settings/open-folder', requireAdmin, (_req, res) => {
   try {
     const settings = readSettings()
     const absolutePath = path.join(getUploadsDir(), ...settings.videoRootPath.split('/').filter(Boolean))
@@ -306,11 +368,11 @@ app.post('/api/settings/open-folder', (_req, res) => {
   }
 })
 
-app.get('/api/operators', (_req, res) => {
+app.get('/api/operators', requireAdmin, (_req, res) => {
   sendOk(res, listOperatorProfiles())
 })
 
-app.post('/api/operators', (req, res) => {
+app.post('/api/operators', requireAdmin, (req, res) => {
   try {
     const profile = upsertOperatorProfile({
       operatorName: readStringField(req.body?.operatorName, 'operatorName'),
@@ -327,7 +389,7 @@ app.post('/api/operators', (req, res) => {
   }
 })
 
-app.put('/api/operators/:operatorName/:operatorCode/:role', (req, res) => {
+app.put('/api/operators/:operatorName/:operatorCode/:role', requireAdmin, (req, res) => {
   try {
     const params = req.params as Record<string, string | undefined>
     const profile = upsertOperatorProfile({
@@ -345,7 +407,7 @@ app.put('/api/operators/:operatorName/:operatorCode/:role', (req, res) => {
   }
 })
 
-app.delete('/api/operators/:operatorName/:operatorCode/:role', (req, res) => {
+app.delete('/api/operators/:operatorName/:operatorCode/:role', requireAdmin, (req, res) => {
   try {
     const params = req.params as Record<string, string | undefined>
     const deleted = deleteOperatorProfile(params.operatorName ?? '', params.operatorCode ?? '', normalizeRole(params.role))
@@ -359,7 +421,7 @@ app.delete('/api/operators/:operatorName/:operatorCode/:role', (req, res) => {
   }
 })
 
-app.post('/api/operators/:operatorName/:operatorCode/:role/password', (req, res) => {
+app.post('/api/operators/:operatorName/:operatorCode/:role/password', requireAdmin, (req, res) => {
   try {
     const password = readStringField(req.body?.password, 'password')
     if (!password) {
@@ -519,17 +581,17 @@ app.post('/api/last-error', (req, res) => {
   }
 })
 
-app.delete('/api/last-error', (_req, res) => {
+app.delete('/api/last-error', requireAdmin, (_req, res) => {
   clearLastError()
   sendOk(res, { cleared: true })
 })
 
-app.delete('/api/data/scan', (_req, res) => {
+app.delete('/api/data/scan', requireAdmin, (_req, res) => {
   clearScanData()
   sendOk(res, { cleared: true })
 })
 
-app.delete('/api/data/all', (_req, res) => {
+app.delete('/api/data/all', requireAdmin, (_req, res) => {
   clearAllData()
   sendOk(res, { cleared: true })
 })

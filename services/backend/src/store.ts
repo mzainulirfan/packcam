@@ -82,6 +82,8 @@ type RecordingDraftInput = {
 const JSON_STATE_KEY = 'current'
 const MAX_SCAN_LOGS = 500
 const LEGACY_SYSTEM_TAGLINE = 'Aplikasi yang membantu UMKM merekam proses QC dan packing paket secara lebih rapi.'
+const SESSION_TTL_HOURS = Number(process.env.SESSION_TTL_HOURS ?? 12)
+const SESSION_TTL_MS = Math.max(1, SESSION_TTL_HOURS) * 60 * 60 * 1000
 function nowIso() {
   return new Date().toISOString()
 }
@@ -140,6 +142,34 @@ function normalizeVideoRootPath(value: string | null | undefined, fallback = DEF
 
 function sanitizeFileSegment(value: string) {
   return value.trim().replace(/[^\w-]+/g, '_') || 'recording'
+}
+
+function sanitizeFileName(value: string) {
+  const parsed = path.posix.parse(value.trim().replace(/\\/g, '/'))
+  const extension = parsed.ext.toLowerCase() === '.mp4' ? '.mp4' : '.webm'
+  return `${sanitizeFileSegment(parsed.name)}${extension}`
+}
+
+function assertSafeRelativeFilePath(value: string) {
+  const normalized = value.trim().replace(/\\/g, '/').replace(/\/+/g, '/').replace(/^\.\/+/, '')
+
+  if (!normalized) {
+    throw new Error('Path file recording wajib diisi.')
+  }
+
+  if (normalized.startsWith('/') || /^[A-Za-z]:/.test(normalized)) {
+    throw new Error('Path file recording harus relatif.')
+  }
+
+  if (normalized.split('/').some((segment) => !segment || segment === '.' || segment === '..')) {
+    throw new Error('Path file recording mengandung segment tidak valid.')
+  }
+
+  if (/[<>:"|?*\0]/.test(normalized)) {
+    throw new Error('Path file recording mengandung karakter tidak valid.')
+  }
+
+  return normalized
 }
 
 function formatRecordingTimestamp(startedAt: Date) {
@@ -647,7 +677,21 @@ export function resolveSession(sessionId: string | null | undefined) {
     return null
   }
 
-  return getSessionById(sessionId)
+  const session = getSessionById(sessionId)
+  if (!session) {
+    return null
+  }
+
+  if (Date.now() - new Date(session.updatedAt).getTime() > SESSION_TTL_MS) {
+    deleteSessionById(session.sessionId)
+    return null
+  }
+
+  db()
+    .prepare(`UPDATE operator_sessions SET updated_at = ? WHERE session_id = ?`)
+    .run(nowIso(), session.sessionId)
+
+  return getSessionById(session.sessionId)
 }
 
 export function listRecordings() {
@@ -686,8 +730,10 @@ export function createRecordingDraft(input: RecordingDraftInput) {
   if (taskType === 'packing' && !canStartPackingForResi(input.resiNumber)) {
     throw new Error('Packing hanya bisa dimulai setelah QC selesai untuk resi ini.')
   }
-  const fileName = input.fileName ?? buildRecordingFileName(input.resiNumber, DEFAULT_APP_SETTINGS.videoFormat, taskType, startedAt)
-  const filePath = input.filePath ?? path.posix.join(DEFAULT_APP_SETTINGS.videoRootPath, fileName)
+  const fileName = input.fileName
+    ? sanitizeFileName(input.fileName)
+    : buildRecordingFileName(input.resiNumber, DEFAULT_APP_SETTINGS.videoFormat, taskType, startedAt)
+  const filePath = assertSafeRelativeFilePath(input.filePath ?? path.posix.join(DEFAULT_APP_SETTINGS.videoRootPath, fileName))
   const timestamp = nowIso()
 
   db().prepare(
@@ -866,7 +912,7 @@ export function deleteRecording(id: string) {
   }
 
   db().prepare(`DELETE FROM recordings WHERE id = ?`).run(id)
-  const absolutePath = path.join(getUploadsDir(), recording.file_path)
+  const absolutePath = getUploadedFilePath(recording)
   if (fs.existsSync(absolutePath)) {
     fs.rmSync(absolutePath, { force: true })
   }
@@ -1070,5 +1116,12 @@ export function clearAllData() {
 }
 
 export function getUploadedFilePath(recording: RecordingRow) {
-  return path.join(getUploadsDir(), recording.file_path)
+  const uploadsRoot = path.resolve(getUploadsDir())
+  const targetPath = path.resolve(uploadsRoot, assertSafeRelativeFilePath(recording.file_path))
+
+  if (targetPath !== uploadsRoot && !targetPath.startsWith(`${uploadsRoot}${path.sep}`)) {
+    throw new Error('Path file recording berada di luar folder upload.')
+  }
+
+  return targetPath
 }

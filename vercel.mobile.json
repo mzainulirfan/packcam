@@ -1,0 +1,10 @@
+{
+  "buildCommand": "npm run build:mobile:vercel",
+  "outputDirectory": "dist-mobile",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
