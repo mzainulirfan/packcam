@@ -22,7 +22,7 @@ Dokumen ini menjadi sumber aturan kerja Pakti Packcam.
 - Watermark video final berisi nomor resi, petugas, dan tanggal-jam-menit; prosesnya boleh berjalan background setelah recording selesai.
 - Rekaman mobile menyertakan audio microphone jika izin browser diberikan; jika mic gagal, recording tetap fallback video-only.
 - History mobile boleh menampilkan preview video completed, tetapi gunakan `preload="metadata"` agar list tidak berat.
-- Share video dari History mobile memakai native share sheet untuk aplikasi terpasang seperti Shopee; WhatsApp boleh memakai aksi khusus dengan fallback link.
+- Share video dari History mobile harus memakai native share sheet/file share untuk aplikasi terpasang seperti Shopee atau WhatsApp; jangan mengirim URL API `/files` ke chat eksternal.
 - Reset data, delete operator, dan delete recording harus dikonfirmasi eksplisit.
 
 ## Test Rules

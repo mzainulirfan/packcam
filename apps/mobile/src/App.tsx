@@ -1227,14 +1227,8 @@ function App() {
     const videoUrl = buildServerFileUrl(record.filePath)
     const shareText = `Video ${formatTask(record.taskType)} resi ${record.resiNumber}`
 
-    if (target === 'whatsapp') {
-      const text = encodeURIComponent(`${shareText}\n${videoUrl}`)
-      window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer')
-      return
-    }
-
     if (!navigator.share) {
-      setBootError('Browser ini belum mendukung share ke aplikasi. Coba gunakan tombol WhatsApp.')
+      setBootError('Browser ini belum mendukung share file ke aplikasi.')
       return
     }
 
@@ -1260,11 +1254,8 @@ function App() {
       if (navigator.canShare?.(shareData)) {
         await navigator.share(shareData)
       } else {
-        await navigator.share({
-          title: shareText,
-          text: `${shareText}\n${videoUrl}`,
-          url: videoUrl,
-        })
+        const targetName = target === 'whatsapp' ? 'WhatsApp' : 'aplikasi lain'
+        throw new Error(`Browser ini belum mendukung share file video ke ${targetName}.`)
       }
     } catch (error) {
       setBootError(normalizeError(error))
@@ -1954,9 +1945,10 @@ function App() {
                                       variant="outline"
                                       size="sm"
                                       onClick={() => void handleShareRecording(record, 'whatsapp')}
+                                      disabled={sharingRecordId === record.id}
                                     >
                                       <Send size={14} />
-                                      WhatsApp
+                                      Pilih WhatsApp
                                     </Button>
                                   </div>
                                 </div>
