@@ -1008,7 +1008,7 @@ function formatWatermarkDate(value: string | null) {
   }).format(date)
 }
 
-function buildDrawTextFilter(recording: RecordingRow) {
+function buildDrawTextFilter(recording: RecordingRow, placement: 'top-center' | 'top-left' = 'top-center') {
   const operator = [recording.operator_name, recording.operator_code]
     .map((part) => part?.trim())
     .filter(Boolean)
@@ -1019,12 +1019,46 @@ function buildDrawTextFilter(recording: RecordingRow) {
   const line2 = escapeDrawTextValue(`Petugas: ${operator}`)
   const line3 = escapeDrawTextValue(formatWatermarkDate(recording.start_time))
 
+  if (placement === 'top-left') {
+    return [
+      'drawbox=x=16:y=24:w=448:h=96:color=black@0.42:t=fill',
+      `drawtext=text='${line1}'${fontOption}:x=32:y=38:fontsize=24:fontcolor=white`,
+      `drawtext=text='${line2}'${fontOption}:x=32:y=70:fontsize=17:fontcolor=white@0.92`,
+      `drawtext=text='${line3}'${fontOption}:x=32:y=96:fontsize=15:fontcolor=white@0.78`,
+    ].join(',')
+  }
+
   return [
-    'drawbox=x=(w-560)/2:y=24:w=560:h=96:color=black@0.42:t=fill',
-    `drawtext=text='${line1}'${fontOption}:x=(w-560)/2+16:y=38:fontsize=24:fontcolor=white`,
-    `drawtext=text='${line2}'${fontOption}:x=(w-560)/2+16:y=70:fontsize=17:fontcolor=white@0.92`,
-    `drawtext=text='${line3}'${fontOption}:x=(w-560)/2+16:y=96:fontsize=15:fontcolor=white@0.78`,
+    'drawbox=x=max(16\\,(iw-min(560\\,iw-32))/2):y=24:w=min(560\\,iw-32):h=96:color=black@0.42:t=fill',
+    `drawtext=text='${line1}'${fontOption}:x=(w-text_w)/2:y=38:fontsize=24:fontcolor=white`,
+    `drawtext=text='${line2}'${fontOption}:x=(w-text_w)/2:y=70:fontsize=17:fontcolor=white@0.92`,
+    `drawtext=text='${line3}'${fontOption}:x=(w-text_w)/2:y=96:fontsize=15:fontcolor=white@0.78`,
   ].join(',')
+}
+
+async function runFfmpeg(args: string[]) {
+  const ffmpegPath = getFfmpegPath()
+
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(ffmpegPath, args, { windowsHide: true })
+    let stderr = ''
+
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString()
+      if (stderr.length > 4000) {
+        stderr = stderr.slice(-4000)
+      }
+    })
+
+    child.on('error', reject)
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve()
+      } else {
+        reject(new Error(`ffmpeg watermark gagal (${code ?? 'unknown'}): ${stderr.trim()}`))
+      }
+    })
+  })
 }
 
 async function runFfmpegWatermark(recording: RecordingRow, inputPath: string) {
@@ -1037,9 +1071,7 @@ async function runFfmpegWatermark(recording: RecordingRow, inputPath: string) {
   }
 
   const outputPath = `${inputPath}.watermarked.webm`
-  const ffmpegPath = getFfmpegPath()
-  const filter = buildDrawTextFilter(recording)
-  const args = [
+  const buildArgs = (filter: string) => [
     '-y',
     '-i',
     inputPath,
@@ -1062,26 +1094,15 @@ async function runFfmpegWatermark(recording: RecordingRow, inputPath: string) {
     outputPath,
   ]
 
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn(ffmpegPath, args, { windowsHide: true })
-    let stderr = ''
+  try {
+    await runFfmpeg(buildArgs(buildDrawTextFilter(recording, 'top-center')))
+  } catch {
+    if (fs.existsSync(outputPath)) {
+      fs.rmSync(outputPath, { force: true })
+    }
 
-    child.stderr.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString()
-      if (stderr.length > 4000) {
-        stderr = stderr.slice(-4000)
-      }
-    })
-
-    child.on('error', reject)
-    child.on('close', (code) => {
-      if (code === 0) {
-        resolve()
-      } else {
-        reject(new Error(`ffmpeg watermark gagal (${code ?? 'unknown'}): ${stderr.trim()}`))
-      }
-    })
-  })
+    await runFfmpeg(buildArgs(buildDrawTextFilter(recording, 'top-left')))
+  }
 
   fs.copyFileSync(outputPath, inputPath)
   fs.rmSync(outputPath, { force: true })
