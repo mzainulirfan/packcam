@@ -26,6 +26,7 @@ Karakter desain:
 - Settings untuk operasional dan branding.
 - Health/Admin untuk diagnosa dan audit server.
 - Mobile untuk scan, history, session, theme, dan menu sheet.
+- Scan mobile harus sederhana: kamera dominan, guide barcode ringan, kontrol resi dan tombol rekam di panel bawah, tanpa mengubah flow rekaman atau notifikasi.
 
 ## Prinsip UI
 

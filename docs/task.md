@@ -1181,6 +1181,12 @@ setelah itu:
 - [x] Status bootstrap backend kini mengembalikan `operatorCount` dan menjadikan `needsSetup` berbasis jumlah `operator_profiles`, bukan hanya `adminCount`.
 - [x] Halaman Admin web menampilkan `User count` agar status bootstrap lebih mudah diaudit.
 
+## Update 2026-06-05 - Redesign Scan Mobile
+
+- [x] Halaman Scan mobile dibuat lebih sederhana dengan kamera sebagai area utama.
+- [x] Overlay scan, status audio/task, progress, input resi, dan tombol rekam diringkas tanpa mengubah callback rekaman.
+- [x] Notifikasi scan tetap memakai state dan timer lama agar flow operasional tidak berubah.
+
 ## Aturan Stop-Go
 
 - Stop jika lint atau build web gagal setelah pemindahan.

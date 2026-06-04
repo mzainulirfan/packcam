@@ -1480,18 +1480,14 @@ function App() {
       </Dialog>
 
       {activeTab === 'scan' ? (
-        <Card className="border-border bg-card/80 p-3 backdrop-blur-xl">
+        <section className="scan-screen">
           <div className="relative">
             {scanNotice ? (
               <div
                 className={
                   scanNotice.kind === 'success'
-                    ? isDarkTheme
-                      ? 'pointer-events-none absolute left-3 right-3 top-14 z-20 mx-auto max-w-[calc(100%-1.5rem)] rounded-2xl border border-emerald-400/20 bg-emerald-500/12 px-3 py-2 shadow-[0_12px_24px_rgba(0,0,0,0.18)] backdrop-blur-sm'
-                      : 'pointer-events-none absolute left-3 right-3 top-14 z-20 mx-auto max-w-[calc(100%-1.5rem)] rounded-2xl border border-emerald-400/20 bg-emerald-50/90 px-3 py-2 shadow-[0_12px_24px_rgba(15,23,42,0.08)] backdrop-blur-sm'
-                    : isDarkTheme
-                      ? 'pointer-events-none absolute left-3 right-3 top-14 z-20 mx-auto max-w-[calc(100%-1.5rem)] rounded-2xl border border-amber-400/20 bg-amber-500/12 px-3 py-2 shadow-[0_12px_24px_rgba(0,0,0,0.18)] backdrop-blur-sm'
-                      : 'pointer-events-none absolute left-3 right-3 top-14 z-20 mx-auto max-w-[calc(100%-1.5rem)] rounded-2xl border border-amber-400/20 bg-amber-50/90 px-3 py-2 shadow-[0_12px_24px_rgba(15,23,42,0.08)] backdrop-blur-sm'
+                    ? 'scan-notice scan-notice--success'
+                    : 'scan-notice scan-notice--warning'
                 }
               >
                 <div className="grid gap-0.5">
@@ -1508,51 +1504,41 @@ function App() {
               error={cameraState.error}
               emptyMessage="Arahkan kamera ke area kerja."
               topSlot={
-                <div className="grid w-full max-w-full gap-2">
-                  <div className="flex w-full max-w-full flex-nowrap items-start justify-between gap-2">
-                    <span
-                      className={
-                        isDarkTheme
-                          ? 'inline-flex items-center gap-2 rounded-full bg-[rgba(10,13,18,0.86)] px-3 py-1.5 text-[0.72rem] font-bold text-[#f8d9a7] shadow-[0_10px_24px_rgba(0,0,0,0.28)]'
-                          : 'inline-flex items-center gap-2 rounded-full border border-amber-200/80 bg-amber-50/90 px-3 py-1.5 text-[0.72rem] font-bold text-amber-900 shadow-[0_10px_24px_rgba(15,23,42,0.08)]'
-                      }
-                    >
+                <div className="scan-topbar">
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <span className="scan-pill min-w-0">
                       <Camera size={14} />
-                      {activeRecordingResi ? `${formatTask(currentTaskType)}: ${activeRecordingResi}` : 'Preview kamera'}
+                      <span className="truncate">
+                        {activeRecordingResi ? `${formatTask(currentTaskType)}: ${activeRecordingResi}` : 'Scan resi'}
+                      </span>
                     </span>
                     {recordingHasAudio ? (
-                      <span
-                        className={
-                          isDarkTheme
-                            ? 'inline-flex items-center gap-1.5 rounded-full bg-[rgba(10,13,18,0.86)] px-2.5 py-1.5 text-[0.68rem] font-bold text-emerald-200 shadow-[0_10px_24px_rgba(0,0,0,0.22)]'
-                            : 'inline-flex items-center gap-1.5 rounded-full border border-emerald-200/80 bg-emerald-50/90 px-2.5 py-1.5 text-[0.68rem] font-bold text-emerald-800 shadow-[0_10px_24px_rgba(15,23,42,0.08)]'
-                        }
-                      >
+                      <span className="scan-pill scan-pill--audio">
                         <Mic size={12} />
                         Audio
                       </span>
                     ) : null}
-                    <div className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap">
-                      {isAdmin ? (
-                        <Button
-                          type="button"
-                          variant={session.taskType === 'qc' ? 'secondary' : 'outline'}
-                          size="xs"
-                          onClick={() => void handleTaskChange(session.taskType === 'qc' ? 'packing' : 'qc')}
-                          disabled={taskBusy}
-                          aria-label={`Ganti task aktif ke ${session.taskType === 'qc' ? 'Packing' : 'QC'}`}
-                        >
-                          {formatTask(session.taskType)}
-                        </Button>
-                      ) : (
-                        <span className="inline-flex items-center rounded-full border border-border bg-muted/60 px-3 py-1.5 text-[0.72rem] font-bold text-foreground/80">
-                          Task: {formatTask(session.taskType)}
-                        </span>
-                      )}
-                    </div>
                   </div>
+
+                  {isAdmin ? (
+                    <Button
+                      type="button"
+                      variant={session.taskType === 'qc' ? 'secondary' : 'outline'}
+                      size="xs"
+                      onClick={() => void handleTaskChange(session.taskType === 'qc' ? 'packing' : 'qc')}
+                      disabled={taskBusy}
+                      aria-label={`Ganti task aktif ke ${session.taskType === 'qc' ? 'Packing' : 'QC'}`}
+                    >
+                      {formatTask(session.taskType)}
+                    </Button>
+                  ) : (
+                    <span className="scan-pill scan-pill--task">
+                      {formatTask(session.taskType)}
+                    </span>
+                  )}
+
                   {activeRecordingResi ? (
-                    <div className="pointer-events-none w-fit max-w-[min(92vw,24rem)] rounded-2xl bg-[rgba(2,6,23,0.46)] px-3 py-2 text-white shadow-[0_12px_24px_rgba(0,0,0,0.2)] backdrop-blur-[2px]">
+                    <div className="scan-watermark">
                       <div className="grid gap-0.5">
                         <strong className="text-[0.76rem] leading-tight">RESI {activeRecordingResi}</strong>
                         <span className="text-[0.66rem] font-semibold leading-tight text-white/88">
@@ -1565,81 +1551,58 @@ function App() {
                 </div>
               }
               centerSlot={
-                <div className="scan-guide w-[min(96%,36rem)] grid justify-items-center gap-1.5 self-center pointer-events-none" aria-hidden="true">
-                  <div className="scan-guide__frame relative aspect-[4/2.15] w-full rounded-[24px] border-2 border-[#f6c47c] bg-[linear-gradient(90deg,rgba(246,196,124,0.08),rgba(246,196,124,0.02)),rgba(7,10,15,0.18)] shadow-[0_0_0_9999px_rgba(3,6,11,0.26),0_0_0_1px_rgba(255,255,255,0.04),0_18px_42px_rgba(0,0,0,0.22)] backdrop-blur-[1px]">
-                    <span className="absolute left-[0.7rem] top-[0.7rem] h-[1.25rem] w-[1.25rem] rounded-tl-[0.8rem] border-l-[3px] border-t-[3px] border-[#fff2d9]" />
-                    <span className="absolute right-[0.7rem] top-[0.7rem] h-[1.25rem] w-[1.25rem] rounded-tr-[0.8rem] border-r-[3px] border-t-[3px] border-[#fff2d9]" />
-                    <span className="absolute bottom-[0.7rem] left-[0.7rem] h-[1.25rem] w-[1.25rem] rounded-bl-[0.8rem] border-b-[3px] border-l-[3px] border-[#fff2d9]" />
-                    <span className="absolute bottom-[0.7rem] right-[0.7rem] h-[1.25rem] w-[1.25rem] rounded-br-[0.8rem] border-b-[3px] border-r-[3px] border-[#fff2d9]" />
-                  </div>
-                  <div
-                    className={
-                      isDarkTheme
-                        ? 'scan-guide__label grid gap-[0.08rem] rounded-full bg-[rgba(7,10,15,0.82)] px-[0.58rem] py-[0.28rem] text-center text-[0.68rem] font-bold leading-[1.2] text-[#f8d9a7] shadow-[0_16px_30px_rgba(0,0,0,0.24)]'
-                        : 'scan-guide__label grid gap-[0.08rem] rounded-full border border-amber-200/80 bg-amber-50/90 px-[0.58rem] py-[0.28rem] text-center text-[0.68rem] font-bold leading-[1.2] text-amber-900 shadow-[0_16px_30px_rgba(15,23,42,0.08)]'
-                    }
-                  >
+                <div className="scan-guide-simple" aria-hidden="true">
+                  <div className="scan-guide-simple__frame" />
+                  <div className="scan-guide-simple__label">
                     <span>Pusatkan barcode di kotak ini</span>
                   </div>
                 </div>
               }
               bottomSlot={
-                <Card className="border-border bg-card/80 backdrop-blur-xl">
-                  <CardContent className="grid gap-3 px-4 py-4">
-                    {scanProgressState ? (
-                      <Card
-                        className={
-                          scanProgressState.tone === 'success'
-                            ? 'border-emerald-400/25 bg-emerald-50/90 dark:bg-emerald-500/10'
-                            : scanProgressState.tone === 'warning'
-                              ? 'border-amber-400/25 bg-amber-50/90 dark:bg-amber-500/10'
-                            : 'border-border bg-muted/60'
-                        }
-                      >
-                        <CardContent className="grid gap-1 px-4 py-3">
-                          <strong className="text-[0.82rem] tracking-[-0.01em] text-foreground">{scanProgressState.title}</strong>
-                          <span className="text-[0.72rem] leading-[1.35] text-muted-foreground">{scanProgressState.message}</span>
-                        </CardContent>
-                      </Card>
-                    ) : null}
-
-                    <div className="grid gap-2">
-                      <Label htmlFor="mobile-scan-resi">Nomor resi</Label>
-                      <Input
-                        id="mobile-scan-resi"
-                        value={scanResi}
-                        onChange={(event) => setScanResi(event.target.value)}
-                        placeholder="Ketik atau scan barcode"
-                        inputMode="text"
-                        autoCapitalize="characters"
-                      />
+                <div className="scan-control-panel">
+                  {scanProgressState ? (
+                    <div className={`scan-progress-note scan-progress-note--${scanProgressState.tone}`}>
+                      <strong>{scanProgressState.title}</strong>
+                      <span>{scanProgressState.message}</span>
                     </div>
+                  ) : null}
 
-                    <Button
-                      type="button"
-                      className="w-full"
-                      disabled={
-                        scanBusy ||
-                        recordingSession.state.mode === 'stopping' ||
-                        recordingSession.state.mode === 'saving' ||
-                        (recordingSession.state.mode === 'idle' && !scanResi.trim())
-                      }
-                      onClick={() =>
-                        void (recordingSession.state.mode === 'recording' ? stopScanRecording() : startScanRecording(scanResi, 'manual'))
-                      }
-                    >
-                      {scanBusy || recordingSession.state.mode === 'stopping' || recordingSession.state.mode === 'saving'
-                        ? 'Memproses...'
-                        : recordingSession.state.mode === 'recording'
-                          ? 'Hentikan Rekaman'
-                          : 'Scan & Rekam'}
-                    </Button>
-                  </CardContent>
-                </Card>
+                  <div className="grid gap-2">
+                    <Label htmlFor="mobile-scan-resi">Nomor resi</Label>
+                    <Input
+                      id="mobile-scan-resi"
+                      value={scanResi}
+                      onChange={(event) => setScanResi(event.target.value)}
+                      placeholder="Ketik atau scan barcode"
+                      inputMode="text"
+                      autoCapitalize="characters"
+                    />
+                  </div>
+
+                  <Button
+                    type="button"
+                    className="w-full"
+                    disabled={
+                      scanBusy ||
+                      recordingSession.state.mode === 'stopping' ||
+                      recordingSession.state.mode === 'saving' ||
+                      (recordingSession.state.mode === 'idle' && !scanResi.trim())
+                    }
+                    onClick={() =>
+                      void (recordingSession.state.mode === 'recording' ? stopScanRecording() : startScanRecording(scanResi, 'manual'))
+                    }
+                  >
+                    {scanBusy || recordingSession.state.mode === 'stopping' || recordingSession.state.mode === 'saving'
+                      ? 'Memproses...'
+                      : recordingSession.state.mode === 'recording'
+                        ? 'Hentikan Rekaman'
+                        : 'Scan & Rekam'}
+                  </Button>
+                </div>
               }
             />
           </div>
-        </Card>
+        </section>
       ) : null}
 
       <Button
