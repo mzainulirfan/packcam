@@ -22,6 +22,8 @@ Dokumen ini menjadi sumber roadmap task dan rencana implementasi Pakti Packcam.
 
 - Bugfix mobile scan queue: scan kamera untuk resi duplikat/sudah direkam saat recording aktif tidak lagi menghentikan recording yang sedang berjalan.
 - Validasi: `npm run build --workspace @pakti/mobile` dan `npm run lint`.
+- Optimasi performa mobile recording: lookup duplicate/progress per resi, scanner downscale/non-overlap, interval scanner lebih ringan saat recording, dan upload chunk recording menjadi 3 detik.
+- Validasi tambahan: `npm run build --workspace @pakti/backend`.
 
 ## Prioritas P2
 

@@ -19,6 +19,7 @@ import {
   readServerSettingsApi,
   loginServerOperatorApi,
   logoutServerOperatorApi,
+  readServerRecordingsByResiApi,
   readServerRecordingsApi,
   readServerSessionApi,
   readServerSystemConfigApi,
@@ -247,6 +248,7 @@ function App() {
     recordingSession.state.mode === 'recording'
       ? recordingSession.state.activeResi ?? watermarkResi ?? (scanResi.trim() || null)
       : null
+  const scannerIntervalMs = recordingSession.state.mode === 'recording' ? 700 : 360
 
   const recordingStateRef = useRef(recordingSession.state)
   const sessionRef = useRef(session)
@@ -509,8 +511,9 @@ function App() {
     videoElement: scanVideoElement,
     enabled: Boolean(session) && activeTab === 'scan',
     resetToken: scannerResetToken,
-    intervalMs: 320,
+    intervalMs: scannerIntervalMs,
     cooldownMs: 1100,
+    maxScanWidth: 640,
     onDetected: (value) => {
       if (!session || activeTab !== 'scan') {
         return
@@ -1010,6 +1013,14 @@ function App() {
     }, 2800)
   }, [])
 
+  const mergeRecordingsForResi = useCallback((resiNumber: string, rows: RecordingRow[]) => {
+    const normalizedResi = resiNumber.trim()
+    setRecordings((current) => [
+      ...rows,
+      ...current.filter((record) => record.resiNumber.trim() !== normalizedResi),
+    ])
+  }, [])
+
   const findRecordingByResi = useCallback(async (resiNumber: string, taskType?: WorkTask) => {
     const normalizedResi = resiNumber.trim()
     const localMatch =
@@ -1023,8 +1034,8 @@ function App() {
     }
 
     try {
-      const rows = await readServerRecordingsApi()
-      setRecordings(rows)
+      const rows = await readServerRecordingsByResiApi(normalizedResi)
+      mergeRecordingsForResi(normalizedResi, rows)
       return (
         rows.find(
           (record) => record.resiNumber.trim() === normalizedResi && (taskType ? record.taskType === taskType : true),
@@ -1033,13 +1044,13 @@ function App() {
     } catch {
       return null
     }
-  }, [recordings])
+  }, [mergeRecordingsForResi, recordings])
 
   const resolveLatestTaskProgress = useCallback(
     async (resiNumber: string) => {
       try {
-        const rows = await readServerRecordingsApi()
-        setRecordings(rows)
+        const rows = await readServerRecordingsByResiApi(resiNumber)
+        mergeRecordingsForResi(resiNumber, rows)
 
         const qc = rows.find((record) => record.resiNumber.trim() === resiNumber.trim() && record.taskType === 'qc')
         const packing = rows.find(
@@ -1056,7 +1067,7 @@ function App() {
         return { qc: qc ?? null, packing: packing ?? null }
       }
     },
-    [recordings],
+    [mergeRecordingsForResi, recordings],
   )
 
   const refreshHistory = useCallback(async () => {
@@ -1168,7 +1179,6 @@ function App() {
         }
 
         setScanResi('')
-        void refreshHistory()
         return 'started'
       } catch (error) {
         setWatermarkResi((current) => (current === resiNumber ? null : current))
@@ -1185,7 +1195,6 @@ function App() {
       playScanFeedback,
       recordingSession,
       resolveLatestTaskProgress,
-      refreshHistory,
       session,
       showScanNotice,
     ],

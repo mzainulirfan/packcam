@@ -7,6 +7,7 @@ type BarcodeScannerOptions = {
   onUnsupported?: () => void
   intervalMs?: number
   cooldownMs?: number
+  maxScanWidth?: number
   resetToken?: number
 }
 
@@ -40,6 +41,7 @@ export function useBarcodeScanner({
   onUnsupported,
   intervalMs = 700,
   cooldownMs = 2500,
+  maxScanWidth = 640,
   resetToken = 0,
 }: BarcodeScannerOptions) {
   const lastValueRef = useRef<string | null>(null)
@@ -70,17 +72,27 @@ export function useBarcodeScanner({
     const context = canvas.getContext('2d', { willReadFrequently: true })
     let cancelled = false
     let timerId: number | null = null
+    let scanning = false
 
     async function scanFrame() {
-      if (cancelled || !video.videoWidth || !video.videoHeight || !context) {
+      if (cancelled || scanning || !video.videoWidth || !video.videoHeight || !context) {
         return
       }
 
-      canvas.width = video.videoWidth
-      canvas.height = video.videoHeight
-      context.drawImage(video, 0, 0, canvas.width, canvas.height)
+      scanning = true
 
       try {
+        const scale = Math.min(1, maxScanWidth / video.videoWidth)
+        const targetWidth = Math.max(1, Math.round(video.videoWidth * scale))
+        const targetHeight = Math.max(1, Math.round(video.videoHeight * scale))
+
+        if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+          canvas.width = targetWidth
+          canvas.height = targetHeight
+        }
+
+        context.drawImage(video, 0, 0, targetWidth, targetHeight)
+
         const barcodes = await activeDetector.detect(canvas)
         const rawValue = barcodes[0]?.rawValue?.trim()
 
@@ -98,6 +110,8 @@ export function useBarcodeScanner({
         }
       } catch {
         // Ignore transient detector errors and retry on the next interval.
+      } finally {
+        scanning = false
       }
     }
 
@@ -113,5 +127,5 @@ export function useBarcodeScanner({
         window.clearInterval(timerId)
       }
     }
-  }, [cooldownMs, enabled, intervalMs, onDetected, onUnsupported, videoElement, resetToken])
+  }, [cooldownMs, enabled, intervalMs, maxScanWidth, onDetected, onUnsupported, videoElement, resetToken])
 }

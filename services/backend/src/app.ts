@@ -8,7 +8,7 @@ import multer from 'multer'
 import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
 import type { AppSettings } from '@pakti/types'
 
-import { clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deleteRecording, deleteSessionById, finalizeRecording, getBootstrapStatus, getHealthSnapshot, getRecordingById, invalidateCompletedRecordingsForResi, listOperatorProfiles, listRecordings, listScanLogs, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, saveSettings, saveSystemConfig, updateSessionTaskType, upsertOperatorProfile } from './store'
+import { clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deleteRecording, deleteSessionById, finalizeRecording, getBootstrapStatus, getHealthSnapshot, getRecordingById, invalidateCompletedRecordingsForResi, listOperatorProfiles, listRecordings, listRecordingsByResi, listScanLogs, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, saveSettings, saveSystemConfig, updateSessionTaskType, upsertOperatorProfile } from './store'
 import { clearSessionCookie, getCookie, normalizeRole, readStringField, sendError, sendOk, setSessionCookie } from './http'
 import type { HttpSession } from './http'
 import { ensureServerStorage, getUploadsDir } from './db'
@@ -444,6 +444,11 @@ app.post('/api/operators/:operatorName/:operatorCode/:role/password', requireAdm
 
 app.get('/api/recordings', (_req, res) => {
   sendOk(res, listRecordings())
+})
+
+app.get('/api/recordings/resi/:resiNumber', (req, res) => {
+  const params = req.params as Record<string, string | undefined>
+  sendOk(res, listRecordingsByResi(params.resiNumber ?? ''))
 })
 
 app.post('/api/recordings', (req, res) => {

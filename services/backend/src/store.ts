@@ -721,6 +721,24 @@ export function getRecordingById(id: string) {
   return row ?? null
 }
 
+export function listRecordingsByResi(resiNumber: string) {
+  const normalizedResi = resiNumber.trim()
+  if (!normalizedResi) {
+    return []
+  }
+
+  return db()
+    .prepare(
+      `SELECT id, resi_number, task_type, operator_name, operator_code, file_name, file_path, file_size_bytes,
+              record_date, start_time, end_time, duration_seconds, status, note, created_at, updated_at
+       FROM recordings
+       WHERE resi_number = ?
+         AND task_type IN ('qc', 'packing')
+       ORDER BY start_time DESC`,
+    )
+    .all(normalizedResi) as RecordingRow[]
+}
+
 export function createRecordingDraft(input: RecordingDraftInput) {
   const id = input.id ?? makeId('recording')
   const startedAt = input.startedAt ? new Date(input.startedAt) : new Date()

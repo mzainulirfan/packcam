@@ -289,6 +289,11 @@ export function readServerRecordingsApi() {
     .then((records) => records.map(normalizeRecordingRow))
 }
 
+export function readServerRecordingsByResiApi(resiNumber: string) {
+  return requestApi<ServerRecordingRow[]>(`/api/recordings/resi/${encodeURIComponent(resiNumber)}`)
+    .then((records) => records.map(normalizeRecordingRow))
+}
+
 export function createServerRecordingDraftApi(payload: {
   id?: string
   resiNumber: string

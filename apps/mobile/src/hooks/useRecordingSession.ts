@@ -276,7 +276,7 @@ export function useMobileRecordingSession({ stream, settings, operatorName, oper
     }
 
     try {
-      recorder.start(1000)
+      recorder.start(3000)
       logScanEvent(
         resiNumber,
         'start',
