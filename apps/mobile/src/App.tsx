@@ -1479,7 +1479,7 @@ function App() {
 
             <CameraPreview
               onVideoElement={setScanVideoElement}
-              stream={watermarkedVideoStream ?? cameraState.stream}
+              stream={cameraState.stream}
               isLoading={cameraState.loading}
               error={cameraState.error}
               emptyMessage="Arahkan kamera ke area kerja."

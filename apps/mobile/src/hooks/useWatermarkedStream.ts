@@ -8,6 +8,9 @@ type UseWatermarkedStreamOptions = {
   watermarkTime: string | null
 }
 
+const MAX_RECORDING_WIDTH = 1280
+const OUTPUT_FPS = 30
+
 export function useWatermarkedStream({
   sourceStream,
   watermarkResi,
@@ -68,7 +71,7 @@ export function useWatermarkedStream({
 
     const drawingContext = context
     let cancelled = false
-    let animationFrameId = 0
+    let frameTimerId: number | null = null
     let outputStream: MediaStream | null = null
 
     function ensureOutputStream() {
@@ -80,15 +83,19 @@ export function useWatermarkedStream({
       setWatermarkedStream(outputStream)
     }
 
-    function drawFrame() {
+    function drawCurrentFrame() {
       if (cancelled) {
         return
       }
 
       if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth > 0 && video.videoHeight > 0) {
-        if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
-          canvas.width = video.videoWidth
-          canvas.height = video.videoHeight
+        const scale = Math.min(1, MAX_RECORDING_WIDTH / video.videoWidth)
+        const targetWidth = Math.max(1, Math.round(video.videoWidth * scale))
+        const targetHeight = Math.max(1, Math.round(video.videoHeight * scale))
+
+        if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+          canvas.width = targetWidth
+          canvas.height = targetHeight
         }
 
         drawingContext.drawImage(video, 0, 0, canvas.width, canvas.height)
@@ -130,8 +137,23 @@ export function useWatermarkedStream({
 
         ensureOutputStream()
       }
+    }
 
-      animationFrameId = window.requestAnimationFrame(drawFrame)
+    function scheduleNextFrame() {
+      if (cancelled || frameTimerId !== null) {
+        return
+      }
+
+      frameTimerId = window.setTimeout(() => {
+        frameTimerId = null
+        drawCurrentFrame()
+        scheduleNextFrame()
+      }, 1000 / OUTPUT_FPS)
+    }
+
+    function drawFrame() {
+      drawCurrentFrame()
+      scheduleNextFrame()
     }
 
     drawFrameRef.current = drawFrame
@@ -151,7 +173,9 @@ export function useWatermarkedStream({
     return () => {
       cancelled = true
       drawFrameRef.current = null
-      window.cancelAnimationFrame(animationFrameId)
+      if (frameTimerId !== null) {
+        window.clearTimeout(frameTimerId)
+      }
       video.pause()
       video.srcObject = null
       outputStream?.getTracks().forEach((track) => track.stop())

@@ -9,6 +9,19 @@ type CameraStreamState = {
 
 type FacingMode = 'environment' | 'user'
 
+const CAMERA_VIDEO_BASE: MediaTrackConstraints = {
+  width: { ideal: 1280, max: 1280 },
+  height: { ideal: 720, max: 720 },
+  frameRate: { ideal: 30, max: 30 },
+}
+
+function withCameraBase(constraints: MediaTrackConstraints): MediaTrackConstraints {
+  return {
+    ...CAMERA_VIDEO_BASE,
+    ...constraints,
+  }
+}
+
 function stopStream(stream: MediaStream | null) {
   stream?.getTracks().forEach((track) => track.stop())
 }
@@ -74,15 +87,17 @@ export function useCameraStream(deviceId: string, enabled = true, preferredFacin
         const secondaryFacingMode: FacingMode = preferredFacingMode === 'environment' ? 'user' : 'environment'
         const preferredConstraints: MediaStreamConstraints[] = deviceId
           ? [
-              { video: { facingMode: preferredFacingMode }, audio: false },
-              { video: { deviceId: { exact: deviceId } }, audio: false },
-              { video: { deviceId }, audio: false },
-              { video: { facingMode: secondaryFacingMode }, audio: false },
+              { video: withCameraBase({ facingMode: preferredFacingMode }), audio: false },
+              { video: withCameraBase({ deviceId: { exact: deviceId } }), audio: false },
+              { video: withCameraBase({ deviceId }), audio: false },
+              { video: withCameraBase({ facingMode: secondaryFacingMode }), audio: false },
+              { video: CAMERA_VIDEO_BASE, audio: false },
               { video: true, audio: false },
             ]
           : [
-              { video: { facingMode: preferredFacingMode }, audio: false },
-              { video: { facingMode: secondaryFacingMode }, audio: false },
+              { video: withCameraBase({ facingMode: preferredFacingMode }), audio: false },
+              { video: withCameraBase({ facingMode: secondaryFacingMode }), audio: false },
+              { video: CAMERA_VIDEO_BASE, audio: false },
               { video: true, audio: false },
             ]
 
