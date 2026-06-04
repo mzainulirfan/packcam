@@ -1538,13 +1538,7 @@ function App() {
                   )}
 
                   {activeRecordingResi ? (
-                    <div
-                      className={
-                        recordingSession.state.mode === 'recording'
-                          ? 'scan-watermark scan-watermark--recording'
-                          : 'scan-watermark'
-                      }
-                    >
+                    <div className="scan-watermark scan-watermark--recording">
                       <div className="grid gap-0.5">
                         <strong className="scan-watermark__resi">RESI {activeRecordingResi}</strong>
                         <span className="text-[0.66rem] font-semibold leading-tight text-white/88">
@@ -1565,7 +1559,13 @@ function App() {
                 </div>
               }
               bottomSlot={
-                <div className="scan-control-panel">
+                <div
+                  className={
+                    recordingSession.state.mode === 'recording'
+                      ? 'scan-control-panel scan-control-panel--recording'
+                      : 'scan-control-panel'
+                  }
+                >
                   {scanProgressState ? (
                     <div className={`scan-progress-note scan-progress-note--${scanProgressState.tone}`}>
                       <strong>{scanProgressState.title}</strong>
