@@ -25,6 +25,7 @@ Dokumen ini menjadi sumber roadmap task dan rencana implementasi Pakti Packcam.
 - Optimasi performa mobile recording: lookup duplicate/progress per resi, scanner downscale/non-overlap, interval scanner lebih ringan saat recording, dan upload chunk recording menjadi 3 detik.
 - Validasi tambahan: `npm run build --workspace @pakti/backend`.
 - Optimasi lanjutan mobile recording: recorder memakai stream kamera asli dan watermark dipindahkan menjadi overlay preview ringan agar canvas realtime tidak membebani perekaman.
+- Watermark permanen video ditambahkan di backend setelah finalize menggunakan ffmpeg-static dengan isi nomor resi, petugas, dan tanggal-jam-menit.
 
 ## Prioritas P2
 

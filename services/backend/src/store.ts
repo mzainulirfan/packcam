@@ -1,8 +1,10 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { spawn } from 'node:child_process'
 
 import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
 import type { AppSettings, OperatorProfile, OperatorRole, RecordingStatus, SystemConfig, WorkTask } from '@pakti/types'
+import ffmpegStatic from 'ffmpeg-static'
 
 import { getDb, getDbPath, getPendingRecordingsDir, getUploadsDir, ensureServerStorage } from './db'
 import { createPasswordDigest, verifyPassword } from './auth'
@@ -84,6 +86,9 @@ const MAX_SCAN_LOGS = 500
 const LEGACY_SYSTEM_TAGLINE = 'Aplikasi yang membantu UMKM merekam proses QC dan packing paket secara lebih rapi.'
 const SESSION_TTL_HOURS = Number(process.env.SESSION_TTL_HOURS ?? 12)
 const SESSION_TTL_MS = Math.max(1, SESSION_TTL_HOURS) * 60 * 60 * 1000
+const WATERMARK_TIME_ZONE = process.env.PAKTI_TIME_ZONE || 'Asia/Jakarta'
+let watermarkQueue = Promise.resolve()
+
 function nowIso() {
   return new Date().toISOString()
 }
@@ -962,6 +967,150 @@ function appendBufferToPendingRecording(recordingId: string, buffer: Buffer) {
   return pendingPath
 }
 
+function getFfmpegPath() {
+  return process.env.FFMPEG_PATH || ffmpegStatic || 'ffmpeg'
+}
+
+function getWatermarkFontPath() {
+  const candidates = [
+    process.env.PAKTI_WATERMARK_FONT,
+    'C:\\Windows\\Fonts\\arial.ttf',
+    'C:\\Windows\\Fonts\\segoeui.ttf',
+    '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+    '/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf',
+  ].filter(Boolean) as string[]
+
+  return candidates.find((candidate) => fs.existsSync(candidate)) ?? null
+}
+
+function escapeDrawTextValue(value: string) {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/:/g, '\\:')
+    .replace(/'/g, "\\'")
+    .replace(/%/g, '\\%')
+    .replace(/,/g, '\\,')
+}
+
+function escapeFilterPath(value: string) {
+  return value.replace(/\\/g, '/').replace(/:/g, '\\:')
+}
+
+function formatWatermarkDate(value: string | null) {
+  const date = value ? new Date(value) : new Date()
+  return new Intl.DateTimeFormat('id-ID', {
+    timeZone: WATERMARK_TIME_ZONE,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+}
+
+function buildDrawTextFilter(recording: RecordingRow) {
+  const operator = [recording.operator_name, recording.operator_code]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(' / ') || '-'
+  const fontPath = getWatermarkFontPath()
+  const fontOption = fontPath ? `:fontfile='${escapeFilterPath(fontPath)}'` : ''
+  const line1 = escapeDrawTextValue(`RESI ${recording.resi_number}`)
+  const line2 = escapeDrawTextValue(`Petugas: ${operator}`)
+  const line3 = escapeDrawTextValue(formatWatermarkDate(recording.start_time))
+
+  return [
+    'drawbox=x=16:y=h-112:w=560:h=96:color=black@0.42:t=fill',
+    `drawtext=text='${line1}'${fontOption}:x=32:y=h-98:fontsize=24:fontcolor=white`,
+    `drawtext=text='${line2}'${fontOption}:x=32:y=h-66:fontsize=17:fontcolor=white@0.92`,
+    `drawtext=text='${line3}'${fontOption}:x=32:y=h-40:fontsize=15:fontcolor=white@0.78`,
+  ].join(',')
+}
+
+async function runFfmpegWatermark(recording: RecordingRow, inputPath: string) {
+  if (process.env.PAKTI_DISABLE_VIDEO_WATERMARK === '1') {
+    return
+  }
+
+  if (!fs.existsSync(inputPath)) {
+    return
+  }
+
+  const outputPath = `${inputPath}.watermarked.webm`
+  const ffmpegPath = getFfmpegPath()
+  const filter = buildDrawTextFilter(recording)
+  const args = [
+    '-y',
+    '-i',
+    inputPath,
+    '-vf',
+    filter,
+    '-c:v',
+    'libvpx-vp9',
+    '-deadline',
+    'realtime',
+    '-cpu-used',
+    '6',
+    '-row-mt',
+    '1',
+    '-b:v',
+    '0',
+    '-crf',
+    '36',
+    '-c:a',
+    'copy',
+    outputPath,
+  ]
+
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(ffmpegPath, args, { windowsHide: true })
+    let stderr = ''
+
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString()
+      if (stderr.length > 4000) {
+        stderr = stderr.slice(-4000)
+      }
+    })
+
+    child.on('error', reject)
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve()
+      } else {
+        reject(new Error(`ffmpeg watermark gagal (${code ?? 'unknown'}): ${stderr.trim()}`))
+      }
+    })
+  })
+
+  fs.copyFileSync(outputPath, inputPath)
+  fs.rmSync(outputPath, { force: true })
+  const fileStats = fs.statSync(inputPath)
+  db()
+    .prepare(`UPDATE recordings SET file_size_bytes = ?, note = COALESCE(note, ?), updated_at = ? WHERE id = ?`)
+    .run(fileStats.size, 'Video sudah diberi watermark.', nowIso(), recording.id)
+  broadcastBackendEvent('recordings-updated', { recordingId: recording.id, action: 'watermarked', resiNumber: recording.resi_number })
+}
+
+function scheduleRecordingWatermark(recording: RecordingRow | null) {
+  if (!recording || recording.status !== 'completed') {
+    return
+  }
+
+  const inputPath = getUploadedFilePath(recording)
+  watermarkQueue = watermarkQueue.then(async () => {
+    try {
+      await runFfmpegWatermark(recording, inputPath)
+    } catch (error) {
+      if (fs.existsSync(`${inputPath}.watermarked.webm`)) {
+        fs.rmSync(`${inputPath}.watermarked.webm`, { force: true })
+      }
+
+      reportLastError(error instanceof Error ? error.message : 'Gagal memberi watermark video.')
+    }
+  })
+}
+
 function finalizePendingRecording(
   recording: RecordingRow,
   payload: { endTime?: string; note?: string | null },
@@ -984,7 +1133,9 @@ function finalizePendingRecording(
        WHERE id = ?`,
     ).run(endTime, durationSeconds, fileStats.size, payload.note ?? null, nowIso(), recording.id)
 
-    return getRecordingById(recording.id)
+    const finalized = getRecordingById(recording.id)
+    scheduleRecordingWatermark(finalized)
+    return finalized
   }
 
   fs.mkdirSync(path.dirname(finalPath), { recursive: true })
@@ -1000,7 +1151,9 @@ function finalizePendingRecording(
   ).run(endTime, durationSeconds, fileStats.size, payload.note ?? null, nowIso(), recording.id)
 
   broadcastBackendEvent('recordings-updated', { recordingId: recording.id, action: 'finalized', resiNumber: recording.resi_number })
-  return getRecordingById(recording.id)
+  const finalized = getRecordingById(recording.id)
+  scheduleRecordingWatermark(finalized)
+  return finalized
 }
 
 function clearUploadArtifacts() {
