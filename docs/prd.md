@@ -37,6 +37,7 @@ Produk berjalan sebagai aplikasi lokal berbasis web:
 - Task kerja `qc` dan `packing`.
 - Scan resi lewat input manual/barcode dan kamera.
 - Preview kamera, watermark, recording, upload chunk, finalize, dan recovery.
+- Mobile scan queue menjaga recording aktif tetap berjalan ketika kamera membaca resi duplikat atau resi yang sudah selesai diproses.
 - History dengan filter, grouping per resi, preview, download, copy, dan export.
 - Users, Settings, Health, Admin, dan mobile workflow.
 

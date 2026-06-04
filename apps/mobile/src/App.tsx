@@ -129,7 +129,7 @@ type ScanProgressState = {
 type StartScanRecordingFn = (
   resiInput: string,
   source?: 'manual' | 'camera',
-) => Promise<'started' | 'duplicate' | 'error'>
+) => Promise<'started' | 'duplicate' | 'queued' | 'error'>
 
 const ACTIVE_TAB_STORAGE_KEY = 'pakti_mobile_active_tab'
 const THEME_STORAGE_KEY = 'pakti_mobile_theme'
@@ -447,6 +447,19 @@ function App() {
         if (currentRecordingState.mode === 'recording') {
           if (currentRecordingState.activeResi === nextResi) {
             pendingScanResiRef.current.shift()
+            continue
+          }
+
+          pendingScanResiRef.current.shift()
+          const startScanRecording = startScanRecordingRef.current
+          if (!startScanRecording) {
+            return
+          }
+
+          const result = await startScanRecording(nextResi, 'camera')
+          if (result === 'queued') {
+            pendingScanResiRef.current.unshift(nextResi)
+          } else {
             continue
           }
 
@@ -1065,102 +1078,106 @@ function App() {
   }, [session])
 
   const startScanRecording = useCallback(
-    async (resiInput: string, source: 'manual' | 'camera' = 'manual'): Promise<'started' | 'duplicate' | 'error'> => {
-    if (!session) {
-      return 'error'
-    }
-
-    const resiNumber = resiInput.trim()
-    if (!resiNumber) {
-      if (source === 'manual') {
-        setBootError('Isi nomor resi dulu.')
+    async (resiInput: string, source: 'manual' | 'camera' = 'manual'): Promise<'started' | 'duplicate' | 'queued' | 'error'> => {
+      if (!session) {
+        return 'error'
       }
-      return 'error'
-    }
 
-    const taskProgress = session.taskType === 'packing' ? await resolveLatestTaskProgress(resiNumber) : null
-    if (session.taskType === 'packing' && taskProgress?.qc?.status !== 'completed') {
-      const qcMessage =
-        taskProgress?.qc?.status === 'recording'
-          ? 'Resi ini masih di QC. Tunggu selesai dulu.'
-          : 'Resi ini belum masuk QC. Packing belum bisa jalan.'
+      const resiNumber = resiInput.trim()
+      if (!resiNumber) {
+        if (source === 'manual') {
+          setBootError('Isi nomor resi dulu.')
+        }
+        return 'error'
+      }
 
-      playScanFeedback('warning')
-      showScanNotice({
-        kind: 'warning',
-        title: 'QC belum selesai',
-        message: qcMessage,
-      })
-      setScanResi('')
-      return 'error'
-    }
+      const taskProgress = session.taskType === 'packing' ? await resolveLatestTaskProgress(resiNumber) : null
+      if (session.taskType === 'packing' && taskProgress?.qc?.status !== 'completed') {
+        const qcMessage =
+          taskProgress?.qc?.status === 'recording'
+            ? 'Resi ini masih di QC. Tunggu selesai dulu.'
+            : 'Resi ini belum masuk QC. Packing belum bisa jalan.'
 
-    setScanBusy(true)
-    void primeScanFeedbackAudio()
-
-    try {
-      const existing = await findRecordingByResi(resiNumber, session.taskType)
-      if (existing) {
         playScanFeedback('warning')
-        rejectedResiRef.current = resiNumber
-        window.setTimeout(() => {
-          if (rejectedResiRef.current === resiNumber) {
-            rejectedResiRef.current = null
-          }
-        }, 4000)
-        const currentTaskName = formatTask(session.taskType)
-        const duplicateTitle =
-          existing.status === 'completed'
-            ? session.taskType === 'packing' && taskProgress?.qc?.status === 'completed'
-              ? 'Sudah lengkap'
-              : `${currentTaskName} selesai`
-            : `${currentTaskName} sedang jalan`
-
-        const duplicateMessage =
-          existing.status === 'completed'
-            ? session.taskType === 'packing' && taskProgress?.qc?.status === 'completed'
-              ? 'QC dan Packing sudah selesai.'
-              : `Resi ini sudah diproses di ${currentTaskName}.`
-            : existing.status === 'recording'
-              ? `Resi ini sedang diproses di ${currentTaskName}.`
-              : `Resi ini sudah tercatat di ${currentTaskName}.`
-
         showScanNotice({
           kind: 'warning',
-          title: duplicateTitle,
-          message: duplicateMessage,
+          title: 'QC belum selesai',
+          message: qcMessage,
         })
-        setWatermarkResi((current) => (current === resiNumber ? null : current))
         setScanResi('')
-        return 'duplicate'
+        return 'error'
       }
 
-      rejectedResiRef.current = null
-      setWatermarkResi(resiNumber)
-      commitWatermarkFrame(resiNumber)
-      await recordingSession.startRecording(resiNumber)
+      setScanBusy(true)
+      void primeScanFeedbackAudio()
 
-      playScanFeedback('success')
+      try {
+        const existing = await findRecordingByResi(resiNumber, session.taskType)
+        if (existing) {
+          playScanFeedback('warning')
+          rejectedResiRef.current = resiNumber
+          window.setTimeout(() => {
+            if (rejectedResiRef.current === resiNumber) {
+              rejectedResiRef.current = null
+            }
+          }, 4000)
+          const currentTaskName = formatTask(session.taskType)
+          const duplicateTitle =
+            existing.status === 'completed'
+              ? session.taskType === 'packing' && taskProgress?.qc?.status === 'completed'
+                ? 'Sudah lengkap'
+                : `${currentTaskName} selesai`
+              : `${currentTaskName} sedang jalan`
 
-      if (source === 'camera') {
-        showScanNotice({
-          kind: 'success',
-          title: 'Scan berhasil',
-          message: `Resi ${resiNumber} masuk ke ${formatTask(session.taskType)}.`,
-        })
+          const duplicateMessage =
+            existing.status === 'completed'
+              ? session.taskType === 'packing' && taskProgress?.qc?.status === 'completed'
+                ? 'QC dan Packing sudah selesai.'
+                : `Resi ini sudah diproses di ${currentTaskName}.`
+              : existing.status === 'recording'
+                ? `Resi ini sedang diproses di ${currentTaskName}.`
+                : `Resi ini sudah tercatat di ${currentTaskName}.`
+
+          showScanNotice({
+            kind: 'warning',
+            title: duplicateTitle,
+            message: duplicateMessage,
+          })
+          setWatermarkResi((current) => (current === resiNumber ? null : current))
+          setScanResi('')
+          return 'duplicate'
+        }
+
+        rejectedResiRef.current = null
+        if (recordingSession.state.mode === 'recording' && recordingSession.state.activeResi !== resiNumber) {
+          return 'queued'
+        }
+
+        setWatermarkResi(resiNumber)
+        commitWatermarkFrame(resiNumber)
+        await recordingSession.startRecording(resiNumber)
+
+        playScanFeedback('success')
+
+        if (source === 'camera') {
+          showScanNotice({
+            kind: 'success',
+            title: 'Scan berhasil',
+            message: `Resi ${resiNumber} masuk ke ${formatTask(session.taskType)}.`,
+          })
+        }
+
+        setScanResi('')
+        void refreshHistory()
+        return 'started'
+      } catch (error) {
+        setWatermarkResi((current) => (current === resiNumber ? null : current))
+        setBootError(normalizeError(error))
+        return 'error'
+      } finally {
+        setScanBusy(false)
       }
-
-      setScanResi('')
-      void refreshHistory()
-      return 'started'
-    } catch (error) {
-      setWatermarkResi((current) => (current === resiNumber ? null : current))
-      setBootError(normalizeError(error))
-      return 'error'
-    } finally {
-      setScanBusy(false)
-    }
-  },
+    },
     [
       findRecordingByResi,
       commitWatermarkFrame,

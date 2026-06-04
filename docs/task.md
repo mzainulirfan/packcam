@@ -18,6 +18,11 @@ Dokumen ini menjadi sumber roadmap task dan rencana implementasi Pakti Packcam.
 - Tambahkan validasi Settings.
 - Perkuat Health dan Recovery Admin.
 
+## Selesai 2026-06-04
+
+- Bugfix mobile scan queue: scan kamera untuk resi duplikat/sudah direkam saat recording aktif tidak lagi menghentikan recording yang sedang berjalan.
+- Validasi: `npm run build --workspace @pakti/mobile` dan `npm run lint`.
+
 ## Prioritas P2
 
 - Perluas test scanner logic.
