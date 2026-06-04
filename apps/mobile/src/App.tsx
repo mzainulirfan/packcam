@@ -7,6 +7,7 @@ import {
   History,
   LogOut,
   Menu,
+  Mic,
   MoonStar,
   RefreshCw,
   ScanLine,
@@ -220,7 +221,7 @@ function App() {
   const isDarkTheme = theme === 'dark'
   const currentTaskType: WorkTask = session?.taskType ?? 'qc'
   const isPackingMode = String(currentTaskType) === 'packing'
-  const cameraState = useCameraStream(settings.cameraDeviceId, Boolean(session) && activeTab === 'scan', 'environment')
+  const cameraState = useCameraStream(settings.cameraDeviceId, Boolean(session) && activeTab === 'scan', 'environment', true)
   const historyCameraState = useCameraStream(settings.cameraDeviceId, historyScanOpen, 'environment')
   const watermarkOverlayTime = new Intl.DateTimeFormat('id-ID', {
     dateStyle: 'medium',
@@ -240,6 +241,7 @@ function App() {
     recordingSession.state.mode === 'recording'
       ? recordingSession.state.activeResi ?? watermarkResi ?? (scanResi.trim() || null)
       : null
+  const recordingHasAudio = Boolean(cameraState.stream?.getAudioTracks().some((track) => track.readyState === 'live'))
   const scannerIntervalMs = recordingSession.state.mode === 'recording' ? 700 : 360
 
   const recordingStateRef = useRef(recordingSession.state)
@@ -1495,6 +1497,18 @@ function App() {
                       <Camera size={14} />
                       {activeRecordingResi ? `${formatTask(currentTaskType)}: ${activeRecordingResi}` : 'Preview kamera'}
                     </span>
+                    {recordingHasAudio ? (
+                      <span
+                        className={
+                          isDarkTheme
+                            ? 'inline-flex items-center gap-1.5 rounded-full bg-[rgba(10,13,18,0.86)] px-2.5 py-1.5 text-[0.68rem] font-bold text-emerald-200 shadow-[0_10px_24px_rgba(0,0,0,0.22)]'
+                            : 'inline-flex items-center gap-1.5 rounded-full border border-emerald-200/80 bg-emerald-50/90 px-2.5 py-1.5 text-[0.68rem] font-bold text-emerald-800 shadow-[0_10px_24px_rgba(15,23,42,0.08)]'
+                        }
+                      >
+                        <Mic size={12} />
+                        Audio
+                      </span>
+                    ) : null}
                     <div className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap">
                       {isAdmin ? (
                         <Button

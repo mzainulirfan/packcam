@@ -15,6 +15,12 @@ const CAMERA_VIDEO_BASE: MediaTrackConstraints = {
   frameRate: { ideal: 30, max: 30 },
 }
 
+const CAMERA_AUDIO_BASE: MediaTrackConstraints = {
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl: true,
+}
+
 function withCameraBase(constraints: MediaTrackConstraints): MediaTrackConstraints {
   return {
     ...CAMERA_VIDEO_BASE,
@@ -22,11 +28,23 @@ function withCameraBase(constraints: MediaTrackConstraints): MediaTrackConstrain
   }
 }
 
+function withAudio(video: MediaTrackConstraints, includeAudio: boolean): MediaStreamConstraints {
+  return {
+    video,
+    audio: includeAudio ? CAMERA_AUDIO_BASE : false,
+  }
+}
+
 function stopStream(stream: MediaStream | null) {
   stream?.getTracks().forEach((track) => track.stop())
 }
 
-export function useCameraStream(deviceId: string, enabled = true, preferredFacingMode: FacingMode = 'environment') {
+export function useCameraStream(
+  deviceId: string,
+  enabled = true,
+  preferredFacingMode: FacingMode = 'environment',
+  includeAudio = false,
+) {
   const [state, setState] = useState<CameraStreamState>({
     stream: null,
     loading: false,
@@ -87,6 +105,11 @@ export function useCameraStream(deviceId: string, enabled = true, preferredFacin
         const secondaryFacingMode: FacingMode = preferredFacingMode === 'environment' ? 'user' : 'environment'
         const preferredConstraints: MediaStreamConstraints[] = deviceId
           ? [
+              withAudio(withCameraBase({ facingMode: preferredFacingMode }), includeAudio),
+              withAudio(withCameraBase({ deviceId: { exact: deviceId } }), includeAudio),
+              withAudio(withCameraBase({ deviceId }), includeAudio),
+              withAudio(withCameraBase({ facingMode: secondaryFacingMode }), includeAudio),
+              withAudio(CAMERA_VIDEO_BASE, includeAudio),
               { video: withCameraBase({ facingMode: preferredFacingMode }), audio: false },
               { video: withCameraBase({ deviceId: { exact: deviceId } }), audio: false },
               { video: withCameraBase({ deviceId }), audio: false },
@@ -95,6 +118,9 @@ export function useCameraStream(deviceId: string, enabled = true, preferredFacin
               { video: true, audio: false },
             ]
           : [
+              withAudio(withCameraBase({ facingMode: preferredFacingMode }), includeAudio),
+              withAudio(withCameraBase({ facingMode: secondaryFacingMode }), includeAudio),
+              withAudio(CAMERA_VIDEO_BASE, includeAudio),
               { video: withCameraBase({ facingMode: preferredFacingMode }), audio: false },
               { video: withCameraBase({ facingMode: secondaryFacingMode }), audio: false },
               { video: CAMERA_VIDEO_BASE, audio: false },
@@ -148,7 +174,7 @@ export function useCameraStream(deviceId: string, enabled = true, preferredFacin
     return () => {
       cancelled = true
     }
-  }, [deviceId, enabled, preferredFacingMode])
+  }, [deviceId, enabled, preferredFacingMode, includeAudio])
 
   useEffect(
     () => () => {
