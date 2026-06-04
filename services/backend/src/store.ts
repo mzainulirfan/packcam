@@ -1020,10 +1020,10 @@ function buildDrawTextFilter(recording: RecordingRow) {
   const line3 = escapeDrawTextValue(formatWatermarkDate(recording.start_time))
 
   return [
-    'drawbox=x=16:y=h-112:w=560:h=96:color=black@0.42:t=fill',
-    `drawtext=text='${line1}'${fontOption}:x=32:y=h-98:fontsize=24:fontcolor=white`,
-    `drawtext=text='${line2}'${fontOption}:x=32:y=h-66:fontsize=17:fontcolor=white@0.92`,
-    `drawtext=text='${line3}'${fontOption}:x=32:y=h-40:fontsize=15:fontcolor=white@0.78`,
+    'drawbox=x=(w-560)/2:y=24:w=560:h=96:color=black@0.42:t=fill',
+    `drawtext=text='${line1}'${fontOption}:x=(w-560)/2+16:y=38:fontsize=24:fontcolor=white`,
+    `drawtext=text='${line2}'${fontOption}:x=(w-560)/2+16:y=70:fontsize=17:fontcolor=white@0.92`,
+    `drawtext=text='${line3}'${fontOption}:x=(w-560)/2+16:y=96:fontsize=15:fontcolor=white@0.78`,
   ].join(',')
 }
 
