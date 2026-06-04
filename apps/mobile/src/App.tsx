@@ -1538,9 +1538,15 @@ function App() {
                   )}
 
                   {activeRecordingResi ? (
-                    <div className="scan-watermark">
+                    <div
+                      className={
+                        recordingSession.state.mode === 'recording'
+                          ? 'scan-watermark scan-watermark--recording'
+                          : 'scan-watermark'
+                      }
+                    >
                       <div className="grid gap-0.5">
-                        <strong className="text-[0.76rem] leading-tight">RESI {activeRecordingResi}</strong>
+                        <strong className="scan-watermark__resi">RESI {activeRecordingResi}</strong>
                         <span className="text-[0.66rem] font-semibold leading-tight text-white/88">
                           {formatTask(currentTaskType)} | {session.operatorName || session.operatorCode || '-'}
                         </span>

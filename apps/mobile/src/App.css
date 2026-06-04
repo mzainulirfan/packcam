@@ -328,12 +328,29 @@ button {
   pointer-events: none;
   width: fit-content;
   max-width: min(92vw, 24rem);
-  border-radius: 16px;
-  background: rgba(2, 6, 23, 0.46);
+  border-radius: 14px;
+  background: rgba(2, 6, 23, 0.38);
   color: white;
-  padding: 0.55rem 0.7rem;
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+  padding: 0.46rem 0.62rem;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.16);
   backdrop-filter: blur(2px);
+  transition:
+    background-color 160ms ease,
+    opacity 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.scan-watermark--recording {
+  background: rgba(2, 6, 23, 0.24);
+  opacity: 0.72;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+}
+
+.scan-watermark__resi {
+  display: block;
+  font-size: 0.68rem;
+  line-height: 1.15;
+  letter-spacing: 0;
 }
 
 .scan-guide-simple {
