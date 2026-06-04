@@ -39,7 +39,6 @@ import { CameraPreview } from './components/CameraPreview'
 import { useBarcodeScanner } from './hooks/useBarcodeScanner'
 import { useCameraStream } from './hooks/useCameraStream'
 import { useMobileRecordingSession } from './hooks/useRecordingSession'
-import { useWatermarkedStream } from './hooks/useWatermarkedStream'
 import './App.css'
 
 type TabKey = 'scan' | 'history' | 'session'
@@ -223,19 +222,12 @@ function App() {
   const isPackingMode = String(currentTaskType) === 'packing'
   const cameraState = useCameraStream(settings.cameraDeviceId, Boolean(session) && activeTab === 'scan', 'environment')
   const historyCameraState = useCameraStream(settings.cameraDeviceId, historyScanOpen, 'environment')
-  const watermarkedStream = useWatermarkedStream({
-    sourceStream: cameraState.stream,
-    watermarkResi,
-    watermarkTask: session?.taskType ?? null,
-    watermarkOperator: session?.operatorName ?? session?.operatorCode ?? null,
-    watermarkTime: new Intl.DateTimeFormat('id-ID', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(new Date(scanClockTick)),
-  })
-  const { stream: watermarkedVideoStream, commitWatermarkFrame } = watermarkedStream
+  const watermarkOverlayTime = new Intl.DateTimeFormat('id-ID', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(scanClockTick))
   const recordingSession = useMobileRecordingSession({
-    stream: watermarkedVideoStream ?? cameraState.stream,
+    stream: cameraState.stream,
     settings: {
       videoRootPath: settings.videoRootPath,
       videoFormat: settings.videoFormat,
@@ -1165,7 +1157,6 @@ function App() {
         }
 
         setWatermarkResi(resiNumber)
-        commitWatermarkFrame(resiNumber)
         await recordingSession.startRecording(resiNumber)
 
         playScanFeedback('success')
@@ -1190,7 +1181,6 @@ function App() {
     },
     [
       findRecordingByResi,
-      commitWatermarkFrame,
       primeScanFeedbackAudio,
       playScanFeedback,
       recordingSession,
@@ -1493,35 +1483,48 @@ function App() {
               error={cameraState.error}
               emptyMessage="Arahkan kamera ke area kerja."
               topSlot={
-                <div className="flex w-full max-w-full flex-nowrap items-start justify-between gap-2">
-                  <span
-                    className={
-                      isDarkTheme
-                        ? 'inline-flex items-center gap-2 rounded-full bg-[rgba(10,13,18,0.86)] px-3 py-1.5 text-[0.72rem] font-bold text-[#f8d9a7] shadow-[0_10px_24px_rgba(0,0,0,0.28)]'
-                        : 'inline-flex items-center gap-2 rounded-full border border-amber-200/80 bg-amber-50/90 px-3 py-1.5 text-[0.72rem] font-bold text-amber-900 shadow-[0_10px_24px_rgba(15,23,42,0.08)]'
-                    }
-                  >
-                    <Camera size={14} />
-                    {activeRecordingResi ? `${formatTask(currentTaskType)}: ${activeRecordingResi}` : 'Preview kamera'}
-                  </span>
-                  <div className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap">
-                    {isAdmin ? (
-                      <Button
-                        type="button"
-                        variant={session.taskType === 'qc' ? 'secondary' : 'outline'}
-                        size="xs"
-                        onClick={() => void handleTaskChange(session.taskType === 'qc' ? 'packing' : 'qc')}
-                        disabled={taskBusy}
-                        aria-label={`Ganti task aktif ke ${session.taskType === 'qc' ? 'Packing' : 'QC'}`}
-                      >
-                        {formatTask(session.taskType)}
-                      </Button>
-                    ) : (
-                      <span className="inline-flex items-center rounded-full border border-border bg-muted/60 px-3 py-1.5 text-[0.72rem] font-bold text-foreground/80">
-                        Task: {formatTask(session.taskType)}
-                      </span>
-                    )}
+                <div className="grid w-full max-w-full gap-2">
+                  <div className="flex w-full max-w-full flex-nowrap items-start justify-between gap-2">
+                    <span
+                      className={
+                        isDarkTheme
+                          ? 'inline-flex items-center gap-2 rounded-full bg-[rgba(10,13,18,0.86)] px-3 py-1.5 text-[0.72rem] font-bold text-[#f8d9a7] shadow-[0_10px_24px_rgba(0,0,0,0.28)]'
+                          : 'inline-flex items-center gap-2 rounded-full border border-amber-200/80 bg-amber-50/90 px-3 py-1.5 text-[0.72rem] font-bold text-amber-900 shadow-[0_10px_24px_rgba(15,23,42,0.08)]'
+                      }
+                    >
+                      <Camera size={14} />
+                      {activeRecordingResi ? `${formatTask(currentTaskType)}: ${activeRecordingResi}` : 'Preview kamera'}
+                    </span>
+                    <div className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap">
+                      {isAdmin ? (
+                        <Button
+                          type="button"
+                          variant={session.taskType === 'qc' ? 'secondary' : 'outline'}
+                          size="xs"
+                          onClick={() => void handleTaskChange(session.taskType === 'qc' ? 'packing' : 'qc')}
+                          disabled={taskBusy}
+                          aria-label={`Ganti task aktif ke ${session.taskType === 'qc' ? 'Packing' : 'QC'}`}
+                        >
+                          {formatTask(session.taskType)}
+                        </Button>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full border border-border bg-muted/60 px-3 py-1.5 text-[0.72rem] font-bold text-foreground/80">
+                          Task: {formatTask(session.taskType)}
+                        </span>
+                      )}
+                    </div>
                   </div>
+                  {activeRecordingResi ? (
+                    <div className="pointer-events-none w-fit max-w-[min(92vw,24rem)] rounded-2xl bg-[rgba(2,6,23,0.46)] px-3 py-2 text-white shadow-[0_12px_24px_rgba(0,0,0,0.2)] backdrop-blur-[2px]">
+                      <div className="grid gap-0.5">
+                        <strong className="text-[0.76rem] leading-tight">RESI {activeRecordingResi}</strong>
+                        <span className="text-[0.66rem] font-semibold leading-tight text-white/88">
+                          {formatTask(currentTaskType)} | {session.operatorName || session.operatorCode || '-'}
+                        </span>
+                        <span className="text-[0.62rem] font-medium leading-tight text-white/72">{watermarkOverlayTime}</span>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               }
               centerSlot={

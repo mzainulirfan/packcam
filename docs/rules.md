@@ -18,6 +18,7 @@ Dokumen ini menjadi sumber aturan kerja Pakti Packcam.
 - Jangan mengganti task saat recording aktif.
 - Saat recording mobile berjalan, scan kamera untuk resi yang sudah direkam/duplikat tidak boleh menghentikan recording aktif.
 - Alur scan mobile tidak boleh mengambil seluruh history saat recording aktif; gunakan lookup per resi agar preview dan recorder tetap responsif.
+- Mobile recorder harus merekam stream kamera asli untuk performa; watermark permanen video dikerjakan sebagai post-process backend, bukan canvas realtime di perangkat mobile.
 - Reset data, delete operator, dan delete recording harus dikonfirmasi eksplisit.
 
 ## Test Rules
