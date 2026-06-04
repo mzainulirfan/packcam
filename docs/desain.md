@@ -18,7 +18,7 @@ Karakter desain:
 
 ## Struktur Layar
 
-- Login dan bootstrap admin.
+- Login dan bootstrap admin. Welcome/setup hanya tampil saat belum ada user/operator sama sekali di database.
 - Dashboard web dengan grup Operasional dan Administrasi.
 - Scan sebagai workflow utama.
 - History untuk audit bukti rekaman.

@@ -127,6 +127,7 @@ export function AdminPage() {
               ) : adminStatus ? (
                 <div className="grid gap-3 sm:grid-cols-2">
                   <InfoCard label="Bootstrap" value={adminStatus.bootstrap.needsSetup ? 'Needed' : 'Ready'} />
+                  <InfoCard label="User count" value={String(adminStatus.bootstrap.operatorCount)} />
                   <InfoCard label="Admin count" value={String(adminStatus.bootstrap.adminCount)} />
                   <InfoCard label="Last error" value={adminStatus.lastError ? 'Ada' : 'Tidak ada'} />
                   <InfoCard label="Health" value="OK" />

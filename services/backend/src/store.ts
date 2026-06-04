@@ -309,13 +309,17 @@ function isSameIdentity(row: OperatorProfileRow | SessionRow, operatorName: stri
 }
 
 export function getBootstrapStatus() {
+  const operatorCount = db()
+    .prepare(`SELECT COUNT(*) AS count FROM operator_profiles`)
+    .get() as { count: number }
   const adminCount = db()
     .prepare(`SELECT COUNT(*) AS count FROM operator_profiles WHERE role = 'admin'`)
     .get() as { count: number }
 
   return {
-    needsSetup: (adminCount.count ?? 0) === 0,
+    needsSetup: (operatorCount.count ?? 0) === 0,
     adminCount: adminCount.count ?? 0,
+    operatorCount: operatorCount.count ?? 0,
   }
 }
 

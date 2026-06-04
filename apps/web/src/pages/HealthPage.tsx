@@ -28,6 +28,7 @@ type ServerHealthSnapshot = {
   bootstrap: {
     needsSetup: boolean
     adminCount: number
+    operatorCount: number
   }
   storage: {
     counts: {

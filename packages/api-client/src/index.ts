@@ -72,6 +72,12 @@ export type ServerSettingsPayload = AppSettings & {
   updatedAt: string | null
 }
 
+export type BootstrapStatusPayload = {
+  needsSetup: boolean
+  adminCount: number
+  operatorCount: number
+}
+
 function normalizeRecordingRow(record: ServerRecordingRow): RecordingRow {
   return {
     id: record.id,
@@ -151,7 +157,7 @@ export function isApiReachable() {
 }
 
 export function getBootstrapStatusApi() {
-  return requestApi<{ needsSetup: boolean; adminCount: number }>('/api/bootstrap')
+  return requestApi<BootstrapStatusPayload>('/api/bootstrap')
 }
 
 export function bootstrapAdminApi(payload: {
@@ -172,7 +178,7 @@ export function readServerHealthApi() {
 
 export function readServerAdminStatusApi() {
   return requestApi<{
-    bootstrap: { needsSetup: boolean; adminCount: number }
+    bootstrap: BootstrapStatusPayload
     health: unknown
     counts: {
       operatorProfiles: number

@@ -1175,6 +1175,12 @@ setelah itu:
 - Jika mobile belum siap, biarkan web tetap menjadi satu-satunya client yang aktif.
 - Jika workspace setup bermasalah, batalkan pemindahan folder besar dan hanya simpan alias/config.
 
+## Update 2026-06-05 - Bootstrap Welcome Web
+
+- [x] Welcome/setup admin web hanya muncul saat database belum memiliki user/operator sama sekali.
+- [x] Status bootstrap backend kini mengembalikan `operatorCount` dan menjadikan `needsSetup` berbasis jumlah `operator_profiles`, bukan hanya `adminCount`.
+- [x] Halaman Admin web menampilkan `User count` agar status bootstrap lebih mudah diaudit.
+
 ## Aturan Stop-Go
 
 - Stop jika lint atau build web gagal setelah pemindahan.
