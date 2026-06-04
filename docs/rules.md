@@ -21,6 +21,7 @@ Dokumen ini menjadi sumber aturan kerja Pakti Packcam.
 - Mobile recorder harus merekam stream kamera asli untuk performa; watermark permanen video dikerjakan sebagai post-process backend, bukan canvas realtime di perangkat mobile.
 - Watermark video final berisi nomor resi, petugas, dan tanggal-jam-menit; prosesnya boleh berjalan background setelah recording selesai.
 - Rekaman mobile menyertakan audio microphone jika izin browser diberikan; jika mic gagal, recording tetap fallback video-only.
+- History mobile boleh menampilkan preview video completed, tetapi gunakan `preload="metadata"` agar list tidak berat.
 - Reset data, delete operator, dan delete recording harus dikonfirmasi eksplisit.
 
 ## Test Rules

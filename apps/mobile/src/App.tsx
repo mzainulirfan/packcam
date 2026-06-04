@@ -25,6 +25,7 @@ import {
   readServerSessionApi,
   readServerSystemConfigApi,
   updateServerSessionTaskApi,
+  buildServerFileUrl,
 } from '@pakti/api-client'
 import { DEFAULT_APP_SETTINGS } from '@pakti/shared/defaults'
 import type { AppSettings, OperatorSession, RecordingRow, SystemConfig, WorkTask } from '@pakti/types'
@@ -1865,6 +1866,20 @@ function App() {
                                 <span>{formatDateTime(record.updatedAt)}</span>
                                 <span className="max-w-[55%] truncate">{record.operatorName || '-'}</span>
                               </div>
+                              {record.status === 'completed' && record.filePath ? (
+                                <div className="overflow-hidden rounded-2xl border border-border bg-black shadow-[0_12px_28px_rgba(0,0,0,0.18)]">
+                                  <video
+                                    className="block aspect-video w-full bg-black object-contain"
+                                    src={buildServerFileUrl(record.filePath)}
+                                    controls
+                                    playsInline
+                                    preload="metadata"
+                                    crossOrigin="use-credentials"
+                                  >
+                                    Browser ini tidak bisa memutar preview video.
+                                  </video>
+                                </div>
+                              ) : null}
                             </div>
                           </div>
                         ))}

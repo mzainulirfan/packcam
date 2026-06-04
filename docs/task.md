@@ -27,6 +27,7 @@ Dokumen ini menjadi sumber roadmap task dan rencana implementasi Pakti Packcam.
 - Optimasi lanjutan mobile recording: recorder memakai stream kamera asli dan watermark dipindahkan menjadi overlay preview ringan agar canvas realtime tidak membebani perekaman.
 - Watermark permanen video ditambahkan di backend setelah finalize menggunakan ffmpeg-static dengan isi nomor resi, petugas, dan tanggal-jam-menit.
 - Audio mobile recording ditambahkan lewat microphone track dengan fallback video-only jika izin mic tidak tersedia.
+- History mobile menampilkan preview video untuk rekaman completed langsung di kartu resi.
 
 ## Prioritas P2
 
