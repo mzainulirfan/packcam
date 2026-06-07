@@ -29,7 +29,7 @@ import { ModalOverlay } from '../components/ui/ModalOverlay'
 import { DialogCloseButton, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { notify } from '../app/notify'
-import { buildServerFileUrl, openServerSettingsFolderApi } from '@pakti/api-client'
+import { buildServerFileUrl, openServerSettingsFolderApi, prepareServerRecordingShareFileApi } from '@pakti/api-client'
 import { recordsToCsv, recordsToExcelXml } from '@pakti/shared/exporters'
 import { hydrateRecordings, listRecordings, refreshRecordingsFromServer, type LocalRecordingRecord } from '@pakti/shared/recordings'
 import type { WorkTask } from '@pakti/types'
@@ -470,23 +470,27 @@ export function HistoryPage() {
   }
 
   function handleDownloadPreview() {
-    if (!previewTarget || !previewUrl) {
+    if (!previewTarget) {
       return
     }
 
-    const link = document.createElement('a')
-    link.href = previewUrl
-    link.download = previewTarget.fileName
-    link.rel = 'noopener'
-    link.click()
+    void handleDownloadRecord(previewTarget)
   }
 
-  function handleDownloadRecord(record: LocalRecordingRecord) {
-    const link = document.createElement('a')
-    link.href = buildServerFileUrl(record.filePath)
-    link.download = record.fileName
-    link.rel = 'noopener'
-    link.click()
+  async function handleDownloadRecord(record: LocalRecordingRecord) {
+    try {
+      const shareFile = await prepareServerRecordingShareFileApi(record.id)
+      const link = document.createElement('a')
+      link.href = buildServerFileUrl(shareFile.filePath)
+      link.download = shareFile.fileName
+      link.rel = 'noopener'
+      link.click()
+    } catch (error) {
+      notify.error(
+        'Download video gagal',
+        error instanceof Error ? error.message : 'File video belum bisa disiapkan untuk download.',
+      )
+    }
   }
 
   async function handleCopyText(value: string, label: string) {
