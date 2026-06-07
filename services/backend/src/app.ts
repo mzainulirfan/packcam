@@ -530,10 +530,10 @@ app.post('/api/recordings/:id/recover', (req, res) => {
   }
 })
 
-app.post('/api/recordings/:id/share-file', (req, res) => {
+app.post('/api/recordings/:id/share-file', async (req, res) => {
   try {
     const params = req.params as Record<string, string | undefined>
-    return sendOk(res, prepareRecordingShareFile(params.id ?? ''))
+    return sendOk(res, await prepareRecordingShareFile(params.id ?? ''))
   } catch (error) {
     return sendError(res, 400, error instanceof Error ? error.message : 'Gagal menyiapkan file share.')
   }

@@ -1,3 +1,5 @@
+import { buildApiUrl } from '@pakti/api-client'
+
 type BackendRealtimeEventName =
   | 'recordings-updated'
   | 'scan-logs-updated'
@@ -63,7 +65,7 @@ export function startRealtimeBridge() {
     return closeRealtimeSource
   }
 
-  const source = new EventSource('/api/events', { withCredentials: true })
+  const source = new EventSource(buildApiUrl('/api/events'), { withCredentials: true })
   realtimeSource = source
 
   for (const eventName of Object.keys(EVENT_MAP) as BackendRealtimeEventName[]) {
