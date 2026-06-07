@@ -11,4 +11,16 @@ npm run build:mobile:vercel
 $DeployConfig = '{"rewrites":[{"source":"/(.*)","destination":"/index.html"}]}'
 $DeployConfig | Set-Content -Path (Join-Path $ProjectRoot "dist-mobile\vercel.json") -Encoding ascii
 
-npx vercel deploy dist-mobile --prod --yes --project pakti-mobile
+$DeployOutput = npx vercel deploy dist-mobile --prod --yes --project pakti-mobile 2>&1
+$DeployOutput | ForEach-Object { Write-Host $_ }
+
+$DeploymentUrl = $DeployOutput |
+  Select-String -Pattern "https://pakti-mobile-[^\s]+\.vercel\.app" |
+  ForEach-Object { $_.Matches.Value } |
+  Select-Object -Last 1
+
+if (-not $DeploymentUrl) {
+  throw "Could not find the mobile deployment URL in Vercel output."
+}
+
+npx vercel alias set $DeploymentUrl mpakti.zakado.id
