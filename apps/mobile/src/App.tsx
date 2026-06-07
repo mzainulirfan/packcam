@@ -16,9 +16,11 @@ import {
   Share2,
   Shield,
   SunMedium,
+  Trash2,
   UserRound,
 } from 'lucide-react'
 import {
+  deleteServerRecordingApi,
   readServerSettingsApi,
   loginServerOperatorApi,
   logoutServerOperatorApi,
@@ -203,6 +205,7 @@ function App() {
   const [historyScanResetToken, setHistoryScanResetToken] = useState(0)
   const [historyHighlightedResi, setHistoryHighlightedResi] = useState<string | null>(null)
   const [sharingRecordId, setSharingRecordId] = useState<string | null>(null)
+  const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null)
   const [watermarkResi, setWatermarkResi] = useState<string | null>(null)
   const [scanClockTick, setScanClockTick] = useState(() => Date.now())
   const [menuOpen, setMenuOpen] = useState(false)
@@ -1241,6 +1244,37 @@ function App() {
     }
   }
 
+  async function handleDeleteRecording(record: RecordingRow) {
+    if (deletingRecordId) {
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Hapus recording ${formatTask(record.taskType)} untuk resi ${record.resiNumber}? Setelah dihapus, resi ini bisa direkam ulang.`,
+    )
+    if (!confirmed) {
+      return
+    }
+
+    setDeletingRecordId(record.id)
+    setHistoryError(null)
+
+    try {
+      await deleteServerRecordingApi(record.id)
+      setRecordings((current) => current.filter((item) => item.id !== record.id))
+      await refreshHistory()
+      showScanNotice({
+        kind: 'success',
+        title: 'Recording dihapus',
+        message: `Resi ${record.resiNumber} bisa direkam ulang.`,
+      })
+    } catch (error) {
+      setHistoryError(normalizeError(error))
+    } finally {
+      setDeletingRecordId(null)
+    }
+  }
+
   function openTab(tab: TabKey) {
     setActiveTab(tab)
     setMenuOpen(false)
@@ -1878,7 +1912,7 @@ function App() {
                                       variant="outline"
                                       size="sm"
                                       onClick={() => void handleShareRecording(record, 'native')}
-                                      disabled={sharingRecordId === record.id}
+                                      disabled={sharingRecordId === record.id || deletingRecordId !== null}
                                     >
                                       <Share2 size={14} />
                                       {sharingRecordId === record.id ? 'Menyiapkan...' : 'Share aplikasi'}
@@ -1888,7 +1922,7 @@ function App() {
                                       variant="outline"
                                       size="sm"
                                       onClick={() => void handleShareRecording(record, 'whatsapp')}
-                                      disabled={sharingRecordId === record.id}
+                                      disabled={sharingRecordId === record.id || deletingRecordId !== null}
                                     >
                                       <Send size={14} />
                                       Pilih WhatsApp
@@ -1896,6 +1930,16 @@ function App() {
                                   </div>
                                 </div>
                               ) : null}
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => void handleDeleteRecording(record)}
+                                disabled={deletingRecordId !== null || sharingRecordId !== null}
+                              >
+                                <Trash2 size={14} />
+                                {deletingRecordId === record.id ? 'Menghapus...' : 'Hapus recording'}
+                              </Button>
                             </div>
                           </div>
                         ))}

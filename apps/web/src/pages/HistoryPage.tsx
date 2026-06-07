@@ -13,6 +13,7 @@ import {
   Search,
   ShieldCheck,
   SquareActivity,
+  Trash2,
   XCircle,
 } from 'lucide-react'
 
@@ -29,7 +30,7 @@ import { ModalOverlay } from '../components/ui/ModalOverlay'
 import { DialogCloseButton, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { notify } from '../app/notify'
-import { buildServerFileUrl, openServerSettingsFolderApi, prepareServerRecordingShareFileApi } from '@pakti/api-client'
+import { buildServerFileUrl, deleteServerRecordingApi, openServerSettingsFolderApi, prepareServerRecordingShareFileApi } from '@pakti/api-client'
 import { recordsToCsv, recordsToExcelXml } from '@pakti/shared/exporters'
 import { hydrateRecordings, listRecordings, refreshRecordingsFromServer, type LocalRecordingRecord } from '@pakti/shared/recordings'
 import type { WorkTask } from '@pakti/types'
@@ -186,6 +187,8 @@ export function HistoryPage() {
   const [previewTarget, setPreviewTarget] = useState<LocalRecordingRecord | null>(null)
   const [dualPreviewTarget, setDualPreviewTarget] = useState<HistoryRecordingGroup | null>(null)
   const [downloadingRecordId, setDownloadingRecordId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<LocalRecordingRecord | null>(null)
+  const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null)
   const [recordings, setRecordings] = useState<LocalRecordingRecord[]>([])
 
   useEffect(() => {
@@ -468,6 +471,41 @@ export function HistoryPage() {
         const urlToRevoke = objectUrl
         window.setTimeout(() => URL.revokeObjectURL(urlToRevoke), 1000)
       }
+    }
+  }
+
+  async function handleConfirmDeleteRecord() {
+    if (!deleteTarget || deletingRecordId) {
+      return
+    }
+
+    try {
+      setDeletingRecordId(deleteTarget.id)
+      await deleteServerRecordingApi(deleteTarget.id)
+      const nextRecords = await refreshRecordingsFromServer()
+      setRecordings(nextRecords)
+
+      if (selectedId === deleteTarget.id) {
+        setSelectedId(nextRecords[0]?.id ?? null)
+      }
+
+      if (previewTarget?.id === deleteTarget.id) {
+        closePreview()
+      }
+
+      if (dualPreviewTarget?.records.some((record) => record.id === deleteTarget.id)) {
+        closeDualPreview()
+      }
+
+      notify.save('Recording dihapus', `Resi ${deleteTarget.resiNumber} bisa direkam ulang.`)
+      setDeleteTarget(null)
+    } catch (error) {
+      notify.error(
+        'Hapus recording gagal',
+        error instanceof Error ? error.message : 'Recording belum bisa dihapus.',
+      )
+    } finally {
+      setDeletingRecordId(null)
     }
   }
 
@@ -1237,6 +1275,16 @@ export function HistoryPage() {
                                       Preview
                                     </Button>
                                   ) : null}
+                                  <Button
+                                    type="button"
+                                    variant="destructive"
+                                    size="sm"
+                                    disabled={deletingRecordId !== null}
+                                    onClick={() => setDeleteTarget(record)}
+                                  >
+                                    <Trash2 className="size-4" />
+                                    {deletingRecordId === record.id ? 'Menghapus...' : 'Hapus'}
+                                  </Button>
                                 </div>
                               </div>
                             </div>
@@ -1303,6 +1351,15 @@ export function HistoryPage() {
                   <Button type="button" variant="outline" className="border-slate-200" onClick={() => void handleCopyText(previewTarget.filePath, 'Path file')}>
                     <Copy className="size-4" />
                     Copy path
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    disabled={deletingRecordId !== null}
+                    onClick={() => setDeleteTarget(previewTarget)}
+                  >
+                    <Trash2 className="size-4" />
+                    {deletingRecordId === previewTarget.id ? 'Menghapus...' : 'Hapus'}
                   </Button>
                 </div>
 
@@ -1374,6 +1431,16 @@ export function HistoryPage() {
                           <Download className="size-4" />
                           {downloadingRecordId === record.id ? 'Menyiapkan...' : 'Download'}
                         </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          disabled={deletingRecordId !== null}
+                          onClick={() => setDeleteTarget(record)}
+                        >
+                          <Trash2 className="size-4" />
+                          {deletingRecordId === record.id ? 'Menghapus...' : 'Hapus'}
+                        </Button>
                       </div>
 
                       <div className="flex flex-col gap-2 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
@@ -1384,6 +1451,44 @@ export function HistoryPage() {
                   )
                 })}
                 </div>
+              </div>
+            </div>
+          </ModalOverlay>
+        ) : null}
+
+        {deleteTarget ? (
+          <ModalOverlay
+            onClose={() => {
+              if (!deletingRecordId) {
+                setDeleteTarget(null)
+              }
+            }}
+          >
+            <div className="grid gap-4">
+              <DialogHeader className="flex items-start justify-between gap-4 text-left">
+                <div className="grid gap-1">
+                  <p className="text-xs uppercase tracking-[0.2em] text-rose-500">Hapus recording</p>
+                  <DialogTitle className="text-xl">Hapus video {deleteTarget.resiNumber}?</DialogTitle>
+                  <DialogDescription className="text-sm leading-6 text-slate-500">
+                    File video dan metadata recording ini akan dihapus dari server. Setelah dihapus, resi ini bisa direkam ulang.
+                  </DialogDescription>
+                </div>
+                <DialogCloseButton onClick={() => setDeleteTarget(null)} />
+              </DialogHeader>
+
+              <div className="grid gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-950">
+                <strong>{deleteTarget.taskType === 'qc' ? 'QC' : 'Packing'} - {deleteTarget.fileName}</strong>
+                <span>{formatDateTime(deleteTarget.startTime)}</span>
+              </div>
+
+              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <Button type="button" variant="outline" disabled={Boolean(deletingRecordId)} onClick={() => setDeleteTarget(null)}>
+                  Batal
+                </Button>
+                <Button type="button" variant="destructive" disabled={Boolean(deletingRecordId)} onClick={() => void handleConfirmDeleteRecord()}>
+                  <Trash2 className="size-4" />
+                  {deletingRecordId ? 'Menghapus...' : 'Hapus recording'}
+                </Button>
               </div>
             </div>
           </ModalOverlay>
