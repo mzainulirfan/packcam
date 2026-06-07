@@ -23,6 +23,8 @@ Dokumen ini menjadi sumber aturan kerja Pakti Packcam.
 - Rekaman mobile menyertakan audio microphone jika izin browser diberikan; jika mic gagal, recording tetap fallback video-only.
 - History mobile boleh menampilkan preview video completed, tetapi gunakan `preload="metadata"` agar list tidak berat.
 - Share video dari History mobile harus memakai native share sheet/file share untuk aplikasi terpasang seperti Shopee atau WhatsApp; jangan mengirim URL API `/files` ke chat eksternal.
+- Share video ke WhatsApp harus memakai file MP4 kompatibel yang disiapkan backend, bukan hanya file asli hasil MediaRecorder atau file WebM yang diganti ekstensi.
+- File MP4 untuk share harus ditranscode backend dengan H.264, AAC, `yuv420p`, dan `faststart` agar lebih kompatibel dengan WhatsApp.
 - Reset data, delete operator, dan delete recording harus dikonfirmasi eksplisit.
 
 ## Test Rules

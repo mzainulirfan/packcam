@@ -345,6 +345,15 @@ export function finalizeServerRecordingApi(
   }).then(normalizeRecordingRow)
 }
 
+export function prepareServerRecordingShareFileApi(recordingId: string) {
+  return requestApi<{ fileName: string; filePath: string; mimeType: string }>(
+    `/api/recordings/${encodeURIComponent(recordingId)}/share-file`,
+    {
+      method: 'POST',
+    },
+  )
+}
+
 export function deleteServerRecordingApi(recordingId: string) {
   return requestApi<{ deleted: boolean }>(`/api/recordings/${encodeURIComponent(recordingId)}`, {
     method: 'DELETE',

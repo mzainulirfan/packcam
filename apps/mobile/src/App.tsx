@@ -26,6 +26,7 @@ import {
   readServerRecordingsApi,
   readServerSessionApi,
   readServerSystemConfigApi,
+  prepareServerRecordingShareFileApi,
   updateServerSessionTaskApi,
   buildServerFileUrl,
 } from '@pakti/api-client'
@@ -1200,7 +1201,6 @@ function App() {
       return
     }
 
-    const videoUrl = buildServerFileUrl(record.filePath)
     const shareText = `Video ${formatTask(record.taskType)} resi ${record.resiNumber}`
 
     if (!navigator.share) {
@@ -1211,15 +1211,16 @@ function App() {
     setSharingRecordId(record.id)
 
     try {
+      const shareFile = await prepareServerRecordingShareFileApi(record.id)
+      const videoUrl = buildServerFileUrl(shareFile.filePath)
       const response = await fetch(videoUrl, { credentials: 'include' })
       if (!response.ok) {
         throw new Error('Video belum bisa diambil untuk dibagikan.')
       }
 
       const blob = await response.blob()
-      const extension = record.fileName.split('.').pop() || 'webm'
-      const file = new File([blob], `${record.resiNumber}-${record.taskType}.${extension}`, {
-        type: blob.type || record.mimeType || 'video/webm',
+      const file = new File([blob], shareFile.fileName, {
+        type: shareFile.mimeType || blob.type || 'video/mp4',
       })
       const shareData: ShareData = {
         title: shareText,

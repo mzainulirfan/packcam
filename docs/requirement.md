@@ -13,6 +13,8 @@ Dokumen ini menjadi sumber requirement fungsional dan non-fungsional Pakti Packc
 - Recording harus memiliki metadata lengkap: resi, task, operator, file, status, waktu, durasi, dan note.
 - Backend menyimpan metadata di SQLite dan file video di folder upload server.
 - History dapat mencari, memfilter, preview, download, copy metadata, dan export.
+- History mobile dapat membagikan video ke aplikasi terpasang melalui native share sheet.
+- Saat target share adalah WhatsApp atau aplikasi yang sensitif format, backend wajib menyiapkan salinan MP4 kompatibel sebelum file dikirim.
 - Mobile app harus bisa login, scan, recording, history, session, dan theme.
 
 ## Non-Fungsional
@@ -21,8 +23,17 @@ Dokumen ini menjadi sumber requirement fungsional dan non-fungsional Pakti Packc
 - Endpoint protected harus memvalidasi session di backend.
 - Password tidak boleh disimpan plaintext.
 - Browser harus mendukung kamera dan `MediaRecorder`.
+- Rekaman browser yang berasal dari WebM tidak boleh sekadar diberi ekstensi `.mp4`; jika dibutuhkan MP4, backend harus transcode ke container dan codec MP4 yang valid.
+- File MP4 untuk share harus memakai H.264, AAC, `yuv420p`, dan `faststart`.
 - Akses kamera mobile di LAN harus memakai HTTPS atau secure context.
 - Logic shared ditempatkan di `packages/shared`, tipe domain di `packages/types`, dan API client di `packages/api-client`.
+
+## Requirement Runtime dan Share 2026-06-07
+
+- Frontend production Vercel harus mengarah ke API tunnel HTTPS, misalnya `VITE_API_BASE_URL=https://api-pakti.zakado.id`.
+- Backend lokal dan Cloudflared tunnel harus bisa dijalankan di background pada Windows.
+- Endpoint share recording harus membuat atau memakai cache file MP4 kompatibel di folder upload server.
+- Share mobile harus mengambil file hasil endpoint share, bukan langsung memakai file recording asli.
 
 ## Sumber Gabungan
 

@@ -8,7 +8,7 @@ import multer from 'multer'
 import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
 import type { AppSettings } from '@pakti/types'
 
-import { clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deleteRecording, deleteSessionById, finalizeRecording, getBootstrapStatus, getHealthSnapshot, getRecordingById, invalidateCompletedRecordingsForResi, listOperatorProfiles, listRecordings, listRecordingsByResi, listScanLogs, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, saveSettings, saveSystemConfig, updateSessionTaskType, upsertOperatorProfile } from './store'
+import { clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deleteRecording, deleteSessionById, finalizeRecording, getBootstrapStatus, getHealthSnapshot, getRecordingById, invalidateCompletedRecordingsForResi, listOperatorProfiles, listRecordings, listRecordingsByResi, listScanLogs, prepareRecordingShareFile, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, saveSettings, saveSystemConfig, updateSessionTaskType, upsertOperatorProfile } from './store'
 import { clearSessionCookie, getCookie, normalizeRole, readStringField, sendError, sendOk, setSessionCookie } from './http'
 import type { HttpSession } from './http'
 import { ensureServerStorage, getUploadsDir } from './db'
@@ -527,6 +527,15 @@ app.post('/api/recordings/:id/recover', (req, res) => {
     return sendOk(res, recovered)
   } catch (error) {
     return sendError(res, 400, error instanceof Error ? error.message : 'Gagal recovery recording.')
+  }
+})
+
+app.post('/api/recordings/:id/share-file', (req, res) => {
+  try {
+    const params = req.params as Record<string, string | undefined>
+    return sendOk(res, prepareRecordingShareFile(params.id ?? ''))
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal menyiapkan file share.')
   }
 })
 

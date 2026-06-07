@@ -38,8 +38,16 @@ Produk berjalan sebagai aplikasi lokal berbasis web:
 - Scan resi lewat input manual/barcode dan kamera.
 - Preview kamera, watermark, recording, upload chunk, finalize, dan recovery.
 - Mobile scan queue menjaga recording aktif tetap berjalan ketika kamera membaca resi duplikat atau resi yang sudah selesai diproses.
-- History dengan filter, grouping per resi, preview, download, copy, dan export.
+- History dengan filter, grouping per resi, preview, download, copy, export, dan share file video.
+- Share video mobile menyiapkan salinan MP4 kompatibel WhatsApp dari backend sebelum membuka native share sheet.
 - Users, Settings, Health, Admin, dan mobile workflow.
+
+## Update Produk 2026-06-07
+
+- Backend lokal dapat dipakai oleh frontend Vercel melalui Cloudflared tunnel `https://api-pakti.zakado.id`.
+- Runtime Windows dapat dijalankan di background agar backend dan tunnel tetap aktif tanpa terminal terlihat.
+- Alur share mobile diperkuat: video asli dari MediaRecorder tidak langsung dikirim ke WhatsApp, tetapi dikonversi dulu menjadi MP4 H.264/AAC yang lebih kompatibel.
+- File share kompatibel dibuat on-demand di storage backend sehingga rekaman lama WebM atau MP4 bermasalah tetap bisa dibagikan ulang.
 
 ## Sumber Gabungan
 

@@ -36,6 +36,14 @@ Karakter desain:
 - Gunakan badge kecil untuk status.
 - Gunakan select untuk pilihan finite seperti task, status, format, dan camera device.
 - Text panjang seperti path file harus truncate atau break-all.
+- Aksi share di History mobile harus terasa seperti aksi file native: tombol membuka share sheet dengan file siap kirim, tanpa meminta operator menyalin URL.
+- Saat backend sedang menyiapkan file share MP4, tampilkan state loading pada aksi record terkait agar operator memahami prosesnya.
+
+## Update Desain 2026-06-07
+
+- History mobile tetap mempertahankan tombol share ringkas, tetapi file yang dibagikan disiapkan backend sebagai MP4 kompatibel WhatsApp.
+- Pesan error share harus menjelaskan apakah file belum selesai, belum bisa diambil, atau browser tidak mendukung native file share.
+- UI tidak perlu mengekspos detail codec ke operator; detail kompatibilitas ditangani oleh backend.
 
 ## Sumber Gabungan
 

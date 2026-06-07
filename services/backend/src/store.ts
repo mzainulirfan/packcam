@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 
 import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
 import type { AppSettings, OperatorProfile, OperatorRole, RecordingStatus, SystemConfig, WorkTask } from '@pakti/types'
@@ -879,6 +879,67 @@ export function recoverRecordingDraft(id: string) {
   return finalized
 }
 
+function runFfmpegShareMp4Transcode(inputPath: string, outputPath: string) {
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true })
+
+  runFfmpegSync([
+    '-y',
+    '-i',
+    inputPath,
+    '-map',
+    '0:v:0',
+    '-map',
+    '0:a?',
+    '-c:v',
+    'libx264',
+    '-preset',
+    'veryfast',
+    '-crf',
+    '28',
+    '-pix_fmt',
+    'yuv420p',
+    '-c:a',
+    'aac',
+    '-b:a',
+    '128k',
+    '-movflags',
+    '+faststart',
+    outputPath,
+  ])
+}
+
+export function prepareRecordingShareFile(id: string) {
+  const recording = getRecordingById(id)
+  if (!recording) {
+    throw new Error('Recording tidak ditemukan.')
+  }
+
+  if (recording.status !== 'completed') {
+    throw new Error('Recording belum selesai.')
+  }
+
+  const inputPath = getUploadedFilePath(recording)
+  if (!fs.existsSync(inputPath)) {
+    throw new Error('File recording tidak ditemukan.')
+  }
+
+  const shareFileName = `${sanitizeFileSegment(recording.task_type)}_${sanitizeFileSegment(recording.resi_number)}_${sanitizeFileSegment(recording.id)}.mp4`
+  const shareRelativePath = path.posix.join('share', shareFileName)
+  const outputPath = path.join(getUploadsDir(), shareRelativePath)
+  const sourceStats = fs.statSync(inputPath)
+  const outputStats = fs.existsSync(outputPath) ? fs.statSync(outputPath) : null
+
+  if (!outputStats || outputStats.mtimeMs < sourceStats.mtimeMs) {
+    runFfmpegShareMp4Transcode(inputPath, outputPath)
+  }
+
+  return {
+    fileName: shareFileName,
+    filePath: shareRelativePath,
+    mimeType: 'video/mp4',
+  }
+}
+
 export function invalidateCompletedRecordingsForResi(resiNumber: string) {
   const normalizedResi = resiNumber.trim()
   if (!normalizedResi) {
@@ -1065,8 +1126,83 @@ async function runFfmpeg(args: string[]) {
   })
 }
 
+function runFfmpegSync(args: string[]) {
+  const result = spawnSync(getFfmpegPath(), args, {
+    encoding: 'utf8',
+    windowsHide: true,
+  })
+
+  if (result.status === 0) {
+    return
+  }
+
+  const stderr = (result.stderr || '').trim().slice(-4000)
+  throw new Error(`ffmpeg proses video gagal (${result.status ?? 'unknown'}): ${stderr}`)
+}
+
+function isMp4Recording(recording: RecordingRow) {
+  return path.posix.extname(recording.file_path).toLowerCase() === '.mp4' ||
+    path.extname(recording.file_name).toLowerCase() === '.mp4'
+}
+
+function runFfmpegMp4Transcode(recording: RecordingRow, inputPath: string) {
+  if (!fs.existsSync(inputPath)) {
+    return
+  }
+
+  const outputPath = `${inputPath}.whatsapp.mp4`
+  const buildArgs = (filter: string) => [
+    '-y',
+    '-i',
+    inputPath,
+    '-map',
+    '0:v:0',
+    '-map',
+    '0:a?',
+    '-vf',
+    filter,
+    '-c:v',
+    'libx264',
+    '-preset',
+    'veryfast',
+    '-crf',
+    '28',
+    '-pix_fmt',
+    'yuv420p',
+    '-c:a',
+    'aac',
+    '-b:a',
+    '128k',
+    '-movflags',
+    '+faststart',
+    outputPath,
+  ]
+
+  try {
+    runFfmpegSync(buildArgs(buildDrawTextFilter(recording, 'top-center')))
+  } catch {
+    if (fs.existsSync(outputPath)) {
+      fs.rmSync(outputPath, { force: true })
+    }
+
+    runFfmpegSync(buildArgs(buildDrawTextFilter(recording, 'top-left')))
+  }
+
+  fs.copyFileSync(outputPath, inputPath)
+  fs.rmSync(outputPath, { force: true })
+  const fileStats = fs.statSync(inputPath)
+  db()
+    .prepare(`UPDATE recordings SET file_size_bytes = ?, note = COALESCE(note, ?), updated_at = ? WHERE id = ?`)
+    .run(fileStats.size, 'Video MP4 sudah dikonversi untuk WhatsApp.', nowIso(), recording.id)
+  broadcastBackendEvent('recordings-updated', { recordingId: recording.id, action: 'mp4-transcoded', resiNumber: recording.resi_number })
+}
+
 async function runFfmpegWatermark(recording: RecordingRow, inputPath: string) {
   if (process.env.PAKTI_DISABLE_VIDEO_WATERMARK === '1') {
+    return
+  }
+
+  if (isMp4Recording(recording)) {
     return
   }
 
@@ -1122,6 +1258,10 @@ function scheduleRecordingWatermark(recording: RecordingRow | null) {
     return
   }
 
+  if (isMp4Recording(recording)) {
+    return
+  }
+
   const inputPath = getUploadedFilePath(recording)
   watermarkQueue = watermarkQueue.then(async () => {
     try {
@@ -1158,8 +1298,13 @@ function finalizePendingRecording(
        WHERE id = ?`,
     ).run(endTime, durationSeconds, fileStats.size, payload.note ?? null, nowIso(), recording.id)
 
-    const finalized = getRecordingById(recording.id)
-    scheduleRecordingWatermark(finalized)
+    let finalized = getRecordingById(recording.id)
+    if (finalized && isMp4Recording(finalized)) {
+      runFfmpegMp4Transcode(finalized, finalPath)
+      finalized = getRecordingById(recording.id)
+    } else {
+      scheduleRecordingWatermark(finalized)
+    }
     return finalized
   }
 
@@ -1176,8 +1321,13 @@ function finalizePendingRecording(
   ).run(endTime, durationSeconds, fileStats.size, payload.note ?? null, nowIso(), recording.id)
 
   broadcastBackendEvent('recordings-updated', { recordingId: recording.id, action: 'finalized', resiNumber: recording.resi_number })
-  const finalized = getRecordingById(recording.id)
-  scheduleRecordingWatermark(finalized)
+  let finalized = getRecordingById(recording.id)
+  if (finalized && isMp4Recording(finalized)) {
+    runFfmpegMp4Transcode(finalized, finalPath)
+    finalized = getRecordingById(recording.id)
+  } else {
+    scheduleRecordingWatermark(finalized)
+  }
   return finalized
 }
 

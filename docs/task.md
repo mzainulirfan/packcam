@@ -30,6 +30,16 @@ Dokumen ini menjadi sumber roadmap task dan rencana implementasi Pakti Packcam.
 - History mobile menampilkan preview video untuk rekaman completed langsung di kartu resi.
 - History mobile menambahkan aksi share video ke native share sheet dan WhatsApp tanpa fallback URL API eksternal.
 
+## Selesai 2026-06-07
+
+- Runtime backend dan Cloudflared tunnel diverifikasi untuk alur frontend Vercel ke backend PC melalui `https://api-pakti.zakado.id`.
+- Alias PowerShell `pakti-start` dibuat untuk menjalankan backend dan tunnel secara background/hidden.
+- Penyebab WhatsApp menolak file ditemukan: rekaman MediaRecorder WebM dapat tersimpan atau diproses sebagai file berekstensi `.mp4` tanpa container/codec MP4 valid.
+- Backend menambahkan proses transcode MP4 kompatibel WhatsApp dengan H.264, AAC, `yuv420p`, dan `faststart`.
+- Backend menambahkan endpoint `POST /api/recordings/:id/share-file` untuk menyiapkan file share MP4 on-demand.
+- Mobile History share diperbarui agar mengambil file share MP4 dari backend sebelum membuka native share sheet.
+- Validasi: `npm run build -w @pakti/backend`, `npm run build:mobile`, dan `npm run test:unit`.
+
 ## Prioritas P2
 
 - Perluas test scanner logic.
