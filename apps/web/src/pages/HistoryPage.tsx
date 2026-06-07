@@ -185,8 +185,7 @@ export function HistoryPage() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [previewTarget, setPreviewTarget] = useState<LocalRecordingRecord | null>(null)
   const [dualPreviewTarget, setDualPreviewTarget] = useState<HistoryRecordingGroup | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [previewMessage, setPreviewMessage] = useState('Pilih rekaman untuk preview.')
+  const [downloadingRecordId, setDownloadingRecordId] = useState<string | null>(null)
   const [recordings, setRecordings] = useState<LocalRecordingRecord[]>([])
 
   useEffect(() => {
@@ -314,52 +313,8 @@ export function HistoryPage() {
   }, [filteredRecordings, selectedRecord])
 
   const selectedPreviewMode = selectedGroup ? getGroupPreviewMode(selectedGroup) : 'none'
-
-  useEffect(() => {
-    let active = true
-    let nextUrl: string | null = null
-
-    async function loadPreview(record: LocalRecordingRecord | null) {
-      if (!record) {
-        setPreviewUrl(null)
-        setPreviewMessage('Belum ada rekaman yang bisa dipreview.')
-        return
-      }
-
-      setPreviewMessage(`Memuat preview untuk ${record.resiNumber}...`)
-
-      const response = await fetch(buildServerFileUrl(record.filePath), {
-        credentials: 'include',
-      })
-      const blob = response.ok ? await response.blob() : null
-
-      if (!active) {
-        return
-      }
-
-      if (!blob) {
-        setPreviewUrl(null)
-        setPreviewMessage('Blob video tidak ditemukan. Rekaman ini belum bisa dipreview.')
-        return
-      }
-
-      nextUrl = URL.createObjectURL(blob)
-      setPreviewUrl(nextUrl)
-      setPreviewMessage(`Preview siap untuk ${record.resiNumber}.`)
-    }
-
-    if (previewTarget) {
-      void loadPreview(previewTarget)
-    }
-
-    return () => {
-      active = false
-
-      if (nextUrl) {
-        URL.revokeObjectURL(nextUrl)
-      }
-    }
-  }, [previewTarget])
+  const previewUrl = previewTarget ? buildServerFileUrl(previewTarget.filePath) : null
+  const previewMessage = previewTarget ? `Preview siap untuk ${previewTarget.resiNumber}.` : 'Pilih rekaman untuk preview.'
 
   const summary = useMemo(() => {
     const completed = groupedRecordings.filter((group) => getGroupStatus(group) === 'completed').length
@@ -478,10 +433,27 @@ export function HistoryPage() {
   }
 
   async function handleDownloadRecord(record: LocalRecordingRecord) {
+    if (downloadingRecordId) {
+      return
+    }
+
+    let objectUrl: string | null = null
+
     try {
+      setDownloadingRecordId(record.id)
       const shareFile = await prepareServerRecordingShareFileApi(record.id)
+      const response = await fetch(buildServerFileUrl(shareFile.filePath), {
+        credentials: 'include',
+      })
+
+      if (!response.ok) {
+        throw new Error('File video belum bisa diambil dari server.')
+      }
+
+      const blob = await response.blob()
+      objectUrl = URL.createObjectURL(blob)
       const link = document.createElement('a')
-      link.href = buildServerFileUrl(shareFile.filePath)
+      link.href = objectUrl
       link.download = shareFile.fileName
       link.rel = 'noopener'
       link.click()
@@ -490,6 +462,12 @@ export function HistoryPage() {
         'Download video gagal',
         error instanceof Error ? error.message : 'File video belum bisa disiapkan untuk download.',
       )
+    } finally {
+      setDownloadingRecordId(null)
+      if (objectUrl) {
+        const urlToRevoke = objectUrl
+        window.setTimeout(() => URL.revokeObjectURL(urlToRevoke), 1000)
+      }
     }
   }
 
@@ -519,8 +497,6 @@ export function HistoryPage() {
 
   function closePreview() {
     setPreviewTarget(null)
-    setPreviewUrl(null)
-    setPreviewMessage('Pilih rekaman untuk preview.')
   }
 
   function openDualPreview(group: HistoryRecordingGroup) {
@@ -1245,9 +1221,16 @@ export function HistoryPage() {
                                     <Copy className="size-4" />
                                     Copy path
                                   </Button>
-                                  <Button type="button" variant="outline" size="sm" className="border-slate-200" onClick={() => handleDownloadRecord(record)}>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-slate-200"
+                                    disabled={downloadingRecordId !== null}
+                                    onClick={() => handleDownloadRecord(record)}
+                                  >
                                     <Download className="size-4" />
-                                    Download
+                                    {downloadingRecordId === record.id ? 'Menyiapkan...' : 'Download'}
                                   </Button>
                                   {record.status === 'completed' ? (
                                     <Button type="button" size="sm" onClick={() => setPreviewTarget(record)}>
@@ -1299,6 +1282,7 @@ export function HistoryPage() {
                 {previewUrl ? (
                   <video
                     src={previewUrl}
+                    crossOrigin="use-credentials"
                     controls
                     autoPlay
                     playsInline
@@ -1312,9 +1296,9 @@ export function HistoryPage() {
                 )}
 
                 <div className="flex flex-col gap-3 sm:flex-row">
-                  <Button type="button" onClick={handleDownloadPreview} disabled={!previewUrl}>
+                  <Button type="button" onClick={handleDownloadPreview} disabled={!previewUrl || downloadingRecordId !== null}>
                     <Download className="size-4" />
-                    Download
+                    {previewTarget && downloadingRecordId === previewTarget.id ? 'Menyiapkan...' : 'Download'}
                   </Button>
                   <Button type="button" variant="outline" className="border-slate-200" onClick={() => void handleCopyText(previewTarget.filePath, 'Path file')}>
                     <Copy className="size-4" />
@@ -1381,9 +1365,14 @@ export function HistoryPage() {
                         >
                           Copy path
                         </Button>
-                        <Button type="button" size="sm" onClick={() => handleDownloadRecord(record)}>
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={downloadingRecordId !== null}
+                          onClick={() => handleDownloadRecord(record)}
+                        >
                           <Download className="size-4" />
-                          Download
+                          {downloadingRecordId === record.id ? 'Menyiapkan...' : 'Download'}
                         </Button>
                       </div>
 
