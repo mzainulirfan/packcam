@@ -5,7 +5,6 @@ import {
   Copy,
   Download,
   FolderOpen,
-  Eye,
   History,
   MonitorPlay,
   FileText,
@@ -548,20 +547,20 @@ export function HistoryPage() {
   return (
     <StageCard title="History">
       <div className="grid gap-4">
-        <section className="grid gap-4 rounded-[2rem] border border-slate-200/80 bg-gradient-to-br from-white to-slate-50 p-4 shadow-xl shadow-slate-900/5 lg:p-6">
+        <section className="grid gap-4 rounded-[4px] border border-slate-300 bg-white p-4 lg:p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="grid gap-2">
-              <div className="inline-flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs uppercase tracking-[0.22em] text-slate-500">
+              <div className="inline-flex w-fit items-center gap-2 rounded-[4px] border border-slate-300 bg-white px-3 py-1 text-xs uppercase tracking-[0.22em] text-slate-600">
                 <History className="size-3.5" />
-                QC / packing history
+                [ History ]
               </div>
-              <h3 className="text-2xl font-semibold tracking-tight text-slate-950">Riwayat QC dan packing</h3>
+              <h3 className="text-2xl font-semibold tracking-tight text-slate-950">{summary.total} dokumentasi paket</h3>
               <p className="max-w-3xl text-sm leading-6 text-slate-500">
-                Filter, telusuri, preview, dan ekspor data rekaman QC serta packing dari satu halaman yang lebih ringkas.
+                Index dokumentasi QC dan Packing. Pilih resi untuk membuka video, metadata, dan aksi lanjutan.
               </p>
             </div>
 
-            <Card className="border-slate-200/80 bg-white shadow-sm shadow-slate-900/5">
+            <Card className="rounded-[4px] border-slate-300 bg-white shadow-none">
               <CardContent className="grid gap-2 p-4 text-sm text-slate-500">
                 <div className="flex items-center justify-between gap-10">
                   <span>Total</span>
@@ -588,10 +587,10 @@ export function HistoryPage() {
           </div>
         </section>
 
-        <Card className="border-slate-200/80 shadow-xl shadow-slate-900/5">
+        <Card className="rounded-[4px] border-slate-300 shadow-none">
           <CardHeader className="space-y-2">
-            <CardTitle className="text-lg">Filters</CardTitle>
-            <CardDescription>Cari data berdasarkan resi, task, status, operator, dan rentang tanggal.</CardDescription>
+            <CardTitle className="text-lg">Filter history</CardTitle>
+            <CardDescription>Cari resi, task, status dokumentasi, operator, dan rentang tanggal.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 pt-4">
             <div className="flex flex-wrap gap-2">
@@ -711,23 +710,20 @@ export function HistoryPage() {
         </Card>
 
         <div className="grid gap-4 min-w-0">
-          <Card className="min-w-0 border-slate-200/80 shadow-xl shadow-slate-900/5">
+          <Card className="min-w-0 rounded-[4px] border-slate-300 shadow-none">
             <CardHeader className="space-y-2">
-              <CardTitle className="text-lg">Daftar history</CardTitle>
-              <CardDescription>Klik resi untuk membuka detail dan gunakan aksi di kanan untuk preview.</CardDescription>
+              <CardTitle className="text-lg">Daftar dokumentasi</CardTitle>
+              <CardDescription>Klik resi untuk membuka detail. Video hanya dimuat di detail dokumentasi.</CardDescription>
             </CardHeader>
             <CardContent className="min-w-0 pt-4">
               <div className="grid gap-4 lg:hidden">
                 {pageItems.length ? (
                   pageItems.map((group) => {
                     const isSelected = group.latest.id === selectedRecord?.id
-                    const taskTypes = getGroupTaskTypes(group)
-                    const previewMode = getGroupPreviewMode(group)
-
                     return (
                       <article
                         key={group.resiNumber}
-                        className={isSelected ? 'grid gap-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm' : 'grid gap-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm'}
+                        className={isSelected ? 'grid gap-4 rounded-[4px] border border-slate-400 bg-slate-50 p-4' : 'grid gap-4 rounded-[4px] border border-slate-300 bg-white p-4'}
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="grid min-w-0 gap-1.5">
@@ -750,93 +746,73 @@ export function HistoryPage() {
                           <div className="flex flex-col items-end gap-2">
                             <StatusPill status={getGroupStatus(group)} />
                             {group.records.some((record) => isRepeatQcInvalidRecord(record)) ? (
-                              <span className="inline-flex rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-[0.65rem] font-medium uppercase tracking-[0.16em] text-rose-700">
+                              <span className="inline-flex rounded-[4px] border border-rose-300 bg-rose-50 px-2.5 py-0.5 text-[0.65rem] font-medium uppercase tracking-[0.16em] text-rose-700">
                                 Repeat QC
                               </span>
                             ) : null}
                           </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.16em] text-slate-500">
-                          <span>Tugas</span>
-                          {taskTypes.map((taskType) => (
-                            <TaskPill key={`${group.resiNumber}-${taskType}`} taskType={taskType} />
-                          ))}
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.16em] text-slate-500">
-                          <span>{group.records.length} rekaman</span>
-                        </div>
-
-                        <dl className="grid gap-3 text-sm">
-                          <div className="flex items-start justify-between gap-4 rounded-2xl border border-slate-100 bg-white/70 px-3 py-2">
-                            <dt className="text-slate-500">Tanggal</dt>
-                            <dd className="text-right font-medium text-slate-950">{group.latest.recordDate}</dd>
-                          </div>
-                          <div className="flex items-start justify-between gap-4 rounded-2xl border border-slate-100 bg-white/70 px-3 py-2">
-                            <dt className="text-slate-500">Durasi</dt>
-                            <dd className="text-right font-medium text-slate-950">{formatDuration(group.latest.durationSeconds)}</dd>
-                          </div>
-                        </dl>
+                          <dl className="grid gap-2 text-sm sm:grid-cols-2">
+                            <CompactTaskRow label="QC" record={getLatestRecordForTask(group, 'qc')} />
+                            <CompactTaskRow label="Packing" record={getLatestRecordForTask(group, 'packing')} />
+                            <div className="rounded-[4px] border border-slate-200 bg-white px-3 py-2">
+                              <dt className="text-xs uppercase tracking-[0.16em] text-slate-500">Update</dt>
+                              <dd className="mt-1 font-medium text-slate-950">{formatDateTime(group.latest.updatedAt)}</dd>
+                            </div>
+                            <div className="rounded-[4px] border border-slate-200 bg-white px-3 py-2">
+                              <dt className="text-xs uppercase tracking-[0.16em] text-slate-500">Rekaman</dt>
+                              <dd className="mt-1 font-medium text-slate-950">{group.records.length} file</dd>
+                            </div>
+                          </dl>
 
                         <div className="grid gap-2">
                           <Button type="button" variant="outline" size="default" className="w-full gap-1.5" onClick={() => openDetail(group.latest)}>
                             <FileText className="size-3.5" />
                             Detail
                           </Button>
-                          {previewMode === 'single' ? (
-                            <Button type="button" size="default" className="w-full gap-1.5" onClick={() => setPreviewTarget(group.latest)}>
-                              <Eye className="size-3.5" />
-                              Preview
-                            </Button>
-                          ) : null}
-                          {previewMode === 'dual' ? (
-                            <Button type="button" variant="outline" size="default" className="w-full gap-1.5 border-slate-200" onClick={() => openDualPreview(group)}>
-                              <MonitorPlay className="size-3.5" />
-                              Lihat 2 video
-                            </Button>
-                          ) : null}
+                          <Button type="button" variant="outline" size="default" className="w-full gap-1.5 border-slate-300" onClick={() => void handleCopyText(group.latest.resiNumber, 'Resi')}>
+                            <Copy className="size-3.5" />
+                            Copy resi
+                          </Button>
                         </div>
 
                       </article>
                     )
                   })
                 ) : (
-                  <div className="grid gap-2 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-slate-500">
+                  <div className="grid gap-2 rounded-[4px] border border-dashed border-slate-300 bg-slate-50 p-6 text-slate-500">
                     <strong className="text-slate-950">Belum ada data yang cocok.</strong>
                     <p>Coba ubah kata kunci, status, atau rentang tanggal.</p>
                   </div>
                 )}
               </div>
 
-              <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:block">
+              <div className="hidden overflow-hidden rounded-[4px] border border-slate-300 bg-white lg:block">
                 <div className="overflow-x-auto">
                   <table className="min-w-full border-collapse text-sm">
-                    <thead className="bg-slate-50/80">
+                    <thead className="bg-slate-50">
                       <tr className="text-left text-xs uppercase tracking-[0.18em] text-slate-500">
                         <Th>Resi</Th>
                         <Th>Operator</Th>
-                        <Th>Tugas</Th>
-                        <Th>Tanggal</Th>
-                        <Th>Status</Th>
-                        <Th>Durasi</Th>
-                        <Th className="text-right">Aksi</Th>
+                                <Th>QC</Th>
+                                <Th>Packing</Th>
+                                <Th>Update</Th>
+                                <Th>Status</Th>
+                                <Th className="text-right">Aksi</Th>
                       </tr>
                     </thead>
                     <tbody>
                       {pageItems.length ? (
                         pageItems.map((group) => {
                           const isSelected = group.latest.id === selectedRecord?.id
-                          const taskTypes = getGroupTaskTypes(group)
-                          const previewMode = getGroupPreviewMode(group)
-
                           return (
                             <tr
                               key={group.resiNumber}
                               className={
                                 isSelected
-                                  ? 'border-b border-slate-100 bg-slate-50/90'
-                                  : 'border-b border-slate-100 bg-white transition-colors hover:bg-slate-50/60'
+                                  ? 'border-b border-slate-200 bg-slate-50'
+                                  : 'border-b border-slate-200 bg-white transition-colors hover:bg-slate-50'
                               }
                             >
                               <Td>
@@ -856,26 +832,19 @@ export function HistoryPage() {
                                   currentOperatorCode,
                                 )}
                               </Td>
-                              <Td>
-                                <div className="flex flex-wrap gap-2">
-                                  {taskTypes.map((taskType) => (
-                                    <TaskPill key={`${group.resiNumber}-${taskType}`} taskType={taskType} />
-                                  ))}
-                                  <span className="self-center text-xs text-slate-500">{group.records.length} record</span>
-                                </div>
-                              </Td>
-                              <Td>{group.latest.recordDate}</Td>
+                              <Td><TaskStatusText record={getLatestRecordForTask(group, 'qc')} /></Td>
+                              <Td><TaskStatusText record={getLatestRecordForTask(group, 'packing')} /></Td>
+                              <Td>{formatDateTime(group.latest.updatedAt)}</Td>
                               <Td>
                                 <div className="flex flex-col gap-2">
                                   <StatusPill status={getGroupStatus(group)} />
                                   {group.records.some((record) => isRepeatQcInvalidRecord(record)) ? (
-                                    <span className="inline-flex w-fit rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-[0.65rem] font-medium uppercase tracking-[0.16em] text-rose-700">
+                                    <span className="inline-flex w-fit rounded-[4px] border border-rose-300 bg-rose-50 px-2.5 py-0.5 text-[0.65rem] font-medium uppercase tracking-[0.16em] text-rose-700">
                                       Repeat QC
                                     </span>
                                   ) : null}
                                 </div>
                               </Td>
-                              <Td>{formatDuration(group.latest.durationSeconds)}</Td>
                               <Td>
                                 <div className="grid gap-2">
                                   <div className="flex flex-wrap justify-end gap-2">
@@ -893,24 +862,6 @@ export function HistoryPage() {
                                       <Copy className="size-3.5" />
                                       Copy resi
                                     </Button>
-                                    {previewMode === 'single' ? (
-                                      <Button type="button" size="sm" className="gap-1.5" onClick={() => setPreviewTarget(group.latest)}>
-                                        <Eye className="size-3.5" />
-                                        Preview
-                                      </Button>
-                                    ) : null}
-                                    {previewMode === 'dual' ? (
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        className="gap-1.5 border-slate-200"
-                                        onClick={() => openDualPreview(group)}
-                                      >
-                                        <MonitorPlay className="size-3.5" />
-                                        Lihat 2 video
-                                      </Button>
-                                    ) : null}
                                   </div>
                                 </div>
                               </Td>
@@ -919,8 +870,8 @@ export function HistoryPage() {
                         })
                       ) : (
                         <tr>
-                          <td colSpan={7} className="p-6">
-                            <div className="grid gap-2 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-slate-500">
+                            <td colSpan={7} className="p-6">
+                              <div className="grid gap-2 rounded-[4px] border border-dashed border-slate-300 bg-slate-50 p-6 text-slate-500">
                               <strong className="text-slate-950">Belum ada data yang cocok.</strong>
                               <p>Coba ubah kata kunci, status, atau rentang tanggal.</p>
                             </div>
@@ -1172,7 +1123,7 @@ export function HistoryPage() {
                     ) : null}
                   </div>
 
-                  <div className="grid gap-2 rounded-[1rem] border border-slate-200 bg-slate-50 p-3">
+                  <div className="grid gap-2 rounded-[4px] border border-slate-300 bg-slate-50 p-3">
                     <p className="text-[0.65rem] uppercase tracking-[0.18em] text-slate-500">Aksi cepat</p>
                     <div className="flex flex-wrap gap-2">
                       <Button
@@ -1228,8 +1179,8 @@ export function HistoryPage() {
                               key={record.id}
                               className={
                                 isSelectedRecord
-                                  ? 'grid gap-2 rounded-[1rem] border border-slate-300 bg-white p-3 shadow-sm'
-                                  : 'grid gap-2 rounded-[1rem] border border-slate-200 bg-white p-3'
+                                  ? 'grid gap-2 rounded-[4px] border border-slate-400 bg-white p-3'
+                                  : 'grid gap-2 rounded-[4px] border border-slate-300 bg-white p-3'
                               }
                             >
                               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -1238,12 +1189,12 @@ export function HistoryPage() {
                                     <TaskPill taskType={record.taskType} />
                                     <StatusPill status={record.status} />
                                     {invalidRecord ? (
-                                      <span className="inline-flex rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-[0.65rem] font-medium uppercase tracking-[0.16em] text-rose-700">
+                                      <span className="inline-flex rounded-[4px] border border-rose-300 bg-rose-50 px-2.5 py-0.5 text-[0.65rem] font-medium uppercase tracking-[0.16em] text-rose-700">
                                         Tidak valid
                                       </span>
                                       ) : null}
                                     {isSelectedRecord ? (
-                                      <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[0.65rem] font-medium uppercase tracking-[0.16em] text-slate-600">
+                                      <span className="inline-flex rounded-[4px] border border-slate-300 bg-slate-50 px-2.5 py-0.5 text-[0.65rem] font-medium uppercase tracking-[0.16em] text-slate-600">
                                         Dipilih
                                       </span>
                                     ) : null}
@@ -1255,6 +1206,16 @@ export function HistoryPage() {
                                     <span>{record.note ?? 'Tidak ada catatan tambahan.'}</span>
                                   </div>
                                 </div>
+
+                                {record.status === 'completed' ? (
+                                  <video
+                                    src={buildServerFileUrl(record.filePath)}
+                                    crossOrigin="use-credentials"
+                                    controls
+                                    playsInline
+                                    className="max-h-[42vh] w-full rounded-[4px] bg-black object-contain"
+                                  />
+                                ) : null}
 
                                 <div className="flex flex-wrap gap-2">
                                   <Button type="button" variant="outline" size="sm" className="border-slate-200" onClick={() => void handleCopyText(record.filePath, 'Path file')}>
@@ -1272,11 +1233,6 @@ export function HistoryPage() {
                                     <Download className="size-4" />
                                     {downloadingRecordId === record.id ? 'Menyiapkan...' : 'Download'}
                                   </Button>
-                                  {record.status === 'completed' ? (
-                                    <Button type="button" size="sm" onClick={() => setPreviewTarget(record)}>
-                                      Preview
-                                    </Button>
-                                  ) : null}
                                   <Button
                                     type="button"
                                     variant="destructive"
@@ -1295,7 +1251,7 @@ export function HistoryPage() {
                       </div>
                     </>
                   ) : (
-                    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-500">
+                    <div className="rounded-[4px] border border-dashed border-slate-300 bg-slate-50 p-4 text-sm leading-6 text-slate-500">
                       Pilih salah satu baris untuk melihat detail data.
                     </div>
                   )}
@@ -1336,10 +1292,10 @@ export function HistoryPage() {
                     controls
                     autoPlay
                     playsInline
-                    className="max-h-[74vh] w-full rounded-[1.25rem] bg-black"
+                    className="max-h-[74vh] w-full rounded-[4px] bg-black"
                   />
                 ) : (
-                  <div className="grid gap-2 rounded-[1.25rem] border border-dashed border-slate-200 bg-slate-50 p-4 text-slate-500">
+                  <div className="grid gap-2 rounded-[4px] border border-dashed border-slate-300 bg-slate-50 p-4 text-slate-500">
                     <strong className="text-slate-950">Preview belum tersedia.</strong>
                     <p>{previewMessage}</p>
                   </div>
@@ -1398,7 +1354,7 @@ export function HistoryPage() {
                   }
 
                   return (
-                    <div key={taskType} className="grid min-w-0 gap-2 rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
+                    <div key={taskType} className="grid min-w-0 gap-2 rounded-[4px] border border-slate-300 bg-slate-50 p-4">
                       <div className="flex items-center justify-between gap-4">
                         <div className="grid gap-1">
                           <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Tugas</p>
@@ -1411,7 +1367,7 @@ export function HistoryPage() {
                         crossOrigin="use-credentials"
                         controls
                         playsInline
-                        className="h-[34vh] w-full rounded-[1rem] bg-black sm:h-[40vh] md:h-[44vh] lg:h-[62vh]"
+                        className="h-[34vh] w-full rounded-[4px] bg-black sm:h-[40vh] md:h-[44vh] lg:h-[62vh]"
                       />
 
                       <div className="flex flex-col gap-3 sm:flex-row">
@@ -1478,7 +1434,7 @@ export function HistoryPage() {
                 <DialogCloseButton onClick={() => setDeleteTarget(null)} />
               </DialogHeader>
 
-              <div className="grid gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-950">
+              <div className="grid gap-2 rounded-[4px] border border-rose-300 bg-rose-50 p-4 text-sm leading-6 text-rose-950">
                 <strong>{deleteTarget.taskType === 'qc' ? 'QC' : 'Packing'} - {deleteTarget.fileName}</strong>
                 <span>{formatDateTime(deleteTarget.startTime)}</span>
               </div>
@@ -1519,11 +1475,11 @@ function StatCard({
   icon: ComponentType<{ className?: string }>
 }) {
   return (
-    <Card className="border-slate-200/80 shadow-sm shadow-slate-900/5">
+    <Card className="rounded-[4px] border-slate-300 shadow-none">
       <CardContent className="space-y-3 p-4">
         <div className="flex items-center justify-between gap-4">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{label}</p>
-          <div className="grid size-9 place-items-center rounded-xl bg-slate-950 text-white">
+          <div className="grid size-9 place-items-center rounded-[4px] bg-slate-950 text-white">
             <Icon className="size-4" />
           </div>
         </div>
@@ -1533,17 +1489,45 @@ function StatCard({
   )
 }
 
+function CompactTaskRow({ label, record }: { label: string; record: LocalRecordingRecord | null }) {
+  return (
+    <div className="rounded-[4px] border border-slate-200 bg-white px-3 py-2">
+      <dt className="text-xs uppercase tracking-[0.16em] text-slate-500">{label}</dt>
+      <dd className="mt-1 flex items-center justify-between gap-3 text-sm">
+        <TaskStatusText record={record} />
+        <span className="shrink-0 text-xs text-slate-500">{record ? formatDuration(record.durationSeconds) : '-'}</span>
+      </dd>
+    </div>
+  )
+}
+
+function TaskStatusText({ record }: { record: LocalRecordingRecord | null }) {
+  if (!record) {
+    return <span className="text-slate-500">— Belum ada</span>
+  }
+
+  if (record.status === 'completed') {
+    return <span className="font-medium text-slate-950">✓ Selesai</span>
+  }
+
+  if (record.status === 'recording') {
+    return <span className="font-medium text-amber-700">… Recording</span>
+  }
+
+  return <span className="font-medium text-rose-700">× Error</span>
+}
+
 function StatusPill({ status }: { status: LocalRecordingRecord['status'] | 'idle' | 'partial' }) {
   const label =
     status === 'completed'
-      ? 'Sukses'
+      ? '✓ Lengkap'
       : status === 'recording'
-        ? 'Recording'
+        ? '… Recording'
         : status === 'error'
-          ? 'Error'
+          ? '× Error'
           : status === 'partial'
-            ? 'QC selesai'
-            : 'Idle'
+            ? '! Belum lengkap'
+            : '— Belum ada'
   const toneClass =
     status === 'completed'
       ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
@@ -1556,7 +1540,7 @@ function StatusPill({ status }: { status: LocalRecordingRecord['status'] | 'idle
           : 'border-slate-200 bg-slate-50 text-slate-600'
 
   return (
-    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] ${toneClass}`}>
+    <span className={`inline-flex rounded-[4px] border px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] ${toneClass}`}>
       {label}
     </span>
   )
@@ -1572,7 +1556,7 @@ function DetailRow({
   singleLine?: boolean
 }) {
   return (
-    <div className="grid min-w-0 gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+    <div className="grid min-w-0 gap-1 rounded-[4px] border border-slate-300 bg-slate-50 p-4">
       <dt className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</dt>
       <dd
         className={singleLine ? 'truncate text-sm leading-6 text-slate-950' : '[overflow-wrap:anywhere] break-words text-sm leading-6 text-slate-950'}
@@ -1589,8 +1573,8 @@ function TaskPill({ taskType }: { taskType: WorkTask }) {
     <span
       className={
         taskType === 'qc'
-          ? 'inline-flex rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-[0.65rem] font-medium uppercase tracking-[0.16em] text-blue-700'
-          : 'inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[0.65rem] font-medium uppercase tracking-[0.16em] text-emerald-700'
+          ? 'inline-flex rounded-[4px] border border-blue-300 bg-blue-50 px-2.5 py-0.5 text-[0.65rem] font-medium uppercase tracking-[0.16em] text-blue-700'
+          : 'inline-flex rounded-[4px] border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-[0.65rem] font-medium uppercase tracking-[0.16em] text-emerald-700'
       }
     >
       {taskType}
@@ -1688,11 +1672,6 @@ function groupRecordingsByResi(records: LocalRecordingRecord[]): HistoryRecordin
 
 function getGroupByResi(records: LocalRecordingRecord[], resiNumber: string) {
   return groupRecordingsByResi(records).find((group) => group.resiNumber === resiNumber) ?? null
-}
-
-function getGroupTaskTypes(group: HistoryRecordingGroup) {
-  const ordered: WorkTask[] = ['qc', 'packing']
-  return ordered.filter((taskType) => group.records.some((record) => record.taskType === taskType))
 }
 
 function getLatestRecordForTask(group: HistoryRecordingGroup, taskType: WorkTask) {
