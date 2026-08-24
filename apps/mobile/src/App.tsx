@@ -207,6 +207,8 @@ function App() {
   const [historyHighlightedResi, setHistoryHighlightedResi] = useState<string | null>(null)
   const [historyDetailTarget, setHistoryDetailTarget] = useState<null | { resiNumber: string; rows: RecordingRow[] }>(null)
   const [historyDeleteConfirm, setHistoryDeleteConfirm] = useState<RecordingRow | null>(null)
+  const [historyFilterOpen, setHistoryFilterOpen] = useState(false)
+  const [historyDocStatusFilter, setHistoryDocStatusFilter] = useState<'all' | 'lengkap' | 'belum-lengkap'>('all')
   const [sharingRecordId, setSharingRecordId] = useState<string | null>(null)
   const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null)
   const [watermarkResi, setWatermarkResi] = useState<string | null>(null)
@@ -675,16 +677,21 @@ function App() {
     return 'kosong' as const
   }
 
+  const historyFilterSheetActive = historyDocStatusFilter !== 'all' || historyAllAccounts
+
   // Group by date for history sections
   const groupedByDate = useMemo(() => {
     const sections = new Map<string, Array<{ resiNumber: string; rows: RecordingRow[]; latestRow: RecordingRow | null }>>()
-    for (const group of groupedRecordings) {
+    const filteredByDocStatus = historyDocStatusFilter === 'all'
+      ? groupedRecordings
+      : groupedRecordings.filter((group) => docStatus(group) === historyDocStatusFilter)
+    for (const group of filteredByDocStatus) {
       const dateKey = group.latestRow?.updatedAt ? new Date(group.latestRow.updatedAt).toDateString() : '-'
       if (!sections.has(dateKey)) sections.set(dateKey, [])
       sections.get(dateKey)?.push(group)
     }
     return [...sections.entries()]
-  }, [groupedRecordings])
+  }, [groupedRecordings, historyDocStatusFilter])
 
   function formatSectionDate(dateKey: string) {
     if (dateKey === '-') return ''
@@ -1804,52 +1811,107 @@ function App() {
                 </div>
               </div>
 
-              <div className="grid gap-2.5">
-                <span className="text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">Filter task</span>
-                <div className="flex flex-wrap gap-2">
-                  {(['all','qc','packing'] as const).map((v) => (
-                    <Button
-                      key={v}
-                      type="button"
-                      variant={historyTaskFilter === v ? 'secondary' : 'outline'}
-                      size="sm"
-                      className="rounded-[4px] px-4"
-                      onClick={() => setHistoryTaskFilter(v)}
-                    >
-                      {v === 'all' ? '[ All ]' : v === 'qc' ? '[ QC ]' : '[ Packing ]'}
-                    </Button>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  {isAdmin ? (
-                    <Button
-                      type="button"
-                      variant={historyAllAccounts ? 'secondary' : 'outline'}
-                      size="sm"
-                      className="flex-1 rounded-[4px]"
-                      onClick={() => setHistoryAllAccounts((current) => !current)}
-                    >
-                      {historyAllAccounts ? '[ Semua akun ]' : '[ Semua akun ]'}
-                    </Button>
-                  ) : null}
+              <div className="flex gap-2">
+                {(['all','qc','packing'] as const).map((v) => (
                   <Button
+                    key={v}
                     type="button"
-                    variant="ghost"
+                    variant={historyTaskFilter === v ? 'secondary' : 'outline'}
                     size="sm"
-                    className="flex-1 rounded-[4px] border border-[var(--op-hairline)]"
-                    onClick={() => {
-                      setHistoryTaskFilter('all')
-                      setHistoryResiQuery('')
-                      setHistoryHighlightedResi(null)
-                      setHistoryAllAccounts(false)
-                    }}
-                    disabled={!hasHistoryFilters}
+                    className="rounded-[4px] px-3"
+                    onClick={() => setHistoryTaskFilter(v)}
                   >
-                    Reset
+                    {v === 'all' ? 'Semua' : v === 'qc' ? 'QC' : 'Packing'}
                   </Button>
-                </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className={
+                    historyFilterSheetActive
+                      ? 'ml-auto rounded-[4px] border-[var(--op-hairline-strong)] bg-[var(--op-surface-card)]'
+                      : 'ml-auto rounded-[4px] border-[var(--op-hairline)]'
+                  }
+                  onClick={() => setHistoryFilterOpen(true)}
+                >
+                  Filter ⚙
+                </Button>
               </div>
             </div>
+
+            <Sheet open={historyFilterOpen} onOpenChange={(open) => { if (!open) setHistoryFilterOpen(false) }}>
+              <SheetContent side="bottom" className="w-full rounded-t-3xl border-border bg-popover p-0" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                <SheetHeader className="px-4 pt-5">
+                  <SheetTitle className="text-left">Filter history</SheetTitle>
+                  <SheetDescription className="text-left">Saring dokumentasi sesuai kebutuhan.</SheetDescription>
+                </SheetHeader>
+                <div className="grid gap-5 px-4 pb-6 pt-2">
+                  {isAdmin ? (
+                    <div className="grid gap-2">
+                      <span className="text-[12px] font-bold tracking-wide text-[var(--op-mute)]">Akun</span>
+                      <Button
+                        type="button"
+                        variant={historyAllAccounts ? 'secondary' : 'outline'}
+                        size="sm"
+                        className="w-full justify-between rounded-[4px]"
+                        onClick={() => setHistoryAllAccounts((current) => !current)}
+                      >
+                        {historyAllAccounts ? 'Semua akun' : `Akun ${session?.operatorCode || '-'}`}
+                        <span>{historyAllAccounts ? '✓' : '▼'}</span>
+                      </Button>
+                    </div>
+                  ) : null}
+
+                  <div className="grid gap-2">
+                    <span className="text-[12px] font-bold tracking-wide text-[var(--op-mute)]">Status dokumentasi</span>
+                    <div className="grid gap-1.5">
+                      {([
+                        { key: 'all', label: 'Semua' },
+                        { key: 'lengkap', label: '✓ Lengkap' },
+                        { key: 'belum-lengkap', label: '! Belum lengkap' },
+                      ] as const).map((opt) => (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          className={
+                            historyDocStatusFilter === opt.key
+                              ? 'flex items-center justify-between rounded-[4px] border border-[var(--op-hairline-strong)] bg-[var(--op-surface-card)] px-3 py-2 text-left text-sm font-medium'
+                              : 'flex items-center justify-between rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 py-2 text-left text-sm'
+                          }
+                          onClick={() => setHistoryDocStatusFilter(opt.key)}
+                        >
+                          <span>{opt.label}</span>
+                          <span>{historyDocStatusFilter === opt.key ? '●' : '○'}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="rounded-[4px]"
+                      onClick={() => {
+                        setHistoryTaskFilter('all')
+                        setHistoryResiQuery('')
+                        setHistoryHighlightedResi(null)
+                        setHistoryAllAccounts(false)
+                        setHistoryDocStatusFilter('all')
+                      }}
+                      disabled={!hasHistoryFilters && historyDocStatusFilter === 'all'}
+                    >
+                      Reset
+                    </Button>
+                    <Button type="button" size="sm" className="rounded-[4px]" onClick={() => setHistoryFilterOpen(false)}>
+                      Terapkan
+                    </Button>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
 
             <Sheet
               open={historyScanOpen}
