@@ -1450,7 +1450,7 @@ function App() {
       </header>
 
       <Dialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
-        <DialogContent className="rounded-3xl border-border bg-popover text-popover-foreground">
+        <DialogContent className="rounded-[4px] border-border bg-popover text-popover-foreground">
           <DialogHeader>
             <div className="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
               <AlertTriangle size={18} />
@@ -1538,7 +1538,7 @@ function App() {
                     </span>
                   ) : null}
                   {activeRecordingResi ? (
-                    <div className="w-fit rounded-2xl bg-black/45 px-3 py-2 backdrop-blur">
+                      <div className="w-fit rounded-[4px] bg-black/45 px-3 py-2 backdrop-blur">
                       <strong className="block text-[0.68rem] font-bold tracking-wide text-white">RESI {activeRecordingResi}</strong>
                       <span className="block text-[0.62rem] font-medium leading-tight text-white/80">
                         {formatTask(currentTaskType)} Â· {session.operatorName || session.operatorCode || '-'} Â· {watermarkOverlayTime}
@@ -1556,16 +1556,16 @@ function App() {
                 </div>
               }
               bottomSlot={
-                <div
+                  <div
                   className={
                     recordingSession.state.mode === 'recording'
-                      ? 'scan-control-panel scan-control-panel--recording rounded-3xl'
-                      : 'scan-control-panel rounded-3xl'
+                      ? 'scan-control-panel scan-control-panel--recording rounded-[4px]'
+                      : 'scan-control-panel rounded-[4px]'
                   }
                 >
                   <div className="mx-auto h-1 w-8 rounded-full bg-border/70" aria-hidden="true" />
                   {scanProgressState ? (
-                    <div className={`scan-progress-note scan-progress-note--${scanProgressState.tone} rounded-2xl`}>
+                    <div className={`scan-progress-note scan-progress-note--${scanProgressState.tone} rounded-[4px]`}>
                       <strong>{scanProgressState.title}</strong>
                       <span>{scanProgressState.message}</span>
                     </div>
@@ -1584,7 +1584,7 @@ function App() {
                         placeholder="Ketik atau scan otomatis"
                         inputMode="text"
                         autoCapitalize="characters"
-                        className="h-12 rounded-2xl border-border bg-card pl-10 text-[0.95rem]"
+                        className="h-12 rounded-[4px] border-border bg-card pl-10 text-[0.95rem] shadow-sm"
                       />
                     </div>
                     <p className="text-[0.68rem] leading-none text-muted-foreground">Arahkan barcode ke kotak atau ketik manual</p>
@@ -1592,7 +1592,7 @@ function App() {
 
                   <Button
                     type="button"
-                    className="h-12 w-full rounded-2xl text-[0.95rem] font-semibold"
+                    className="h-12 w-full rounded-[4px] text-[0.95rem] font-semibold"
                     disabled={
                       scanBusy ||
                       recordingSession.state.mode === 'stopping' ||
@@ -1654,10 +1654,10 @@ function App() {
                       placeholder="Cari resi..."
                       inputMode="text"
                       autoCapitalize="characters"
-                      className="h-11 rounded-2xl border-border bg-card pl-10"
+                      className="h-11 rounded-[4px] border-border bg-card pl-10"
                     />
                   </div>
-                  <Button type="button" variant="outline" size="icon" className="h-11 w-11 shrink-0 rounded-2xl" onClick={() => setHistoryScanOpen(true)}>
+                  <Button type="button" variant="outline" size="icon" className="h-11 w-11 shrink-0 rounded-[4px]" onClick={() => setHistoryScanOpen(true)}>
                     <ScanSearch size={16} />
                   </Button>
                 </div>
@@ -1727,7 +1727,7 @@ function App() {
                 </SheetHeader>
                 <div className="grid gap-3 px-4 pb-5 pt-3">
                   {historyScanError ? (
-                    <Alert variant="destructive" className="rounded-2xl">
+                    <Alert variant="destructive" className="rounded-[4px]">
                       <AlertTitle>Gagal membuka kamera</AlertTitle>
                       <AlertDescription>{historyScanError}</AlertDescription>
                     </Alert>
