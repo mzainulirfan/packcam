@@ -1,42 +1,41 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
 :root {
-  --mobile-bg: #f4f7fb;
-  --mobile-bg-alt: #e8eef7;
-  --mobile-surface: rgba(255, 255, 255, 0.88);
-  --mobile-surface-strong: rgba(255, 255, 255, 0.96);
-  --mobile-surface-soft: rgba(255, 255, 255, 0.72);
-  --mobile-border: rgba(15, 23, 42, 0.12);
-  --mobile-text: #0f172a;
-  --mobile-text-muted: rgba(15, 23, 42, 0.64);
-  --mobile-text-soft: rgba(15, 23, 42, 0.78);
-  --mobile-brand: #b85e1d;
-  --mobile-brand-soft: rgba(246, 196, 124, 0.16);
-  --mobile-shadow: 0 28px 80px rgba(15, 23, 42, 0.12);
+  --mobile-bg: #fdfcfc;
+  --mobile-bg-alt: #f8f7f7;
+  --mobile-surface: #f1eeee;
+  --mobile-surface-strong: #fdfcfc;
+  --mobile-surface-soft: #f8f7f7;
+  --mobile-border: rgba(15,0,0,0.12);
+  --mobile-text: #201d1d;
+  --mobile-text-muted: #646262;
+  --mobile-text-soft: #424245;
+  --mobile-brand: #201d1d;
+  --mobile-brand-soft: #f1eeee;
+  --mobile-shadow: none;
 }
 
 .dark {
-  --mobile-bg: #0a0d12;
-  --mobile-bg-alt: #111827;
-  --mobile-surface: rgba(12, 16, 23, 0.86);
-  --mobile-surface-strong: rgba(12, 16, 23, 0.96);
-  --mobile-surface-soft: rgba(12, 16, 23, 0.72);
-  --mobile-border: rgba(255, 255, 255, 0.1);
-  --mobile-text: #eff4fb;
-  --mobile-text-muted: rgba(226, 233, 244, 0.78);
-  --mobile-text-soft: rgba(226, 233, 244, 0.64);
-  --mobile-brand: #f6c47c;
-  --mobile-brand-soft: rgba(246, 196, 124, 0.14);
-  --mobile-shadow: 0 28px 80px rgba(0, 0, 0, 0.34);
+  --mobile-bg: #201d1d;
+  --mobile-bg-alt: #302c2c;
+  --mobile-surface: #302c2c;
+  --mobile-surface-strong: #201d1d;
+  --mobile-surface-soft: #424245;
+  --mobile-border: rgba(253,252,252,0.12);
+  --mobile-text: #fdfcfc;
+  --mobile-text-muted: #9a9898;
+  --mobile-text-soft: #646262;
+  --mobile-brand: #fdfcfc;
+  --mobile-brand-soft: #424245;
+  --mobile-shadow: none;
 }
 
 :root {
   font-family:
-    'Geist Variable',
-    'Inter',
-    system-ui,
-    sans-serif;
-  background:
-    radial-gradient(circle at top, rgba(246, 196, 124, 0.16), transparent 34%),
-    linear-gradient(180deg, var(--mobile-bg) 0%, var(--mobile-bg-alt) 100%);
+    'JetBrains Mono',
+    'Berkeley Mono',
+    ui-monospace,
+    monospace;
+  background: var(--mobile-bg);
 }
 
 * {
@@ -53,10 +52,9 @@ body,
 
 body {
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top, rgba(246, 196, 124, 0.14), transparent 28%),
-    linear-gradient(180deg, var(--mobile-bg) 0%, var(--mobile-bg-alt) 100%);
+  background: var(--mobile-bg);
   color: var(--mobile-text);
+  font-family: 'JetBrains Mono', 'Berkeley Mono', ui-monospace, monospace;
 }
 
 button,
@@ -151,17 +149,18 @@ button {
 }
 
 .brand-badge {
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
   display: grid;
   place-items: center;
-  background: #0a0d12;
-  color: #ffffff;
-  font-size: 1rem;
+  background: var(--mobile-brand);
+  color: var(--mobile-bg);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
   font-weight: 700;
-  letter-spacing: -0.04em;
-  box-shadow: 0 10px 24px rgba(17, 17, 17, 0.12);
+  letter-spacing: 0;
+  border: 1px solid var(--mobile-border);
 }
 
 .mobile-boot-state,
@@ -236,14 +235,11 @@ button {
 .camera-preview {
   position: relative;
   overflow: hidden;
-  border-radius: 24px;
+  border-radius: 4px;
   border: 1px solid var(--mobile-border);
-  background:
-    radial-gradient(circle at top, rgba(246, 196, 124, 0.08), transparent 35%),
-    var(--mobile-surface-strong);
-  min-height: calc(100dvh - 8.8rem);
-  height: calc(100dvh - 8.8rem);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  background: var(--mobile-brand);
+  min-height: calc(100dvh - 10rem);
+  height: calc(100dvh - 10rem);
 }
 
 .scan-screen {
@@ -302,18 +298,17 @@ button {
 .scan-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 4px;
   max-width: 100%;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(7, 10, 15, 0.68);
-  color: #fff8ec;
-  padding: 0.42rem 0.62rem;
-  font-size: 0.72rem;
-  font-weight: 750;
+  border-radius: 4px;
+  border: 1px solid var(--mobile-border);
+  background: var(--mobile-brand);
+  color: var(--mobile-bg);
+  padding: 4px 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 500;
   line-height: 1;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(10px);
 }
 
 .scan-pill--audio {
@@ -387,13 +382,11 @@ button {
 
 .scan-control-panel {
   display: grid;
-  gap: 0.65rem;
+  gap: 12px;
   border: 1px solid var(--mobile-border);
-  border-radius: 20px;
-  background: var(--mobile-surface-strong);
-  padding: 0.82rem;
-  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.14);
-  backdrop-filter: blur(18px);
+  border-radius: 4px;
+  background: var(--mobile-surface);
+  padding: 12px;
 }
 
 .scan-control-panel--recording {
