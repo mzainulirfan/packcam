@@ -1964,25 +1964,6 @@ function App() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-3 py-3">
-                <span className="block text-[12px] font-medium uppercase tracking-[0.14em] text-[var(--op-mute)]">Nama</span>
-                <strong className="mt-1 block text-sm leading-tight">{session.operatorName}</strong>
-              </div>
-              <div className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-3 py-3">
-                <span className="block text-[12px] font-medium uppercase tracking-[0.14em] text-[var(--op-mute)]">Kode</span>
-                <strong className="mt-1 block text-sm leading-tight">{session.operatorCode || '-'}</strong>
-              </div>
-              <div className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-3 py-3">
-                <span className="block text-[12px] font-medium uppercase tracking-[0.14em] text-[var(--op-mute)]">Role</span>
-                <strong className="mt-1 block text-sm leading-tight">{session.role}</strong>
-              </div>
-              <div className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-3 py-3">
-                <span className="block text-[12px] font-medium uppercase tracking-[0.14em] text-[var(--op-mute)]">Akses</span>
-                <strong className="mt-1 block text-sm leading-tight">{isAdmin ? 'Bisa ubah task' : 'Informasi saja'}</strong>
-              </div>
-            </div>
-
             {isAdmin ? (
               <div className="rounded-3xl border border-border/60 bg-card p-5">
                 <p className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Kontrol task</p>
