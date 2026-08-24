@@ -1620,7 +1620,7 @@ function App() {
         </section>
       ) : null}
 
-      <div className="h-20" aria-hidden="true" />
+      <div className="h-14" aria-hidden="true" />
       <BottomNav activeTab={activeTab} onChange={(tab) => openTab(tab)} />
 
       {activeTab === 'history' ? (
