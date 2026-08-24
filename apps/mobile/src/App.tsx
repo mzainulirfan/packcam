@@ -1435,37 +1435,18 @@ function App() {
           >
             {isDarkTheme ? <SunMedium size={16} /> : <MoonStar size={16} />}
           </Button>
-          <Button type="button" variant="outline" size="icon-sm" onClick={() => setMenuOpen(true)} aria-label="Menu">
-            <Menu size={16} />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            className="theme-toggle"
+            onClick={() => setLogoutConfirmOpen(true)}
+            aria-label="Keluar"
+          >
+            <LogOut size={16} />
           </Button>
         </div>
       </header>
-
-      <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-        <SheetContent
-          side="bottom"
-          className="w-full rounded-t-3xl border-border bg-popover/95 p-0"
-        >
-          <SheetHeader className="px-4 pt-5">
-            <SheetTitle>Menu</SheetTitle>
-            <SheetDescription>Aksi cepat</SheetDescription>
-          </SheetHeader>
-          <div className="grid gap-2 px-4 pb-4 pt-2">
-            <Button
-              type="button"
-              variant="destructive"
-              className="w-full justify-start gap-2 rounded-xl"
-              onClick={() => {
-                setMenuOpen(false)
-                setLogoutConfirmOpen(true)
-              }}
-            >
-              <LogOut size={16} />
-              <span>Keluar</span>
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
 
       <Dialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
         <DialogContent className="border-border bg-popover text-popover-foreground">
