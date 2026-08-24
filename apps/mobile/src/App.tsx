@@ -1665,7 +1665,7 @@ function App() {
             <div className="grid gap-1">
               <p className="text-[12px] font-bold tracking-wide">[ History ]</p>
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-[16px] font-bold leading-none">Resi � {groupedRecordings.length} catatan</h2>
+                <h2 className="text-[16px] font-bold leading-none">Resi — {groupedRecordings.length} catatan</h2>
                 <span className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-2 py-0.5 text-[12px]">
                   {historyAllAccounts && isAdmin ? 'semua akun' : `akun ${session?.operatorCode || '-'}`}
                 </span>
@@ -1873,7 +1873,7 @@ function App() {
                     <div className="grid gap-2">
                     {groups.map((group) => {
                       const status = docStatus(group)
-                      const statusLabel = status === 'lengkap' ? '✓ Lengkap' : status === 'belum-lengkap' ? '! Belum lengkap' : '� Belum ada'
+                      const statusLabel = status === 'lengkap' ? '✓ Lengkap' : status === 'belum-lengkap' ? '! Belum lengkap' : '— Belum ada'
                       const qcRow = group.rows.find((r: RecordingRow) => r.taskType === 'qc')
                       const packingRow = group.rows.find((r: RecordingRow) => r.taskType === 'packing')
                       const latest = group.latestRow
@@ -1919,7 +1919,7 @@ function App() {
                                 <div className="flex items-center justify-between gap-2">
                                   <span className="text-[14px] font-semibold">QC</span>
                                   <span className={qcRow.status === 'completed' ? 'text-[13px]' : 'text-[13px] text-[var(--op-mute)]'}>
-                                    {qcRow.status === 'completed' ? '✓ Selesai' : qcRow.status === 'recording' ? '� Rekam' : '� Error'}
+                                    {qcRow.status === 'completed' ? '✓ Selesai' : qcRow.status === 'recording' ? '… Rekam' : '× Error'}
                                   </span>
                                 </div>
                               ) : null}
@@ -1927,13 +1927,13 @@ function App() {
                                 <div className="flex items-center justify-between gap-2">
                                   <span className="text-[14px] font-semibold">Packing</span>
                                   <span className={packingRow.status === 'completed' ? 'text-[13px]' : 'text-[13px] text-[var(--op-mute)]'}>
-                                    {packingRow.status === 'completed' ? '✓ Selesai' : packingRow.status === 'recording' ? '� Rekam' : '� Error'}
+                                    {packingRow.status === 'completed' ? '✓ Selesai' : packingRow.status === 'recording' ? '… Rekam' : '× Error'}
                                   </span>
                                 </div>
                               ) : null}
                               {!packingRow && !qcRow ? <span className="text-[13px] text-[var(--op-mute)]">{group.rows.length} dokumentasi</span> : null}
                               <span className="mt-auto truncate text-[12px] text-[var(--op-mute)]">
-                                {formatDateTime(latest.updatedAt)} � oleh {latest.operatorName || '-'}
+                                {formatDateTime(latest.updatedAt)} · oleh {latest.operatorName || '-'}
                               </span>
                             </div>
                           </div>
@@ -1957,7 +1957,7 @@ function App() {
                           </div>
                         )}
 
-                        <span className="justify-self-end text-[12px] font-medium text-[var(--op-mute)]">Lihat �</span>
+                        <span className="justify-self-end text-[12px] font-medium text-[var(--op-mute)]">Lihat ›</span>
                       </button>
                       )
                     })}
@@ -2000,7 +2000,7 @@ function App() {
           <div className="flex items-start justify-between gap-3 border-b border-[var(--op-hairline)] pb-3">
             <div className="grid gap-1">
               <p className="text-[12px] font-bold tracking-wide">[ Session ]</p>
-              <h2 className="text-[16px] font-bold leading-none">Akun � {session.operatorName}</h2>
+              <h2 className="text-[16px] font-bold leading-none">Akun — {session.operatorName}</h2>
               <p className="text-[14px] leading-relaxed text-[var(--op-mute)]">Status login dan task aktif.</p>
             </div>
             <span className="grid size-9 place-items-center rounded-[4px] bg-[var(--op-ink)] text-[var(--op-canvas)]">
@@ -2109,7 +2109,7 @@ function App() {
                     </span>
                   </div>
                   <span className="text-[12px] text-[var(--op-mute)]">
-                    {formatDateTime(record.updatedAt)} � oleh {record.operatorName || '-'}
+                    {formatDateTime(record.updatedAt)} · oleh {record.operatorName || '-'}
                   </span>
                   {record.status === 'completed' && record.filePath ? (
                     <>
