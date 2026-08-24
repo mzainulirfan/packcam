@@ -75,20 +75,26 @@ function readCookieSameSite(): 'Lax' | 'Strict' | 'None' {
     return 'Strict'
   }
 
-  if (value === 'lax') {
-    return 'Lax'
-  }
-
-  // Default to None for cross-site Vercel -> tunnel
-  return 'None'
+  return 'Lax'
 }
 
-function readCookieAttributes() {
-  const sameSite = readCookieSameSite()
+function isCrossSiteRequest(req?: Request) {
+  const origin = (req?.headers.origin ?? '').trim()
+  if (!origin) return false
+  try {
+    const url = new URL(origin)
+    // Vercel and trycloudflare are cross-site from localhost
+    if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') return false
+    return true
+  } catch {
+    return false
+  }
+}
+
+function readCookieAttributes(req?: Request) {
+  const sameSite = isCrossSiteRequest(req) ? 'None' : 'Lax'
   const cookieDomain = (process.env.COOKIE_DOMAIN ?? '').trim()
-  const cookieSecure =
-    process.env.COOKIE_SECURE === 'true' ||
-    sameSite === 'None'
+  const cookieSecure = sameSite === 'None'
 
   return [
     'HttpOnly',
@@ -99,19 +105,19 @@ function readCookieAttributes() {
   ]
 }
 
-export function setSessionCookie(res: Response, sessionId: string) {
+export function setSessionCookie(res: Response, sessionId: string, req?: Request) {
   const cookie = [
     `pakti_session=${encodeURIComponent(sessionId)}`,
-    ...readCookieAttributes(),
+    ...readCookieAttributes(req),
   ].join('; ')
 
   res.setHeader('Set-Cookie', cookie)
 }
 
-export function clearSessionCookie(res: Response) {
+export function clearSessionCookie(res: Response, req?: Request) {
   res.setHeader('Set-Cookie', [
     'pakti_session=',
-    ...readCookieAttributes(),
+    ...readCookieAttributes(req),
     'Max-Age=0',
   ].join('; '))
 }

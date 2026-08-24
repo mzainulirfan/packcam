@@ -167,7 +167,7 @@ app.post('/api/bootstrap/admin', (req, res) => {
     }
 
     const session = createSession(profile.operatorName, profile.operatorCode, profile.role, profile.taskType)
-    setSessionCookie(res, session.sessionId)
+    setSessionCookie(res, session.sessionId, req)
 
     return sendOk(res, {
       profile,
@@ -202,7 +202,7 @@ app.post('/api/auth/login', (req, res) => {
     })
 
     clearLoginAttempts(rateLimitKey)
-    setSessionCookie(res, result.session.sessionId)
+    setSessionCookie(res, result.session.sessionId, req)
 
     return sendOk(res, {
       session: result.session,
@@ -220,7 +220,7 @@ app.post('/api/auth/logout', (req, res) => {
     deleteSessionById(sessionId)
   }
 
-  clearSessionCookie(res)
+  clearSessionCookie(res, req)
   return sendOk(res, { loggedOut: true })
 })
 
