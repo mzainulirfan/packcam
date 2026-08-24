@@ -1427,115 +1427,6 @@ function App() {
                 </div>
               </div>
 
-      {historyDetailTarget ? (
-        <Sheet open onOpenChange={(open) => { if (!open) setHistoryDetailTarget(null) }}>
-          <SheetContent side="bottom" className="w-full rounded-t-3xl border-border bg-popover p-0" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-            <SheetHeader className="px-4 pt-5">
-              <SheetTitle className="text-left text-base">{historyDetailTarget.resiNumber}</SheetTitle>
-              <SheetDescription className="text-left">{historyDetailTarget.rows.length} dokumentasi</SheetDescription>
-            </SheetHeader>
-            <div className="grid max-h-[70vh] gap-4 overflow-y-auto px-4 pb-6 pt-2">
-              {historyDetailTarget.rows.map((record) => (
-                <div key={record.id} className="grid gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[14px] font-semibold">{formatTask(record.taskType)}</span>
-                    <span className={record.status === 'completed' ? 'text-[12px]' : 'text-[12px] text-[var(--op-mute)]'}>
-                      {formatStatus(record.status)}
-                    </span>
-                  </div>
-                  <span className="text-[12px] text-[var(--op-mute)]">
-                    {formatDateTime(record.updatedAt)} � oleh {record.operatorName || '-'}
-                  </span>
-                  {record.status === 'completed' && record.filePath ? (
-                    <>
-                      <div className="overflow-hidden rounded-[4px] border border-[var(--op-hairline)] bg-black">
-                        <video
-                          className="block max-h-[50vh] w-full bg-black object-contain"
-                          src={buildServerFileUrl(record.filePath)}
-                          controls
-                          playsInline
-                          preload="metadata"
-                          crossOrigin="use-credentials"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="rounded-[4px] border-[var(--op-hairline-strong)]"
-                          onClick={() => void handleShareRecording(record, 'native')}
-                          disabled={sharingRecordId === record.id || deletingRecordId !== null}
-                        >
-                          <Share2 size={14} />
-                          {sharingRecordId === record.id ? 'Menyiapkan...' : 'Bagikan'}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="rounded-[4px] border-[var(--op-hairline-strong)]"
-                          onClick={() => void handleShareRecording(record, 'whatsapp')}
-                          disabled={sharingRecordId === record.id || deletingRecordId !== null}
-                        >
-                          <Send size={14} />
-                          WhatsApp
-                        </Button>
-                      </div>
-                    </>
-                  ) : null}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="rounded-[4px] border border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    onClick={() => {
-                      setHistoryDeleteConfirm(record)
-                      setHistoryDetailTarget(null)
-                    }}
-                    disabled={deletingRecordId !== null || sharingRecordId !== null}
-                  >
-                    <Trash2 size={14} />
-                    Hapus dokumentasi
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </SheetContent>
-        </Sheet>
-      ) : null}
-
-      <Dialog open={Boolean(historyDeleteConfirm)} onOpenChange={(open) => { if (!open) setHistoryDeleteConfirm(null) }}>
-        <DialogContent className="rounded-[4px] border-border bg-popover text-popover-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-          <DialogHeader>
-            <DialogTitle>Hapus dokumentasi?</DialogTitle>
-            <DialogDescription>
-              Video {historyDeleteConfirm ? formatTask(historyDeleteConfirm.taskType) : ''} untuk resi{' '}
-              <strong>{historyDeleteConfirm?.resiNumber}</strong> akan dihapus. Tindakan ini tidak dapat dibatalkan.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="outline" className="rounded-[4px]" onClick={() => setHistoryDeleteConfirm(null)}>
-              Batal
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              className="gap-2 rounded-[4px]"
-              disabled={deletingRecordId !== null || !historyDeleteConfirm}
-              onClick={() => {
-                if (!historyDeleteConfirm) return
-                void handleDeleteRecording(historyDeleteConfirm)
-                setHistoryDeleteConfirm(null)
-              }}
-            >
-              <Trash2 size={14} />
-              {deletingRecordId ? 'Menghapus...' : 'Hapus'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {bootError ? (
                 <Alert variant="destructive">
                   <AlertTitle>Gagal masuk</AlertTitle>
@@ -2198,6 +2089,115 @@ function App() {
           </div>
         </div>
       ) : null}
+
+      {historyDetailTarget ? (
+        <Sheet open onOpenChange={(open) => { if (!open) setHistoryDetailTarget(null) }}>
+          <SheetContent side="bottom" className="w-full rounded-t-3xl border-border bg-popover p-0" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+            <SheetHeader className="px-4 pt-5">
+              <SheetTitle className="text-left text-base">{historyDetailTarget.resiNumber}</SheetTitle>
+              <SheetDescription className="text-left">{historyDetailTarget.rows.length} dokumentasi</SheetDescription>
+            </SheetHeader>
+            <div className="grid max-h-[70vh] gap-4 overflow-y-auto px-4 pb-6 pt-2">
+              {historyDetailTarget.rows.map((record) => (
+                <div key={record.id} className="grid gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[14px] font-semibold">{formatTask(record.taskType)}</span>
+                    <span className={record.status === 'completed' ? 'text-[12px]' : 'text-[12px] text-[var(--op-mute)]'}>
+                      {formatStatus(record.status)}
+                    </span>
+                  </div>
+                  <span className="text-[12px] text-[var(--op-mute)]">
+                    {formatDateTime(record.updatedAt)} � oleh {record.operatorName || '-'}
+                  </span>
+                  {record.status === 'completed' && record.filePath ? (
+                    <>
+                      <div className="overflow-hidden rounded-[4px] border border-[var(--op-hairline)] bg-black">
+                        <video
+                          className="block max-h-[50vh] w-full bg-black object-contain"
+                          src={buildServerFileUrl(record.filePath)}
+                          controls
+                          playsInline
+                          preload="metadata"
+                          crossOrigin="use-credentials"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="rounded-[4px] border-[var(--op-hairline-strong)]"
+                          onClick={() => void handleShareRecording(record, 'native')}
+                          disabled={sharingRecordId === record.id || deletingRecordId !== null}
+                        >
+                          <Share2 size={14} />
+                          {sharingRecordId === record.id ? 'Menyiapkan...' : 'Bagikan'}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="rounded-[4px] border-[var(--op-hairline-strong)]"
+                          onClick={() => void handleShareRecording(record, 'whatsapp')}
+                          disabled={sharingRecordId === record.id || deletingRecordId !== null}
+                        >
+                          <Send size={14} />
+                          WhatsApp
+                        </Button>
+                      </div>
+                    </>
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="rounded-[4px] border border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => {
+                      setHistoryDeleteConfirm(record)
+                      setHistoryDetailTarget(null)
+                    }}
+                    disabled={deletingRecordId !== null || sharingRecordId !== null}
+                  >
+                    <Trash2 size={14} />
+                    Hapus dokumentasi
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </SheetContent>
+        </Sheet>
+      ) : null}
+
+      <Dialog open={Boolean(historyDeleteConfirm)} onOpenChange={(open) => { if (!open) setHistoryDeleteConfirm(null) }}>
+        <DialogContent className="rounded-[4px] border-border bg-popover text-popover-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+          <DialogHeader>
+            <DialogTitle>Hapus dokumentasi?</DialogTitle>
+            <DialogDescription>
+              Video {historyDeleteConfirm ? formatTask(historyDeleteConfirm.taskType) : ''} untuk resi{' '}
+              <strong>{historyDeleteConfirm?.resiNumber}</strong> akan dihapus. Tindakan ini tidak dapat dibatalkan.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" className="rounded-[4px]" onClick={() => setHistoryDeleteConfirm(null)}>
+              Batal
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="gap-2 rounded-[4px]"
+              disabled={deletingRecordId !== null || !historyDeleteConfirm}
+              onClick={() => {
+                if (!historyDeleteConfirm) return
+                void handleDeleteRecording(historyDeleteConfirm)
+                setHistoryDeleteConfirm(null)
+              }}
+            >
+              <Trash2 size={14} />
+              {deletingRecordId ? 'Menghapus...' : 'Hapus'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {bootError ? (
         <Alert variant="destructive" className="rounded-2xl">
