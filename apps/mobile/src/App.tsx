@@ -1624,7 +1624,7 @@ function App() {
       <BottomNav activeTab={activeTab} onChange={(tab) => openTab(tab)} />
 
       {activeTab === 'history' ? (
-        <div className="grid gap-4">
+        <div className="grid gap-3 pt-1">
           <div className="flex items-start justify-between gap-3">
             <div className="grid gap-1">
               <p className="section-label">History ringkas</p>
@@ -1937,7 +1937,7 @@ function App() {
       ) : null}
 
       {activeTab === 'session' ? (
-        <div className="grid gap-4">
+        <div className="grid gap-3 pt-1">
           <div className="flex items-start justify-between gap-3">
             <div className="grid gap-1">
               <p className="section-label">Session detail</p>
