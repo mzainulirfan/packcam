@@ -39,7 +39,8 @@ export function useCameraStream(deviceId: string, preferredResolution?: string) 
     let cancelled = false
 
     async function startStream() {
-      if (!window.isSecureContext) {
+      const isLocalLan = /^192\.168\.\d+\.\d+$/.test(window.location.hostname) || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      if (!window.isSecureContext && !isLocalLan) {
         const message = 'Kamera butuh HTTPS atau localhost. Buka web lewat HTTPS agar kamera bisa dipakai.'
         void reportServerLastErrorApi(message).catch(() => undefined)
         setState({

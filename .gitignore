@@ -32,3 +32,4 @@ archive
 **/*.rs.bk
 
 .vercel
+.env*

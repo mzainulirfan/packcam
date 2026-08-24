@@ -113,6 +113,10 @@ export default defineConfig({
     strictPort: true,
     allowedHosts: true,
     https: resolveHttpsConfig(),
+    cors: {
+      origin: true,
+      credentials: true,
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:3001',

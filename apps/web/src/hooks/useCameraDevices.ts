@@ -34,6 +34,7 @@ export function useCameraDevices(isActive: boolean) {
             deviceId: device.deviceId,
             label: formatDeviceLabel(device, index),
           }))
+          .filter((device) => device.deviceId.trim() !== '')
 
         setDevices(videoDevices)
       } catch {

@@ -669,11 +669,13 @@ export function HistoryPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Semua user</SelectItem>
-                      {operatorOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
+                      {operatorOptions
+                        .filter((option) => option.value.trim() !== '')
+                        .map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </FilterField>

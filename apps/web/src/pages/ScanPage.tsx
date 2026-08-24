@@ -452,11 +452,13 @@ export function ScanPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__default__">Default camera</SelectItem>
-                  {cameraDevices.map((device) => (
-                    <SelectItem key={device.deviceId} value={device.deviceId}>
-                      {device.label}
-                    </SelectItem>
-                  ))}
+                  {cameraDevices
+                    .filter((device) => device.deviceId.trim() !== '')
+                    .map((device) => (
+                      <SelectItem key={device.deviceId} value={device.deviceId}>
+                        {device.label}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
