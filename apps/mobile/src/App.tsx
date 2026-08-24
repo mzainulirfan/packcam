@@ -1651,57 +1651,46 @@ function App() {
           <CardContent className="pt-0">
             <div className="grid gap-3 pb-3">
               <div className="grid gap-2">
-                <Label htmlFor="history-resi-search">Cari resi</Label>
+                <Label htmlFor="history-resi-search" className="text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground">
+                  Cari resi
+                </Label>
                 <div className="flex gap-2">
-                  <Input
-                    id="history-resi-search"
-                    value={historyResiQuery}
-                    onChange={(event) => {
-                      setHistoryResiQuery(event.target.value)
-                      setHistoryHighlightedResi(null)
-                    }}
-                    placeholder="Masukkan nomor resi"
-                    inputMode="text"
-                    autoCapitalize="characters"
-                    className="min-w-0"
-                  />
-                  <Button type="button" variant="outline" size="icon-sm" onClick={() => setHistoryScanOpen(true)}>
+                  <div className="relative flex-1">
+                    <History size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="history-resi-search"
+                      value={historyResiQuery}
+                      onChange={(event) => {
+                        setHistoryResiQuery(event.target.value)
+                        setHistoryHighlightedResi(null)
+                      }}
+                      placeholder="Cari resi..."
+                      inputMode="text"
+                      autoCapitalize="characters"
+                      className="h-10 rounded-2xl border-border bg-card pl-10"
+                    />
+                  </div>
+                  <Button type="button" variant="outline" size="icon" className="h-10 w-10 rounded-2xl" onClick={() => setHistoryScanOpen(true)}>
                     <ScanSearch size={16} />
-                    <span className="sr-only">Scan resi</span>
                   </Button>
                 </div>
               </div>
 
               <div className="grid gap-2">
-                <span className="text-xs font-medium uppercase tracking-[0.18em] text-[#f6c47c]">Filter task</span>
-                <div className="grid grid-cols-3 gap-2">
-                  <Button
-                    type="button"
-                    variant={historyTaskFilter === 'all' ? 'secondary' : 'outline'}
-                    size="sm"
-                    className="w-full"
-                    onClick={() => setHistoryTaskFilter('all')}
-                  >
-                    Semua
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={historyTaskFilter === 'qc' ? 'secondary' : 'outline'}
-                    size="sm"
-                    className="w-full"
-                    onClick={() => setHistoryTaskFilter('qc')}
-                  >
-                    QC
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={historyTaskFilter === 'packing' ? 'secondary' : 'outline'}
-                    size="sm"
-                    className="w-full"
-                    onClick={() => setHistoryTaskFilter('packing')}
-                  >
-                    Packing
-                  </Button>
+                <span className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Filter task</span>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {(['all','qc','packing'] as const).map((v) => (
+                    <Button
+                      key={v}
+                      type="button"
+                      variant={historyTaskFilter === v ? 'secondary' : 'outline'}
+                      size="sm"
+                      className="rounded-full px-4"
+                      onClick={() => setHistoryTaskFilter(v)}
+                    >
+                      {v === 'all' ? 'Semua' : v === 'qc' ? 'QC' : 'Packing'}
+                    </Button>
+                  ))}
                 </div>
                 {isAdmin ? (
                   <Button
@@ -1810,8 +1799,8 @@ function App() {
                     size="sm"
                     className={
                       historyHighlightedResi === group.resiNumber
-                        ? 'border-amber-300/60 bg-amber-500/10 ring-2 ring-amber-300/40 shadow-[0_0_0_1px_rgba(245,158,11,0.2)]'
-                        : 'border-border/80 bg-muted/40'
+                        ? 'rounded-3xl border-amber-300/60 bg-amber-500/10 ring-2 ring-amber-300/40 shadow-lg'
+                        : 'rounded-3xl border-border/80 bg-card shadow-sm'
                     }
                   >
                     <CardContent className="grid gap-3 py-3">
