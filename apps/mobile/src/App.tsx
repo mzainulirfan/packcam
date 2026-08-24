@@ -1364,15 +1364,15 @@ function App() {
           void primeScanFeedbackAudio()
         }}
       >
-        <section className="grid gap-3 border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-4" style={{ borderRadius: '4px' }}>
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <span className="grid size-9 place-items-center rounded-[4px] bg-[var(--op-ink)] text-[var(--op-canvas)] text-sm font-bold">
+        <section className="grid gap-4 border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-[4px] bg-[var(--op-ink)] text-sm font-bold text-[var(--op-canvas)]">
                 {brandMark}
               </span>
-              <div className="grid gap-0.5">
+              <div className="min-w-0">
                 <p className="text-[12px] font-bold tracking-wide">[ Pakti Mobile ]</p>
-                <p className="text-[14px] font-bold leading-none">{appName}</p>
+                <h1 className="m-0 truncate text-[20px] font-bold leading-none tracking-tight">{appName}</h1>
               </div>
             </div>
             <Button
@@ -1386,19 +1386,28 @@ function App() {
               {isDarkTheme ? <HugeiconsIcon icon={Sun03Icon} size={16} /> : <HugeiconsIcon icon={Moon02Icon} size={16} />}
             </Button>
           </div>
-          <p className="text-[14px] leading-relaxed text-[var(--op-mute)]">{tagline}</p>
+          <div className="grid gap-0 border-t border-[var(--op-hairline)] text-[13px]">
+            <div className="grid grid-cols-[88px_1fr] gap-3 border-b border-[var(--op-hairline)] py-2">
+              <span className="text-[var(--op-mute)]">Sistem</span>
+              <strong className="truncate font-medium">{tagline}</strong>
+            </div>
+            <div className="grid grid-cols-[88px_1fr] gap-3 py-2">
+              <span className="text-[var(--op-mute)]">Status</span>
+              <strong className="font-medium">Menunggu login operator</strong>
+            </div>
+          </div>
         </section>
 
-        <div className="grid gap-3 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-4">
+        <section className="grid gap-3 border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-4">
           <div className="grid gap-1 border-b border-[var(--op-hairline)] pb-3">
             <p className="text-[12px] font-bold tracking-wide">[ Login ]</p>
-            <h2 className="text-[16px] font-bold leading-none">Masuk ke sesi mobile</h2>
-            <p className="text-[14px] leading-relaxed text-[var(--op-mute)]">Gunakan akun operator untuk memulai scan.</p>
+            <h2 className="text-[16px] font-bold leading-none">Mulai sesi scan</h2>
+            <p className="text-[14px] leading-relaxed text-[var(--op-mute)]">Masukkan username dan password operator.</p>
           </div>
-          <div>
-            <form className="grid gap-4" onSubmit={handleLogin}>
-              <div className="grid gap-2">
-                <Label htmlFor="mobile-operator-name">Username</Label>
+
+          <form className="grid gap-3" onSubmit={handleLogin}>
+            <div className="grid gap-2">
+              <Label htmlFor="mobile-operator-name" className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--op-mute)]">Username</Label>
                 <Input
                   id="mobile-operator-name"
                   value={loginForm.operatorName}
@@ -1407,51 +1416,51 @@ function App() {
                   autoCapitalize="none"
                   autoCorrect="off"
                   placeholder="Masukkan username"
+                  className="h-11 rounded-[4px] border-[var(--op-hairline)] bg-[var(--op-canvas)]"
                   required
                 />
-              </div>
+            </div>
 
-              <div className="grid gap-2">
-                <Label htmlFor="mobile-password">Password</Label>
-                <div className="relative">
-                  <Input
-                    id="mobile-password"
-                    type={showLoginPassword ? 'text' : 'password'}
-                    value={loginForm.password}
-                    onChange={(event) => setLoginForm((current) => ({ ...current, password: event.target.value }))}
-                    autoComplete="current-password"
-                    placeholder="Masukkan password"
-                    className="pr-12"
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-1 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-[min(var(--radius-md),12px)] border border-transparent bg-transparent text-slate-500 transition-colors outline-none hover:bg-muted hover:text-slate-950 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                    onClick={() => setShowLoginPassword((current) => !current)}
-                    aria-label={showLoginPassword ? 'Sembunyikan password' : 'Tampilkan password'}
-                  >
-                    {showLoginPassword ? <HugeiconsIcon icon={EyeOffIcon} size={16} /> : <HugeiconsIcon icon={EyeIcon} size={16} />}
-                  </button>
-                </div>
-              </div>
-
-      {bootError ? (
-                <Alert variant="destructive">
-                  <AlertTitle>Gagal masuk</AlertTitle>
-                  <AlertDescription>{bootError}</AlertDescription>
-                </Alert>
-              ) : null}
-
-              <Button
-                type="submit"
-                className="w-full rounded-[4px]"
-                disabled={loginBusy || !loginForm.operatorName.trim() || !loginForm.password}
+            <div className="grid gap-2">
+              <Label htmlFor="mobile-password" className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--op-mute)]">Password</Label>
+              <div className="relative">
+                <Input
+                  id="mobile-password"
+                  type={showLoginPassword ? 'text' : 'password'}
+                  value={loginForm.password}
+                  onChange={(event) => setLoginForm((current) => ({ ...current, password: event.target.value }))}
+                  autoComplete="current-password"
+                  placeholder="Masukkan password"
+                  className="h-11 rounded-[4px] border-[var(--op-hairline)] bg-[var(--op-canvas)] pr-12"
+                  required
+                />
+                <button
+                  type="button"
+                  className="absolute right-1 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-[4px] border border-transparent bg-transparent text-[var(--op-mute)] outline-none hover:border-[var(--op-hairline)] hover:bg-[var(--op-surface-card)] focus-visible:border-[var(--op-ink)]"
+                  onClick={() => setShowLoginPassword((current) => !current)}
+                  aria-label={showLoginPassword ? 'Sembunyikan password' : 'Tampilkan password'}
                 >
-                {loginBusy ? 'Masuk...' : 'Masuk'}
-              </Button>
-            </form>
-          </div>
-        </div>
+                  {showLoginPassword ? <HugeiconsIcon icon={EyeOffIcon} size={16} /> : <HugeiconsIcon icon={EyeIcon} size={16} />}
+                </button>
+              </div>
+            </div>
+
+            {bootError ? (
+              <Alert variant="destructive" className="rounded-[4px]">
+                <AlertTitle>Gagal masuk</AlertTitle>
+                <AlertDescription>{bootError}</AlertDescription>
+              </Alert>
+            ) : null}
+
+            <Button
+              type="submit"
+              className="h-11 w-full rounded-[4px] bg-[var(--op-ink)] text-[var(--op-canvas)]"
+              disabled={loginBusy || !loginForm.operatorName.trim() || !loginForm.password}
+            >
+              {loginBusy ? 'Memverifikasi...' : 'Masuk'}
+            </Button>
+          </form>
+        </section>
       </main>
     )
   }
