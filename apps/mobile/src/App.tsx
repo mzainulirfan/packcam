@@ -1477,7 +1477,7 @@ function App() {
             type="button"
             variant="ghost"
             size="icon-sm"
-            className="rounded-full border border-border/60 bg-card/70 backdrop-blur"
+            className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)]"
             onClick={toggleTheme}
             aria-label={isDarkTheme ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}
           >
@@ -1487,7 +1487,7 @@ function App() {
             type="button"
             variant="ghost"
             size="icon-sm"
-            className="rounded-full border border-border/60 bg-card/70 backdrop-blur"
+            className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)]"
             onClick={() => setLogoutConfirmOpen(true)}
             aria-label="Keluar"
           >
@@ -1499,20 +1499,20 @@ function App() {
       <Dialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
         <DialogContent className="rounded-[4px] border-border bg-popover text-popover-foreground">
           <DialogHeader>
-            <div className="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+            <div className="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-[4px] border border-destructive/30 bg-[var(--op-canvas)] text-destructive">
               <HugeiconsIcon icon={ShieldAlertIcon} size={18} />
             </div>
             <DialogTitle>Keluar sekarang?</DialogTitle>
             <DialogDescription>Sesi ini akan ditutup dan perlu login kembali.</DialogDescription>
           </DialogHeader>
           <DialogFooter className="border-0 bg-transparent pt-2">
-            <Button type="button" variant="ghost" className="rounded-full" onClick={() => setLogoutConfirmOpen(false)}>
+            <Button type="button" variant="ghost" className="rounded-[4px]" onClick={() => setLogoutConfirmOpen(false)}>
               Batal
             </Button>
             <Button
               type="button"
               variant="destructive"
-              className="gap-2 rounded-full"
+              className="gap-2 rounded-[4px]"
               onClick={() => {
                 setLogoutConfirmOpen(false)
                 void handleLogout()
@@ -2024,98 +2024,98 @@ function App() {
 
       {/* ——— SESSION TAB ——— */}
       {activeTab === 'session' ? (
-        <div className="grid gap-4 pt-1" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+        <div className="grid gap-3 pt-1" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
           <div className="flex items-start justify-between gap-3 border-b border-[var(--op-hairline)] pb-3">
             <div className="grid gap-1">
               <p className="text-[12px] font-bold tracking-wide">[ Session ]</p>
-              <h2 className="text-[16px] font-bold leading-none">Akun — {session.operatorName}</h2>
-              <p className="text-[14px] leading-relaxed text-[var(--op-mute)]">Status login dan task aktif.</p>
+              <h2 className="text-[16px] font-bold leading-none">Akun aktif</h2>
+              <p className="text-[14px] leading-relaxed text-[var(--op-mute)]">Identitas operator dan mode kerja.</p>
             </div>
             <span className="grid size-9 place-items-center rounded-[4px] bg-[var(--op-ink)] text-[var(--op-canvas)]">
               <HugeiconsIcon icon={UserIcon} size={16} />
             </span>
           </div>
 
-          <div className="grid gap-4">
-            <div className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-3">
-              <div className="flex items-start gap-3">
-                <div className="grid size-11 shrink-0 place-items-center rounded-[4px] bg-[var(--op-ink)] text-sm font-bold text-[var(--op-canvas)]">
-                  {session.operatorName
-                    .split(' ')
-                    .map((part) => part[0])
-                    .filter(Boolean)
-                    .slice(0, 2)
-                    .join('')
-                    .toUpperCase() || 'OP'}
+          <div className="grid gap-3">
+            <section className="grid gap-3 border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--op-mute)]">Operator</p>
+                  <h3 className="mt-1 truncate text-[20px] font-bold leading-none tracking-tight">{session.operatorName}</h3>
                 </div>
-                <div className="grid gap-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                      {session.role === 'admin' ? 'Admin' : 'Operator'}
-                    </span>
-                    <span className={session.role === 'admin' ? 'rounded-full bg-amber-500/15 px-2 py-0.5 text-[0.68rem] font-medium text-amber-700 dark:text-amber-200' : 'rounded-full bg-sky-500/10 px-2 py-0.5 text-[0.68rem] font-medium text-sky-700 dark:text-sky-200'}>
-                      {session.role === 'admin' ? 'Akses penuh' : 'Akses operasional'}
-                    </span>
-                  </div>
-                  <strong className="text-[1.05rem] leading-tight tracking-tight">{session.operatorName}</strong>
-                  <span className="text-sm text-muted-foreground">{session.operatorCode || 'Kode operator tidak tersedia'}</span>
-                </div>
-                <span className="ml-auto shrink-0 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[0.7rem] font-medium text-emerald-700 dark:text-emerald-200">
-                  Login aktif
+                <span className="shrink-0 rounded-[4px] bg-[var(--op-ink)] px-2 py-0.5 text-[12px] font-medium text-[var(--op-canvas)]">
+                  {session.role === 'admin' ? 'Admin' : 'Operator'}
                 </span>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-2.5">
-                <div className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-3 py-3">
-                  <span className="block text-[12px] font-medium uppercase tracking-[0.14em] text-[var(--op-mute)]">Task aktif</span>
-                  <strong className="mt-1 block text-sm tracking-tight">[+] {formatTask(session.taskType)}</strong>
+              <div className="grid gap-0 border-t border-[var(--op-hairline)] text-[13px]">
+                <div className="grid grid-cols-[96px_1fr] gap-3 border-b border-[var(--op-hairline)] py-2">
+                  <span className="text-[var(--op-mute)]">Kode</span>
+                  <strong className="truncate font-medium">{session.operatorCode || '-'}</strong>
                 </div>
-                <div className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-3 py-3">
-                  <span className="block text-[12px] font-medium uppercase tracking-[0.14em] text-[var(--op-mute)]">Login sejak</span>
-                  <strong className="mt-1 block text-xs leading-tight">{formatDateTime(session.loggedInAt)}</strong>
+                <div className="grid grid-cols-[96px_1fr] gap-3 border-b border-[var(--op-hairline)] py-2">
+                  <span className="text-[var(--op-mute)]">Akses</span>
+                  <strong className="font-medium">{session.role === 'admin' ? 'Penuh' : 'Operasional'}</strong>
+                </div>
+                <div className="grid grid-cols-[96px_1fr] gap-3 py-2">
+                  <span className="text-[var(--op-mute)]">Login</span>
+                  <strong className="font-medium leading-tight">{formatDateTime(session.loggedInAt)}</strong>
                 </div>
               </div>
-            </div>
+            </section>
 
-            {isAdmin ? (
-              <div className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-3">
-                <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-[var(--op-mute)]">[+] Kontrol task</p>
-                <p className="mt-1 text-sm text-[var(--op-mute)]">Admin dapat mengganti task aktif.</p>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <Button
-                      type="button"
-                      variant={session.taskType === 'qc' ? 'secondary' : 'outline'}
-                      className="rounded-[4px]"
-                      onClick={() => void handleTaskChange('qc')}
-                      disabled={taskBusy}
-                    >
-                      QC
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={session.taskType === 'packing' ? 'secondary' : 'outline'}
-                      className="rounded-[4px]"
-                      onClick={() => void handleTaskChange('packing')}
-                      disabled={taskBusy}
-                    >
-                      Packing
-                    </Button>
-                </div>
+            <section className="grid gap-3 border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-3">
+              <div>
+                <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--op-mute)]">[+] Mode kerja</p>
+                <h3 className="mt-1 text-[16px] font-bold leading-none">{formatTask(session.taskType)} aktif</h3>
               </div>
+
+              {isAdmin ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant={session.taskType === 'qc' ? 'secondary' : 'outline'}
+                    className="rounded-[4px]"
+                    onClick={() => void handleTaskChange('qc')}
+                    disabled={taskBusy}
+                  >
+                    {session.taskType === 'qc' ? '[ QC ]' : 'QC'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={session.taskType === 'packing' ? 'secondary' : 'outline'}
+                    className="rounded-[4px]"
+                    onClick={() => void handleTaskChange('packing')}
+                    disabled={taskBusy}
+                  >
+                    {session.taskType === 'packing' ? '[ Packing ]' : 'Packing'}
+                  </Button>
+                </div>
               ) : (
-                <div className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-4">
-                  <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-[var(--op-mute)]">[+] Status task</p>
-                <p className="mt-1 text-sm text-muted-foreground">Hanya informasi. Task tidak bisa diubah dari role operator.</p>
-                <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <div className={session.taskType === 'qc' ? 'rounded-[4px] bg-[var(--op-ink)] px-3 py-3 text-center text-sm font-medium text-[var(--op-canvas)]' : 'rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 py-3 text-center text-sm text-[var(--op-mute)]'}>
-                    {session.taskType === 'qc' ? '[ QC aktif ]' : 'QC nonaktif'}
+                    {session.taskType === 'qc' ? '[ QC ]' : 'QC'}
                   </div>
                   <div className={session.taskType === 'packing' ? 'rounded-[4px] bg-[var(--op-ink)] px-3 py-3 text-center text-sm font-medium text-[var(--op-canvas)]' : 'rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 py-3 text-center text-sm text-[var(--op-mute)]'}>
-                    {session.taskType === 'packing' ? '[ Packing aktif ]' : 'Packing nonaktif'}
+                    {session.taskType === 'packing' ? '[ Packing ]' : 'Packing'}
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+
+              <p className="text-[12px] leading-relaxed text-[var(--op-mute)]">
+                {isAdmin ? 'Perubahan mode berlaku untuk scan berikutnya.' : 'Mode ditentukan admin. Hubungi admin jika mode kerja perlu diganti.'}
+              </p>
+            </section>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 rounded-[4px] border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => setLogoutConfirmOpen(true)}
+            >
+              <HugeiconsIcon icon={Logout02Icon} size={16} />
+              Keluar dari akun
+            </Button>
           </div>
         </div>
       ) : null}
@@ -2230,7 +2230,7 @@ function App() {
       </Dialog>
 
       {bootError ? (
-        <Alert variant="destructive" className="rounded-2xl">
+        <Alert variant="destructive" className="rounded-[4px]">
           <AlertTitle>Terjadi kesalahan</AlertTitle>
           <AlertDescription>{bootError}</AlertDescription>
         </Alert>
