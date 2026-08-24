@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Pakti">
+  <rect width="512" height="512" fill="#201d1d"/>
+  <rect x="96" y="96" width="320" height="320" rx="4" fill="none" stroke="#fdfcfc" stroke-width="16"/>
+  <path d="M144 176h112c52 0 88 34 88 82s-36 82-88 82h-48v60h-64V176Zm64 56v52h42c20 0 32-10 32-26s-12-26-32-26h-42Z" fill="#fdfcfc"/>
+  <path d="M344 176h48v224h-48z" fill="#fdfcfc"/>
+</svg>
