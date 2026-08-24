@@ -1416,20 +1416,21 @@ function App() {
         void primeScanFeedbackAudio()
       }}
     >
-      <header className="flex items-center justify-between gap-3 px-0.5 py-0.5">
+      {/* â€”â€”â€” Minimal header â€”â€”â€” */}
+      <header className="flex items-center justify-between gap-3 py-2">
         <div className="flex items-center gap-3">
           <span className="brand-badge">{brandMark}</span>
-          <div>
+          <div className="leading-tight">
             <p className="eyebrow">Pakti Mobile</p>
-            <h1 className="m-0 text-[1.22rem] tracking-[-0.04em]">{appName}</h1>
+            <h1 className="m-0 text-[1.18rem] font-semibold tracking-[-0.03em]">{appName}</h1>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             size="icon-sm"
-            className="theme-toggle"
+            className="rounded-full border border-border/60 bg-card/70 backdrop-blur"
             onClick={toggleTheme}
             aria-label={isDarkTheme ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}
           >
@@ -1437,9 +1438,9 @@ function App() {
           </Button>
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             size="icon-sm"
-            className="theme-toggle"
+            className="rounded-full border border-border/60 bg-card/70 backdrop-blur"
             onClick={() => setLogoutConfirmOpen(true)}
             aria-label="Keluar"
           >
@@ -1449,38 +1450,37 @@ function App() {
       </header>
 
       <Dialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
-        <DialogContent className="border-border bg-popover text-popover-foreground">
+        <DialogContent className="rounded-3xl border-border bg-popover text-popover-foreground">
           <DialogHeader>
-            <div className="mb-1 inline-flex h-10 w-10 items-center justify-center rounded-full bg-red-500/15 text-red-200">
+            <div className="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
               <AlertTriangle size={18} />
             </div>
             <DialogTitle>Keluar sekarang?</DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              Sesi ini akan ditutup.
-            </DialogDescription>
+            <DialogDescription>Sesi ini akan ditutup dan perlu login kembali.</DialogDescription>
           </DialogHeader>
-          <DialogFooter className="border-border bg-muted/50">
-            <Button type="button" variant="outline" onClick={() => setLogoutConfirmOpen(false)}>
+          <DialogFooter className="border-0 bg-transparent pt-2">
+            <Button type="button" variant="ghost" className="rounded-full" onClick={() => setLogoutConfirmOpen(false)}>
               Batal
             </Button>
             <Button
               type="button"
               variant="destructive"
-              className="gap-2"
+              className="gap-2 rounded-full"
               onClick={() => {
                 setLogoutConfirmOpen(false)
                 void handleLogout()
               }}
             >
               <LogOut size={16} />
-              <span>Keluar</span>
+              Keluar
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* â€”â€”â€” SCAN TAB â€”â€”â€” */}
       {activeTab === 'scan' ? (
-        <section className="scan-screen">
+        <section className="grid gap-3">
           <div className="relative">
             {scanNotice ? (
               <div
@@ -1491,7 +1491,9 @@ function App() {
                 }
               >
                 <div className="grid gap-0.5">
-                  <strong className="text-[0.75rem] font-semibold leading-none text-foreground">{scanNotice.title}</strong>
+                  <strong className="text-[0.75rem] font-semibold leading-none text-foreground">
+                    {scanNotice.title}
+                  </strong>
                   <span className="text-[0.66rem] leading-snug text-muted-foreground">{scanNotice.message}</span>
                 </div>
               </div>
@@ -1504,48 +1506,43 @@ function App() {
               error={cameraState.error}
               emptyMessage="Arahkan kamera ke area kerja."
               topSlot={
-                <div className="scan-topbar">
-                  <div className="flex min-w-0 flex-1 items-center gap-2">
-                    <span className="scan-pill min-w-0">
-                      <Camera size={14} />
+                <div className="flex w-[calc(100vw-2.2rem)] max-w-[46rem] flex-col gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/55 px-3 py-1.5 text-[0.7rem] font-semibold text-white backdrop-blur">
+                      <Camera size={13} />
                       <span className="truncate">
                         {activeRecordingResi ? `${formatTask(currentTaskType)}: ${activeRecordingResi}` : 'Scan resi'}
                       </span>
                     </span>
-                    {recordingHasAudio ? (
-                      <span className="scan-pill scan-pill--audio">
-                        <Mic size={12} />
-                        Audio
+                    {isAdmin ? (
+                      <Button
+                        type="button"
+                        variant={session.taskType === 'qc' ? 'secondary' : 'outline'}
+                        size="xs"
+                        className="rounded-full bg-white/90 text-slate-900 hover:bg-white"
+                        onClick={() => void handleTaskChange(session.taskType === 'qc' ? 'packing' : 'qc')}
+                        disabled={taskBusy}
+                      >
+                        {formatTask(session.taskType)}
+                      </Button>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-white/90 px-3 py-1 text-[0.7rem] font-semibold text-slate-900">
+                        {formatTask(session.taskType)}
                       </span>
-                    ) : null}
+                    )}
                   </div>
-
-                  {isAdmin ? (
-                    <Button
-                      type="button"
-                      variant={session.taskType === 'qc' ? 'secondary' : 'outline'}
-                      size="xs"
-                      onClick={() => void handleTaskChange(session.taskType === 'qc' ? 'packing' : 'qc')}
-                      disabled={taskBusy}
-                      aria-label={`Ganti task aktif ke ${session.taskType === 'qc' ? 'Packing' : 'QC'}`}
-                    >
-                      {formatTask(session.taskType)}
-                    </Button>
-                  ) : (
-                    <span className="scan-pill scan-pill--task">
-                      {formatTask(session.taskType)}
+                  {recordingHasAudio ? (
+                    <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-white/15 bg-black/55 px-2.5 py-1 text-[0.68rem] font-medium text-emerald-100 backdrop-blur">
+                      <Mic size={11} />
+                      Audio aktif
                     </span>
-                  )}
-
+                  ) : null}
                   {activeRecordingResi ? (
-                    <div className="scan-watermark scan-watermark--recording">
-                      <div className="grid gap-0.5">
-                        <strong className="scan-watermark__resi">RESI {activeRecordingResi}</strong>
-                        <span className="text-[0.66rem] font-semibold leading-tight text-white/88">
-                          {formatTask(currentTaskType)} | {session.operatorName || session.operatorCode || '-'}
-                        </span>
-                        <span className="text-[0.62rem] font-medium leading-tight text-white/72">{watermarkOverlayTime}</span>
-                      </div>
+                    <div className="w-fit rounded-2xl bg-black/45 px-3 py-2 backdrop-blur">
+                      <strong className="block text-[0.68rem] font-bold tracking-wide text-white">RESI {activeRecordingResi}</strong>
+                      <span className="block text-[0.62rem] font-medium leading-tight text-white/80">
+                        {formatTask(currentTaskType)} Â· {session.operatorName || session.operatorCode || '-'} Â· {watermarkOverlayTime}
+                      </span>
                     </div>
                   ) : null}
                 </div>
@@ -1562,24 +1559,24 @@ function App() {
                 <div
                   className={
                     recordingSession.state.mode === 'recording'
-                      ? 'scan-control-panel scan-control-panel--recording'
-                      : 'scan-control-panel'
+                      ? 'scan-control-panel scan-control-panel--recording rounded-3xl'
+                      : 'scan-control-panel rounded-3xl'
                   }
                 >
-                  <div className="mx-auto h-1 w-10 rounded-full bg-border/60" aria-hidden="true" />
+                  <div className="mx-auto h-1 w-8 rounded-full bg-border/70" aria-hidden="true" />
                   {scanProgressState ? (
-                    <div className={`scan-progress-note scan-progress-note--${scanProgressState.tone}`}>
+                    <div className={`scan-progress-note scan-progress-note--${scanProgressState.tone} rounded-2xl`}>
                       <strong>{scanProgressState.title}</strong>
                       <span>{scanProgressState.message}</span>
                     </div>
                   ) : null}
 
                   <div className="grid gap-2">
-                    <Label htmlFor="mobile-scan-resi" className="text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground">
+                    <Label htmlFor="mobile-scan-resi" className="text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                       Nomor resi
                     </Label>
                     <div className="relative">
-                      <ScanLine className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                      <ScanLine className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         id="mobile-scan-resi"
                         value={scanResi}
@@ -1587,7 +1584,7 @@ function App() {
                         placeholder="Ketik atau scan otomatis"
                         inputMode="text"
                         autoCapitalize="characters"
-                        className="h-11 rounded-2xl border-border bg-card pl-10 text-[0.95rem] shadow-sm"
+                        className="h-12 rounded-2xl border-border bg-card pl-10 text-[0.95rem]"
                       />
                     </div>
                     <p className="text-[0.68rem] leading-none text-muted-foreground">Arahkan barcode ke kotak atau ketik manual</p>
@@ -1595,7 +1592,7 @@ function App() {
 
                   <Button
                     type="button"
-                    className="h-11 w-full rounded-2xl text-[0.95rem] font-semibold shadow-[0_10px_24px_rgba(0,0,0,0.12)]"
+                    className="h-12 w-full rounded-2xl text-[0.95rem] font-semibold"
                     disabled={
                       scanBusy ||
                       recordingSession.state.mode === 'stopping' ||
@@ -1620,41 +1617,39 @@ function App() {
         </section>
       ) : null}
 
-      <div className="h-14" aria-hidden="true" />
-      <BottomNav activeTab={activeTab} onChange={(tab) => openTab(tab)} />
-
+      {/* â€”â€”â€” HISTORY TAB â€”â€”â€” */}
       {activeTab === 'history' ? (
-        <div className="grid gap-3 pt-1">
+        <div className="grid gap-4 pt-1">
           <div className="flex items-start justify-between gap-3">
             <div className="grid gap-1">
               <p className="section-label">History ringkas</p>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-semibold">Rekaman terbaru</h2>
-                <span className="rounded-full border border-border bg-muted/60 px-2 py-1 text-[0.7rem] font-medium text-foreground/80">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-lg font-semibold tracking-tight">Rekaman terbaru</h2>
+                <span className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[0.7rem] font-medium">
                   {groupedRecordings.length} resi
                 </span>
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm leading-relaxed text-muted-foreground">
                 10 data terakhir untuk akun aktif
                 {historyAllAccounts && isAdmin ? ' dan semua akun' : ''}
                 {session?.operatorCode ? ` (${session.operatorCode})` : ''}.
               </p>
             </div>
-            <Button variant="outline" size="sm" type="button" onClick={() => void refreshHistory()} disabled={historyBusy}>
-              <RefreshCw size={16} />
+            <Button variant="outline" size="sm" type="button" className="rounded-full" onClick={() => void refreshHistory()} disabled={historyBusy}>
+              <RefreshCw size={14} />
               {historyBusy ? 'Memuat...' : 'Refresh'}
             </Button>
           </div>
 
-          <div>
-            <div className="grid gap-3 pb-3">
+          <div className="grid gap-4">
+            <div className="grid gap-3">
               <div className="grid gap-2">
-                <Label htmlFor="history-resi-search" className="text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground">
+                <Label htmlFor="history-resi-search" className="text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                   Cari resi
                 </Label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
-                    <History size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <History size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="history-resi-search"
                       value={historyResiQuery}
@@ -1665,57 +1660,59 @@ function App() {
                       placeholder="Cari resi..."
                       inputMode="text"
                       autoCapitalize="characters"
-                      className="h-10 rounded-2xl border-border bg-card pl-10"
+                      className="h-11 rounded-2xl border-border bg-card pl-10"
                     />
                   </div>
-                  <Button type="button" variant="outline" size="icon" className="h-10 w-10 rounded-2xl" onClick={() => setHistoryScanOpen(true)}>
+                  <Button type="button" variant="outline" size="icon" className="h-11 w-11 shrink-0 rounded-2xl" onClick={() => setHistoryScanOpen(true)}>
                     <ScanSearch size={16} />
                   </Button>
                 </div>
               </div>
 
-              <div className="grid gap-2">
-                <span className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Filter task</span>
-                <div className="flex gap-2 overflow-x-auto pb-1">
+              <div className="grid gap-2.5">
+                <span className="text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">Filter task</span>
+                <div className="flex flex-wrap gap-2">
                   {(['all','qc','packing'] as const).map((v) => (
                     <Button
                       key={v}
                       type="button"
                       variant={historyTaskFilter === v ? 'secondary' : 'outline'}
                       size="sm"
-                      className="rounded-full px-4"
+                      className="rounded-full px-5 font-medium"
                       onClick={() => setHistoryTaskFilter(v)}
                     >
                       {v === 'all' ? 'Semua' : v === 'qc' ? 'QC' : 'Packing'}
                     </Button>
                   ))}
                 </div>
-                {isAdmin ? (
+                <div className="flex gap-2">
+                  {isAdmin ? (
+                    <Button
+                      type="button"
+                      variant={historyAllAccounts ? 'secondary' : 'outline'}
+                      size="sm"
+                      className="flex-1 rounded-full"
+                      onClick={() => setHistoryAllAccounts((current) => !current)}
+                    >
+                      {historyAllAccounts ? 'Semua akun aktif' : 'Semua akun'}
+                    </Button>
+                  ) : null}
                   <Button
                     type="button"
-                    variant={historyAllAccounts ? 'secondary' : 'outline'}
+                    variant="ghost"
                     size="sm"
-                    className="w-full"
-                    onClick={() => setHistoryAllAccounts((current) => !current)}
+                    className="flex-1 rounded-full"
+                    onClick={() => {
+                      setHistoryTaskFilter('all')
+                      setHistoryResiQuery('')
+                      setHistoryHighlightedResi(null)
+                      setHistoryAllAccounts(false)
+                    }}
+                    disabled={!hasHistoryFilters}
                   >
-                    {historyAllAccounts ? 'Semua akun aktif' : 'Semua akun'}
+                    Reset
                   </Button>
-                ) : null}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => {
-                    setHistoryTaskFilter('all')
-                    setHistoryResiQuery('')
-                    setHistoryHighlightedResi(null)
-                    setHistoryAllAccounts(false)
-                  }}
-                  disabled={!hasHistoryFilters}
-                >
-                  Reset filter
-                </Button>
+                </div>
               </div>
             </div>
 
@@ -1729,20 +1726,18 @@ function App() {
                 }
               }}
             >
-              <SheetContent side="bottom" className="w-full rounded-t-3xl border-border bg-popover/95 p-0">
-                <SheetHeader className="px-4 pt-5">
+              <SheetContent side="bottom" className="w-full rounded-t-3xl border-border bg-popover p-0">
+                <SheetHeader className="px-5 pt-6 text-left">
                   <SheetTitle>Scan resi untuk cari history</SheetTitle>
                   <SheetDescription>Arahkan barcode ke kamera agar langsung masuk ke pencarian.</SheetDescription>
                 </SheetHeader>
-
-                <div className="grid gap-3 px-4 pb-4 pt-3">
-            {historyScanError ? (
-                    <Alert variant="destructive">
+                <div className="grid gap-3 px-4 pb-5 pt-3">
+                  {historyScanError ? (
+                    <Alert variant="destructive" className="rounded-2xl">
                       <AlertTitle>Gagal membuka kamera</AlertTitle>
                       <AlertDescription>{historyScanError}</AlertDescription>
                     </Alert>
                   ) : null}
-
                   <CameraPreview
                     onVideoElement={setHistoryScanVideoElement}
                     stream={historyCameraState.stream}
@@ -1750,32 +1745,23 @@ function App() {
                     error={historyCameraState.error}
                     emptyMessage="Arahkan barcode untuk mengisi pencarian."
                     topSlot={
-                      <div className="flex w-full items-start justify-between gap-2">
-                        <span className="inline-flex items-center gap-2 rounded-full border border-amber-200/80 bg-amber-50/90 px-3 py-1.5 text-[0.72rem] font-bold text-amber-900 shadow-[0_10px_24px_rgba(15,23,42,0.08)] dark:border-transparent dark:bg-[rgba(10,13,18,0.86)] dark:text-[#f8d9a7] dark:shadow-[0_10px_24px_rgba(0,0,0,0.28)]">
-                          <ScanSearch size={14} />
-                          Scan pencarian
-                        </span>
-                      </div>
+                      <span className="inline-flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 text-[0.7rem] font-semibold text-white backdrop-blur">
+                        <ScanSearch size={14} />
+                        Scan pencarian
+                      </span>
                     }
                     centerSlot={
-                      <div className="grid w-[min(96%,36rem)] justify-items-center gap-1.5 self-center pointer-events-none" aria-hidden="true">
-                        <div className="relative aspect-[4/2.15] w-full rounded-[24px] border-2 border-amber-300/80 bg-[linear-gradient(90deg,rgba(246,196,124,0.08),rgba(246,196,124,0.02)),rgba(255,255,255,0.34)] shadow-[0_0_0_9999px_rgba(15,23,42,0.12),0_0_0_1px_rgba(255,255,255,0.35),0_18px_42px_rgba(15,23,42,0.12)] backdrop-blur-[1px] dark:border-[#f6c47c] dark:bg-[linear-gradient(90deg,rgba(246,196,124,0.08),rgba(246,196,124,0.02)),rgba(7,10,15,0.18)] dark:shadow-[0_0_0_9999px_rgba(3,6,11,0.26),0_0_0_1px_rgba(255,255,255,0.04),0_18px_42px_rgba(0,0,0,0.22)]">
-                          <span className="absolute left-[0.7rem] top-[0.7rem] h-[1.25rem] w-[1.25rem] rounded-tl-[0.8rem] border-l-[3px] border-t-[3px] border-amber-100 dark:border-[#fff2d9]" />
-                          <span className="absolute right-[0.7rem] top-[0.7rem] h-[1.25rem] w-[1.25rem] rounded-tr-[0.8rem] border-r-[3px] border-t-[3px] border-amber-100 dark:border-[#fff2d9]" />
-                          <span className="absolute bottom-[0.7rem] left-[0.7rem] h-[1.25rem] w-[1.25rem] rounded-bl-[0.8rem] border-b-[3px] border-l-[3px] border-amber-100 dark:border-[#fff2d9]" />
-                          <span className="absolute bottom-[0.7rem] right-[0.7rem] h-[1.25rem] w-[1.25rem] rounded-br-[0.8rem] border-b-[3px] border-r-[3px] border-amber-100 dark:border-[#fff2d9]" />
-                        </div>
-                        <div className="grid gap-[0.08rem] rounded-full bg-[rgba(7,10,15,0.82)] px-[0.58rem] py-[0.28rem] text-center text-[0.68rem] font-bold leading-[1.2] text-[#f8d9a7] shadow-[0_16px_30px_rgba(0,0,0,0.24)]">
+                      <div className="scan-guide-simple" aria-hidden="true">
+                        <div className="scan-guide-simple__frame" />
+                        <div className="scan-guide-simple__label">
                           <span>Pusatkan barcode di kotak ini</span>
                         </div>
                       </div>
                     }
                     bottomSlot={
-                      <div className="grid gap-2">
-                        <Button type="button" className="w-full" variant="outline" onClick={() => setHistoryScanOpen(false)}>
-                          Tutup
-                        </Button>
-                      </div>
+                      <Button type="button" className="w-full rounded-2xl" variant="outline" onClick={() => setHistoryScanOpen(false)}>
+                        Tutup
+                      </Button>
                     }
                   />
                 </div>
@@ -1783,7 +1769,7 @@ function App() {
             </Sheet>
 
             {historyError ? (
-              <Alert variant="destructive" className="mb-3">
+              <Alert variant="destructive" className="rounded-2xl">
                 <AlertTitle>Gagal memuat history</AlertTitle>
                 <AlertDescription>{historyError}</AlertDescription>
               </Alert>
@@ -1792,142 +1778,134 @@ function App() {
             <div className="grid gap-3">
               {groupedRecordings.length > 0 ? (
                 groupedRecordings.map((group) => (
-                  <Card
+                  <div
                     key={group.resiNumber}
-                    size="sm"
                     className={
                       historyHighlightedResi === group.resiNumber
-                        ? 'rounded-3xl border-amber-300/60 bg-amber-500/10 ring-2 ring-amber-300/40 shadow-lg'
-                        : 'rounded-3xl border-border/80 bg-card shadow-sm'
+                        ? 'rounded-3xl border border-amber-300/50 bg-amber-500/10 p-4 ring-1 ring-amber-300/30'
+                        : 'rounded-3xl border border-border/60 bg-card p-4'
                     }
                   >
-                    <CardContent className="grid gap-3 py-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="grid gap-1">
-                          <div className="flex items-center gap-2">
-                            <strong className="text-base leading-none">{group.resiNumber}</strong>
-                            {historyHighlightedResi === group.resiNumber ? (
-                              <span className="rounded-full border border-amber-300/30 bg-amber-500/10 px-2 py-1 text-[0.68rem] font-medium text-amber-200">
-                                hasil scan
-                              </span>
-                            ) : null}
-                          </div>
-                          <span className="text-sm text-muted-foreground">
-                            {group.rows.length} catatan
-                          </span>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="grid gap-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <strong className="text-[1.05rem] leading-none tracking-tight">{group.resiNumber}</strong>
+                          {historyHighlightedResi === group.resiNumber ? (
+                            <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[0.68rem] font-medium text-amber-700 dark:text-amber-200">
+                              hasil scan
+                            </span>
+                          ) : null}
                         </div>
-                        {group.latestRow ? (
-                          <span className="rounded-full border border-border bg-muted/60 px-2 py-1 text-[0.7rem] font-medium text-foreground/80">
-                            {formatStatus(group.latestRow.status)}
-                          </span>
-                        ) : null}
+                        <span className="text-sm text-muted-foreground">{group.rows.length} catatan</span>
                       </div>
+                      {group.latestRow ? (
+                        <span className="shrink-0 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[0.7rem] font-medium">
+                          {formatStatus(group.latestRow.status)}
+                        </span>
+                      ) : null}
+                    </div>
 
-                      <div className="grid gap-2">
-                        {group.rows.map((record, index) => (
-                          <div key={record.id}>
-                            {index > 0 ? <Separator className="my-2" /> : null}
-                            <div className="grid gap-2">
-                              <div className="flex items-start justify-between gap-3">
-                                <span className="text-sm font-medium text-foreground">{formatTask(record.taskType)}</span>
-                                <div className="flex items-center gap-2">
-                                  {index === 0 ? (
-                                    <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-1 text-[0.68rem] font-medium text-emerald-700 dark:text-emerald-200">
-                                      terbaru
-                                    </span>
-                                  ) : null}
-                                  <span className="rounded-full border border-border bg-muted/60 px-2 py-1 text-[0.7rem] font-medium text-foreground/80">
-                                    {formatStatus(record.status)}
+                    <div className="mt-3 grid gap-3">
+                      {group.rows.map((record, index) => (
+                        <div key={record.id}>
+                          {index > 0 ? <Separator className="my-3" /> : null}
+                          <div className="grid gap-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-sm font-semibold">{formatTask(record.taskType)}</span>
+                              <div className="flex items-center gap-1.5">
+                                {index === 0 ? (
+                                  <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[0.68rem] font-medium text-emerald-700 dark:text-emerald-200">
+                                    terbaru
                                   </span>
-                                </div>
+                                ) : null}
+                                <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[0.68rem] font-medium">
+                                  {formatStatus(record.status)}
+                                </span>
                               </div>
-                              <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
-                                <span>{formatDateTime(record.updatedAt)}</span>
-                                <span className="max-w-[55%] truncate">{record.operatorName || '-'}</span>
-                              </div>
-                              {record.status === 'completed' && record.filePath ? (
-                                <div className="grid gap-2">
-                                  <div className="overflow-hidden rounded-2xl border border-border bg-black shadow-[0_12px_28px_rgba(0,0,0,0.18)]">
-                                    <video
-                                      className="block aspect-video w-full bg-black object-contain"
-                                      src={buildServerFileUrl(record.filePath)}
-                                      controls
-                                      playsInline
-                                      preload="metadata"
-                                      crossOrigin="use-credentials"
-                                    >
-                                      Browser ini tidak bisa memutar preview video.
-                                    </video>
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => void handleShareRecording(record, 'native')}
-                                      disabled={sharingRecordId === record.id || deletingRecordId !== null}
-                                    >
-                                      <Share2 size={14} />
-                                      {sharingRecordId === record.id ? 'Menyiapkan...' : 'Share aplikasi'}
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => void handleShareRecording(record, 'whatsapp')}
-                                      disabled={sharingRecordId === record.id || deletingRecordId !== null}
-                                    >
-                                      <Send size={14} />
-                                      Pilih WhatsApp
-                                    </Button>
-                                  </div>
-                                </div>
-                              ) : null}
-                              <Button
-                                type="button"
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => void handleDeleteRecording(record)}
-                                disabled={deletingRecordId !== null || sharingRecordId !== null}
-                              >
-                                <Trash2 size={14} />
-                                {deletingRecordId === record.id ? 'Menghapus...' : 'Hapus recording'}
-                              </Button>
                             </div>
+                            <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+                              <span className="text-xs">{formatDateTime(record.updatedAt)}</span>
+                              <span className="max-w-[55%] truncate text-xs">{record.operatorName || '-'}</span>
+                            </div>
+                            {record.status === 'completed' && record.filePath ? (
+                              <div className="grid gap-2">
+                                <div className="overflow-hidden rounded-2xl border border-border bg-black">
+                                  <video
+                                    className="block aspect-video w-full bg-black object-contain"
+                                    src={buildServerFileUrl(record.filePath)}
+                                    controls
+                                    playsInline
+                                    preload="metadata"
+                                    crossOrigin="use-credentials"
+                                  >
+                                    Browser ini tidak bisa memutar preview video.
+                                  </video>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="rounded-full"
+                                    onClick={() => void handleShareRecording(record, 'native')}
+                                    disabled={sharingRecordId === record.id || deletingRecordId !== null}
+                                  >
+                                    <Share2 size={14} />
+                                    {sharingRecordId === record.id ? 'Menyiapkan...' : 'Share'}
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="rounded-full"
+                                    onClick={() => void handleShareRecording(record, 'whatsapp')}
+                                    disabled={sharingRecordId === record.id || deletingRecordId !== null}
+                                  >
+                                    <Send size={14} />
+                                    WhatsApp
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : null}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="rounded-full border border-destructive/20 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => void handleDeleteRecording(record)}
+                              disabled={deletingRecordId !== null || sharingRecordId !== null}
+                            >
+                              <Trash2 size={14} />
+                              {deletingRecordId === record.id ? 'Menghapus...' : 'Hapus recording'}
+                            </Button>
                           </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 ))
               ) : (
                 <div
                   className={
                     historyEmptyState?.tone === 'warning'
-                      ? 'grid gap-3 rounded-[18px] border border-amber-300/30 bg-amber-500/10 px-4 py-4 text-center text-amber-900 dark:text-amber-100'
-                      : 'grid gap-3 rounded-[18px] border border-dashed border-border px-4 py-4 text-center text-foreground/75'
+                      ? 'grid gap-3 rounded-3xl border border-amber-200/50 bg-amber-500/10 px-5 py-6 text-center'
+                      : 'grid gap-3 rounded-3xl border border-dashed border-border px-5 py-6 text-center'
                   }
                 >
                   <div className="flex justify-center">
                     {historyEmptyState?.tone === 'warning' ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/30 bg-amber-500/10 px-3 py-1.5 text-[0.68rem] font-semibold text-amber-700 dark:text-amber-200">
-                        <span>Sudah diproses</span>
-                        {historyEmptyState.taskType ? (
-                          <>
-                            <span className="text-amber-700/60 dark:text-amber-200/60">·</span>
-                            <span>{formatTask(historyEmptyState.taskType)}</span>
-                          </>
-                        ) : null}
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1 text-[0.7rem] font-semibold text-amber-700 dark:text-amber-200">
+                        Sudah diproses{historyEmptyState.taskType ? ` Â· ${formatTask(historyEmptyState.taskType)}` : ''}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center rounded-full border border-border bg-muted/60 px-3 py-1.5 text-[0.68rem] font-semibold text-foreground/80">
+                      <span className="inline-flex rounded-full border border-border bg-muted/50 px-3 py-1 text-[0.7rem] font-semibold">
                         {historyEmptyState?.title ?? 'History'}
                       </span>
                     )}
                   </div>
                   <div className="grid gap-1">
-                    <p className="text-sm font-medium leading-6">{historyEmptyState?.message ?? 'Belum ada history untuk akun ini.'}</p>
-                    <p className="text-sm leading-6 text-muted-foreground">{historyEmptyState?.detail ?? 'Coba ubah filter atau scan resi lain.'}</p>
+                    <p className="text-sm font-medium">{historyEmptyState?.message ?? 'Belum ada history untuk akun ini.'}</p>
+                    <p className="text-sm leading-relaxed text-muted-foreground">{historyEmptyState?.detail ?? 'Coba ubah filter atau scan resi lain.'}</p>
                   </div>
                 </div>
               )}
@@ -1936,158 +1914,135 @@ function App() {
         </div>
       ) : null}
 
+      {/* â€”â€”â€” SESSION TAB â€”â€”â€” */}
       {activeTab === 'session' ? (
-        <div className="grid gap-3 pt-1">
+        <div className="grid gap-4 pt-1">
           <div className="flex items-start justify-between gap-3">
             <div className="grid gap-1">
-              <p className="section-label">Session detail</p>
-              <h2 className="text-lg font-semibold">Akun aktif</h2>
-              <p className="text-sm text-muted-foreground">Status login, task aktif, dan hak akses yang sedang dipakai.</p>
+              <p className="section-label">Session</p>
+              <h2 className="text-lg font-semibold tracking-tight">Akun aktif</h2>
+              <p className="text-sm leading-relaxed text-muted-foreground">Status login dan task yang sedang dipakai.</p>
             </div>
-            <UserRound className="size-4 shrink-0 text-[#f6c47c]" />
+            <span className="grid size-9 place-items-center rounded-2xl bg-muted text-muted-foreground">
+              <UserRound size={16} />
+            </span>
           </div>
 
-          <div>
-            <div className="grid gap-3">
-              <div className="grid gap-3 rounded-[28px] border border-border bg-[linear-gradient(180deg,var(--mobile-surface-strong),var(--mobile-surface))] p-4 shadow-[0_18px_54px_rgba(0,0,0,0.18)]">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[linear-gradient(145deg,#f6c47c_0%,#b85e1d_100%)] text-sm font-extrabold text-[#0a0d12] shadow-[inset_0_1px_0_rgba(255,255,255,0.28)]">
-                      {session.operatorName
-                        .split(' ')
-                        .map((part) => part[0])
-                        .filter(Boolean)
-                        .slice(0, 2)
-                        .join('')
-                        .toUpperCase() || 'OP'}
-                    </div>
-                    <div className="grid gap-0.5">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#b85e1d] dark:text-[#f6c47c]">
-                          {session.role === 'admin' ? 'Admin' : 'Operator'}
-                        </p>
-                        <span
-                          className={
-                            session.role === 'admin'
-                              ? 'rounded-full border border-amber-300/30 bg-amber-500/10 px-2 py-1 text-[0.68rem] font-semibold text-amber-700 dark:text-amber-200'
-                              : 'rounded-full border border-sky-300/25 bg-sky-500/10 px-2 py-1 text-[0.68rem] font-semibold text-sky-700 dark:text-sky-200'
-                          }
-                        >
-                          {session.role === 'admin' ? 'Akses penuh' : 'Akses operasional'}
-                        </span>
-                      </div>
-                      <strong className="text-lg leading-tight tracking-[-0.03em]">{session.operatorName}</strong>
-                      <span className="text-sm text-muted-foreground">{session.operatorCode || 'Kode operator tidak tersedia'}</span>
-                    </div>
-                  </div>
-                  <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1.5 text-[0.72rem] font-semibold text-emerald-200">
-                    Login aktif
-                  </span>
+          <div className="grid gap-4">
+            <div className="rounded-3xl border border-border/60 bg-card p-5">
+              <div className="flex items-start gap-3">
+                <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-foreground text-sm font-bold text-background">
+                  {session.operatorName
+                    .split(' ')
+                    .map((part) => part[0])
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .join('')
+                    .toUpperCase() || 'OP'}
                 </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-2xl border border-border bg-muted/40 px-3 py-3">
-                    <span className="block text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground">Task aktif</span>
-                    <strong className="mt-1 block text-sm">{formatTask(session.taskType)}</strong>
+                <div className="grid gap-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      {session.role === 'admin' ? 'Admin' : 'Operator'}
+                    </span>
+                    <span className={session.role === 'admin' ? 'rounded-full bg-amber-500/15 px-2 py-0.5 text-[0.68rem] font-medium text-amber-700 dark:text-amber-200' : 'rounded-full bg-sky-500/10 px-2 py-0.5 text-[0.68rem] font-medium text-sky-700 dark:text-sky-200'}>
+                      {session.role === 'admin' ? 'Akses penuh' : 'Akses operasional'}
+                    </span>
                   </div>
-                  <div className="rounded-2xl border border-border bg-muted/40 px-3 py-3">
-                    <span className="block text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground">Login sejak</span>
-                    <strong className="mt-1 block text-sm">{formatDateTime(session.loggedInAt)}</strong>
-                  </div>
+                  <strong className="text-[1.05rem] leading-tight tracking-tight">{session.operatorName}</strong>
+                  <span className="text-sm text-muted-foreground">{session.operatorCode || 'Kode operator tidak tersedia'}</span>
                 </div>
+                <span className="ml-auto shrink-0 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[0.7rem] font-medium text-emerald-700 dark:text-emerald-200">
+                  Login aktif
+                </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-2xl border border-border bg-muted/40 px-3 py-3">
-                  <span className="block text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground">Nama</span>
-                  <strong className="mt-1 block text-sm leading-tight">{session.operatorName}</strong>
+              <div className="mt-4 grid grid-cols-2 gap-2.5">
+                <div className="rounded-2xl bg-muted/50 px-3.5 py-3">
+                  <span className="block text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">Task aktif</span>
+                  <strong className="mt-1 block text-sm tracking-tight">{formatTask(session.taskType)}</strong>
                 </div>
-                <div className="rounded-2xl border border-border bg-muted/40 px-3 py-3">
-                  <span className="block text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground">Kode</span>
-                  <strong className="mt-1 block text-sm leading-tight">{session.operatorCode || '-'}</strong>
-                </div>
-                <div className="rounded-2xl border border-border bg-muted/40 px-3 py-3">
-                  <span className="block text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground">Role</span>
-                  <strong className="mt-1 block text-sm leading-tight">{session.role}</strong>
-                </div>
-                <div className="rounded-2xl border border-border bg-muted/40 px-3 py-3">
-                  <span className="block text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground">Akses</span>
-                  <strong className="mt-1 block text-sm leading-tight">
-                    {isAdmin ? 'Task bisa diubah' : 'Informasi saja'}
-                  </strong>
+                <div className="rounded-2xl bg-muted/50 px-3.5 py-3">
+                  <span className="block text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">Login sejak</span>
+                  <strong className="mt-1 block text-xs leading-tight">{formatDateTime(session.loggedInAt)}</strong>
                 </div>
               </div>
-
-              {isAdmin ? (
-                <div className="grid gap-2 rounded-[28px] border border-border bg-card/70 p-4">
-                  <div className="grid gap-1">
-                    <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#f6c47c]">Kontrol task</p>
-                    <p className="text-sm text-muted-foreground">Admin dapat mengganti task aktif untuk sesi ini.</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      type="button"
-                      variant={session.taskType === 'qc' ? 'secondary' : 'outline'}
-                      className="w-full"
-                      onClick={() => void handleTaskChange('qc')}
-                      disabled={taskBusy}
-                    >
-                      QC
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={session.taskType === 'packing' ? 'secondary' : 'outline'}
-                      className="w-full"
-                      onClick={() => void handleTaskChange('packing')}
-                      disabled={taskBusy}
-                    >
-                      Packing
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="grid gap-2 rounded-[28px] border border-border bg-card/70 p-4">
-                  <div className="grid gap-1">
-                    <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#f6c47c]">Status task</p>
-                    <p className="text-sm text-muted-foreground">Hanya informasi. Task tidak bisa diubah dari role operator.</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div
-                      className={
-                        session.taskType === 'qc'
-                          ? 'rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-3 text-center text-sm font-medium text-emerald-700 dark:text-emerald-200'
-                          : 'rounded-2xl border border-border bg-muted/60 px-3 py-3 text-center text-sm font-medium text-foreground/80'
-                      }
-                    >
-                      {session.taskType === 'qc' ? 'QC aktif' : 'QC nonaktif'}
-                    </div>
-                    <div
-                      className={
-                        session.taskType === 'packing'
-                          ? 'rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-3 text-center text-sm font-medium text-emerald-700 dark:text-emerald-200'
-                          : 'rounded-2xl border border-border bg-muted/60 px-3 py-3 text-center text-sm font-medium text-foreground/80'
-                      }
-                    >
-                      {session.taskType === 'packing' ? 'Packing aktif' : 'Packing nonaktif'}
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="rounded-2xl border border-border/60 bg-card px-3.5 py-3">
+                <span className="block text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">Nama</span>
+                <strong className="mt-1 block text-sm leading-tight">{session.operatorName}</strong>
+              </div>
+              <div className="rounded-2xl border border-border/60 bg-card px-3.5 py-3">
+                <span className="block text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">Kode</span>
+                <strong className="mt-1 block text-sm leading-tight">{session.operatorCode || '-'}</strong>
+              </div>
+              <div className="rounded-2xl border border-border/60 bg-card px-3.5 py-3">
+                <span className="block text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">Role</span>
+                <strong className="mt-1 block text-sm leading-tight">{session.role}</strong>
+              </div>
+              <div className="rounded-2xl border border-border/60 bg-card px-3.5 py-3">
+                <span className="block text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">Akses</span>
+                <strong className="mt-1 block text-sm leading-tight">{isAdmin ? 'Bisa ubah task' : 'Informasi saja'}</strong>
+              </div>
+            </div>
+
+            {isAdmin ? (
+              <div className="rounded-3xl border border-border/60 bg-card p-5">
+                <p className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Kontrol task</p>
+                <p className="mt-1 text-sm text-muted-foreground">Admin dapat mengganti task aktif untuk sesi ini.</p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant={session.taskType === 'qc' ? 'secondary' : 'outline'}
+                    className="rounded-full"
+                    onClick={() => void handleTaskChange('qc')}
+                    disabled={taskBusy}
+                  >
+                    QC
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={session.taskType === 'packing' ? 'secondary' : 'outline'}
+                    className="rounded-full"
+                    onClick={() => void handleTaskChange('packing')}
+                    disabled={taskBusy}
+                  >
+                    Packing
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-3xl border border-border/60 bg-card p-5">
+                <p className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Status task</p>
+                <p className="mt-1 text-sm text-muted-foreground">Hanya informasi. Task tidak bisa diubah dari role operator.</p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className={session.taskType === 'qc' ? 'rounded-2xl bg-emerald-500/10 px-3 py-3 text-center text-sm font-medium text-emerald-700 dark:text-emerald-200' : 'rounded-2xl border border-border bg-muted/40 px-3 py-3 text-center text-sm text-muted-foreground'}>
+                    {session.taskType === 'qc' ? 'QC aktif' : 'QC nonaktif'}
+                  </div>
+                  <div className={session.taskType === 'packing' ? 'rounded-2xl bg-emerald-500/10 px-3 py-3 text-center text-sm font-medium text-emerald-700 dark:text-emerald-200' : 'rounded-2xl border border-border bg-muted/40 px-3 py-3 text-center text-sm text-muted-foreground'}>
+                    {session.taskType === 'packing' ? 'Packing aktif' : 'Packing nonaktif'}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       ) : null}
 
       {bootError ? (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="rounded-2xl">
           <AlertTitle>Terjadi kesalahan</AlertTitle>
           <AlertDescription>{bootError}</AlertDescription>
         </Alert>
       ) : null}
+
+      <div className="h-14" aria-hidden="true" />
+      <BottomNav activeTab={activeTab} onChange={(tab) => openTab(tab)} />
     </main>
   )
 }
 
 export default App
-
 
