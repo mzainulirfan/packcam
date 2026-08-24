@@ -8,9 +8,7 @@ import {
   Plus,
   RefreshCcw,
   Search,
-  ShieldCheck,
   Trash2,
-  UserRoundCog,
   Users,
 } from 'lucide-react'
 
@@ -24,7 +22,7 @@ import {
 import { StageCard } from '../components/StageCard'
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { ModalOverlay } from '../components/ui/ModalOverlay'
@@ -72,38 +70,6 @@ const defaultUserFilterState: UserFilterState = {
   roleFilter: 'all',
   taskFilter: 'all',
 }
-
-const QUICK_FILTERS: Array<{
-  id: string
-  label: string
-  apply: (current: UserFilterState) => UserFilterState
-}> = [
-  {
-    id: 'all',
-    label: 'Semua',
-    apply: () => ({ ...defaultUserFilterState }),
-  },
-  {
-    id: 'admin',
-    label: 'Admin only',
-    apply: (current) => ({ ...current, roleFilter: 'admin' }),
-  },
-  {
-    id: 'operator',
-    label: 'Operator only',
-    apply: (current) => ({ ...current, roleFilter: 'operator' }),
-  },
-  {
-    id: 'qc',
-    label: 'QC only',
-    apply: (current) => ({ ...current, taskFilter: 'qc' }),
-  },
-  {
-    id: 'packing',
-    label: 'Packing only',
-    apply: (current) => ({ ...current, taskFilter: 'packing' }),
-  },
-]
 
 function readStoredUserFilters(): UserFilterState {
   if (typeof window === 'undefined') {
@@ -319,24 +285,6 @@ export function UsersPage() {
   function closeConfirmSaveModal() {
     setDialogState('form')
     setPendingSaveAction(null)
-  }
-
-  function applyQuickFilter(filterId: string) {
-    const target = QUICK_FILTERS.find((item) => item.id === filterId)
-
-    if (!target) {
-      return
-    }
-
-    const nextFilters = target.apply({
-      searchText,
-      roleFilter,
-      taskFilter,
-    })
-
-    setSearchText(nextFilters.searchText)
-    setRoleFilter(nextFilters.roleFilter)
-    setTaskFilter(nextFilters.taskFilter)
   }
 
   function clearFilters() {
@@ -586,153 +534,110 @@ export function UsersPage() {
   return (
     <StageCard title="Users">
       <div className="grid gap-4">
-        <section className="grid gap-4 rounded-[2rem] border border-slate-200/80 bg-gradient-to-br from-white to-slate-50 p-4 shadow-xl shadow-slate-900/5 lg:p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <section className="grid gap-4 rounded-[4px] border border-slate-300 bg-white p-4 lg:p-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div className="grid gap-2">
-              <div className="inline-flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs uppercase tracking-[0.22em] text-slate-500">
+              <div className="inline-flex w-fit items-center gap-2 rounded-[4px] border border-slate-300 bg-slate-50 px-3 py-1 text-xs uppercase tracking-[0.22em] text-slate-600">
                 <Users className="size-3.5" />
-                QC / packing operators
+                [ operators ]
               </div>
-              <h3 className="text-2xl font-semibold tracking-tight text-slate-950">Kelola akun operator QC / packing</h3>
-              <p className="max-w-3xl text-sm leading-6 text-slate-500">
-                Tambah, edit, reset password, atau hapus akun operator dengan alur yang tetap ringkas dan mudah
-                dipindai.
+              <h3 className="text-2xl font-semibold tracking-tight text-slate-950">Kelola user</h3>
+              <p className="max-w-2xl text-sm leading-6 text-slate-500">
+                Tambah, edit, reset password, atau hapus akun operator QC / packing.
               </p>
             </div>
 
-            <Card className="border-slate-200/80 bg-white shadow-sm shadow-slate-900/5">
-              <CardContent className="grid gap-2 p-4 text-sm text-slate-500">
-                <div className="flex items-center justify-between gap-10">
-                  <span>Total user</span>
-                  <strong className="text-slate-950">{operatorProfiles.length}</strong>
-                </div>
-                <div className="flex items-center justify-between gap-10">
-                  <span>Admin</span>
-                  <strong className="text-slate-950">{totalAdmins}</strong>
-                </div>
-                <div className="flex items-center justify-between gap-10">
-                  <span>Operator</span>
-                  <strong className="text-slate-950">{totalOperators}</strong>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="grid gap-2 rounded-[4px] border border-slate-300 bg-slate-50 p-3 text-sm sm:grid-cols-3 xl:min-w-[360px]">
+              <StatLine label="Total" value={operatorProfiles.length} />
+              <StatLine label="Admin" value={totalAdmins} />
+              <StatLine label="Operator" value={totalOperators} />
+            </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Card className="border-slate-200/80 shadow-sm shadow-slate-900/5">
-              <CardContent className="space-y-3 p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Total user</p>
-                  <div className="grid size-9 place-items-center rounded-xl bg-slate-950 text-white">
-                    <Users className="size-4" />
-                  </div>
+          <div className="grid gap-3 rounded-[4px] border border-slate-300 bg-slate-50 p-3">
+            <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_auto_auto] lg:items-end">
+              <div className="grid gap-2">
+                <Label htmlFor="users-search" className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                  Search
+                </Label>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    id="users-search"
+                    value={searchText}
+                    onChange={(event) => setSearchText(event.target.value)}
+                    placeholder="Nama, kode, role, atau task"
+                    className="h-11 border-slate-300 bg-white pl-10"
+                  />
                 </div>
-                <div className="text-3xl font-semibold tracking-tight text-slate-950">{operatorProfiles.length}</div>
-              </CardContent>
-            </Card>
-            <Card className="border-slate-200/80 shadow-sm shadow-slate-900/5">
-              <CardContent className="space-y-3 p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Admin</p>
-                  <div className="grid size-9 place-items-center rounded-xl bg-slate-950 text-white">
-                    <ShieldCheck className="size-4" />
-                  </div>
-                </div>
-                <div className="text-3xl font-semibold tracking-tight text-slate-950">{totalAdmins}</div>
-              </CardContent>
-            </Card>
-            <Card className="border-slate-200/80 shadow-sm shadow-slate-900/5">
-              <CardContent className="space-y-3 p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Operator</p>
-                  <div className="grid size-9 place-items-center rounded-xl bg-slate-950 text-white">
-                    <UserRoundCog className="size-4" />
-                  </div>
-                </div>
-                <div className="text-3xl font-semibold tracking-tight text-slate-950">{totalOperators}</div>
-              </CardContent>
-            </Card>
-          </div>
-        </section>
+              </div>
 
-        <Card className="border-slate-200/80 shadow-xl shadow-slate-900/5">
-          <CardHeader className="space-y-2">
-            <CardTitle className="text-lg">Toolbar</CardTitle>
-            <CardDescription>Cari operator, tambahkan akun baru, atau bersihkan pencarian.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 pt-4">
-            <div className="flex flex-wrap gap-2">
-              {QUICK_FILTERS.map((filter) => {
-                const isActive =
-                  (filter.id === 'all' && roleFilter === 'all' && taskFilter === 'all') ||
-                  (filter.id === 'admin' && roleFilter === 'admin') ||
-                  (filter.id === 'operator' && roleFilter === 'operator') ||
-                  (filter.id === 'qc' && taskFilter === 'qc') ||
-                  (filter.id === 'packing' && taskFilter === 'packing')
+              <FilterGroup
+                label="Role"
+                options={[
+                  ['all', 'Semua'],
+                  ['admin', 'Admin'],
+                  ['operator', 'Operator'],
+                ]}
+                value={roleFilter}
+                onChange={(value) => setRoleFilter(value as UserRoleFilter)}
+              />
 
-                return (
-                  <Button
-                    key={filter.id}
-                    type="button"
-                    size="sm"
-                    variant={isActive ? 'default' : 'secondary'}
-                    onClick={() => applyQuickFilter(filter.id)}
-                    aria-pressed={isActive}
-                  >
-                    {filter.label}
-                  </Button>
-                )
-              })}
+              <FilterGroup
+                label="Task"
+                options={[
+                  ['all', 'Semua'],
+                  ['qc', 'QC'],
+                  ['packing', 'Packing'],
+                ]}
+                value={taskFilter}
+                onChange={(value) => setTaskFilter(value as UserTaskFilter)}
+              />
             </div>
 
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-              <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-                <Input
-                  value={searchText}
-                  onChange={(event) => setSearchText(event.target.value)}
-                  placeholder="Nama, kode, role, atau task"
-                  className="h-12 pl-11"
-                />
-              </div>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <Button type="button" size="lg" onClick={openCreateModal}>
-                  <Plus className="size-4" />
-                  Tambah operator
-                </Button>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                Menampilkan <strong className="text-slate-950">{filteredProfiles.length}</strong> dari {operatorProfiles.length} user
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <Button
                   type="button"
-                  size="lg"
                   variant="outline"
-                  className="border-slate-200"
+                  className="h-10 rounded-[4px] border-slate-300 bg-white"
                   onClick={clearFilters}
                   disabled={!hasSearch && roleFilter === 'all' && taskFilter === 'all'}
                 >
                   Bersihkan filter
                 </Button>
+                <Button type="button" className="h-10 rounded-[4px]" onClick={openCreateModal}>
+                  <Plus className="size-4" />
+                  Tambah operator
+                </Button>
               </div>
             </div>
+          </div>
 
-            {shouldShowStatusAlert ? (
-              <Alert variant={messageTone === 'error' ? 'destructive' : 'default'}>
-                <div className="grid gap-1">
-                  <p className="font-medium">Status</p>
-                  <p className="text-sm leading-6 text-current/80">{message}</p>
-                </div>
-              </Alert>
-            ) : null}
-          </CardContent>
-        </Card>
+          {shouldShowStatusAlert ? (
+            <Alert variant={messageTone === 'error' ? 'destructive' : 'default'}>
+              <div className="grid gap-1">
+                <p className="font-medium">Status</p>
+                <p className="text-sm leading-6 text-current/80">{message}</p>
+              </div>
+            </Alert>
+          ) : null}
+        </section>
 
-        <Card className="border-slate-200/80 shadow-xl shadow-slate-900/5">
-          <CardHeader className="space-y-2">
-            <CardTitle className="text-lg">Daftar operator</CardTitle>
-            <CardDescription>
-              Klik nama operator untuk edit. Tabel ini tetap menampilkan last used dan role dengan jelas.
-            </CardDescription>
+        <Card className="border-slate-300 shadow-none">
+          <CardHeader className="border-b border-slate-300 p-4 lg:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <CardTitle className="text-lg">Daftar operator</CardTitle>
+              <span className="rounded-[4px] border border-slate-300 bg-slate-50 px-3 py-1 text-xs uppercase tracking-[0.18em] text-slate-600">
+                {filteredProfiles.length} rows
+              </span>
+            </div>
           </CardHeader>
-          <CardContent className="pt-4">
-              <div className="grid gap-4 md:hidden">
+          <CardContent className="p-4 lg:p-5">
+              <div className="grid gap-3 md:hidden">
                 {filteredProfiles.length ? (
                   filteredProfiles.map((profile) => {
                     const key = profileKey(profile)
@@ -743,8 +648,8 @@ export function UsersPage() {
                         key={key}
                         className={
                           isSelected
-                            ? 'grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm'
-                            : 'grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm'
+                            ? 'grid gap-4 rounded-[4px] border border-slate-400 bg-slate-50 p-4'
+                            : 'grid gap-4 rounded-[4px] border border-slate-300 bg-white p-4'
                         }
                       >
                         <div className="flex items-start justify-between gap-4">
@@ -758,22 +663,12 @@ export function UsersPage() {
                             </button>
                             <p className="truncate text-sm text-slate-500">{profile.operatorCode}</p>
                           </div>
-                          <span
-                            className={
-                              profile.role === 'admin'
-                                ? 'inline-flex rounded-full border border-slate-200 bg-slate-950 px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-white'
-                                : 'inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-slate-700'
-                            }
-                          >
-                            {profile.role}
-                          </span>
+                          <RoleBadge role={profile.role} />
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.16em] text-slate-500">
                           <span>Tugas</span>
-                          <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 font-medium text-slate-700">
-                            {profile.taskType}
-                          </span>
+                          <TaskBadge taskType={profile.taskType} />
                         </div>
 
                         <div className="grid gap-2 text-sm">
@@ -788,7 +683,7 @@ export function UsersPage() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="w-full"
+                            className="w-full rounded-[4px] border-slate-300"
                             onClick={() => openEditModal(profile)}
                           >
                             Edit
@@ -797,7 +692,7 @@ export function UsersPage() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="w-full"
+                            className="w-full rounded-[4px] border-slate-300"
                             onClick={() => openResetModal(profile)}
                           >
                             Reset
@@ -806,7 +701,7 @@ export function UsersPage() {
                             type="button"
                             variant="destructive"
                             size="sm"
-                            className="w-full"
+                            className="w-full rounded-[4px]"
                             onClick={() => openDeleteModal(profile)}
                           >
                             Hapus
@@ -816,14 +711,14 @@ export function UsersPage() {
                     )
                   })
                 ) : (
-                  <div className="grid gap-2 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-slate-500">
+                  <div className="grid gap-2 rounded-[4px] border border-dashed border-slate-300 bg-slate-50 p-6 text-slate-500">
                     <strong className="text-slate-950">Belum ada operator yang cocok.</strong>
                     <p>Ubah kata kunci pencarian atau buat operator baru.</p>
                   </div>
                 )}
               </div>
 
-              <div className="hidden overflow-hidden rounded-[1.5rem] border border-slate-200 md:block">
+              <div className="hidden overflow-hidden rounded-[4px] border border-slate-300 md:block">
                 <div className="overflow-x-auto">
                   <table className="min-w-full border-separate border-spacing-0">
                     <thead className="bg-slate-50">
@@ -844,7 +739,7 @@ export function UsersPage() {
                           return (
                             <tr
                               key={key}
-                              className={selectedKey === key ? 'bg-slate-50/80' : 'bg-white hover:bg-slate-50/60'}
+                              className={selectedKey === key ? 'bg-slate-50' : 'bg-white hover:bg-slate-50'}
                             >
                               <Td>
                                 <button
@@ -857,31 +752,21 @@ export function UsersPage() {
                               </Td>
                               <Td>{profile.operatorCode}</Td>
                               <Td>
-                                <span
-                                  className={
-                                    profile.role === 'admin'
-                                      ? 'inline-flex rounded-full border border-slate-200 bg-slate-950 px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-white'
-                                      : 'inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-slate-700'
-                                  }
-                                >
-                                  {profile.role}
-                                </span>
+                                <RoleBadge role={profile.role} />
                               </Td>
                               <Td>
-                                <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-slate-700">
-                                  {profile.taskType}
-                                </span>
+                                <TaskBadge taskType={profile.taskType} />
                               </Td>
                               <Td className="whitespace-nowrap text-slate-500">{formatTableDateTime(profile.lastUsedAt)}</Td>
                               <Td>
                                 <div className="flex flex-wrap justify-end gap-2">
-                                  <Button type="button" variant="outline" size="sm" onClick={() => openEditModal(profile)}>
+                                  <Button type="button" variant="outline" size="sm" className="rounded-[4px] border-slate-300" onClick={() => openEditModal(profile)}>
                                     Edit
                                   </Button>
-                                  <Button type="button" variant="outline" size="sm" onClick={() => openResetModal(profile)}>
+                                  <Button type="button" variant="outline" size="sm" className="rounded-[4px] border-slate-300" onClick={() => openResetModal(profile)}>
                                     Reset
                                   </Button>
-                                  <Button type="button" variant="destructive" size="sm" onClick={() => openDeleteModal(profile)}>
+                                  <Button type="button" variant="destructive" size="sm" className="rounded-[4px]" onClick={() => openDeleteModal(profile)}>
                                     Hapus
                                   </Button>
                                 </div>
@@ -892,7 +777,7 @@ export function UsersPage() {
                       ) : (
                         <tr>
                           <td colSpan={6} className="p-6">
-                            <div className="grid gap-2 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-slate-500">
+                            <div className="grid gap-2 rounded-[4px] border border-dashed border-slate-300 bg-slate-50 p-6 text-slate-500">
                               <strong className="text-slate-950">Belum ada operator yang cocok.</strong>
                               <p>Ubah kata kunci pencarian atau buat operator baru.</p>
                             </div>
@@ -977,8 +862,8 @@ export function UsersPage() {
                           type="button"
                           className={
                             checked
-                              ? 'grid gap-1 rounded-2xl border border-slate-950 bg-slate-950 px-4 py-3 text-left text-white'
-                              : 'grid gap-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left text-slate-950'
+                              ? 'grid gap-1 rounded-[4px] border border-slate-950 bg-slate-950 px-4 py-3 text-left text-white'
+                              : 'grid gap-1 rounded-[4px] border border-slate-300 bg-white px-4 py-3 text-left text-slate-950'
                           }
                           onClick={() => setOperatorTaskType(option.value)}
                         >
@@ -1028,7 +913,7 @@ export function UsersPage() {
 
                   </>
                 ) : (
-                  <div className="grid gap-2 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4">
+                  <div className="grid gap-2 rounded-[4px] border border-dashed border-slate-300 bg-slate-50 p-4">
                     <Label className="text-xs uppercase tracking-[0.18em] text-slate-500">
                       operator_code otomatis
                     </Label>
@@ -1206,6 +1091,70 @@ export function UsersPage() {
   )
 }
 
+function StatLine({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex items-center justify-between gap-4 sm:grid sm:gap-1">
+      <span className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</span>
+      <strong className="text-lg font-semibold tracking-tight text-slate-950">{value}</strong>
+    </div>
+  )
+}
+
+function FilterGroup({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string
+  options: Array<[string, string]>
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <div className="grid gap-2">
+      <span className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</span>
+      <div className="flex flex-wrap gap-2 rounded-[4px] border border-slate-300 bg-white p-1">
+        {options.map(([optionValue, optionLabel]) => (
+          <Button
+            key={optionValue}
+            type="button"
+            size="sm"
+            variant={value === optionValue ? 'default' : 'ghost'}
+            className="h-8 rounded-[4px] px-3 text-xs uppercase tracking-[0.14em]"
+            onClick={() => onChange(optionValue)}
+            aria-pressed={value === optionValue}
+          >
+            {optionLabel}
+          </Button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function RoleBadge({ role }: { role: OperatorRole }) {
+  return (
+    <span
+      className={
+        role === 'admin'
+          ? 'inline-flex rounded-[4px] border border-slate-950 bg-slate-950 px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-white'
+          : 'inline-flex rounded-[4px] border border-slate-300 bg-white px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-slate-700'
+      }
+    >
+      {role}
+    </span>
+  )
+}
+
+function TaskBadge({ taskType }: { taskType: WorkTask }) {
+  return (
+    <span className="inline-flex rounded-[4px] border border-slate-300 bg-white px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-slate-700">
+      {taskType}
+    </span>
+  )
+}
+
 function Field({
   id,
   label,
@@ -1291,7 +1240,7 @@ function DetailRow({
   value: ReactNode
 }) {
   return (
-    <div className="grid gap-1 rounded-2xl border border-slate-200 bg-white p-4">
+    <div className="grid gap-1 rounded-[4px] border border-slate-300 bg-white p-4">
       <dt className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</dt>
       <dd className="text-sm leading-6 text-slate-950 [overflow-wrap:anywhere]">{value}</dd>
     </div>
