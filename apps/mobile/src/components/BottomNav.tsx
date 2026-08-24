@@ -29,7 +29,7 @@ export function BottomNav({
               onClick={() => onChange(tab.key)}
               className={
                 isActive
-                  ? 'flex flex-1 flex-col items-center gap-1 border-b-2 border-[var(--op-ink)] px-3 py-2 text-[var(--op-ink)] dark:border-[var(--op-canvas)] dark:text-[var(--op-canvas)]'
+                  ? 'flex flex-1 flex-col items-center gap-1 border-b-2 border-[var(--op-ink)] px-3 py-2 text-[var(--op-ink)]'
                   : 'flex flex-1 flex-col items-center gap-1 px-3 py-2 text-[var(--op-mute)] hover:bg-[var(--op-surface-soft)]'
               }
               style={{ fontFamily: 'JetBrains Mono, monospace' }}
