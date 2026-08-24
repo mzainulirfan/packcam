@@ -1,19 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { ComponentType, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import {
   CalendarRange,
   Copy,
   Download,
   FolderOpen,
   History,
-  MonitorPlay,
   FileText,
   RefreshCcw,
   Search,
-  ShieldCheck,
-  SquareActivity,
   Trash2,
-  XCircle,
 } from 'lucide-react'
 
 import { useOperatorSession } from '../app/operatorSession'
@@ -35,7 +31,6 @@ import { hydrateRecordings, listRecordings, refreshRecordingsFromServer, type Lo
 import type { WorkTask } from '@pakti/types'
 import { downloadTextFile } from '@pakti/shared'
 
-type HistoryStatusFilter = 'all' | 'recording' | 'completed' | 'error'
 type HistoryTaskFilter = 'all' | WorkTask
 
 type HistoryRecordingGroup = {
@@ -46,7 +41,6 @@ type HistoryRecordingGroup = {
 
 type HistoryFilterState = {
   searchText: string
-  statusFilter: HistoryStatusFilter
   taskFilter: HistoryTaskFilter
   operatorFilter: string
   dateFrom: string
@@ -58,19 +52,11 @@ const HISTORY_FILTERS_KEY = 'pakti.historyFilters'
 
 const defaultHistoryFilterState: HistoryFilterState = {
   searchText: '',
-  statusFilter: 'all',
   taskFilter: 'all',
   operatorFilter: 'all',
   dateFrom: '',
   dateTo: '',
 }
-
-const statusOptions: Array<{ value: HistoryStatusFilter; label: string }> = [
-  { value: 'all', label: 'Semua' },
-  { value: 'recording', label: 'Recording' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'error', label: 'Error' },
-]
 
 const taskOptions: Array<{ value: HistoryTaskFilter; label: string }> = [
   { value: 'all', label: 'Semua task' },
@@ -78,55 +64,6 @@ const taskOptions: Array<{ value: HistoryTaskFilter; label: string }> = [
   { value: 'packing', label: 'Packing' },
 ]
 
-const quickFilters: Array<{
-  id: string
-  label: string
-  run: (state: HistoryFilterState) => HistoryFilterState
-}> = [
-  {
-    id: 'all',
-    label: 'Semua',
-    run: () => ({
-      ...defaultHistoryFilterState,
-    }),
-  },
-  {
-    id: 'qc',
-    label: 'QC only',
-    run: (state) => ({
-      ...state,
-      statusFilter: 'all',
-      taskFilter: 'qc',
-    }),
-  },
-  {
-    id: 'packing',
-    label: 'Packing only',
-    run: (state) => ({
-      ...state,
-      statusFilter: 'all',
-      taskFilter: 'packing',
-    }),
-  },
-  {
-    id: 'completed',
-    label: 'Completed',
-    run: (state) => ({
-      ...state,
-      statusFilter: 'completed',
-      taskFilter: 'all',
-    }),
-  },
-  {
-    id: 'error',
-    label: 'Error',
-    run: (state) => ({
-      ...state,
-      statusFilter: 'error',
-      taskFilter: 'all',
-    }),
-  },
-]
 
 function readStoredHistoryFilters(): HistoryFilterState {
   if (typeof window === 'undefined') {
@@ -147,7 +84,6 @@ function readStoredHistoryFilters(): HistoryFilterState {
 
     return {
       searchText: typeof parsed.searchText === 'string' ? parsed.searchText : '',
-      statusFilter: parsed.statusFilter === 'recording' || parsed.statusFilter === 'completed' || parsed.statusFilter === 'error' ? parsed.statusFilter : 'all',
       taskFilter: parsed.taskFilter === 'qc' || parsed.taskFilter === 'packing' ? parsed.taskFilter : 'all',
       operatorFilter: typeof parsed.operatorFilter === 'string' ? parsed.operatorFilter : 'all',
       dateFrom: typeof parsed.dateFrom === 'string' ? parsed.dateFrom : '',
@@ -173,7 +109,6 @@ export function HistoryPage() {
   const currentOperatorCode = operatorSession?.operatorCode ?? ''
   const initialHistoryFilters = useMemo(() => readStoredHistoryFilters(), [])
   const [searchText, setSearchText] = useState(initialHistoryFilters.searchText)
-  const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>(initialHistoryFilters.statusFilter)
   const [taskFilter, setTaskFilter] = useState<HistoryTaskFilter>(initialHistoryFilters.taskFilter)
   const [operatorFilter, setOperatorFilter] = useState(initialHistoryFilters.operatorFilter)
   const [dateFrom, setDateFrom] = useState(initialHistoryFilters.dateFrom)
@@ -215,13 +150,12 @@ export function HistoryPage() {
   useEffect(() => {
     writeStoredHistoryFilters({
       searchText,
-      statusFilter,
       taskFilter,
       operatorFilter,
       dateFrom,
       dateTo,
     })
-  }, [dateFrom, dateTo, operatorFilter, searchText, statusFilter, taskFilter])
+  }, [dateFrom, dateTo, operatorFilter, searchText, taskFilter])
 
   const operatorOptions = useMemo(() => {
     if (!isAdmin) {
@@ -269,7 +203,6 @@ export function HistoryPage() {
         (record.operatorName?.trim().toLowerCase() || record.operatorCode?.trim().toLowerCase() || '') ===
           normalizedSelectedOperator
 
-      const matchesStatus = statusFilter === 'all' || record.status === statusFilter
       const matchesTask = taskFilter === 'all' || record.taskType === taskFilter
       const matchesDateFrom = !dateFrom || record.recordDate >= dateFrom
       const matchesDateTo = !dateTo || record.recordDate <= dateTo
@@ -278,7 +211,6 @@ export function HistoryPage() {
         matchesSearch &&
         matchesOperator &&
         matchesAdminOperator &&
-        matchesStatus &&
         matchesTask &&
         matchesDateFrom &&
         matchesDateTo
@@ -292,7 +224,6 @@ export function HistoryPage() {
     operatorSession?.operatorName,
     recordings,
     searchText,
-    statusFilter,
     taskFilter,
   ])
 
@@ -318,26 +249,7 @@ export function HistoryPage() {
   const previewUrl = previewTarget ? buildServerFileUrl(previewTarget.filePath) : null
   const previewMessage = previewTarget ? `Preview siap untuk ${previewTarget.resiNumber}.` : 'Pilih rekaman untuk preview.'
 
-  const summary = useMemo(() => {
-    const completed = groupedRecordings.filter((group) => getGroupStatus(group) === 'completed').length
-    const recording = groupedRecordings.filter((group) => getGroupStatus(group) === 'recording').length
-    const error = groupedRecordings.filter((group) => getGroupStatus(group) === 'error').length
-    const invalid = groupedRecordings.filter((group) => group.records.some((record) => isRepeatQcInvalidRecord(record))).length
-
-    return {
-      total: groupedRecordings.length,
-      completed,
-      recording,
-      error,
-      invalid,
-    }
-  }, [groupedRecordings])
   const exportSummaryLabel = `${filteredRecordings.length} rekaman / ${groupedRecordings.length} resi`
-
-  function handleFilterChange(nextFilter: HistoryStatusFilter) {
-    setStatusFilter(nextFilter)
-    setPage(1)
-  }
 
   function handleTaskChange(nextFilter: HistoryTaskFilter) {
     setTaskFilter(nextFilter)
@@ -363,33 +275,8 @@ export function HistoryPage() {
     setPage(1)
   }
 
-  function applyQuickFilter(filterId: string) {
-    const target = quickFilters.find((item) => item.id === filterId)
-    if (!target) {
-      return
-    }
-
-    const next = target.run({
-      searchText,
-      statusFilter,
-      taskFilter,
-      operatorFilter,
-      dateFrom,
-      dateTo,
-    })
-
-    setSearchText(next.searchText)
-    setStatusFilter(next.statusFilter)
-    setTaskFilter(next.taskFilter)
-    setOperatorFilter(next.operatorFilter)
-    setDateFrom(next.dateFrom)
-    setDateTo(next.dateTo)
-    setPage(1)
-  }
-
   function clearFilters() {
     setSearchText(defaultHistoryFilterState.searchText)
-    setStatusFilter(defaultHistoryFilterState.statusFilter)
     setTaskFilter(defaultHistoryFilterState.taskFilter)
     setOperatorFilter(defaultHistoryFilterState.operatorFilter)
     setDateFrom(defaultHistoryFilterState.dateFrom)
@@ -554,36 +441,16 @@ export function HistoryPage() {
                 <History className="size-3.5" />
                 [ History ]
               </div>
-              <h3 className="text-2xl font-semibold tracking-tight text-slate-950">{summary.total} dokumentasi paket</h3>
+              <h3 className="text-2xl font-semibold tracking-tight text-slate-950">{groupedRecordings.length} dokumentasi paket</h3>
               <p className="max-w-3xl text-sm leading-6 text-slate-500">
                 Index dokumentasi QC dan Packing. Pilih resi untuk membuka video, metadata, dan aksi lanjutan.
               </p>
             </div>
 
-            <Card className="rounded-[4px] border-slate-300 bg-white shadow-none">
-              <CardContent className="grid gap-2 p-4 text-sm text-slate-500">
-                <div className="flex items-center justify-between gap-10">
-                  <span>Total</span>
-                  <strong className="text-slate-950">{summary.total}</strong>
-                </div>
-                <div className="flex items-center justify-between gap-10">
-                  <span>Completed</span>
-                  <strong className="text-slate-950">{summary.completed}</strong>
-                </div>
-                <div className="flex items-center justify-between gap-10">
-                  <span>Recording</span>
-                  <strong className="text-slate-950">{summary.recording}</strong>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            <StatCard label="Total" value={summary.total} icon={History} />
-            <StatCard label="Completed" value={summary.completed} icon={ShieldCheck} />
-            <StatCard label="Recording" value={summary.recording} icon={MonitorPlay} />
-            <StatCard label="Error" value={summary.error} icon={SquareActivity} />
-            <StatCard label="Repeat QC" value={summary.invalid} icon={XCircle} />
+            <Button type="button" variant="outline" className="h-10 rounded-[4px] border-slate-300" onClick={() => setIsExportOpen(true)}>
+              <Download className="size-4" />
+              Export
+            </Button>
           </div>
         </section>
 
@@ -593,31 +460,7 @@ export function HistoryPage() {
             <CardDescription>Cari resi, task, status dokumentasi, operator, dan rentang tanggal.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 pt-4">
-            <div className="flex flex-wrap gap-2">
-              {quickFilters.map((filter) => {
-                const isActive =
-                  (filter.id === 'all' && statusFilter === 'all' && taskFilter === 'all') ||
-                  (filter.id === 'qc' && taskFilter === 'qc') ||
-                  (filter.id === 'packing' && taskFilter === 'packing') ||
-                  (filter.id === 'completed' && statusFilter === 'completed') ||
-                  (filter.id === 'error' && statusFilter === 'error')
-
-                return (
-                  <Button
-                    key={filter.id}
-                    type="button"
-                    size="sm"
-                    variant={isActive ? 'default' : 'secondary'}
-                    onClick={() => applyQuickFilter(filter.id)}
-                    aria-pressed={isActive}
-                  >
-                    {filter.label}
-                  </Button>
-                )
-              })}
-            </div>
-
-            <div className={isAdmin ? 'grid gap-3 xl:grid-cols-6' : 'grid gap-3 xl:grid-cols-5'}>
+            <div className={isAdmin ? 'grid gap-3 xl:grid-cols-[minmax(20rem,1.5fr)_12rem_14rem_12rem_auto]' : 'grid gap-3 xl:grid-cols-[minmax(20rem,1.5fr)_12rem_14rem_auto]'}>
               <FilterField label="Cari">
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
@@ -628,21 +471,6 @@ export function HistoryPage() {
                     className="h-12 pl-11"
                   />
                 </div>
-              </FilterField>
-
-              <FilterField label="Status">
-                <Select value={statusFilter} onValueChange={(value) => handleFilterChange(value as HistoryStatusFilter)}>
-                  <SelectTrigger className="h-12 w-full">
-                    <SelectValue placeholder="Pilih status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </FilterField>
 
               <FilterField label="Tugas">
@@ -688,20 +516,9 @@ export function HistoryPage() {
               </FilterField>
 
               <div className="flex items-end gap-3">
-                <Button type="button" variant="outline" className="h-12 flex-1 border-slate-200" onClick={clearFilters} aria-label="Reset filter" title="Reset filter">
+                <Button type="button" variant="outline" className="h-12 flex-1 border-slate-300" onClick={clearFilters} aria-label="Reset filter" title="Reset filter">
                   <RefreshCcw className="size-4" />
                   Reset
-                </Button>
-
-                <Button
-                  type="button"
-                  className="h-12"
-                  onClick={() => setIsExportOpen(true)}
-                  aria-label="Export data"
-                  title="Export data"
-                  variant="default"
-                >
-                  <Download className="size-4" />
                 </Button>
               </div>
             </div>
@@ -1462,30 +1279,6 @@ function FilterField({ label, children }: { label: string; children: ReactNode }
       <Label className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</Label>
       {children}
     </div>
-  )
-}
-
-function StatCard({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string
-  value: number
-  icon: ComponentType<{ className?: string }>
-}) {
-  return (
-    <Card className="rounded-[4px] border-slate-300 shadow-none">
-      <CardContent className="space-y-3 p-4">
-        <div className="flex items-center justify-between gap-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{label}</p>
-          <div className="grid size-9 place-items-center rounded-[4px] bg-slate-950 text-white">
-            <Icon className="size-4" />
-          </div>
-        </div>
-        <div className="text-3xl font-semibold tracking-tight text-slate-950">{value}</div>
-      </CardContent>
-    </Card>
   )
 }
 
