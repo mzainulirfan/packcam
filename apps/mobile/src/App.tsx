@@ -1624,31 +1624,29 @@ function App() {
       <BottomNav activeTab={activeTab} onChange={(tab) => openTab(tab)} />
 
       {activeTab === 'history' ? (
-        <Card className="border-border bg-card/80 backdrop-blur-xl">
-          <CardHeader>
-            <div className="flex items-start justify-between gap-3">
-              <div className="grid gap-1">
-                <p className="section-label">History ringkas</p>
-                <div className="flex items-center gap-2">
-                  <CardTitle>Rekaman terbaru</CardTitle>
-                  <span className="rounded-full border border-border bg-muted/60 px-2 py-1 text-[0.7rem] font-medium text-foreground/80">
-                    {groupedRecordings.length} resi
-                  </span>
-                </div>
-                <CardDescription>
-                  10 data terakhir untuk akun aktif
-                  {historyAllAccounts && isAdmin ? ' dan semua akun' : ''}
-                  {session?.operatorCode ? ` (${session.operatorCode})` : ''}.
-                </CardDescription>
+        <div className="grid gap-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="grid gap-1">
+              <p className="section-label">History ringkas</p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-semibold">Rekaman terbaru</h2>
+                <span className="rounded-full border border-border bg-muted/60 px-2 py-1 text-[0.7rem] font-medium text-foreground/80">
+                  {groupedRecordings.length} resi
+                </span>
               </div>
-              <Button variant="outline" size="sm" type="button" onClick={() => void refreshHistory()} disabled={historyBusy}>
-                <RefreshCw size={16} />
-                {historyBusy ? 'Memuat...' : 'Refresh'}
-              </Button>
+              <p className="text-sm text-muted-foreground">
+                10 data terakhir untuk akun aktif
+                {historyAllAccounts && isAdmin ? ' dan semua akun' : ''}
+                {session?.operatorCode ? ` (${session.operatorCode})` : ''}.
+              </p>
             </div>
-          </CardHeader>
+            <Button variant="outline" size="sm" type="button" onClick={() => void refreshHistory()} disabled={historyBusy}>
+              <RefreshCw size={16} />
+              {historyBusy ? 'Memuat...' : 'Refresh'}
+            </Button>
+          </div>
 
-          <CardContent className="pt-0">
+          <div>
             <div className="grid gap-3 pb-3">
               <div className="grid gap-2">
                 <Label htmlFor="history-resi-search" className="text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground">
@@ -1934,24 +1932,22 @@ function App() {
                 </div>
               )}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ) : null}
 
       {activeTab === 'session' ? (
-        <Card className="border-border bg-card/80 backdrop-blur-xl">
-          <CardHeader>
-            <div className="flex items-start justify-between gap-3">
-              <div className="grid gap-1">
-                <p className="section-label">Session detail</p>
-                <CardTitle>Akun aktif</CardTitle>
-                <CardDescription>Status login, task aktif, dan hak akses yang sedang dipakai.</CardDescription>
-              </div>
-              <UserRound className="size-4 shrink-0 text-[#f6c47c]" />
+        <div className="grid gap-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="grid gap-1">
+              <p className="section-label">Session detail</p>
+              <h2 className="text-lg font-semibold">Akun aktif</h2>
+              <p className="text-sm text-muted-foreground">Status login, task aktif, dan hak akses yang sedang dipakai.</p>
             </div>
-          </CardHeader>
+            <UserRound className="size-4 shrink-0 text-[#f6c47c]" />
+          </div>
 
-          <CardContent className="pt-0">
+          <div>
             <div className="grid gap-3">
               <div className="grid gap-3 rounded-[28px] border border-border bg-[linear-gradient(180deg,var(--mobile-surface-strong),var(--mobile-surface))] p-4 shadow-[0_18px_54px_rgba(0,0,0,0.18)]">
                 <div className="flex items-start justify-between gap-3">
@@ -2078,8 +2074,8 @@ function App() {
                 </div>
               )}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ) : null}
 
       {bootError ? (
