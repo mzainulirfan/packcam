@@ -1506,11 +1506,11 @@ function App() {
               error={cameraState.error}
               emptyMessage="Arahkan kamera ke area kerja."
               topSlot={
-                <div className="flex w-[calc(100vw-2.2rem)] max-w-[46rem] flex-col gap-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/55 px-3 py-1.5 text-[0.7rem] font-semibold text-white backdrop-blur">
-                      <Camera size={13} />
-                      <span className="truncate">
+                <div className="flex w-full max-w-full flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="flex min-w-0 flex-1 items-center gap-2 truncate rounded-[4px] border border-white/15 bg-black/55 px-2.5 py-1 text-[0.7rem] font-semibold text-white backdrop-blur">
+                      <Camera size={13} className="shrink-0" />
+                      <span className="min-w-0 flex-1 truncate">
                         {activeRecordingResi ? `${formatTask(currentTaskType)}: ${activeRecordingResi}` : 'Scan resi'}
                       </span>
                     </span>
@@ -1519,14 +1519,14 @@ function App() {
                         type="button"
                         variant={session.taskType === 'qc' ? 'secondary' : 'outline'}
                         size="xs"
-                        className="rounded-full bg-white/90 text-slate-900 hover:bg-white"
+                        className="h-7 shrink-0 rounded-[4px] bg-white px-2.5 text-xs font-medium text-slate-900 hover:bg-white"
                         onClick={() => void handleTaskChange(session.taskType === 'qc' ? 'packing' : 'qc')}
                         disabled={taskBusy}
                       >
                         {formatTask(session.taskType)}
                       </Button>
                     ) : (
-                      <span className="inline-flex items-center rounded-full bg-white/90 px-3 py-1 text-[0.7rem] font-semibold text-slate-900">
+                      <span className="inline-flex shrink-0 items-center rounded-[4px] bg-white px-2.5 py-1 text-[0.68rem] font-semibold text-slate-900">
                         {formatTask(session.taskType)}
                       </span>
                     )}
