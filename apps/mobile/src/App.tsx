@@ -1911,22 +1911,22 @@ function App() {
 
       {/* â€”â€”â€” SESSION TAB â€”â€”â€” */}
       {activeTab === 'session' ? (
-        <div className="grid gap-4 pt-1">
-          <div className="flex items-start justify-between gap-3">
+        <div className="grid gap-4 pt-1" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+          <div className="flex items-start justify-between gap-3 border-b border-[var(--op-hairline)] pb-3">
             <div className="grid gap-1">
-              <p className="section-label">Session</p>
-              <h2 className="text-lg font-semibold tracking-tight">Akun aktif</h2>
-              <p className="text-sm leading-relaxed text-muted-foreground">Status login dan task yang sedang dipakai.</p>
+              <p className="text-[12px] font-bold tracking-wide">[ Session ]</p>
+              <h2 className="text-[16px] font-bold leading-none">Akun — {session.operatorName}</h2>
+              <p className="text-[14px] leading-relaxed text-[var(--op-mute)]">Status login dan task aktif.</p>
             </div>
-            <span className="grid size-9 place-items-center rounded-2xl bg-muted text-muted-foreground">
+            <span className="grid size-9 place-items-center rounded-[4px] bg-[var(--op-ink)] text-[var(--op-canvas)]">
               <UserRound size={16} />
             </span>
           </div>
 
           <div className="grid gap-4">
-            <div className="rounded-3xl border border-border/60 bg-card p-5">
+            <div className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-3">
               <div className="flex items-start gap-3">
-                <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-foreground text-sm font-bold text-background">
+                <div className="grid size-11 shrink-0 place-items-center rounded-[4px] bg-[var(--op-ink)] text-sm font-bold text-[var(--op-canvas)]">
                   {session.operatorName
                     .split(' ')
                     .map((part) => part[0])
@@ -1965,9 +1965,9 @@ function App() {
             </div>
 
             {isAdmin ? (
-              <div className="rounded-3xl border border-border/60 bg-card p-5">
-                <p className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Kontrol task</p>
-                <p className="mt-1 text-sm text-muted-foreground">Admin dapat mengganti task aktif untuk sesi ini.</p>
+              <div className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-3">
+                <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-[var(--op-mute)]">[+] Kontrol task</p>
+                <p className="mt-1 text-sm text-[var(--op-mute)]">Admin dapat mengganti task aktif.</p>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <Button
                       type="button"
@@ -1994,11 +1994,11 @@ function App() {
                   <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-[var(--op-mute)]">[+] Status task</p>
                 <p className="mt-1 text-sm text-muted-foreground">Hanya informasi. Task tidak bisa diubah dari role operator.</p>
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  <div className={session.taskType === 'qc' ? 'rounded-2xl bg-emerald-500/10 px-3 py-3 text-center text-sm font-medium text-emerald-700 dark:text-emerald-200' : 'rounded-2xl border border-border bg-muted/40 px-3 py-3 text-center text-sm text-muted-foreground'}>
-                    {session.taskType === 'qc' ? 'QC aktif' : 'QC nonaktif'}
+                  <div className={session.taskType === 'qc' ? 'rounded-[4px] bg-[var(--op-ink)] px-3 py-3 text-center text-sm font-medium text-[var(--op-canvas)]' : 'rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 py-3 text-center text-sm text-[var(--op-mute)]'}>
+                    {session.taskType === 'qc' ? '[ QC aktif ]' : 'QC nonaktif'}
                   </div>
-                  <div className={session.taskType === 'packing' ? 'rounded-2xl bg-emerald-500/10 px-3 py-3 text-center text-sm font-medium text-emerald-700 dark:text-emerald-200' : 'rounded-2xl border border-border bg-muted/40 px-3 py-3 text-center text-sm text-muted-foreground'}>
-                    {session.taskType === 'packing' ? 'Packing aktif' : 'Packing nonaktif'}
+                  <div className={session.taskType === 'packing' ? 'rounded-[4px] bg-[var(--op-ink)] px-3 py-3 text-center text-sm font-medium text-[var(--op-canvas)]' : 'rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 py-3 text-center text-sm text-[var(--op-mute)]'}>
+                    {session.taskType === 'packing' ? '[ Packing aktif ]' : 'Packing nonaktif'}
                   </div>
                 </div>
               </div>
