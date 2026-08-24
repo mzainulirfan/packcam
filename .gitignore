@@ -33,3 +33,5 @@ archive
 
 .vercel
 .env*
+
+start-backend-env.ps1
