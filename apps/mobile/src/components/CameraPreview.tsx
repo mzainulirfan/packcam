@@ -68,8 +68,8 @@ function Overlay({ children, tone }: { children: string; tone: 'default' | 'erro
     <Card
       className={
         tone === 'error'
-          ? 'absolute left-3 right-3 bottom-3 z-10 rounded-2xl border border-rose-400/30 bg-rose-50/95 px-4 py-3 text-sm text-rose-950 shadow-lg backdrop-blur-md'
-          : 'absolute left-3 right-3 bottom-3 z-10 rounded-2xl border border-white/14 bg-white/92 px-4 py-3 text-sm text-slate-800 shadow-lg backdrop-blur-md'
+          ? 'absolute left-3 right-3 bottom-3 z-10 rounded-[4px] border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive'
+          : 'absolute left-3 right-3 bottom-3 z-10 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-4 py-3 text-sm text-[var(--op-ink)]'
       }
     >
       {children}

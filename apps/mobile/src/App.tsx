@@ -1600,7 +1600,7 @@ function App() {
               topSlot={
                 <div className="flex w-full max-w-full flex-col gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="flex min-w-0 flex-1 items-center gap-2 truncate rounded-[4px] border border-white/15 bg-black/55 px-2.5 py-1 text-[0.7rem] font-semibold text-white backdrop-blur">
+                    <span className="flex min-w-0 flex-1 items-center gap-2 truncate rounded-[4px] border border-[rgba(253,252,252,0.36)] bg-[#201d1d] px-2.5 py-1 text-[0.7rem] font-semibold text-[#fdfcfc]">
                       <HugeiconsIcon icon={Camera01Icon} size={14} className="shrink-0" />
                       <span className="min-w-0 flex-1 truncate">
                         {activeRecordingResi ? `${formatTask(currentTaskType)}: ${activeRecordingResi}` : 'Scan resi'}
@@ -1611,28 +1611,28 @@ function App() {
                         type="button"
                         variant={session.taskType === 'qc' ? 'secondary' : 'outline'}
                         size="xs"
-                        className="h-7 shrink-0 rounded-[4px] bg-white px-2.5 text-xs font-medium text-slate-900 hover:bg-white"
+                        className="h-7 shrink-0 rounded-[4px] border border-[#fdfcfc] bg-[#fdfcfc] px-2.5 text-xs font-medium text-[#201d1d] hover:bg-[#fdfcfc]"
                         onClick={() => void handleTaskChange(session.taskType === 'qc' ? 'packing' : 'qc')}
                         disabled={taskBusy}
                       >
                         {formatTask(session.taskType)}
                       </Button>
                     ) : (
-                      <span className="inline-flex shrink-0 items-center rounded-[4px] bg-white px-2.5 py-1 text-[0.68rem] font-semibold text-slate-900">
+                      <span className="inline-flex shrink-0 items-center rounded-[4px] border border-[#fdfcfc] bg-[#fdfcfc] px-2.5 py-1 text-[0.68rem] font-semibold text-[#201d1d]">
                         {formatTask(session.taskType)}
                       </span>
                     )}
                   </div>
                   {recordingHasAudio ? (
-                    <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-white/15 bg-black/55 px-2.5 py-1 text-[0.68rem] font-medium text-emerald-100 backdrop-blur">
+                    <span className="inline-flex w-fit items-center gap-1.5 rounded-[4px] border border-[rgba(253,252,252,0.36)] bg-[#201d1d] px-2.5 py-1 text-[0.68rem] font-medium text-[#fdfcfc]">
                       <HugeiconsIcon icon={Mic01Icon} size={12} />
                       Audio aktif
                     </span>
                   ) : null}
                   {activeRecordingResi ? (
-                      <div className="w-fit rounded-[4px] bg-black/45 px-3 py-2 backdrop-blur">
+                      <div className="w-fit rounded-[4px] border border-[rgba(253,252,252,0.36)] bg-[#201d1d] px-3 py-2">
                       <strong className="block text-[0.68rem] font-bold tracking-wide text-white">RESI {activeRecordingResi}</strong>
-                      <span className="block text-[0.62rem] font-medium leading-tight text-white/80">
+                      <span className="block text-[0.62rem] font-medium leading-tight text-[#d8d4d4]">
                         {formatTask(currentTaskType)} · {session.operatorName || session.operatorCode || '-'} · {watermarkOverlayTime}
                       </span>
                     </div>
@@ -1655,7 +1655,7 @@ function App() {
                       : 'scan-control-panel rounded-[4px]'
                   }
                 >
-                  <div className="mx-auto h-1 w-8 rounded-full bg-border/70" aria-hidden="true" />
+                  <div className="h-px w-full bg-[var(--op-hairline)]" aria-hidden="true" />
                   {scanProgressState ? (
                     <div className={`scan-progress-note scan-progress-note--${scanProgressState.tone} rounded-[4px]`}>
                       <strong>{scanProgressState.title}</strong>
@@ -1676,7 +1676,7 @@ function App() {
                         placeholder="Ketik atau scan otomatis"
                         inputMode="text"
                         autoCapitalize="characters"
-                        className="h-12 rounded-[4px] border-border bg-card pl-10 text-[0.95rem] shadow-sm"
+                        className="h-12 rounded-[4px] border-[var(--op-hairline)] bg-[var(--op-canvas)] pl-10 text-[0.95rem] shadow-none"
                       />
                     </div>
                     <p className="text-[0.68rem] leading-none text-muted-foreground">Arahkan barcode ke kotak atau ketik manual</p>
@@ -1952,7 +1952,7 @@ function App() {
                     error={historyCameraState.error}
                     emptyMessage="Arahkan barcode untuk mengisi pencarian."
                     topSlot={
-                      <span className="inline-flex items-center gap-2 rounded-[4px] bg-black/60 px-3 py-1.5 text-[0.7rem] font-semibold text-white backdrop-blur">
+                      <span className="inline-flex items-center gap-2 rounded-[4px] border border-[rgba(253,252,252,0.36)] bg-[#201d1d] px-3 py-1.5 text-[0.7rem] font-semibold text-[#fdfcfc]">
                         <HugeiconsIcon icon={SearchAreaIcon} size={15} />
                         Scan pencarian
                       </span>
