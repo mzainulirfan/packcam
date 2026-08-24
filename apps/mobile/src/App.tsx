@@ -1782,9 +1782,10 @@ function App() {
                     key={group.resiNumber}
                     className={
                       historyHighlightedResi === group.resiNumber
-                        ? 'rounded-3xl border border-amber-300/50 bg-amber-500/10 p-4 ring-1 ring-amber-300/30'
-                        : 'rounded-3xl border border-border/60 bg-card p-4'
+                        ? 'rounded-[4px] border border-[var(--op-hairline-strong)] bg-[var(--op-surface-card)] p-3'
+                        : 'rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-3'
                     }
+                    style={{ fontFamily: 'JetBrains Mono, monospace' }}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="grid gap-1">
@@ -1811,14 +1812,14 @@ function App() {
                           {index > 0 ? <Separator className="my-3" /> : null}
                           <div className="grid gap-3">
                             <div className="flex items-center justify-between gap-3">
-                              <span className="text-sm font-semibold">{formatTask(record.taskType)}</span>
+                              <span className="text-sm font-medium">[+] {formatTask(record.taskType)}</span>
                               <div className="flex items-center gap-1.5">
                                 {index === 0 ? (
-                                  <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[0.68rem] font-medium text-emerald-700 dark:text-emerald-200">
+                                  <span className="rounded-[4px] bg-[var(--op-ink)] px-2 py-0.5 text-[12px] font-medium text-[var(--op-canvas)]">
                                     terbaru
                                   </span>
                                 ) : null}
-                                <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[0.68rem] font-medium">
+                                <span className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-2 py-0.5 text-[12px]">
                                   {formatStatus(record.status)}
                                 </span>
                               </div>
@@ -1829,7 +1830,7 @@ function App() {
                             </div>
                             {record.status === 'completed' && record.filePath ? (
                               <div className="grid gap-2">
-                                <div className="overflow-hidden rounded-2xl border border-border bg-black">
+                                <div className="overflow-hidden rounded-[4px] border border-[var(--op-hairline)] bg-black">
                                   <video
                                     className="block aspect-video w-full bg-black object-contain"
                                     src={buildServerFileUrl(record.filePath)}
@@ -1958,32 +1959,32 @@ function App() {
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-2.5">
-                <div className="rounded-2xl bg-muted/50 px-3.5 py-3">
-                  <span className="block text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">Task aktif</span>
-                  <strong className="mt-1 block text-sm tracking-tight">{formatTask(session.taskType)}</strong>
+                <div className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-3 py-3">
+                  <span className="block text-[12px] font-medium uppercase tracking-[0.14em] text-[var(--op-mute)]">Task aktif</span>
+                  <strong className="mt-1 block text-sm tracking-tight">[+] {formatTask(session.taskType)}</strong>
                 </div>
-                <div className="rounded-2xl bg-muted/50 px-3.5 py-3">
-                  <span className="block text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">Login sejak</span>
+                <div className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-3 py-3">
+                  <span className="block text-[12px] font-medium uppercase tracking-[0.14em] text-[var(--op-mute)]">Login sejak</span>
                   <strong className="mt-1 block text-xs leading-tight">{formatDateTime(session.loggedInAt)}</strong>
                 </div>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2.5">
-              <div className="rounded-2xl border border-border/60 bg-card px-3.5 py-3">
-                <span className="block text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">Nama</span>
+              <div className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-3 py-3">
+                <span className="block text-[12px] font-medium uppercase tracking-[0.14em] text-[var(--op-mute)]">Nama</span>
                 <strong className="mt-1 block text-sm leading-tight">{session.operatorName}</strong>
               </div>
-              <div className="rounded-2xl border border-border/60 bg-card px-3.5 py-3">
-                <span className="block text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">Kode</span>
+              <div className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-3 py-3">
+                <span className="block text-[12px] font-medium uppercase tracking-[0.14em] text-[var(--op-mute)]">Kode</span>
                 <strong className="mt-1 block text-sm leading-tight">{session.operatorCode || '-'}</strong>
               </div>
-              <div className="rounded-2xl border border-border/60 bg-card px-3.5 py-3">
-                <span className="block text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">Role</span>
+              <div className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-3 py-3">
+                <span className="block text-[12px] font-medium uppercase tracking-[0.14em] text-[var(--op-mute)]">Role</span>
                 <strong className="mt-1 block text-sm leading-tight">{session.role}</strong>
               </div>
-              <div className="rounded-2xl border border-border/60 bg-card px-3.5 py-3">
-                <span className="block text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">Akses</span>
+              <div className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-3 py-3">
+                <span className="block text-[12px] font-medium uppercase tracking-[0.14em] text-[var(--op-mute)]">Akses</span>
                 <strong className="mt-1 block text-sm leading-tight">{isAdmin ? 'Bisa ubah task' : 'Informasi saja'}</strong>
               </div>
             </div>
@@ -1994,28 +1995,28 @@ function App() {
                 <p className="mt-1 text-sm text-muted-foreground">Admin dapat mengganti task aktif untuk sesi ini.</p>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <Button
-                    type="button"
-                    variant={session.taskType === 'qc' ? 'secondary' : 'outline'}
-                    className="rounded-full"
-                    onClick={() => void handleTaskChange('qc')}
-                    disabled={taskBusy}
-                  >
-                    QC
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={session.taskType === 'packing' ? 'secondary' : 'outline'}
-                    className="rounded-full"
-                    onClick={() => void handleTaskChange('packing')}
-                    disabled={taskBusy}
-                  >
-                    Packing
-                  </Button>
+                      type="button"
+                      variant={session.taskType === 'qc' ? 'secondary' : 'outline'}
+                      className="rounded-[4px]"
+                      onClick={() => void handleTaskChange('qc')}
+                      disabled={taskBusy}
+                    >
+                      QC
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={session.taskType === 'packing' ? 'secondary' : 'outline'}
+                      className="rounded-[4px]"
+                      onClick={() => void handleTaskChange('packing')}
+                      disabled={taskBusy}
+                    >
+                      Packing
+                    </Button>
                 </div>
               </div>
-            ) : (
-              <div className="rounded-3xl border border-border/60 bg-card p-5">
-                <p className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Status task</p>
+              ) : (
+                <div className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-4">
+                  <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-[var(--op-mute)]">[+] Status task</p>
                 <p className="mt-1 text-sm text-muted-foreground">Hanya informasi. Task tidak bisa diubah dari role operator.</p>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <div className={session.taskType === 'qc' ? 'rounded-2xl bg-emerald-500/10 px-3 py-3 text-center text-sm font-medium text-emerald-700 dark:text-emerald-200' : 'rounded-2xl border border-border bg-muted/40 px-3 py-3 text-center text-sm text-muted-foreground'}>
