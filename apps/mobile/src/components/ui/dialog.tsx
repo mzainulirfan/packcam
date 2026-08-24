@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { Dialog as DialogPrimitive } from 'radix-ui'
-import { XIcon } from 'lucide-react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Cancel01Icon } from '@hugeicons/core-free-icons'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -43,7 +44,7 @@ function DialogCloseButton({
         aria-label="Tutup"
         {...props}
       >
-        <XIcon />
+        <HugeiconsIcon icon={Cancel01Icon} size={16} />
         <span className="sr-only">Tutup</span>
       </Button>
     </DialogClose>

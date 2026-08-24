@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
-import { AlertCircle, CheckCircle2, Info } from 'lucide-react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { AlertCircleIcon, Tick02Icon, InformationCircleIcon } from '@hugeicons/core-free-icons'
 
 import { cn } from '@/lib/utils'
 
@@ -21,13 +22,13 @@ const alertVariants = cva('relative w-full rounded-2xl border px-4 py-3 text-sm'
 function getAlertIcon(variant?: AlertVariants['variant']) {
   switch (variant) {
     case 'destructive':
-      return AlertCircle
+      return AlertCircleIcon
     case 'success':
-      return CheckCircle2
+      return Tick02Icon
     case 'info':
-      return Info
+      return InformationCircleIcon
     default:
-      return Info
+      return InformationCircleIcon
   }
 }
 
@@ -42,7 +43,7 @@ const Alert = React.forwardRef<
   return (
     <div ref={ref} role="alert" data-slot="alert" className={cn(alertVariants({ variant }), className)} {...props}>
       <div className="flex items-start gap-3">
-        <Icon className="mt-0.5 size-4 shrink-0" />
+        <HugeiconsIcon icon={Icon} size={16} className="mt-0.5 shrink-0" />
         <div className="min-w-0 flex-1">{children}</div>
       </div>
     </div>

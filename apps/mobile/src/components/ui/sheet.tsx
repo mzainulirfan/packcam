@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { Dialog as SheetPrimitive } from 'radix-ui'
-import { XIcon } from 'lucide-react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Cancel01Icon } from '@hugeicons/core-free-icons'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -66,7 +67,7 @@ function SheetContent({
         {showCloseButton ? (
           <SheetPrimitive.Close data-slot="sheet-close" asChild>
             <Button variant="ghost" className="absolute top-3 right-3" size="icon-sm">
-              <XIcon />
+              <HugeiconsIcon icon={Cancel01Icon} size={16} />
               <span className="sr-only">Close</span>
             </Button>
           </SheetPrimitive.Close>
