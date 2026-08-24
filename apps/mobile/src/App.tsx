@@ -1303,52 +1303,43 @@ function App() {
     return (
       <main
         className="mobile-app mobile-app--auth"
+        style={{ fontFamily: 'JetBrains Mono, monospace' }}
         onPointerDownCapture={() => {
           void primeScanFeedbackAudio()
         }}
       >
-        <div className="auth-backdrop" aria-hidden="true">
-          <div className="auth-orb auth-orb--one" />
-          <div className="auth-orb auth-orb--two" />
-        </div>
-
-        <section className="auth-hero">
-          <div className="auth-hero__brand">
-            <span className="brand-badge">{brandMark}</span>
-            <div className="grid gap-1">
-              <p className="eyebrow">Pakti Mobile</p>
-              <h1>{appName}</h1>
+        <section className="grid gap-3 border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-4" style={{ borderRadius: '4px' }}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="grid size-9 place-items-center rounded-[4px] bg-[var(--op-ink)] text-[var(--op-canvas)] text-sm font-bold">
+                {brandMark}
+              </span>
+              <div className="grid gap-0.5">
+                <p className="text-[12px] font-bold tracking-wide">[ Pakti Mobile ]</p>
+                <p className="text-[14px] font-bold leading-none">{appName}</p>
+              </div>
             </div>
             <Button
               type="button"
               variant="outline"
               size="icon-sm"
-              className="theme-toggle ml-auto"
+              className="rounded-[4px] border-[var(--op-hairline)]"
               onClick={toggleTheme}
               aria-label={isDarkTheme ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}
             >
               {isDarkTheme ? <SunMedium size={16} /> : <MoonStar size={16} />}
             </Button>
           </div>
-
-          <p className="tagline">{tagline}</p>
+          <p className="text-[14px] leading-relaxed text-[var(--op-mute)]">{tagline}</p>
         </section>
 
-        <Card className="auth-card border-border bg-card/80 backdrop-blur-xl">
-          <CardHeader>
-            <div className="auth-card__header">
-              <div className="grid gap-1">
-                <p className="section-label">Login operator</p>
-                <CardTitle>Masuk ke sesi mobile</CardTitle>
-                <CardDescription>Gunakan akun operator untuk memulai scan.</CardDescription>
-              </div>
-              <div className="auth-card__icon">
-                <Shield className="size-4 shrink-0 text-[#f6c47c]" />
-              </div>
-            </div>
-          </CardHeader>
-
-          <CardContent className="pt-0">
+        <div className="grid gap-3 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-4">
+          <div className="grid gap-1 border-b border-[var(--op-hairline)] pb-3">
+            <p className="text-[12px] font-bold tracking-wide">[ Login ]</p>
+            <h2 className="text-[16px] font-bold leading-none">Masuk ke sesi mobile</h2>
+            <p className="text-[14px] leading-relaxed text-[var(--op-mute)]">Gunakan akun operator untuk memulai scan.</p>
+          </div>
+          <div>
             <form className="grid gap-4" onSubmit={handleLogin}>
               <div className="grid gap-2">
                 <Label htmlFor="mobile-operator-name">Username</Label>
@@ -1397,14 +1388,14 @@ function App() {
 
               <Button
                 type="submit"
-                className="w-full"
+                className="w-full rounded-[4px]"
                 disabled={loginBusy || !loginForm.operatorName.trim() || !loginForm.password}
                 >
                 {loginBusy ? 'Masuk...' : 'Masuk'}
               </Button>
             </form>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </main>
     )
   }
