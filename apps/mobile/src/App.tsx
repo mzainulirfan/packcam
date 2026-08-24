@@ -43,6 +43,7 @@ import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { CameraPreview } from './components/CameraPreview'
+import { BottomNav } from './components/BottomNav'
 import { useBarcodeScanner } from './hooks/useBarcodeScanner'
 import { useCameraStream } from './hooks/useCameraStream'
 import { useMobileRecordingSession } from './hooks/useRecordingSession'
@@ -1423,54 +1424,37 @@ function App() {
             <h1 className="m-0 text-[1.22rem] tracking-[-0.04em]">{appName}</h1>
           </div>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          className="theme-toggle"
-          onClick={toggleTheme}
-          aria-label={isDarkTheme ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}
-        >
-          {isDarkTheme ? <SunMedium size={16} /> : <MoonStar size={16} />}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            className="theme-toggle"
+            onClick={toggleTheme}
+            aria-label={isDarkTheme ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}
+          >
+            {isDarkTheme ? <SunMedium size={16} /> : <MoonStar size={16} />}
+          </Button>
+          <Button type="button" variant="outline" size="icon-sm" onClick={() => setMenuOpen(true)} aria-label="Menu">
+            <Menu size={16} />
+          </Button>
+        </div>
       </header>
 
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
         <SheetContent
           side="bottom"
-          className={menuOpen ? 'menu-panel menu-panel--open w-full rounded-t-3xl border-border bg-popover/95 p-0' : 'menu-panel w-full rounded-t-3xl border-border bg-popover/95 p-0'}
+          className="w-full rounded-t-3xl border-border bg-popover/95 p-0"
         >
           <SheetHeader className="px-4 pt-5">
-            <SheetTitle>Navigasi mobile</SheetTitle>
-            <SheetDescription>Pilih layar yang ingin dibuka.</SheetDescription>
+            <SheetTitle>Menu</SheetTitle>
+            <SheetDescription>Aksi cepat</SheetDescription>
           </SheetHeader>
-
           <div className="grid gap-2 px-4 pb-4 pt-2">
-            {tabOptions.map((tab) => {
-              const Icon = tab.icon
-              const isActive = activeTab === tab.key
-
-              return (
-                <Button
-                  key={tab.key}
-                  type="button"
-                  variant={isActive ? 'secondary' : 'outline'}
-                  className="w-full justify-start gap-2 rounded-xl"
-                  onClick={() => openTab(tab.key)}
-                >
-                  <Icon size={16} />
-                  <span>{tab.label}</span>
-                </Button>
-              )
-            })}
-          </div>
-
-          <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-            <Separator className="mb-4 bg-white/10" />
             <Button
               type="button"
               variant="destructive"
-              className="w-full justify-start gap-2 rounded-xl shadow-[0_14px_28px_rgba(185,28,28,0.24)]"
+              className="w-full justify-start gap-2 rounded-xl"
               onClick={() => {
                 setMenuOpen(false)
                 setLogoutConfirmOpen(true)
@@ -1646,16 +1630,8 @@ function App() {
         </section>
       ) : null}
 
-      <Button
-        type="button"
-        variant="secondary"
-        size="icon-lg"
-        className={`menu-fab fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-50 rounded-full shadow-[0_18px_50px_rgba(0,0,0,0.35)] ${menuOpen ? 'menu-fab--open' : ''}`}
-        onClick={() => setMenuOpen((current) => !current)}
-        aria-label={menuOpen ? 'Tutup menu navigasi' : 'Buka menu navigasi'}
-      >
-        <Menu size={18} />
-      </Button>
+      <div className="h-20" aria-hidden="true" />
+      <BottomNav activeTab={activeTab} onChange={(tab) => openTab(tab)} />
 
       {activeTab === 'history' ? (
         <Card className="border-border bg-card/80 backdrop-blur-xl">
