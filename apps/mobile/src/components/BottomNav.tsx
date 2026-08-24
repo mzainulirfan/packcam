@@ -17,7 +17,7 @@ export function BottomNav({
   onChange: (tab: MobileTab) => void
 }) {
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-40 border-t border-[var(--op-hairline-strong)] bg-white dark:bg-[#201d1d] shadow-[0_-8px_24px_rgba(0,0,0,0.06)] safe-pb" style={{ backgroundColor: '#fdfcfc' }}>
+    <nav className="fixed bottom-0 inset-x-0 z-40 border-t border-[var(--op-hairline-strong)] bg-[var(--op-canvas)] dark:bg-[var(--op-ink)] shadow-[0_-8px_24px_rgba(0,0,0,0.06)] safe-pb">
       <div className="mx-auto flex max-w-[480px] items-center justify-around gap-1 px-2 py-2">
         {tabs.map((tab) => {
           const Icon = tab.icon
