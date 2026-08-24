@@ -1,4 +1,4 @@
-﻿import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   Camera,
@@ -205,6 +205,8 @@ function App() {
   const [historyScanVideoElement, setHistoryScanVideoElement] = useState<HTMLVideoElement | null>(null)
   const [historyScanResetToken, setHistoryScanResetToken] = useState(0)
   const [historyHighlightedResi, setHistoryHighlightedResi] = useState<string | null>(null)
+  const [historyDetailTarget, setHistoryDetailTarget] = useState<null | { resiNumber: string; rows: RecordingRow[] }>(null)
+  const [historyDeleteConfirm, setHistoryDeleteConfirm] = useState<RecordingRow | null>(null)
   const [sharingRecordId, setSharingRecordId] = useState<string | null>(null)
   const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null)
   const [watermarkResi, setWatermarkResi] = useState<string | null>(null)
@@ -661,6 +663,38 @@ function App() {
       }
     })
   }, [filteredRecordings])
+
+  const docStatus = (group: { rows: RecordingRow[] }) => {
+    const qc = group.rows.find((r: RecordingRow) => r.taskType === 'qc')
+    const packing = group.rows.find((r: RecordingRow) => r.taskType === 'packing')
+    const qcDone = qc?.status === 'completed'
+    const packingDone = packing?.status === 'completed'
+
+    if (qcDone && packingDone) return 'lengkap' as const
+    if (qcDone || packingDone) return 'belum-lengkap' as const
+    return 'kosong' as const
+  }
+
+  // Group by date for history sections
+  const groupedByDate = useMemo(() => {
+    const sections = new Map<string, Array<{ resiNumber: string; rows: RecordingRow[]; latestRow: RecordingRow | null }>>()
+    for (const group of groupedRecordings) {
+      const dateKey = group.latestRow?.updatedAt ? new Date(group.latestRow.updatedAt).toDateString() : '-'
+      if (!sections.has(dateKey)) sections.set(dateKey, [])
+      sections.get(dateKey)?.push(group)
+    }
+    return [...sections.entries()]
+  }, [groupedRecordings])
+
+  function formatSectionDate(dateKey: string) {
+    if (dateKey === '-') return ''
+    const d = new Date(dateKey)
+    const today = new Date().toDateString()
+    const yesterday = new Date(Date.now() - 86400000).toDateString()
+    if (dateKey === today) return 'Hari ini'
+    if (dateKey === yesterday) return 'Kemarin'
+    return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(d)
+  }
   const historyEmptyState = useMemo<HistoryEmptyState | null>(() => {
     if (groupedRecordings.length > 0) {
       return null
@@ -1386,7 +1420,116 @@ function App() {
                 </div>
               </div>
 
-              {bootError ? (
+      {historyDetailTarget ? (
+        <Sheet open onOpenChange={(open) => { if (!open) setHistoryDetailTarget(null) }}>
+          <SheetContent side="bottom" className="w-full rounded-t-3xl border-border bg-popover p-0" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+            <SheetHeader className="px-4 pt-5">
+              <SheetTitle className="text-left text-base">{historyDetailTarget.resiNumber}</SheetTitle>
+              <SheetDescription className="text-left">{historyDetailTarget.rows.length} dokumentasi</SheetDescription>
+            </SheetHeader>
+            <div className="grid max-h-[70vh] gap-4 overflow-y-auto px-4 pb-6 pt-2">
+              {historyDetailTarget.rows.map((record) => (
+                <div key={record.id} className="grid gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[14px] font-semibold">{formatTask(record.taskType)}</span>
+                    <span className={record.status === 'completed' ? 'text-[12px]' : 'text-[12px] text-[var(--op-mute)]'}>
+                      {formatStatus(record.status)}
+                    </span>
+                  </div>
+                  <span className="text-[12px] text-[var(--op-mute)]">
+                    {formatDateTime(record.updatedAt)} � oleh {record.operatorName || '-'}
+                  </span>
+                  {record.status === 'completed' && record.filePath ? (
+                    <>
+                      <div className="overflow-hidden rounded-[4px] border border-[var(--op-hairline)] bg-black">
+                        <video
+                          className="block max-h-[50vh] w-full bg-black object-contain"
+                          src={buildServerFileUrl(record.filePath)}
+                          controls
+                          playsInline
+                          preload="metadata"
+                          crossOrigin="use-credentials"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="rounded-[4px] border-[var(--op-hairline-strong)]"
+                          onClick={() => void handleShareRecording(record, 'native')}
+                          disabled={sharingRecordId === record.id || deletingRecordId !== null}
+                        >
+                          <Share2 size={14} />
+                          {sharingRecordId === record.id ? 'Menyiapkan...' : 'Bagikan'}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="rounded-[4px] border-[var(--op-hairline-strong)]"
+                          onClick={() => void handleShareRecording(record, 'whatsapp')}
+                          disabled={sharingRecordId === record.id || deletingRecordId !== null}
+                        >
+                          <Send size={14} />
+                          WhatsApp
+                        </Button>
+                      </div>
+                    </>
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="rounded-[4px] border border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => {
+                      setHistoryDeleteConfirm(record)
+                      setHistoryDetailTarget(null)
+                    }}
+                    disabled={deletingRecordId !== null || sharingRecordId !== null}
+                  >
+                    <Trash2 size={14} />
+                    Hapus dokumentasi
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </SheetContent>
+        </Sheet>
+      ) : null}
+
+      <Dialog open={Boolean(historyDeleteConfirm)} onOpenChange={(open) => { if (!open) setHistoryDeleteConfirm(null) }}>
+        <DialogContent className="rounded-[4px] border-border bg-popover text-popover-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+          <DialogHeader>
+            <DialogTitle>Hapus dokumentasi?</DialogTitle>
+            <DialogDescription>
+              Video {historyDeleteConfirm ? formatTask(historyDeleteConfirm.taskType) : ''} untuk resi{' '}
+              <strong>{historyDeleteConfirm?.resiNumber}</strong> akan dihapus. Tindakan ini tidak dapat dibatalkan.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" className="rounded-[4px]" onClick={() => setHistoryDeleteConfirm(null)}>
+              Batal
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="gap-2 rounded-[4px]"
+              disabled={deletingRecordId !== null || !historyDeleteConfirm}
+              onClick={() => {
+                if (!historyDeleteConfirm) return
+                void handleDeleteRecording(historyDeleteConfirm)
+                setHistoryDeleteConfirm(null)
+              }}
+            >
+              <Trash2 size={14} />
+              {deletingRecordId ? 'Menghapus...' : 'Hapus'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {bootError ? (
                 <Alert variant="destructive">
                   <AlertTitle>Gagal masuk</AlertTitle>
                   <AlertDescription>{bootError}</AlertDescription>
@@ -1414,7 +1557,7 @@ function App() {
         void primeScanFeedbackAudio()
       }}
     >
-      {/* â€”â€”â€” Minimal header â€”â€”â€” */}
+      {/* ——— Minimal header ——— */}
       <header className="flex items-center justify-between gap-3 py-2">
         <div className="flex items-center gap-3">
           <span className="brand-badge">{brandMark}</span>
@@ -1476,7 +1619,7 @@ function App() {
         </DialogContent>
       </Dialog>
 
-      {/* â€”â€”â€” SCAN TAB â€”â€”â€” */}
+      {/* ——— SCAN TAB ——— */}
       {activeTab === 'scan' ? (
         <section className="grid gap-3">
           <div className="relative">
@@ -1539,7 +1682,7 @@ function App() {
                       <div className="w-fit rounded-[4px] bg-black/45 px-3 py-2 backdrop-blur">
                       <strong className="block text-[0.68rem] font-bold tracking-wide text-white">RESI {activeRecordingResi}</strong>
                       <span className="block text-[0.62rem] font-medium leading-tight text-white/80">
-                        {formatTask(currentTaskType)} Â· {session.operatorName || session.operatorCode || '-'} Â· {watermarkOverlayTime}
+                        {formatTask(currentTaskType)} · {session.operatorName || session.operatorCode || '-'} · {watermarkOverlayTime}
                       </span>
                     </div>
                   ) : null}
@@ -1615,14 +1758,14 @@ function App() {
         </section>
       ) : null}
 
-      {/* â€”â€”â€” HISTORY TAB â€”â€”â€” */}
+      {/* ——— HISTORY TAB ——— */}
       {activeTab === 'history' ? (
         <div className="grid gap-3 pt-1" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
           <div className="flex items-start justify-between gap-3 border-b border-[var(--op-hairline)] pb-3">
             <div className="grid gap-1">
               <p className="text-[12px] font-bold tracking-wide">[ History ]</p>
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-[16px] font-bold leading-none">Resi — {groupedRecordings.length} catatan</h2>
+                <h2 className="text-[16px] font-bold leading-none">Resi � {groupedRecordings.length} catatan</h2>
                 <span className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-2 py-0.5 text-[12px]">
                   {historyAllAccounts && isAdmin ? 'semua akun' : `akun ${session?.operatorCode || '-'}`}
                 </span>
@@ -1767,115 +1910,104 @@ function App() {
               </Alert>
             ) : null}
 
-            <div className="grid gap-3">
-              {groupedRecordings.length > 0 ? (
-                groupedRecordings.map((group) => (
-                  <div
-                    key={group.resiNumber}
-                    className={
-                      historyHighlightedResi === group.resiNumber
-                        ? 'rounded-[4px] border border-[var(--op-hairline-strong)] bg-[var(--op-surface-card)] p-3'
-                        : 'rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-3'
-                    }
-                    style={{ fontFamily: 'JetBrains Mono, monospace' }}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="grid gap-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <strong className="text-[1.05rem] leading-none tracking-tight">{group.resiNumber}</strong>
-                          {historyHighlightedResi === group.resiNumber ? (
-                            <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[0.68rem] font-medium text-amber-700 dark:text-amber-200">
-                              hasil scan
-                            </span>
-                          ) : null}
+            <div className="grid gap-4">
+              {groupedByDate.length > 0 ? (
+                groupedByDate.map(([dateKey, groups]) => (
+                  <section key={dateKey} className="grid gap-2">
+                    <p className="text-[12px] font-bold tracking-wide text-[var(--op-mute)]">{formatSectionDate(dateKey)}</p>
+                    <div className="grid gap-2">
+                    {groups.map((group) => {
+                      const status = docStatus(group)
+                      const statusLabel = status === 'lengkap' ? '? Lengkap' : status === 'belum-lengkap' ? '! Belum lengkap' : '� Belum ada'
+                      const qcRow = group.rows.find((r: RecordingRow) => r.taskType === 'qc')
+                      const packingRow = group.rows.find((r: RecordingRow) => r.taskType === 'packing')
+                      const latest = group.latestRow
+                      return (
+                      <button
+                        key={group.resiNumber}
+                        type="button"
+                        onClick={() => setHistoryDetailTarget(group)}
+                        className={
+                          historyHighlightedResi === group.resiNumber
+                            ? 'grid gap-3 rounded-[4px] border border-[var(--op-hairline-strong)] bg-[var(--op-surface-card)] p-3 text-left'
+                            : 'grid gap-3 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-3 text-left'
+                        }
+                        style={{ fontFamily: 'JetBrains Mono, monospace' }}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <strong className="min-w-0 flex-1 truncate text-[16px] font-bold leading-none tracking-tight">{group.resiNumber}</strong>
+                          <span className={
+                            status === 'lengkap'
+                              ? 'shrink-0 rounded-[4px] bg-[var(--op-ink)] px-2 py-0.5 text-[12px] font-medium text-[var(--op-canvas)]'
+                              : status === 'belum-lengkap'
+                                ? 'shrink-0 rounded-[4px] border border-[var(--op-warning,#ff9f0a)] px-2 py-0.5 text-[12px] text-[var(--op-warning,#ff9f0a)]'
+                                : 'shrink-0 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-2 py-0.5 text-[12px] text-[var(--op-mute)]'
+                          }>
+                            {statusLabel}
+                          </span>
                         </div>
-                        <span className="text-sm text-muted-foreground">{group.rows.length} catatan</span>
-                      </div>
-                      {group.latestRow ? (
-                        <span className="shrink-0 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[0.7rem] font-medium">
-                          {formatStatus(group.latestRow.status)}
-                        </span>
-                      ) : null}
-                    </div>
 
-                    <div className="mt-3 grid gap-3">
-                      {group.rows.map((record, index) => (
-                        <div key={record.id}>
-                          {index > 0 ? <Separator className="my-3" /> : null}
-                          <div className="grid gap-3">
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-sm font-medium">[+] {formatTask(record.taskType)}</span>
-                              <div className="flex items-center gap-1.5">
-                                {index === 0 ? (
-                                  <span className="rounded-[4px] bg-[var(--op-ink)] px-2 py-0.5 text-[12px] font-medium text-[var(--op-canvas)]">
-                                    terbaru
+                        {latest?.status === 'completed' && latest.filePath ? (
+                          <div className="flex gap-3">
+                            <div className="relative h-[100px] w-[130px] shrink-0 overflow-hidden rounded-[4px] border border-[var(--op-hairline)] bg-black">
+                              <video
+                                className="block h-full w-full bg-black object-cover"
+                                src={buildServerFileUrl(latest.filePath)}
+                                preload="metadata"
+                                muted
+                                crossOrigin="use-credentials"
+                              />
+                              <span className="pointer-events-none absolute bottom-1 right-1 rounded-[4px] bg-black/70 px-1.5 py-0.5 text-[11px] font-medium text-white">?</span>
+                            </div>
+                            <div className="grid min-w-0 flex-1 content-start gap-0.5">
+                              {qcRow ? (
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-[14px] font-semibold">QC</span>
+                                  <span className={qcRow.status === 'completed' ? 'text-[13px]' : 'text-[13px] text-[var(--op-mute)]'}>
+                                    {qcRow.status === 'completed' ? '? Selesai' : qcRow.status === 'recording' ? '� Rekam' : '� Error'}
                                   </span>
-                                ) : null}
-                                <span className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-2 py-0.5 text-[12px]">
-                                  {formatStatus(record.status)}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
-                              <span className="text-xs">{formatDateTime(record.updatedAt)}</span>
-                              <span className="max-w-[55%] truncate text-xs">{record.operatorName || '-'}</span>
-                            </div>
-                            {record.status === 'completed' && record.filePath ? (
-                              <div className="grid gap-2">
-                                <div className="overflow-hidden rounded-[4px] border border-[var(--op-hairline)] bg-black">
-                                  <video
-                                    className="block aspect-video w-full bg-black object-contain"
-                                    src={buildServerFileUrl(record.filePath)}
-                                    controls
-                                    playsInline
-                                    preload="metadata"
-                                    crossOrigin="use-credentials"
-                                  >
-                                    Browser ini tidak bisa memutar preview video.
-                                  </video>
                                 </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="rounded-full"
-                                    onClick={() => void handleShareRecording(record, 'native')}
-                                    disabled={sharingRecordId === record.id || deletingRecordId !== null}
-                                  >
-                                    <Share2 size={14} />
-                                    {sharingRecordId === record.id ? 'Menyiapkan...' : 'Share'}
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="rounded-full"
-                                    onClick={() => void handleShareRecording(record, 'whatsapp')}
-                                    disabled={sharingRecordId === record.id || deletingRecordId !== null}
-                                  >
-                                    <Send size={14} />
-                                    WhatsApp
-                                  </Button>
+                              ) : null}
+                              {packingRow ? (
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-[14px] font-semibold">Packing</span>
+                                  <span className={packingRow.status === 'completed' ? 'text-[13px]' : 'text-[13px] text-[var(--op-mute)]'}>
+                                    {packingRow.status === 'completed' ? '? Selesai' : packingRow.status === 'recording' ? '� Rekam' : '� Error'}
+                                  </span>
                                 </div>
+                              ) : null}
+                              {!packingRow && !qcRow ? <span className="text-[13px] text-[var(--op-mute)]">{group.rows.length} dokumentasi</span> : null}
+                              <span className="mt-auto truncate text-[12px] text-[var(--op-mute)]">
+                                {formatDateTime(latest.updatedAt)} � oleh {latest.operatorName || '-'}
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="grid gap-0.5">
+                            {group.rows.some((r: RecordingRow) => r.taskType === 'qc') ? (
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[14px] font-semibold">QC</span>
+                                <span className="text-[13px] text-[var(--op-mute)]">{formatStatus(qcRow?.status ?? 'error')}</span>
                               </div>
                             ) : null}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="rounded-full border border-destructive/20 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                              onClick={() => void handleDeleteRecording(record)}
-                              disabled={deletingRecordId !== null || sharingRecordId !== null}
-                            >
-                              <Trash2 size={14} />
-                              {deletingRecordId === record.id ? 'Menghapus...' : 'Hapus recording'}
-                            </Button>
+                            {group.rows.some((r: RecordingRow) => r.taskType === 'packing') ? (
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[14px] font-semibold">Packing</span>
+                                <span className="text-[13px] text-[var(--op-mute)]">{formatStatus(packingRow?.status ?? 'error')}</span>
+                              </div>
+                            ) : null}
+                            <span className="text-[12px] text-[var(--op-mute)]">
+                              {formatDateTime(latest?.updatedAt ?? '')} · oleh {latest?.operatorName || '-'}
+                            </span>
                           </div>
-                        </div>
-                      ))}
+                        )}
+
+                        <span className="justify-self-end text-[12px] font-medium text-[var(--op-mute)]">Lihat �</span>
+                      </button>
+                      )
+                    })}
                     </div>
-                  </div>
+                  </section>
                 ))
               ) : (
                 <div
@@ -1888,7 +2020,7 @@ function App() {
                   <div className="flex justify-center">
                     {historyEmptyState?.tone === 'warning' ? (
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1 text-[0.7rem] font-semibold text-amber-700 dark:text-amber-200">
-                        Sudah diproses{historyEmptyState.taskType ? ` Â· ${formatTask(historyEmptyState.taskType)}` : ''}
+                        Sudah diproses{historyEmptyState.taskType ? ` · ${formatTask(historyEmptyState.taskType)}` : ''}
                       </span>
                     ) : (
                       <span className="inline-flex rounded-full border border-border bg-muted/50 px-3 py-1 text-[0.7rem] font-semibold">
@@ -1907,13 +2039,13 @@ function App() {
         </div>
       ) : null}
 
-      {/* â€”â€”â€” SESSION TAB â€”â€”â€” */}
+      {/* ——— SESSION TAB ——— */}
       {activeTab === 'session' ? (
         <div className="grid gap-4 pt-1" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
           <div className="flex items-start justify-between gap-3 border-b border-[var(--op-hairline)] pb-3">
             <div className="grid gap-1">
               <p className="text-[12px] font-bold tracking-wide">[ Session ]</p>
-              <h2 className="text-[16px] font-bold leading-none">Akun — {session.operatorName}</h2>
+              <h2 className="text-[16px] font-bold leading-none">Akun � {session.operatorName}</h2>
               <p className="text-[14px] leading-relaxed text-[var(--op-mute)]">Status login dan task aktif.</p>
             </div>
             <span className="grid size-9 place-items-center rounded-[4px] bg-[var(--op-ink)] text-[var(--op-canvas)]">
