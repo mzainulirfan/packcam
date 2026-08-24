@@ -1619,29 +1619,23 @@ function App() {
 
       {/* â€”â€”â€” HISTORY TAB â€”â€”â€” */}
       {activeTab === 'history' ? (
-        <div className="grid gap-4 pt-1">
-          <div className="flex items-start justify-between gap-3">
+        <div className="grid gap-3 pt-1" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+          <div className="flex items-start justify-between gap-3 border-b border-[var(--op-hairline)] pb-3">
             <div className="grid gap-1">
-              <p className="section-label">History ringkas</p>
+              <p className="text-[12px] font-bold tracking-wide">[ History ]</p>
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-lg font-semibold tracking-tight">Rekaman terbaru</h2>
-                <span className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[0.7rem] font-medium">
-                  {groupedRecordings.length} resi
+                <h2 className="text-[16px] font-bold leading-none">Resi — {groupedRecordings.length} catatan</h2>
+                <span className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-2 py-0.5 text-[12px]">
+                  {historyAllAccounts && isAdmin ? 'semua akun' : `akun ${session?.operatorCode || '-'}`}
                 </span>
               </div>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                10 data terakhir untuk akun aktif
-                {historyAllAccounts && isAdmin ? ' dan semua akun' : ''}
-                {session?.operatorCode ? ` (${session.operatorCode})` : ''}.
-              </p>
             </div>
-            <Button variant="outline" size="sm" type="button" className="rounded-full" onClick={() => void refreshHistory()} disabled={historyBusy}>
+            <Button variant="outline" size="sm" type="button" className="rounded-[4px] border-[var(--op-hairline)]" onClick={() => void refreshHistory()} disabled={historyBusy}>
               <RefreshCw size={14} />
-              {historyBusy ? 'Memuat...' : 'Refresh'}
             </Button>
           </div>
 
-          <div className="grid gap-4">
+          <div className="sticky top-0 z-10 grid gap-3 bg-[var(--op-canvas)] py-2">
             <div className="grid gap-3">
               <div className="grid gap-2">
                 <Label htmlFor="history-resi-search" className="text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">
