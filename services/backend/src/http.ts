@@ -75,7 +75,12 @@ function readCookieSameSite(): 'Lax' | 'Strict' | 'None' {
     return 'Strict'
   }
 
-  return 'Lax'
+  if (value === 'lax') {
+    return 'Lax'
+  }
+
+  // Default to None for cross-site Vercel -> tunnel
+  return 'None'
 }
 
 function readCookieAttributes() {
