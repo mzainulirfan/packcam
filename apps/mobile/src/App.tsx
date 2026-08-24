@@ -53,6 +53,8 @@ import './App.css'
 
 type TabKey = 'scan' | 'history' | 'session'
 type HistoryTaskFilter = 'all' | WorkTask
+type HistoryDateFilter = 'all' | 'today' | 'yesterday' | 'week'
+type HistorySortOrder = 'newest' | 'oldest'
 
 type LoginFormState = {
   operatorName: string
@@ -211,6 +213,9 @@ function App() {
   const [historyDeleteConfirm, setHistoryDeleteConfirm] = useState<RecordingRow | null>(null)
   const [historyFilterOpen, setHistoryFilterOpen] = useState(false)
   const [historyDocStatusFilter, setHistoryDocStatusFilter] = useState<'all' | 'lengkap' | 'belum-lengkap'>('all')
+  const [historyDateFilter, setHistoryDateFilter] = useState<HistoryDateFilter>('all')
+  const [historySortOrder, setHistorySortOrder] = useState<HistorySortOrder>('newest')
+  const historyPullStartYRef = useRef<number | null>(null)
   const [sharingRecordId, setSharingRecordId] = useState<string | null>(null)
   const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null)
   const [watermarkResi, setWatermarkResi] = useState<string | null>(null)
@@ -579,12 +584,38 @@ function App() {
   const currentOperatorCode = session?.operatorCode.trim().toLowerCase() ?? ''
   const historyQuery = historyResiQuery.trim()
   const normalizedHistoryQuery = historyQuery.toLowerCase()
-  const historySourceRecordings = historyQuery ? recordings : visibleRecordings
+  const historySourceRecordings = historyQuery || historyDateFilter !== 'all' || historySortOrder !== 'newest' ? recordings : visibleRecordings
+  const matchesHistoryDateFilter = useCallback((updatedAt: string) => {
+    if (historyDateFilter === 'all') {
+      return true
+    }
+
+    const recordTime = new Date(updatedAt).getTime()
+    if (!Number.isFinite(recordTime)) {
+      return false
+    }
+
+    const now = new Date()
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+    const startOfYesterday = startOfToday - 86400000
+
+    if (historyDateFilter === 'today') {
+      return recordTime >= startOfToday
+    }
+
+    if (historyDateFilter === 'yesterday') {
+      return recordTime >= startOfYesterday && recordTime < startOfToday
+    }
+
+    return recordTime >= startOfToday - 6 * 86400000
+  }, [historyDateFilter])
+
   const filteredRecordings = useMemo(() => {
     return historySourceRecordings.filter((record) => {
       const recordOperatorName = record.operatorName?.trim().toLowerCase() ?? ''
       const recordOperatorCode = record.operatorCode?.trim().toLowerCase() ?? ''
       const matchesTask = historyTaskFilter === 'all' ? true : record.taskType === historyTaskFilter
+      const matchesDate = matchesHistoryDateFilter(record.updatedAt)
       const matchesQuery = normalizedHistoryQuery
         ? record.resiNumber.trim().toLowerCase().includes(normalizedHistoryQuery)
         : true
@@ -595,7 +626,7 @@ function App() {
             (recordOperatorName === currentOperatorName && recordOperatorCode === '')
           : recordOperatorName === currentOperatorName
 
-      return matchesTask && matchesQuery && matchesAccount
+      return matchesTask && matchesDate && matchesQuery && matchesAccount
     })
   }, [
     currentOperatorCode,
@@ -603,9 +634,10 @@ function App() {
     historyAllAccounts,
     historyTaskFilter,
     historySourceRecordings,
+    matchesHistoryDateFilter,
     normalizedHistoryQuery,
   ])
-  const hasHistoryFilters = historyTaskFilter !== 'all' || Boolean(historyQuery) || historyAllAccounts
+  const hasHistoryFilters = historyTaskFilter !== 'all' || Boolean(historyQuery) || historyAllAccounts || historyDateFilter !== 'all'
   const matchingResiRecords = useMemo(() => {
     if (!normalizedHistoryQuery) {
       return []
@@ -665,8 +697,12 @@ function App() {
         rows: sortedRows,
         latestRow: sortedRows[0] ?? null,
       }
+    }).sort((a, b) => {
+      const aTime = a.latestRow?.updatedAt ? new Date(a.latestRow.updatedAt).getTime() : 0
+      const bTime = b.latestRow?.updatedAt ? new Date(b.latestRow.updatedAt).getTime() : 0
+      return historySortOrder === 'newest' ? bTime - aTime : aTime - bTime
     })
-  }, [filteredRecordings])
+  }, [filteredRecordings, historySortOrder])
 
   const docStatus = (group: { rows: RecordingRow[] }) => {
     const qc = group.rows.find((r: RecordingRow) => r.taskType === 'qc')
@@ -679,7 +715,7 @@ function App() {
     return 'kosong' as const
   }
 
-  const historyFilterSheetActive = historyDocStatusFilter !== 'all' || historyAllAccounts
+  const historyFilterSheetActive = historyDocStatusFilter !== 'all' || historyAllAccounts || historyDateFilter !== 'all' || historySortOrder !== 'newest'
 
   // Group by date for history sections
   const groupedByDate = useMemo(() => {
@@ -1691,7 +1727,24 @@ function App() {
             </Button>
           </div>
 
-          <div className="sticky top-0 z-10 grid gap-3 bg-[var(--op-canvas)] py-2">
+          <div
+            className="sticky top-0 z-10 grid gap-3 bg-[var(--op-canvas)] py-2"
+            onTouchStart={(event) => {
+              if (window.scrollY <= 0) {
+                historyPullStartYRef.current = event.touches[0]?.clientY ?? null
+              }
+            }}
+            onTouchEnd={(event) => {
+              const startY = historyPullStartYRef.current
+              historyPullStartYRef.current = null
+              if (startY === null || historyBusy) return
+
+              const endY = event.changedTouches[0]?.clientY ?? startY
+              if (endY - startY > 72 && window.scrollY <= 4) {
+                void refreshHistory()
+              }
+            }}
+          >
             <div className="grid gap-3">
               <div className="grid gap-2">
                 <Label htmlFor="history-resi-search" className="text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">
@@ -1743,7 +1796,7 @@ function App() {
                   }
                   onClick={() => setHistoryFilterOpen(true)}
                 >
-                  Filter ⚙
+                  Filter {historyFilterSheetActive ? '[+]' : '[-]'}
                 </Button>
               </div>
             </div>
@@ -1796,6 +1849,53 @@ function App() {
                     </div>
                   </div>
 
+                  <div className="grid gap-2">
+                    <span className="text-[12px] font-bold tracking-wide text-[var(--op-mute)]">Tanggal</span>
+                    <div className="grid gap-1.5">
+                      {([
+                        { key: 'all', label: 'Semua waktu' },
+                        { key: 'today', label: 'Hari ini' },
+                        { key: 'yesterday', label: 'Kemarin' },
+                        { key: 'week', label: '7 hari terakhir' },
+                      ] as const).map((opt) => (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          className={
+                            historyDateFilter === opt.key
+                              ? 'flex items-center justify-between rounded-[4px] border border-[var(--op-hairline-strong)] bg-[var(--op-surface-card)] px-3 py-2 text-left text-sm font-medium'
+                              : 'flex items-center justify-between rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 py-2 text-left text-sm'
+                          }
+                          onClick={() => setHistoryDateFilter(opt.key)}
+                        >
+                          <span>{opt.label}</span>
+                          <span>{historyDateFilter === opt.key ? '●' : '○'}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <span className="text-[12px] font-bold tracking-wide text-[var(--op-mute)]">Urutan</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {([
+                        { key: 'newest', label: 'Terbaru' },
+                        { key: 'oldest', label: 'Terlama' },
+                      ] as const).map((opt) => (
+                        <Button
+                          key={opt.key}
+                          type="button"
+                          variant={historySortOrder === opt.key ? 'secondary' : 'outline'}
+                          size="sm"
+                          className="rounded-[4px]"
+                          onClick={() => setHistorySortOrder(opt.key)}
+                        >
+                          {historySortOrder === opt.key ? `[ ${opt.label} ]` : opt.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
                   <div className="flex items-center justify-between gap-2 pt-1">
                     <Button
                       type="button"
@@ -1808,8 +1908,10 @@ function App() {
                         setHistoryHighlightedResi(null)
                         setHistoryAllAccounts(false)
                         setHistoryDocStatusFilter('all')
+                        setHistoryDateFilter('all')
+                        setHistorySortOrder('newest')
                       }}
-                      disabled={!hasHistoryFilters && historyDocStatusFilter === 'all'}
+                      disabled={!hasHistoryFilters && historyDocStatusFilter === 'all' && historyDateFilter === 'all' && historySortOrder === 'newest'}
                     >
                       Reset
                     </Button>
@@ -2160,46 +2262,58 @@ function App() {
                           crossOrigin="use-credentials"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="rounded-[4px] border-[var(--op-hairline-strong)]"
-                          onClick={() => void handleShareRecording(record, 'native')}
-                          disabled={sharingRecordId === record.id || deletingRecordId !== null}
-                        >
-                          <HugeiconsIcon icon={Share08Icon} size={14} />
-                          {sharingRecordId === record.id ? 'Menyiapkan...' : 'Bagikan'}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="rounded-[4px] border-[var(--op-hairline-strong)]"
-                          onClick={() => void handleShareRecording(record, 'whatsapp')}
-                          disabled={sharingRecordId === record.id || deletingRecordId !== null}
-                        >
-                          <HugeiconsIcon icon={SentIcon} size={14} />
-                          WhatsApp
-                        </Button>
-                      </div>
                     </>
                   ) : null}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="rounded-[4px] border border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    onClick={() => {
-                      setHistoryDeleteConfirm(record)
-                      setHistoryDetailTarget(null)
-                    }}
-                    disabled={deletingRecordId !== null || sharingRecordId !== null}
-                  >
-                    <HugeiconsIcon icon={TrashIcon} size={14} />
-                    Hapus dokumentasi
-                  </Button>
+                  <details className="relative justify-self-end">
+                    <summary className="grid h-9 w-11 cursor-pointer list-none place-items-center rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] text-[var(--op-ink)] [&::-webkit-details-marker]:hidden" aria-label="Opsi dokumentasi">
+                      <HugeiconsIcon icon={Menu02Icon} size={16} />
+                    </summary>
+                    <div className="absolute bottom-10 right-0 z-20 grid w-56 gap-1 rounded-[4px] border border-[var(--op-hairline-strong)] bg-[var(--op-canvas)] p-1 text-sm">
+                      {record.status === 'completed' && record.filePath ? (
+                        <>
+                          <button
+                            type="button"
+                            className="flex items-center gap-2 rounded-[4px] px-3 py-2 text-left hover:bg-[var(--op-surface-soft)]"
+                            onClick={() => void handleShareRecording(record, 'native')}
+                            disabled={sharingRecordId === record.id || deletingRecordId !== null}
+                          >
+                            <HugeiconsIcon icon={Share08Icon} size={14} />
+                            {sharingRecordId === record.id ? 'Menyiapkan...' : 'Bagikan'}
+                          </button>
+                          <button
+                            type="button"
+                            className="flex items-center gap-2 rounded-[4px] px-3 py-2 text-left hover:bg-[var(--op-surface-soft)]"
+                            onClick={() => void handleShareRecording(record, 'whatsapp')}
+                            disabled={sharingRecordId === record.id || deletingRecordId !== null}
+                          >
+                            <HugeiconsIcon icon={SentIcon} size={14} />
+                            Bagikan ke WhatsApp
+                          </button>
+                        </>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 rounded-[4px] px-3 py-2 text-left hover:bg-[var(--op-surface-soft)]"
+                        onClick={() => void handleCopyResi(record.resiNumber)}
+                      >
+                        <HugeiconsIcon icon={Copy01Icon} size={14} />
+                        Salin nomor resi
+                      </button>
+                      <span className="my-1 border-t border-[var(--op-hairline)]" />
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 rounded-[4px] px-3 py-2 text-left text-destructive hover:bg-destructive/10"
+                        onClick={() => {
+                          setHistoryDeleteConfirm(record)
+                          setHistoryDetailTarget(null)
+                        }}
+                        disabled={deletingRecordId !== null || sharingRecordId !== null}
+                      >
+                        <HugeiconsIcon icon={TrashIcon} size={14} />
+                        Hapus dokumentasi
+                      </button>
+                    </div>
+                  </details>
                 </div>
               ))}
             </div>
