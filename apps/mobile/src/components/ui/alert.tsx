@@ -9,9 +9,9 @@ const alertVariants = cva('relative w-full rounded-2xl border px-4 py-3 text-sm'
   variants: {
     variant: {
       default: 'border-border bg-card text-card-foreground',
-      info: 'border-sky-500/30 bg-sky-500/10 text-sky-50',
-      success: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-50',
-      destructive: 'border-rose-500/30 bg-rose-500/10 text-rose-50',
+      info: 'border-sky-700/40 bg-sky-50 text-sky-950 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-50',
+      success: 'border-emerald-700/40 bg-emerald-50 text-emerald-950 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-50',
+      destructive: 'border-destructive/40 bg-destructive/10 text-destructive dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-50',
     },
   },
   defaultVariants: {

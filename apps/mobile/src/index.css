@@ -7,16 +7,16 @@
 
 :root {
   color-scheme: light;
-  --bg: #0b0f14;
-  --surface: #11161d;
-  --text: #edf2f7;
-  --text-muted: #94a3b8;
-  --text-strong: #ffffff;
-  --border: rgba(255, 255, 255, 0.1);
-  --brand: #f6c47c;
-  --brand-soft: rgba(246, 196, 124, 0.12);
-  --brand-accent: #f59e0b;
-  --brand-contrast: #0b0f14;
+  --bg: #fdfcfc;
+  --surface: #f8f7f7;
+  --text: #201d1d;
+  --text-muted: #4f4b4b;
+  --text-strong: #0f0000;
+  --border: rgba(15, 0, 0, 0.22);
+  --brand: #201d1d;
+  --brand-soft: #f1eeee;
+  --brand-accent: #201d1d;
+  --brand-contrast: #fdfcfc;
   font-family:
     'Geist Variable',
     Inter,
@@ -34,23 +34,23 @@
   -moz-osx-font-smoothing: grayscale;
   background: var(--bg);
   color: var(--text);
-  --background: oklch(0.985 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --background: #fdfcfc;
+  --foreground: #201d1d;
+  --card: #fdfcfc;
+  --card-foreground: #201d1d;
+  --popover: #fdfcfc;
+  --popover-foreground: #201d1d;
+  --primary: #201d1d;
+  --primary-foreground: #fdfcfc;
+  --secondary: #f1eeee;
+  --secondary-foreground: #201d1d;
+  --muted: #f1eeee;
+  --muted-foreground: #4f4b4b;
+  --accent: #f1eeee;
+  --accent-foreground: #201d1d;
   --destructive: oklch(0.577 0.245 27.325);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.705 0 0);
+  --input: rgba(15, 0, 0, 0.26);
+  --ring: #201d1d;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -81,10 +81,8 @@ body,
 
 body {
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top, rgba(246, 196, 124, 0.14), transparent 28%),
-    linear-gradient(180deg, #111827 0%, #090c10 100%);
-  color: #eff4fb;
+  background: #fdfcfc;
+  color: #201d1d;
 }
 
 button,

@@ -5,13 +5,21 @@
   --mobile-surface: #f1eeee;
   --mobile-surface-strong: #fdfcfc;
   --mobile-surface-soft: #f8f7f7;
-  --mobile-border: rgba(15,0,0,0.12);
+  --mobile-border: rgba(15,0,0,0.22);
   --mobile-text: #201d1d;
-  --mobile-text-muted: #646262;
+  --mobile-text-muted: #4f4b4b;
   --mobile-text-soft: #424245;
   --mobile-brand: #201d1d;
   --mobile-brand-soft: #f1eeee;
   --mobile-shadow: none;
+  --op-canvas: #fdfcfc;
+  --op-ink: #201d1d;
+  --op-mute: #4f4b4b;
+  --op-surface-soft: #f8f7f7;
+  --op-surface-card: #f1eeee;
+  --op-hairline: rgba(15,0,0,0.22);
+  --op-hairline-strong: #646262;
+  --op-warning: #b35f00;
 }
 
 .dark {
@@ -27,6 +35,14 @@
   --mobile-brand: #fdfcfc;
   --mobile-brand-soft: #424245;
   --mobile-shadow: none;
+  --op-canvas: #201d1d;
+  --op-ink: #fdfcfc;
+  --op-mute: #b8b4b4;
+  --op-surface-soft: #302c2c;
+  --op-surface-card: #424245;
+  --op-hairline: rgba(253,252,252,0.2);
+  --op-hairline-strong: #9a9898;
+  --op-warning: #ffb340;
 }
 
 :root {
