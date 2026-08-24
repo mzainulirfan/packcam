@@ -1295,15 +1295,21 @@ function App() {
     }
   }
 
+  async function handleCopyResi(resiNumber: string) {
+    try {
+      await navigator.clipboard.writeText(resiNumber)
+      showScanNotice({
+        kind: 'success',
+        title: 'Resi disalin',
+        message: resiNumber,
+      })
+    } catch {
+      setBootError('Browser ini belum mengizinkan salin resi.')
+    }
+  }
+
   async function handleDeleteRecording(record: RecordingRow) {
     if (deletingRecordId) {
-      return
-    }
-
-    const confirmed = window.confirm(
-      `Hapus recording ${formatTask(record.taskType)} untuk resi ${record.resiNumber}? Setelah dihapus, resi ini bisa direkam ulang.`,
-    )
-    if (!confirmed) {
       return
     }
 
@@ -1665,7 +1671,7 @@ function App() {
             <div className="grid gap-1">
               <p className="text-[12px] font-bold tracking-wide">[ History ]</p>
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-[16px] font-bold leading-none">Resi — {groupedRecordings.length} catatan</h2>
+                <h2 className="text-[16px] font-bold leading-none">{groupedRecordings.length} dokumentasi paket</h2>
                 <span className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-2 py-0.5 text-[12px]">
                   {historyAllAccounts && isAdmin ? 'semua akun' : `akun ${session?.operatorCode || '-'}`}
                 </span>
@@ -1734,7 +1740,7 @@ function App() {
             </div>
 
             <Sheet open={historyFilterOpen} onOpenChange={(open) => { if (!open) setHistoryFilterOpen(false) }}>
-              <SheetContent side="bottom" className="w-full rounded-t-3xl border-border bg-popover p-0" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+              <SheetContent side="bottom" className="w-full rounded-t-[4px] border-border bg-popover p-0" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
                 <SheetHeader className="px-4 pt-5">
                   <SheetTitle className="text-left">Filter history</SheetTitle>
                   <SheetDescription className="text-left">Saring dokumentasi sesuai kebutuhan.</SheetDescription>
@@ -1816,7 +1822,7 @@ function App() {
                 }
               }}
             >
-              <SheetContent side="bottom" className="w-full rounded-t-3xl border-border bg-popover p-0">
+              <SheetContent side="bottom" className="w-full rounded-t-[4px] border-border bg-popover p-0">
                 <SheetHeader className="px-5 pt-6 text-left">
                   <SheetTitle>Scan resi untuk cari history</SheetTitle>
                   <SheetDescription>Arahkan barcode ke kamera agar langsung masuk ke pencarian.</SheetDescription>
@@ -1835,7 +1841,7 @@ function App() {
                     error={historyCameraState.error}
                     emptyMessage="Arahkan barcode untuk mengisi pencarian."
                     topSlot={
-                      <span className="inline-flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 text-[0.7rem] font-semibold text-white backdrop-blur">
+                      <span className="inline-flex items-center gap-2 rounded-[4px] bg-black/60 px-3 py-1.5 text-[0.7rem] font-semibold text-white backdrop-blur">
                         <HugeiconsIcon icon={SearchAreaIcon} size={15} />
                         Scan pencarian
                       </span>
@@ -1849,7 +1855,7 @@ function App() {
                       </div>
                     }
                     bottomSlot={
-                      <Button type="button" className="w-full rounded-2xl" variant="outline" onClick={() => setHistoryScanOpen(false)}>
+                      <Button type="button" className="w-full rounded-[4px]" variant="outline" onClick={() => setHistoryScanOpen(false)}>
                         Tutup
                       </Button>
                     }
@@ -1859,7 +1865,7 @@ function App() {
             </Sheet>
 
             {historyError ? (
-              <Alert variant="destructive" className="rounded-2xl">
+              <Alert variant="destructive" className="rounded-[4px]">
                 <AlertTitle>Gagal memuat history</AlertTitle>
                 <AlertDescription>{historyError}</AlertDescription>
               </Alert>
@@ -1878,19 +1884,41 @@ function App() {
                       const packingRow = group.rows.find((r: RecordingRow) => r.taskType === 'packing')
                       const latest = group.latestRow
                       return (
-                      <button
+                      <div
                         key={group.resiNumber}
-                        type="button"
+                        role="button"
+                        tabIndex={0}
                         onClick={() => setHistoryDetailTarget(group)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault()
+                            setHistoryDetailTarget(group)
+                          }
+                        }}
                         className={
                           historyHighlightedResi === group.resiNumber
-                            ? 'grid gap-3 rounded-[4px] border border-[var(--op-hairline-strong)] bg-[var(--op-surface-card)] p-3 text-left'
-                            : 'grid gap-3 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-3 text-left'
+                            ? 'grid cursor-pointer gap-3 rounded-[4px] border border-[var(--op-hairline-strong)] bg-[var(--op-surface-card)] p-3 text-left'
+                            : 'grid cursor-pointer gap-3 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-3 text-left'
                         }
                         style={{ fontFamily: 'JetBrains Mono, monospace' }}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <strong className="min-w-0 flex-1 truncate text-[16px] font-bold leading-none tracking-tight">{group.resiNumber}</strong>
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            <strong className="min-w-0 truncate text-[16px] font-bold leading-none tracking-tight">{group.resiNumber}</strong>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="size-7 shrink-0 rounded-[4px] text-[var(--op-mute)]"
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                void handleCopyResi(group.resiNumber)
+                              }}
+                              aria-label={`Salin resi ${group.resiNumber}`}
+                            >
+                              <HugeiconsIcon icon={Copy01Icon} size={14} />
+                            </Button>
+                          </div>
                           <span className={
                             status === 'lengkap'
                               ? 'shrink-0 rounded-[4px] bg-[var(--op-ink)] px-2 py-0.5 text-[12px] font-medium text-[var(--op-canvas)]'
@@ -1958,7 +1986,7 @@ function App() {
                         )}
 
                         <span className="justify-self-end text-[12px] font-medium text-[var(--op-mute)]">Lihat ›</span>
-                      </button>
+                      </div>
                       )
                     })}
                     </div>
@@ -1968,17 +1996,17 @@ function App() {
                 <div
                   className={
                     historyEmptyState?.tone === 'warning'
-                      ? 'grid gap-3 rounded-3xl border border-amber-200/50 bg-amber-500/10 px-5 py-6 text-center'
-                      : 'grid gap-3 rounded-3xl border border-dashed border-border px-5 py-6 text-center'
+                      ? 'grid gap-3 rounded-[4px] border border-amber-200/50 bg-amber-500/10 px-5 py-6 text-center'
+                      : 'grid gap-3 rounded-[4px] border border-dashed border-border px-5 py-6 text-center'
                   }
                 >
                   <div className="flex justify-center">
                     {historyEmptyState?.tone === 'warning' ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1 text-[0.7rem] font-semibold text-amber-700 dark:text-amber-200">
+                      <span className="inline-flex items-center gap-1.5 rounded-[4px] bg-amber-500/15 px-3 py-1 text-[0.7rem] font-semibold text-amber-700 dark:text-amber-200">
                         Sudah diproses{historyEmptyState.taskType ? ` · ${formatTask(historyEmptyState.taskType)}` : ''}
                       </span>
                     ) : (
-                      <span className="inline-flex rounded-full border border-border bg-muted/50 px-3 py-1 text-[0.7rem] font-semibold">
+                      <span className="inline-flex rounded-[4px] border border-border bg-muted/50 px-3 py-1 text-[0.7rem] font-semibold">
                         {historyEmptyState?.title ?? 'History'}
                       </span>
                     )}
@@ -2094,7 +2122,7 @@ function App() {
 
       {historyDetailTarget ? (
         <Sheet open onOpenChange={(open) => { if (!open) setHistoryDetailTarget(null) }}>
-          <SheetContent side="bottom" className="w-full rounded-t-3xl border-border bg-popover p-0" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+          <SheetContent side="bottom" className="w-full rounded-t-[4px] border-border bg-popover p-0" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
             <SheetHeader className="px-4 pt-5">
               <SheetTitle className="text-left text-base">{historyDetailTarget.resiNumber}</SheetTitle>
               <SheetDescription className="text-left">{historyDetailTarget.rows.length} dokumentasi</SheetDescription>
