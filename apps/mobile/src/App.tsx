@@ -1566,6 +1566,7 @@ function App() {
                       : 'scan-control-panel'
                   }
                 >
+                  <div className="mx-auto h-1 w-10 rounded-full bg-border/60" aria-hidden="true" />
                   {scanProgressState ? (
                     <div className={`scan-progress-note scan-progress-note--${scanProgressState.tone}`}>
                       <strong>{scanProgressState.title}</strong>
@@ -1574,20 +1575,27 @@ function App() {
                   ) : null}
 
                   <div className="grid gap-2">
-                    <Label htmlFor="mobile-scan-resi">Nomor resi</Label>
-                    <Input
-                      id="mobile-scan-resi"
-                      value={scanResi}
-                      onChange={(event) => setScanResi(event.target.value)}
-                      placeholder="Ketik atau scan barcode"
-                      inputMode="text"
-                      autoCapitalize="characters"
-                    />
+                    <Label htmlFor="mobile-scan-resi" className="text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground">
+                      Nomor resi
+                    </Label>
+                    <div className="relative">
+                      <ScanLine className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        id="mobile-scan-resi"
+                        value={scanResi}
+                        onChange={(event) => setScanResi(event.target.value)}
+                        placeholder="Ketik atau scan otomatis"
+                        inputMode="text"
+                        autoCapitalize="characters"
+                        className="h-11 rounded-2xl border-border bg-card pl-10 text-[0.95rem] shadow-sm"
+                      />
+                    </div>
+                    <p className="text-[0.68rem] leading-none text-muted-foreground">Arahkan barcode ke kotak atau ketik manual</p>
                   </div>
 
                   <Button
                     type="button"
-                    className="w-full"
+                    className="h-11 w-full rounded-2xl text-[0.95rem] font-semibold shadow-[0_10px_24px_rgba(0,0,0,0.12)]"
                     disabled={
                       scanBusy ||
                       recordingSession.state.mode === 'stopping' ||
@@ -1598,6 +1606,7 @@ function App() {
                       void (recordingSession.state.mode === 'recording' ? stopScanRecording() : startScanRecording(scanResi, 'manual'))
                     }
                   >
+                    <ScanLine size={16} />
                     {scanBusy || recordingSession.state.mode === 'stopping' || recordingSession.state.mode === 'saving'
                       ? 'Memproses...'
                       : recordingSession.state.mode === 'recording'
