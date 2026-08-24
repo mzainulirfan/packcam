@@ -1,24 +1,26 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  AlertTriangle,
-  Camera,
-  Eye,
-  EyeOff,
-  History,
-  LogOut,
-  Menu,
-  Mic,
-  MoonStar,
-  RefreshCw,
-  ScanLine,
-  ScanSearch,
-  Send,
-  Share2,
-  Shield,
-  SunMedium,
-  Trash2,
-  UserRound,
-} from 'lucide-react'
+  AlertCircleIcon,
+  Camera01Icon,
+  Copy01Icon,
+  EyeIcon,
+  EyeOffIcon,
+  HistoryIcon,
+  Logout02Icon,
+  Menu02Icon,
+  Mic01Icon,
+  Moon02Icon,
+  PlayCircleIcon,
+  ScanIcon,
+  SearchAreaIcon,
+  SentIcon,
+  ShieldAlertIcon,
+  Share08Icon,
+  Sun03Icon,
+  TrashIcon,
+  UserIcon,
+} from '@hugeicons/core-free-icons'
 import {
   deleteServerRecordingApi,
   readServerSettingsApi,
@@ -62,10 +64,10 @@ const initialLoginForm: LoginFormState = {
   password: '',
 }
 
-const tabOptions: Array<{ key: TabKey; label: string; icon: typeof ScanLine }> = [
-  { key: 'scan', label: 'Scan', icon: ScanLine },
-  { key: 'history', label: 'History', icon: History },
-  { key: 'session', label: 'Session', icon: UserRound },
+const tabOptions: Array<{ key: TabKey; label: string; icon: typeof ScanIcon }> = [
+  { key: 'scan', label: 'Scan', icon: ScanIcon },
+  { key: 'history', label: 'History', icon: HistoryIcon },
+  { key: 'session', label: 'Session', icon: UserIcon },
 ]
 
 function formatDateTime(value: string | null | undefined) {
@@ -1375,7 +1377,7 @@ function App() {
               onClick={toggleTheme}
               aria-label={isDarkTheme ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}
             >
-              {isDarkTheme ? <SunMedium size={16} /> : <MoonStar size={16} />}
+              {isDarkTheme ? <HugeiconsIcon icon={Sun03Icon} size={16} /> : <HugeiconsIcon icon={Moon02Icon} size={16} />}
             </Button>
           </div>
           <p className="text-[14px] leading-relaxed text-[var(--op-mute)]">{tagline}</p>
@@ -1422,7 +1424,7 @@ function App() {
                     onClick={() => setShowLoginPassword((current) => !current)}
                     aria-label={showLoginPassword ? 'Sembunyikan password' : 'Tampilkan password'}
                   >
-                    {showLoginPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    {showLoginPassword ? <HugeiconsIcon icon={EyeOffIcon} size={16} /> : <HugeiconsIcon icon={EyeIcon} size={16} />}
                   </button>
                 </div>
               </div>
@@ -1473,7 +1475,7 @@ function App() {
             onClick={toggleTheme}
             aria-label={isDarkTheme ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}
           >
-            {isDarkTheme ? <SunMedium size={16} /> : <MoonStar size={16} />}
+            {isDarkTheme ? <HugeiconsIcon icon={Sun03Icon} size={16} /> : <HugeiconsIcon icon={Moon02Icon} size={16} />}
           </Button>
           <Button
             type="button"
@@ -1483,7 +1485,7 @@ function App() {
             onClick={() => setLogoutConfirmOpen(true)}
             aria-label="Keluar"
           >
-            <LogOut size={16} />
+            <HugeiconsIcon icon={Logout02Icon} size={16} />
           </Button>
         </div>
       </header>
@@ -1492,7 +1494,7 @@ function App() {
         <DialogContent className="rounded-[4px] border-border bg-popover text-popover-foreground">
           <DialogHeader>
             <div className="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
-              <AlertTriangle size={18} />
+              <HugeiconsIcon icon={ShieldAlertIcon} size={18} />
             </div>
             <DialogTitle>Keluar sekarang?</DialogTitle>
             <DialogDescription>Sesi ini akan ditutup dan perlu login kembali.</DialogDescription>
@@ -1510,7 +1512,7 @@ function App() {
                 void handleLogout()
               }}
             >
-              <LogOut size={16} />
+              <HugeiconsIcon icon={Logout02Icon} size={16} />
               Keluar
             </Button>
           </DialogFooter>
@@ -1548,7 +1550,7 @@ function App() {
                 <div className="flex w-full max-w-full flex-col gap-2">
                   <div className="flex items-center gap-2">
                     <span className="flex min-w-0 flex-1 items-center gap-2 truncate rounded-[4px] border border-white/15 bg-black/55 px-2.5 py-1 text-[0.7rem] font-semibold text-white backdrop-blur">
-                      <Camera size={13} className="shrink-0" />
+                      <HugeiconsIcon icon={Camera01Icon} size={14} className="shrink-0" />
                       <span className="min-w-0 flex-1 truncate">
                         {activeRecordingResi ? `${formatTask(currentTaskType)}: ${activeRecordingResi}` : 'Scan resi'}
                       </span>
@@ -1572,7 +1574,7 @@ function App() {
                   </div>
                   {recordingHasAudio ? (
                     <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-white/15 bg-black/55 px-2.5 py-1 text-[0.68rem] font-medium text-emerald-100 backdrop-blur">
-                      <Mic size={11} />
+                      <HugeiconsIcon icon={Mic01Icon} size={12} />
                       Audio aktif
                     </span>
                   ) : null}
@@ -1615,7 +1617,7 @@ function App() {
                       Nomor resi
                     </Label>
                     <div className="relative">
-                      <ScanLine className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                      <HugeiconsIcon icon={ScanIcon} className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         id="mobile-scan-resi"
                         value={scanResi}
@@ -1642,7 +1644,7 @@ function App() {
                       void (recordingSession.state.mode === 'recording' ? stopScanRecording() : startScanRecording(scanResi, 'manual'))
                     }
                   >
-                    <ScanLine size={16} />
+                    <HugeiconsIcon icon={ScanIcon} size={16} />
                     {scanBusy || recordingSession.state.mode === 'stopping' || recordingSession.state.mode === 'saving'
                       ? 'Memproses...'
                       : recordingSession.state.mode === 'recording'
@@ -1670,7 +1672,7 @@ function App() {
               </div>
             </div>
             <Button variant="outline" size="sm" type="button" className="rounded-[4px] border-[var(--op-hairline)]" onClick={() => void refreshHistory()} disabled={historyBusy}>
-              <RefreshCw size={14} />
+              {historyBusy ? '…' : '↻'}
             </Button>
           </div>
 
@@ -1682,7 +1684,7 @@ function App() {
                 </Label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
-                    <History size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <HugeiconsIcon icon={HistoryIcon} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="history-resi-search"
                       value={historyResiQuery}
@@ -1697,7 +1699,7 @@ function App() {
                     />
                   </div>
                   <Button type="button" variant="outline" size="icon" className="h-11 w-11 shrink-0 rounded-[4px]" onClick={() => setHistoryScanOpen(true)}>
-                    <ScanSearch size={16} />
+                    <HugeiconsIcon icon={SearchAreaIcon} size={16} />
                   </Button>
                 </div>
               </div>
@@ -1834,7 +1836,7 @@ function App() {
                     emptyMessage="Arahkan barcode untuk mengisi pencarian."
                     topSlot={
                       <span className="inline-flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 text-[0.7rem] font-semibold text-white backdrop-blur">
-                        <ScanSearch size={14} />
+                        <HugeiconsIcon icon={SearchAreaIcon} size={15} />
                         Scan pencarian
                       </span>
                     }
@@ -2002,7 +2004,7 @@ function App() {
               <p className="text-[14px] leading-relaxed text-[var(--op-mute)]">Status login dan task aktif.</p>
             </div>
             <span className="grid size-9 place-items-center rounded-[4px] bg-[var(--op-ink)] text-[var(--op-canvas)]">
-              <UserRound size={16} />
+              <HugeiconsIcon icon={UserIcon} size={16} />
             </span>
           </div>
 
@@ -2130,7 +2132,7 @@ function App() {
                           onClick={() => void handleShareRecording(record, 'native')}
                           disabled={sharingRecordId === record.id || deletingRecordId !== null}
                         >
-                          <Share2 size={14} />
+                          <HugeiconsIcon icon={Share08Icon} size={14} />
                           {sharingRecordId === record.id ? 'Menyiapkan...' : 'Bagikan'}
                         </Button>
                         <Button
@@ -2141,7 +2143,7 @@ function App() {
                           onClick={() => void handleShareRecording(record, 'whatsapp')}
                           disabled={sharingRecordId === record.id || deletingRecordId !== null}
                         >
-                          <Send size={14} />
+                          <HugeiconsIcon icon={SentIcon} size={14} />
                           WhatsApp
                         </Button>
                       </div>
@@ -2158,7 +2160,7 @@ function App() {
                     }}
                     disabled={deletingRecordId !== null || sharingRecordId !== null}
                   >
-                    <Trash2 size={14} />
+                    <HugeiconsIcon icon={TrashIcon} size={14} />
                     Hapus dokumentasi
                   </Button>
                 </div>
@@ -2192,7 +2194,7 @@ function App() {
                 setHistoryDeleteConfirm(null)
               }}
             >
-              <Trash2 size={14} />
+              <HugeiconsIcon icon={TrashIcon} size={14} />
               {deletingRecordId ? 'Menghapus...' : 'Hapus'}
             </Button>
           </DialogFooter>

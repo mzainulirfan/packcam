@@ -1,12 +1,12 @@
-import { ScanLine, History, UserRound, Settings } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { HistoryIcon, ScanIcon, UserIcon } from '@hugeicons/core-free-icons'
 
 export type MobileTab = 'scan' | 'history' | 'session'
 
-const tabs: Array<{ key: MobileTab; label: string; icon: LucideIcon }> = [
-  { key: 'scan', label: 'Scan', icon: ScanLine },
-  { key: 'history', label: 'History', icon: History },
-  { key: 'session', label: 'Akun', icon: UserRound },
+const tabs: Array<{ key: MobileTab; label: string; icon: typeof ScanIcon }> = [
+  { key: 'scan', label: 'Scan', icon: ScanIcon },
+  { key: 'history', label: 'History', icon: HistoryIcon },
+  { key: 'session', label: 'Akun', icon: UserIcon },
 ]
 
 export function BottomNav({
@@ -35,7 +35,7 @@ export function BottomNav({
               style={{ fontFamily: 'JetBrains Mono, monospace' }}
               aria-current={isActive ? 'page' : undefined}
             >
-              <Icon size={16} />
+              <HugeiconsIcon icon={Icon} size={16} />
               <span className="text-[14px] font-medium leading-none">[ {tab.label} ]</span>
             </button>
           )
