@@ -1672,10 +1672,10 @@ function App() {
                       type="button"
                       variant={historyTaskFilter === v ? 'secondary' : 'outline'}
                       size="sm"
-                      className="rounded-full px-5 font-medium"
+                      className="rounded-[4px] px-4"
                       onClick={() => setHistoryTaskFilter(v)}
                     >
-                      {v === 'all' ? 'Semua' : v === 'qc' ? 'QC' : 'Packing'}
+                      {v === 'all' ? '[ All ]' : v === 'qc' ? '[ QC ]' : '[ Packing ]'}
                     </Button>
                   ))}
                 </div>
@@ -1685,17 +1685,17 @@ function App() {
                       type="button"
                       variant={historyAllAccounts ? 'secondary' : 'outline'}
                       size="sm"
-                      className="flex-1 rounded-full"
+                      className="flex-1 rounded-[4px]"
                       onClick={() => setHistoryAllAccounts((current) => !current)}
                     >
-                      {historyAllAccounts ? 'Semua akun aktif' : 'Semua akun'}
+                      {historyAllAccounts ? '[ Semua akun ]' : '[ Semua akun ]'}
                     </Button>
                   ) : null}
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="flex-1 rounded-full"
+                    className="flex-1 rounded-[4px] border border-[var(--op-hairline)]"
                     onClick={() => {
                       setHistoryTaskFilter('all')
                       setHistoryResiQuery('')
