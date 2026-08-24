@@ -1873,7 +1873,7 @@ function App() {
                     <div className="grid gap-2">
                     {groups.map((group) => {
                       const status = docStatus(group)
-                      const statusLabel = status === 'lengkap' ? '? Lengkap' : status === 'belum-lengkap' ? '! Belum lengkap' : '� Belum ada'
+                      const statusLabel = status === 'lengkap' ? '✓ Lengkap' : status === 'belum-lengkap' ? '! Belum lengkap' : '� Belum ada'
                       const qcRow = group.rows.find((r: RecordingRow) => r.taskType === 'qc')
                       const packingRow = group.rows.find((r: RecordingRow) => r.taskType === 'packing')
                       const latest = group.latestRow
@@ -1912,14 +1912,14 @@ function App() {
                                 muted
                                 crossOrigin="use-credentials"
                               />
-                              <span className="pointer-events-none absolute bottom-1 right-1 rounded-[4px] bg-black/70 px-1.5 py-0.5 text-[11px] font-medium text-white">?</span>
+                              <span className="pointer-events-none absolute bottom-1 right-1 rounded-[4px] bg-black/70 px-1.5 py-0.5 text-[11px] font-medium text-white">▶</span>
                             </div>
                             <div className="grid min-w-0 flex-1 content-start gap-0.5">
                               {qcRow ? (
                                 <div className="flex items-center justify-between gap-2">
                                   <span className="text-[14px] font-semibold">QC</span>
                                   <span className={qcRow.status === 'completed' ? 'text-[13px]' : 'text-[13px] text-[var(--op-mute)]'}>
-                                    {qcRow.status === 'completed' ? '? Selesai' : qcRow.status === 'recording' ? '� Rekam' : '� Error'}
+                                    {qcRow.status === 'completed' ? '✓ Selesai' : qcRow.status === 'recording' ? '� Rekam' : '� Error'}
                                   </span>
                                 </div>
                               ) : null}
@@ -1927,7 +1927,7 @@ function App() {
                                 <div className="flex items-center justify-between gap-2">
                                   <span className="text-[14px] font-semibold">Packing</span>
                                   <span className={packingRow.status === 'completed' ? 'text-[13px]' : 'text-[13px] text-[var(--op-mute)]'}>
-                                    {packingRow.status === 'completed' ? '? Selesai' : packingRow.status === 'recording' ? '� Rekam' : '� Error'}
+                                    {packingRow.status === 'completed' ? '✓ Selesai' : packingRow.status === 'recording' ? '� Rekam' : '� Error'}
                                   </span>
                                 </div>
                               ) : null}
