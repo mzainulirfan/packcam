@@ -954,6 +954,13 @@ function App() {
       setActiveTab('scan')
       setMenuOpen(false)
       try {
+        window.sessionStorage.clear()
+        window.localStorage.removeItem('pakti.operatorStore')
+        window.localStorage.removeItem('pakti-mobile-session')
+      } catch {
+        // Ignore storage failures on logout.
+      }
+      try {
         window.sessionStorage.removeItem(ACTIVE_TAB_STORAGE_KEY)
       } catch {
         // Ignore storage failures on logout.

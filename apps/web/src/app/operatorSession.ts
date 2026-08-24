@@ -278,6 +278,15 @@ export async function authOperatorByUsername(operatorName: string, password: str
 
 export function logoutOperator() {
   currentSession = null
+  isHydrated = false
+  currentProfiles = []
+  loadPromise = null
+  if (typeof window !== 'undefined') {
+    try {
+      window.sessionStorage.removeItem(OPERATOR_STORE_KEY)
+      window.localStorage.removeItem(OPERATOR_STORE_KEY)
+    } catch {}
+  }
   emitChange()
   void logoutServerOperatorApi().catch(() => undefined)
 }
