@@ -8,8 +8,9 @@ type StageCardProps = {
 
 export function StageCard({ title, children }: StageCardProps) {
   return (
-    <Card className="border-slate-200/80 shadow-xl shadow-slate-900/5">
-      <CardHeader className="space-y-2">
+    <Card className="rounded-[4px] border-slate-300 shadow-none">
+      <CardHeader className="space-y-1 border-b border-slate-200 pb-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">[ Section ]</p>
         <CardTitle className="text-lg">{title}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 pt-0">{children}</CardContent>

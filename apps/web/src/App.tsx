@@ -260,12 +260,18 @@ function App() {
               >
                 <i className="bx bx-menu" aria-hidden="true" />
               </button>
-              <h2>{activeItem.label}</h2>
+              <div className="dashboard-header__heading">
+                <p>[ {activeItem.group} ]</p>
+                <h2>{activeItem.label}</h2>
+              </div>
             </div>
             <div className="dashboard-header__actions">
               <div className="operator-chip" title={operatorSession.operatorName}>
                 <i className="bx bx-user" aria-hidden="true" />
-                <strong>{operatorSession.operatorName}</strong>
+                <span className="operator-chip__identity">
+                  <strong>{operatorSession.operatorName}</strong>
+                  <small>{operatorSession.role}{operatorSession.operatorCode ? ` · ${operatorSession.operatorCode}` : ''}</small>
+                </span>
                 <button
                   type="button"
                   className="operator-chip__logout"
