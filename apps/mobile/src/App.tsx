@@ -579,12 +579,10 @@ function App() {
     }
   }, [processCameraScanQueue, recordingSession.state.mode])
 
-  const visibleRecordings = useMemo(() => recordings.slice(0, 10), [recordings])
   const currentOperatorName = session?.operatorName.trim().toLowerCase() ?? ''
   const currentOperatorCode = session?.operatorCode.trim().toLowerCase() ?? ''
   const historyQuery = historyResiQuery.trim()
   const normalizedHistoryQuery = historyQuery.toLowerCase()
-  const historySourceRecordings = historyQuery || historyDateFilter !== 'all' || historySortOrder !== 'newest' ? recordings : visibleRecordings
   const matchesHistoryDateFilter = useCallback((updatedAt: string) => {
     if (historyDateFilter === 'all') {
       return true
@@ -611,7 +609,7 @@ function App() {
   }, [historyDateFilter])
 
   const filteredRecordings = useMemo(() => {
-    return historySourceRecordings.filter((record) => {
+    return recordings.filter((record) => {
       const recordOperatorName = record.operatorName?.trim().toLowerCase() ?? ''
       const recordOperatorCode = record.operatorCode?.trim().toLowerCase() ?? ''
       const matchesTask = historyTaskFilter === 'all' ? true : record.taskType === historyTaskFilter
@@ -633,9 +631,9 @@ function App() {
     currentOperatorName,
     historyAllAccounts,
     historyTaskFilter,
-    historySourceRecordings,
     matchesHistoryDateFilter,
     normalizedHistoryQuery,
+    recordings,
   ])
   const hasHistoryFilters = historyTaskFilter !== 'all' || Boolean(historyQuery) || historyAllAccounts || historyDateFilter !== 'all'
   const matchingResiRecords = useMemo(() => {
