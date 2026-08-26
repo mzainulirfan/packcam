@@ -2041,14 +2041,8 @@ function App() {
 
                         {latest?.status === 'completed' && latest.filePath ? (
                           <div className="flex gap-3">
-                            <div className="relative h-[100px] w-[130px] shrink-0 overflow-hidden rounded-[4px] border border-[var(--op-hairline)] bg-black">
-                              <video
-                                className="block h-full w-full bg-black object-cover"
-                                src={buildServerFileUrl(latest.filePath)}
-                                preload="metadata"
-                                muted
-                                crossOrigin="use-credentials"
-                              />
+                            <div className="relative grid h-[100px] w-[130px] shrink-0 place-items-center overflow-hidden rounded-[4px] border border-[var(--op-hairline)] bg-black text-[11px] font-medium text-white/70">
+                              Video
                               <span className="pointer-events-none absolute bottom-1 right-1 rounded-[4px] bg-black/70 px-1.5 py-0.5 text-[11px] font-medium text-white">▶</span>
                             </div>
                             <div className="grid min-w-0 flex-1 content-start gap-0.5">

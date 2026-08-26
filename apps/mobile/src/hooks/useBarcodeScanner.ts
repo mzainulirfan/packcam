@@ -46,6 +46,16 @@ export function useBarcodeScanner({
 }: BarcodeScannerOptions) {
   const lastValueRef = useRef<string | null>(null)
   const lastEmittedAtRef = useRef<number>(0)
+  const onDetectedRef = useRef(onDetected)
+  const onUnsupportedRef = useRef(onUnsupported)
+
+  useEffect(() => {
+    onDetectedRef.current = onDetected
+  }, [onDetected])
+
+  useEffect(() => {
+    onUnsupportedRef.current = onUnsupported
+  }, [onUnsupported])
 
   useEffect(() => {
     lastValueRef.current = null
@@ -63,7 +73,7 @@ export function useBarcodeScanner({
 
     const detector = createDetector()
     if (!detector) {
-      onUnsupported?.()
+      onUnsupportedRef.current?.()
       return
     }
 
@@ -106,7 +116,7 @@ export function useBarcodeScanner({
         if (shouldEmit) {
           lastValueRef.current = rawValue
           lastEmittedAtRef.current = now
-          onDetected(rawValue)
+          onDetectedRef.current(rawValue)
         }
       } catch {
         // Ignore transient detector errors and retry on the next interval.
@@ -127,5 +137,5 @@ export function useBarcodeScanner({
         window.clearInterval(timerId)
       }
     }
-  }, [cooldownMs, enabled, intervalMs, maxScanWidth, onDetected, onUnsupported, videoElement, resetToken])
+  }, [cooldownMs, enabled, intervalMs, maxScanWidth, videoElement, resetToken])
 }

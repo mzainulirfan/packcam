@@ -174,6 +174,7 @@ export function useCameraStream(
 
     return () => {
       cancelled = true
+      stopStream(streamRef.current)
     }
   }, [deviceId, enabled, preferredFacingMode, includeAudio])
 
