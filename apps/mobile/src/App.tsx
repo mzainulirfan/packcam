@@ -32,6 +32,7 @@ import {
   readServerSystemConfigApi,
   prepareServerRecordingShareFileApi,
   updateServerSessionTaskApi,
+  buildApiUrl,
   buildServerFileUrl,
 } from '@pakti/api-client'
 import { DEFAULT_APP_SETTINGS } from '@pakti/shared/defaults'
@@ -114,6 +115,24 @@ function formatStatus(status: RecordingRow['status']) {
   if (status === 'completed') return 'Selesai'
   if (status === 'recording') return 'Rekam'
   return 'Error'
+}
+
+function getShareStatusLabel(record: RecordingRow) {
+  if (record.status !== 'completed' || !record.filePath) {
+    return 'Belum bisa share'
+  }
+
+  return record.shareFileReady ? 'Share siap' : 'Share diproses'
+}
+
+function getShareStatusClassName(record: RecordingRow) {
+  if (record.status !== 'completed' || !record.filePath) {
+    return 'rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-2 py-0.5 text-[11px] text-[var(--op-mute)]'
+  }
+
+  return record.shareFileReady
+    ? 'rounded-[4px] bg-[var(--op-ink)] px-2 py-0.5 text-[11px] font-medium text-[var(--op-canvas)]'
+    : 'rounded-[4px] border border-[var(--op-warning,#ff9f0a)] px-2 py-0.5 text-[11px] text-[var(--op-warning,#ff9f0a)]'
 }
 
 function normalizeError(error: unknown) {
@@ -673,6 +692,23 @@ function App() {
     }
   }, [historyHighlightedResi])
 
+  const historyDetailResiNumber = historyDetailTarget?.resiNumber ?? null
+
+  useEffect(() => {
+    if (!historyDetailResiNumber) {
+      return
+    }
+
+    const rows = recordings.filter((record) => record.resiNumber.trim() === historyDetailResiNumber)
+    if (rows.length === 0) {
+      return
+    }
+
+    setHistoryDetailTarget((current) => current && current.resiNumber === historyDetailResiNumber
+      ? { ...current, rows }
+      : current)
+  }, [historyDetailResiNumber, recordings])
+
   const groupedRecordings = useMemo(() => {
     const groups = new Map<string, RecordingRow[]>()
     const order: string[] = []
@@ -1158,6 +1194,57 @@ function App() {
       setHistoryBusy(false)
     }
   }, [session])
+
+  useEffect(() => {
+    if (!session || typeof window === 'undefined' || typeof EventSource === 'undefined') {
+      return
+    }
+
+    let refreshTimer: number | null = null
+    const source = new EventSource(buildApiUrl('/api/events'), { withCredentials: true })
+
+    const scheduleRefresh = () => {
+      if (refreshTimer !== null) {
+        return
+      }
+
+      refreshTimer = window.setTimeout(() => {
+        refreshTimer = null
+        void refreshHistory()
+      }, 600)
+    }
+
+    source.addEventListener('recordings-updated', scheduleRefresh)
+
+    return () => {
+      if (refreshTimer !== null) {
+        window.clearTimeout(refreshTimer)
+      }
+      source.close()
+    }
+  }, [refreshHistory, session])
+
+  useEffect(() => {
+    if (!session || !historyDetailTarget) {
+      return
+    }
+
+    const hasPendingShareFile = historyDetailTarget.rows.some(
+      (record) => record.status === 'completed' && Boolean(record.filePath) && !record.shareFileReady,
+    )
+
+    if (!hasPendingShareFile) {
+      return
+    }
+
+    const timer = window.setInterval(() => {
+      void refreshHistory()
+    }, 5000)
+
+    return () => {
+      window.clearInterval(timer)
+    }
+  }, [historyDetailTarget, refreshHistory, session])
 
   const startScanRecording = useCallback(
     async (resiInput: string, source: 'manual' | 'camera' = 'manual'): Promise<'started' | 'duplicate' | 'queued' | 'error'> => {
@@ -2084,6 +2171,7 @@ function App() {
                               <span className="pointer-events-none absolute bottom-1 right-1 rounded-[4px] bg-black/70 px-1.5 py-0.5 text-[11px] font-medium text-white">▶</span>
                             </div>
                             <div className="grid min-w-0 flex-1 content-start gap-0.5">
+                              <span className={getShareStatusClassName(latest)}>{getShareStatusLabel(latest)}</span>
                               {qcRow ? (
                                 <div className="flex items-center justify-between gap-2">
                                   <span className="text-[14px] font-semibold">QC</span>
@@ -2280,6 +2368,7 @@ function App() {
                   <span className="text-[12px] text-[var(--op-mute)]">
                     {formatDateTime(record.updatedAt)} · oleh {record.operatorName || '-'}
                   </span>
+                  <span className={getShareStatusClassName(record)}>{getShareStatusLabel(record)}</span>
                   {record.status === 'completed' && record.filePath ? (
                     <>
                       <div className="overflow-hidden rounded-[4px] border border-[var(--op-hairline)] bg-black">
@@ -2308,7 +2397,13 @@ function App() {
                             disabled={sharingRecordId === record.id || deletingRecordId !== null}
                           >
                             <HugeiconsIcon icon={Share08Icon} size={14} />
-                            {sharingRecordId === record.id ? 'Menyiapkan...' : preparedShareFilesRef.current.has(record.id) ? 'Bagikan' : 'Siapkan video'}
+                            {sharingRecordId === record.id
+                              ? 'Menyiapkan...'
+                              : preparedShareFilesRef.current.has(record.id)
+                                ? 'Bagikan'
+                                : record.shareFileReady
+                                  ? 'Ambil file share'
+                                  : 'Siapkan video'}
                           </button>
                           <button
                             type="button"
@@ -2317,7 +2412,11 @@ function App() {
                             disabled={sharingRecordId === record.id || deletingRecordId !== null}
                           >
                             <HugeiconsIcon icon={SentIcon} size={14} />
-                            {preparedShareFilesRef.current.has(record.id) ? 'Bagikan ke WhatsApp' : 'Siapkan ke WhatsApp'}
+                            {preparedShareFilesRef.current.has(record.id)
+                              ? 'Bagikan ke WhatsApp'
+                              : record.shareFileReady
+                                ? 'Ambil untuk WhatsApp'
+                                : 'Siapkan ke WhatsApp'}
                           </button>
                         </>
                       ) : null}
