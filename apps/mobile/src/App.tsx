@@ -1786,7 +1786,7 @@ function App() {
                         type="button"
                         variant={session.taskType === 'qc' ? 'secondary' : 'outline'}
                         size="xs"
-                        className="h-7 shrink-0 rounded-[4px] border border-[#fdfcfc] bg-[#fdfcfc] px-2.5 text-xs font-medium text-[#201d1d] hover:bg-[#fdfcfc]"
+                        className="h-7 shrink-0 rounded-[4px] !border-[#fdfcfc] !bg-[#fdfcfc] px-2.5 text-xs font-medium !text-[#201d1d] hover:!bg-[#fdfcfc] dark:!border-[#fdfcfc] dark:!bg-[#fdfcfc] dark:!text-[#201d1d]"
                         onClick={() => void handleTaskChange(session.taskType === 'qc' ? 'packing' : 'qc')}
                         disabled={taskBusy}
                       >
