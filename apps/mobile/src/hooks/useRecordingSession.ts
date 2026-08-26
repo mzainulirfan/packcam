@@ -200,11 +200,22 @@ export function useMobileRecordingSession({ stream, settings, operatorName, oper
     }
 
     const mimeType = pickRecorderMimeType()
-    const recorder = new MediaRecorder(stream, {
-      ...(mimeType ? { mimeType } : {}),
-      videoBitsPerSecond: RECORDING_VIDEO_BITS_PER_SECOND,
-      audioBitsPerSecond: RECORDING_AUDIO_BITS_PER_SECOND,
-    })
+    let recorder: MediaRecorder
+    try {
+      recorder = new MediaRecorder(stream, {
+        ...(mimeType ? { mimeType } : {}),
+        videoBitsPerSecond: RECORDING_VIDEO_BITS_PER_SECOND,
+        audioBitsPerSecond: RECORDING_AUDIO_BITS_PER_SECOND,
+      })
+    } catch (error) {
+      const message = normalizeMessage(error, 'Browser tidak bisa memulai rekaman dengan konfigurasi video ini.')
+      setState((current) => ({
+        ...current,
+        mode: 'error',
+        message,
+      }))
+      return message
+    }
     const startedAt = new Date()
     const draft = createRecordingDraft({
       resiNumber,

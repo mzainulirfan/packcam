@@ -912,7 +912,7 @@ async function runFfmpegShareMp4Transcode(recording: RecordingRow, inputPath: st
     '-map',
     '0:a?',
     '-vf',
-    'scale=-2:min(720\,ih),fps=15',
+    'scale=720:720:force_original_aspect_ratio=decrease:force_divisible_by=2,fps=15',
     '-c:v',
     'libx264',
     '-preset',
@@ -932,7 +932,7 @@ async function runFfmpegShareMp4Transcode(recording: RecordingRow, inputPath: st
     '-movflags',
     '+faststart',
     outputPath,
-  ])
+  ], 'ffmpeg share video gagal')
 
   const outputSize = fs.statSync(outputPath).size
   if (outputSize > SHOPEE_VIDEO_LIMIT_BYTES) {
@@ -950,7 +950,7 @@ function getRecordingShareFileInfo(recording: RecordingRow): RecordingShareFileI
   if (recording.status === 'completed' && fs.existsSync(inputPath) && fs.existsSync(outputPath)) {
     const sourceStats = fs.statSync(inputPath)
     const outputStats = fs.statSync(outputPath)
-    isReady = outputStats.mtimeMs >= sourceStats.mtimeMs
+    isReady = outputStats.mtimeMs >= sourceStats.mtimeMs && outputStats.size <= SHOPEE_VIDEO_LIMIT_BYTES
   }
 
   return {
@@ -1179,7 +1179,7 @@ function buildDrawTextFilter(recording: RecordingRow, placement: 'top-center' | 
   ].join(',')
 }
 
-async function runFfmpeg(args: string[]) {
+async function runFfmpeg(args: string[], errorLabel = 'ffmpeg watermark gagal') {
   const ffmpegPath = getFfmpegPath()
 
   await new Promise<void>((resolve, reject) => {
@@ -1198,7 +1198,7 @@ async function runFfmpeg(args: string[]) {
       if (code === 0) {
         resolve()
       } else {
-        reject(new Error(`ffmpeg watermark gagal (${code ?? 'unknown'}): ${stderr.trim()}`))
+        reject(new Error(`${errorLabel} (${code ?? 'unknown'}): ${stderr.trim()}`))
       }
     })
   })
