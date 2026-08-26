@@ -49,6 +49,18 @@ type RecordingRow = {
   note: string | null
   created_at: string
   updated_at: string
+  share_file_name?: string
+  share_file_path?: string
+  share_file_mime_type?: string
+  share_file_ready?: boolean
+}
+
+type RecordingShareFileInfo = {
+  fileName: string
+  filePath: string
+  mimeType: string
+  outputPath: string
+  isReady: boolean
 }
 
 type ScanLogRow = {
@@ -713,7 +725,7 @@ export function listRecordings() {
     )
     .all() as RecordingRow[]
 
-  return rows
+  return rows.map(withRecordingShareFileInfo)
 }
 
 export function getRecordingById(id: string) {
@@ -727,7 +739,7 @@ export function getRecordingById(id: string) {
     )
     .get(id) as RecordingRow | undefined
 
-  return row ?? null
+  return row ? withRecordingShareFileInfo(row) : null
 }
 
 export function listRecordingsByResi(resiNumber: string) {
@@ -736,7 +748,7 @@ export function listRecordingsByResi(resiNumber: string) {
     return []
   }
 
-  return db()
+  const rows = db()
     .prepare(
       `SELECT id, resi_number, task_type, operator_name, operator_code, file_name, file_path, file_size_bytes,
               record_date, start_time, end_time, duration_seconds, status, note, created_at, updated_at
@@ -746,6 +758,8 @@ export function listRecordingsByResi(resiNumber: string) {
        ORDER BY start_time DESC`,
     )
     .all(normalizedResi) as RecordingRow[]
+
+  return rows.map(withRecordingShareFileInfo)
 }
 
 export function createRecordingDraft(input: RecordingDraftInput) {
@@ -845,7 +859,9 @@ export function finalizeRecording(
   ).run(endTime, durationSeconds, payload.fileSizeBytes ?? null, payload.note ?? null, nowIso(), id)
 
   broadcastBackendEvent('recordings-updated', { recordingId: id, action: 'finalized', resiNumber: recording.resi_number })
-  return getRecordingById(id)
+  const finalized = getRecordingById(id)
+  scheduleRecordingWatermark(finalized)
+  return finalized
 }
 
 export function appendRecordingChunk(id: string, chunk: Buffer) {
@@ -908,6 +924,40 @@ async function runFfmpegShareMp4Transcode(inputPath: string, outputPath: string)
   ])
 }
 
+function getRecordingShareFileInfo(recording: RecordingRow): RecordingShareFileInfo {
+  const fileName = `${sanitizeFileSegment(recording.task_type)}_${sanitizeFileSegment(recording.resi_number)}_${sanitizeFileSegment(recording.id)}.mp4`
+  const filePath = path.posix.join('share', fileName)
+  const outputPath = path.join(getUploadsDir(), filePath)
+  const inputPath = getUploadedFilePath(recording)
+
+  let isReady = false
+  if (recording.status === 'completed' && fs.existsSync(inputPath) && fs.existsSync(outputPath)) {
+    const sourceStats = fs.statSync(inputPath)
+    const outputStats = fs.statSync(outputPath)
+    isReady = outputStats.mtimeMs >= sourceStats.mtimeMs
+  }
+
+  return {
+    fileName,
+    filePath,
+    mimeType: 'video/mp4',
+    outputPath,
+    isReady,
+  }
+}
+
+function withRecordingShareFileInfo(recording: RecordingRow): RecordingRow {
+  const shareFile = getRecordingShareFileInfo(recording)
+
+  return {
+    ...recording,
+    share_file_name: shareFile.fileName,
+    share_file_path: shareFile.filePath,
+    share_file_mime_type: shareFile.mimeType,
+    share_file_ready: shareFile.isReady,
+  }
+}
+
 export async function prepareRecordingShareFile(id: string) {
   const recording = getRecordingById(id)
   if (!recording) {
@@ -923,20 +973,17 @@ export async function prepareRecordingShareFile(id: string) {
     throw new Error('File recording tidak ditemukan.')
   }
 
-  const shareFileName = `${sanitizeFileSegment(recording.task_type)}_${sanitizeFileSegment(recording.resi_number)}_${sanitizeFileSegment(recording.id)}.mp4`
-  const shareRelativePath = path.posix.join('share', shareFileName)
-  const outputPath = path.join(getUploadsDir(), shareRelativePath)
-  const sourceStats = fs.statSync(inputPath)
-  const outputStats = fs.existsSync(outputPath) ? fs.statSync(outputPath) : null
+  const shareFile = getRecordingShareFileInfo(recording)
 
-  if (!outputStats || outputStats.mtimeMs < sourceStats.mtimeMs) {
-    await runFfmpegShareMp4Transcode(inputPath, outputPath)
+  if (!shareFile.isReady) {
+    await runFfmpegShareMp4Transcode(inputPath, shareFile.outputPath)
+    broadcastBackendEvent('recordings-updated', { recordingId: recording.id, action: 'share-file-ready', resiNumber: recording.resi_number })
   }
 
   return {
-    fileName: shareFileName,
-    filePath: shareRelativePath,
-    mimeType: 'video/mp4',
+    fileName: shareFile.fileName,
+    filePath: shareFile.filePath,
+    mimeType: shareFile.mimeType,
   }
 }
 
@@ -965,7 +1012,7 @@ export function invalidateCompletedRecordingsForResi(resiNumber: string) {
   }
 
   broadcastBackendEvent('recordings-updated', { resiNumber: normalizedResi, action: 'repeat-qc' })
-  return db()
+  const rows = db()
     .prepare(
       `SELECT id, resi_number, task_type, operator_name, operator_code, file_name, file_path, file_size_bytes,
               record_date, start_time, end_time, duration_seconds, status, note, created_at, updated_at
@@ -975,6 +1022,8 @@ export function invalidateCompletedRecordingsForResi(resiNumber: string) {
        ORDER BY start_time DESC`,
     )
     .all(normalizedResi) as RecordingRow[]
+
+  return rows.map(withRecordingShareFileInfo)
 }
 
 export function markRecordingError(id: string, message: string) {
@@ -1244,11 +1293,21 @@ function scheduleRecordingWatermark(recording: RecordingRow | null) {
     return
   }
 
-  if (isMp4Recording(recording)) {
-    const inputPath = getUploadedFilePath(recording)
+  const completedRecording = recording
+
+  async function prepareShareFile() {
+    try {
+      await prepareRecordingShareFile(completedRecording.id)
+    } catch (error) {
+      reportLastError(error instanceof Error ? error.message : 'Gagal menyiapkan file share recording.')
+    }
+  }
+
+  if (isMp4Recording(completedRecording)) {
+    const inputPath = getUploadedFilePath(completedRecording)
     watermarkQueue = watermarkQueue.then(async () => {
       try {
-        await runFfmpegMp4Transcode(recording, inputPath)
+        await runFfmpegMp4Transcode(completedRecording, inputPath)
       } catch (error) {
         if (fs.existsSync(`${inputPath}.whatsapp.mp4`)) {
           fs.rmSync(`${inputPath}.whatsapp.mp4`, { force: true })
@@ -1256,14 +1315,16 @@ function scheduleRecordingWatermark(recording: RecordingRow | null) {
 
         reportLastError(error instanceof Error ? error.message : 'Gagal mengonversi MP4 recording.')
       }
+
+      await prepareShareFile()
     })
     return
   }
 
-  const inputPath = getUploadedFilePath(recording)
+  const inputPath = getUploadedFilePath(completedRecording)
   watermarkQueue = watermarkQueue.then(async () => {
     try {
-      await runFfmpegWatermark(recording, inputPath)
+      await runFfmpegWatermark(completedRecording, inputPath)
     } catch (error) {
       if (fs.existsSync(`${inputPath}.watermarked.webm`)) {
         fs.rmSync(`${inputPath}.watermarked.webm`, { force: true })
@@ -1271,6 +1332,8 @@ function scheduleRecordingWatermark(recording: RecordingRow | null) {
 
       reportLastError(error instanceof Error ? error.message : 'Gagal memberi watermark video.')
     }
+
+    await prepareShareFile()
   })
 }
 

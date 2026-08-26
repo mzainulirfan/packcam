@@ -1299,7 +1299,20 @@ function App() {
     setSharingRecordId(record.id)
 
     try {
-      const shareFile = await prepareServerRecordingShareFileApi(record.id)
+      const shareFile = record.shareFileReady && record.shareFilePath && record.shareFileName
+        ? {
+            fileName: record.shareFileName,
+            filePath: record.shareFilePath,
+            mimeType: record.shareFileMimeType ?? 'video/mp4',
+          }
+        : await prepareServerRecordingShareFileApi(record.id)
+      setRecordings((current) => current.map((row) => row.id === record.id ? {
+        ...row,
+        shareFileName: shareFile.fileName,
+        shareFilePath: shareFile.filePath,
+        shareFileMimeType: shareFile.mimeType,
+        shareFileReady: true,
+      } : row))
       const videoUrl = buildServerFileUrl(shareFile.filePath)
       const response = await fetch(videoUrl, { credentials: 'include' })
       if (!response.ok) {
@@ -2270,7 +2283,7 @@ function App() {
                             disabled={sharingRecordId === record.id || deletingRecordId !== null}
                           >
                             <HugeiconsIcon icon={Share08Icon} size={14} />
-                            {sharingRecordId === record.id ? 'Menyiapkan...' : 'Bagikan'}
+                            {sharingRecordId === record.id ? 'Menyiapkan...' : record.shareFileReady ? 'Bagikan' : 'Siapkan & bagikan'}
                           </button>
                           <button
                             type="button"
@@ -2279,7 +2292,7 @@ function App() {
                             disabled={sharingRecordId === record.id || deletingRecordId !== null}
                           >
                             <HugeiconsIcon icon={SentIcon} size={14} />
-                            Bagikan ke WhatsApp
+                            {record.shareFileReady ? 'Bagikan ke WhatsApp' : 'Siapkan ke WhatsApp'}
                           </button>
                         </>
                       ) : null}

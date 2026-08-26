@@ -326,23 +326,13 @@ export function HistoryPage() {
       return
     }
 
-    let objectUrl: string | null = null
-
     try {
       setDownloadingRecordId(record.id)
-      const shareFile = await prepareServerRecordingShareFileApi(record.id)
-      const response = await fetch(buildServerFileUrl(shareFile.filePath), {
-        credentials: 'include',
-      })
-
-      if (!response.ok) {
-        throw new Error('File video belum bisa diambil dari server.')
-      }
-
-      const blob = await response.blob()
-      objectUrl = URL.createObjectURL(blob)
+      const shareFile = record.shareFileReady && record.shareFilePath && record.shareFileName
+        ? { fileName: record.shareFileName, filePath: record.shareFilePath }
+        : await prepareServerRecordingShareFileApi(record.id)
       const link = document.createElement('a')
-      link.href = objectUrl
+      link.href = buildServerFileUrl(shareFile.filePath)
       link.download = shareFile.fileName
       link.rel = 'noopener'
       link.click()
@@ -353,10 +343,6 @@ export function HistoryPage() {
       )
     } finally {
       setDownloadingRecordId(null)
-      if (objectUrl) {
-        const urlToRevoke = objectUrl
-        window.setTimeout(() => URL.revokeObjectURL(urlToRevoke), 1000)
-      }
     }
   }
 
@@ -1048,7 +1034,7 @@ export function HistoryPage() {
                                     onClick={() => handleDownloadRecord(record)}
                                   >
                                     <Download className="size-4" />
-                                    {downloadingRecordId === record.id ? 'Menyiapkan...' : 'Download'}
+                                    {downloadingRecordId === record.id ? 'Menyiapkan...' : record.shareFileReady ? 'Download' : 'Menyiapkan video'}
                                   </Button>
                                   <Button
                                     type="button"
@@ -1121,7 +1107,7 @@ export function HistoryPage() {
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <Button type="button" onClick={handleDownloadPreview} disabled={!previewUrl || downloadingRecordId !== null}>
                     <Download className="size-4" />
-                    {previewTarget && downloadingRecordId === previewTarget.id ? 'Menyiapkan...' : 'Download'}
+                    {previewTarget && downloadingRecordId === previewTarget.id ? 'Menyiapkan...' : previewTarget.shareFileReady ? 'Download' : 'Menyiapkan video'}
                   </Button>
                   <Button type="button" variant="outline" className="border-slate-200" onClick={() => void handleCopyText(previewTarget.filePath, 'Path file')}>
                     <Copy className="size-4" />
@@ -1204,7 +1190,7 @@ export function HistoryPage() {
                           onClick={() => handleDownloadRecord(record)}
                         >
                           <Download className="size-4" />
-                          {downloadingRecordId === record.id ? 'Menyiapkan...' : 'Download'}
+                          {downloadingRecordId === record.id ? 'Menyiapkan...' : record.shareFileReady ? 'Download' : 'Menyiapkan video'}
                         </Button>
                         <Button
                           type="button"

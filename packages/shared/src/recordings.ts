@@ -29,6 +29,10 @@ export type LocalRecordingRecord = {
   updatedAt: string
   blobKey: string | null
   mimeType: string | null
+  shareFileName: string | null
+  shareFilePath: string | null
+  shareFileMimeType: string | null
+  shareFileReady: boolean
 }
 
 const recordingCache: LocalRecordingRecord[] = []
@@ -81,6 +85,10 @@ function normalizeServerRecord(record: RecordingRow): LocalRecordingRecord {
     updatedAt: record.updatedAt,
     blobKey: record.blobKey ?? record.id,
     mimeType: record.mimeType ?? null,
+    shareFileName: record.shareFileName ?? null,
+    shareFilePath: record.shareFilePath ?? null,
+    shareFileMimeType: record.shareFileMimeType ?? null,
+    shareFileReady: Boolean(record.shareFileReady),
   }
 }
 
@@ -225,6 +233,10 @@ export function createRecordingDraft({
     updatedAt: timestamp,
     blobKey: null,
     mimeType,
+    shareFileName: null,
+    shareFilePath: null,
+    shareFileMimeType: null,
+    shareFileReady: false,
   }
 
   upsertCache(draft)

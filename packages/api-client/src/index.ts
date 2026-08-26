@@ -51,6 +51,10 @@ type ServerRecordingRow = {
   updated_at: string
   blob_key?: string | null
   mime_type?: string | null
+  share_file_name?: string | null
+  share_file_path?: string | null
+  share_file_mime_type?: string | null
+  share_file_ready?: boolean
 }
 
 type ServerScanLogRow = {
@@ -98,6 +102,10 @@ function normalizeRecordingRow(record: ServerRecordingRow): RecordingRow {
     updatedAt: record.updated_at,
     blobKey: record.blob_key ?? record.id,
     mimeType: record.mime_type ?? null,
+    shareFileName: record.share_file_name ?? null,
+    shareFilePath: record.share_file_path ?? null,
+    shareFileMimeType: record.share_file_mime_type ?? null,
+    shareFileReady: Boolean(record.share_file_ready),
   }
 }
 

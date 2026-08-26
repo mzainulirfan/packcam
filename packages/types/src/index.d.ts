@@ -51,6 +51,10 @@ export type RecordingRow = {
     updatedAt: string;
     blobKey?: string | null;
     mimeType?: string | null;
+    shareFileName?: string | null;
+    shareFilePath?: string | null;
+    shareFileMimeType?: string | null;
+    shareFileReady?: boolean;
 };
 export type ScanLogRow = {
     id: string;
