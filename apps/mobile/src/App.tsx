@@ -25,10 +25,8 @@ import {
   readServerRecordingsApi,
   readServerSessionApi,
   readServerSystemConfigApi,
-  prepareServerRecordingShareFileApi,
   updateServerSessionTaskApi,
   buildApiUrl,
-  buildServerFileUrl,
 } from '@pakti/api-client'
 import { DEFAULT_APP_SETTINGS } from '@pakti/shared/defaults'
 import type { AppSettings, OperatorSession, RecordingRow, SystemConfig, WorkTask } from '@pakti/types'
@@ -61,6 +59,7 @@ import {
   type HistoryTaskFilter,
 } from './history/historyUtils'
 import { useMobileHistoryFilters } from './history/useMobileHistoryFilters'
+import { useSharePreparation } from './history/useSharePreparation'
 import { HistoryDeleteDialog } from './tabs/HistoryDeleteDialog'
 import { HistoryDetailSheet } from './tabs/HistoryDetailSheet'
 import { SessionTab } from './tabs/SessionTab'
@@ -104,13 +103,6 @@ type ScanProgressState = {
   tone: ScanProgressTone
   title: string
   message: string
-}
-
-type PreparedShareFile = {
-  fileName: string
-  filePath: string
-  mimeType: string
-  file: File
 }
 
 type StartScanRecordingFn = (
@@ -191,7 +183,6 @@ function App() {
   const [historyDateFilter, setHistoryDateFilter] = useState<HistoryDateFilter>('all')
   const [historySortOrder, setHistorySortOrder] = useState<HistorySortOrder>('newest')
   const historyPullStartYRef = useRef<number | null>(null)
-  const [sharingRecordId, setSharingRecordId] = useState<string | null>(null)
   const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null)
   const [watermarkResi, setWatermarkResi] = useState<string | null>(null)
   const [scanClockTick, setScanClockTick] = useState(() => Date.now())
@@ -209,8 +200,6 @@ function App() {
   const scanFeedbackContextRef = useRef<AudioContext | null>(null)
   const startScanRecordingRef = useRef<StartScanRecordingFn | null>(null)
   const processCameraScanQueueRef = useRef<(() => Promise<void>) | null>(null)
-  const preparedShareFilesRef = useRef(new Map<string, PreparedShareFile>())
-  const requestedShareFileIdsRef = useRef(new Set<string>())
 
   const appName = systemConfig?.appName ?? 'Pakti'
   const tagline = systemConfig?.tagline ?? 'Paket Tercatat, Bukti Terjaga'
@@ -980,6 +969,21 @@ function App() {
     }
   }, [session])
 
+  const {
+    sharingRecordId,
+    preparedShareFileIds,
+    handleShareRecording,
+  } = useSharePreparation({
+    active: Boolean(session),
+    recordings,
+    setRecordings,
+    refreshHistory,
+    setBootError,
+    showScanNotice,
+    formatTask,
+    normalizeError,
+  })
+
   useEffect(() => {
     if (!session || typeof window === 'undefined' || typeof EventSource === 'undefined') {
       return
@@ -1030,49 +1034,6 @@ function App() {
       window.clearInterval(timer)
     }
   }, [historyDetailTarget, refreshHistory, session])
-
-  useEffect(() => {
-    if (!session) {
-      return
-    }
-
-    const pendingRecords = recordings
-      .filter((record) => record.status === 'completed' && Boolean(record.filePath) && !record.shareFileReady)
-      .slice(0, 3)
-
-    if (pendingRecords.length === 0) {
-      return
-    }
-
-    let cancelled = false
-
-    async function preparePendingShareFiles() {
-      let preparedAny = false
-      for (const record of pendingRecords) {
-        if (cancelled || requestedShareFileIdsRef.current.has(record.id)) {
-          continue
-        }
-
-        requestedShareFileIdsRef.current.add(record.id)
-        try {
-          await prepareServerRecordingShareFileApi(record.id)
-          preparedAny = true
-        } catch {
-          // Manual prepare remains available from the detail sheet if background work fails.
-        }
-      }
-
-      if (!cancelled && preparedAny) {
-        void refreshHistory()
-      }
-    }
-
-    void preparePendingShareFiles()
-
-    return () => {
-      cancelled = true
-    }
-  }, [recordings, refreshHistory, session])
 
   const startScanRecording = useCallback(
     async (resiInput: string, source: 'manual' | 'camera' = 'manual'): Promise<'started' | 'duplicate' | 'queued' | 'error'> => {
@@ -1205,82 +1166,6 @@ function App() {
       setScanBusy(false)
     }
   }, [primeScanFeedbackAudio, refreshHistory, scanBusy, session, recordingSession])
-
-  async function handleShareRecording(record: RecordingRow, target: 'native' | 'whatsapp') {
-    if (!record.filePath) {
-      setBootError('File video belum tersedia untuk dibagikan.')
-      return
-    }
-
-    const shareText = `Video ${formatTask(record.taskType)} resi ${record.resiNumber}`
-
-    if (!navigator.share) {
-      setBootError('Browser ini belum mendukung share file ke aplikasi.')
-      return
-    }
-
-    const preparedShareFile = preparedShareFilesRef.current.get(record.id)
-    if (preparedShareFile) {
-      const shareData: ShareData = {
-        title: shareText,
-        text: shareText,
-        files: [preparedShareFile.file],
-      }
-
-      if (navigator.canShare?.(shareData)) {
-        await navigator.share(shareData)
-        return
-      }
-
-      const targetName = target === 'whatsapp' ? 'WhatsApp' : 'aplikasi lain'
-      setBootError(`Browser ini belum mendukung share file video ke ${targetName}.`)
-      return
-    }
-
-    setSharingRecordId(record.id)
-
-    try {
-      const shareFile = record.shareFileReady && record.shareFilePath && record.shareFileName
-        ? {
-            fileName: record.shareFileName,
-            filePath: record.shareFilePath,
-            mimeType: record.shareFileMimeType ?? 'video/mp4',
-          }
-        : await prepareServerRecordingShareFileApi(record.id)
-      setRecordings((current) => current.map((row) => row.id === record.id ? {
-        ...row,
-        shareFileName: shareFile.fileName,
-        shareFilePath: shareFile.filePath,
-        shareFileMimeType: shareFile.mimeType,
-        shareFileReady: true,
-      } : row))
-      const videoUrl = buildServerFileUrl(shareFile.filePath)
-      const response = await fetch(videoUrl, { credentials: 'include' })
-      if (!response.ok) {
-        throw new Error('Video belum bisa diambil untuk dibagikan.')
-      }
-
-      const blob = await response.blob()
-      const file = new File([blob], shareFile.fileName, {
-        type: shareFile.mimeType || blob.type || 'video/mp4',
-      })
-      preparedShareFilesRef.current.set(record.id, {
-        fileName: shareFile.fileName,
-        filePath: shareFile.filePath,
-        mimeType: shareFile.mimeType || blob.type || 'video/mp4',
-        file,
-      })
-      showScanNotice({
-        kind: 'success',
-        title: 'Video siap dibagikan',
-        message: 'Ketuk Bagikan lagi untuk memilih aplikasi.',
-      })
-    } catch (error) {
-      setBootError(normalizeError(error))
-    } finally {
-      setSharingRecordId(null)
-    }
-  }
 
   async function handleCopyResi(resiNumber: string) {
     try {
@@ -2091,7 +1976,7 @@ function App() {
         target={historyDetailTarget}
         sharingRecordId={sharingRecordId}
         deletingRecordId={deletingRecordId}
-        preparedShareFileIds={new Set(preparedShareFilesRef.current.keys())}
+        preparedShareFileIds={preparedShareFileIds}
         formatDateTime={formatDateTime}
         formatTask={formatTask}
         formatStatus={formatStatus}
