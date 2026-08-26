@@ -119,10 +119,31 @@ function formatStatus(status: RecordingRow['status']) {
 
 function getShareStatusLabel(record: RecordingRow) {
   if (record.status !== 'completed' || !record.filePath) {
-    return 'Belum bisa share'
+    return 'Belum selesai'
   }
 
-  return record.shareFileReady ? 'Share siap' : 'Share diproses'
+  return record.shareFileReady ? 'Share siap' : 'Menyiapkan share'
+}
+
+function getShareStatusDescription(record: RecordingRow) {
+  if (record.status !== 'completed' || !record.filePath) {
+    return 'Selesaikan rekaman dulu untuk share.'
+  }
+
+  return record.shareFileReady
+    ? 'File siap dibagikan.'
+    : 'File MP4 sedang disiapkan otomatis.'
+}
+
+function getGroupShareStatus(rows: RecordingRow[]) {
+  const completedRows = rows.filter((record) => record.status === 'completed' && Boolean(record.filePath))
+  if (completedRows.length === 0) {
+    return { label: 'Belum selesai', ready: false }
+  }
+
+  return completedRows.every((record) => record.shareFileReady)
+    ? { label: 'Share siap', ready: true }
+    : { label: 'Menyiapkan share', ready: false }
 }
 
 function getShareStatusClassName(record: RecordingRow) {
@@ -131,6 +152,12 @@ function getShareStatusClassName(record: RecordingRow) {
   }
 
   return record.shareFileReady
+    ? 'rounded-[4px] bg-[var(--op-ink)] px-2 py-0.5 text-[11px] font-medium text-[var(--op-canvas)]'
+    : 'rounded-[4px] border border-[var(--op-warning,#ff9f0a)] px-2 py-0.5 text-[11px] text-[var(--op-warning,#ff9f0a)]'
+}
+
+function getGroupShareStatusClassName(ready: boolean) {
+  return ready
     ? 'rounded-[4px] bg-[var(--op-ink)] px-2 py-0.5 text-[11px] font-medium text-[var(--op-canvas)]'
     : 'rounded-[4px] border border-[var(--op-warning,#ff9f0a)] px-2 py-0.5 text-[11px] text-[var(--op-warning,#ff9f0a)]'
 }
@@ -1445,7 +1472,7 @@ function App() {
       showScanNotice({
         kind: 'success',
         title: 'Video siap dibagikan',
-        message: 'Ketuk Bagikan sekali lagi untuk membuka pilihan aplikasi.',
+        message: 'Ketuk Bagikan lagi untuk memilih aplikasi.',
       })
     } catch (error) {
       setBootError(normalizeError(error))
@@ -2117,6 +2144,7 @@ function App() {
                       const qcRow = group.rows.find((r: RecordingRow) => r.taskType === 'qc')
                       const packingRow = group.rows.find((r: RecordingRow) => r.taskType === 'packing')
                       const latest = group.latestRow
+                      const shareStatus = getGroupShareStatus(group.rows)
                       return (
                       <div
                         key={group.resiNumber}
@@ -2171,7 +2199,6 @@ function App() {
                               <span className="pointer-events-none absolute bottom-1 right-1 rounded-[4px] bg-black/70 px-1.5 py-0.5 text-[11px] font-medium text-white">▶</span>
                             </div>
                             <div className="grid min-w-0 flex-1 content-start gap-0.5">
-                              <span className={getShareStatusClassName(latest)}>{getShareStatusLabel(latest)}</span>
                               {qcRow ? (
                                 <div className="flex items-center justify-between gap-2">
                                   <span className="text-[14px] font-semibold">QC</span>
@@ -2189,9 +2216,12 @@ function App() {
                                 </div>
                               ) : null}
                               {!packingRow && !qcRow ? <span className="text-[13px] text-[var(--op-mute)]">{group.rows.length} dokumentasi</span> : null}
-                              <span className="mt-auto truncate text-[12px] text-[var(--op-mute)]">
-                                {formatDateTime(latest.updatedAt)} · oleh {latest.operatorName || '-'}
-                              </span>
+                              <div className="mt-auto flex min-w-0 flex-wrap items-center gap-1.5 pt-1">
+                                <span className={getGroupShareStatusClassName(shareStatus.ready)}>{shareStatus.label}</span>
+                                <span className="min-w-0 truncate text-[12px] text-[var(--op-mute)]">
+                                  {formatDateTime(latest.updatedAt)} · oleh {latest.operatorName || '-'}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         ) : (
@@ -2354,7 +2384,9 @@ function App() {
           <SheetContent side="bottom" className="w-full rounded-t-[4px] border-border bg-popover p-0" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
             <SheetHeader className="px-4 pt-5">
               <SheetTitle className="text-left text-base">{historyDetailTarget.resiNumber}</SheetTitle>
-              <SheetDescription className="text-left">{historyDetailTarget.rows.length} dokumentasi</SheetDescription>
+              <SheetDescription className="text-left">
+                {historyDetailTarget.rows.length} dokumentasi · {getGroupShareStatus(historyDetailTarget.rows).label}
+              </SheetDescription>
             </SheetHeader>
             <div className="grid max-h-[70vh] gap-4 overflow-y-auto px-4 pb-6 pt-2">
               {historyDetailTarget.rows.map((record) => (
@@ -2368,7 +2400,10 @@ function App() {
                   <span className="text-[12px] text-[var(--op-mute)]">
                     {formatDateTime(record.updatedAt)} · oleh {record.operatorName || '-'}
                   </span>
-                  <span className={getShareStatusClassName(record)}>{getShareStatusLabel(record)}</span>
+                  <div className="grid gap-1 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-2">
+                    <span className={getShareStatusClassName(record)}>{getShareStatusLabel(record)}</span>
+                    <span className="text-[12px] leading-relaxed text-[var(--op-mute)]">{getShareStatusDescription(record)}</span>
+                  </div>
                   {record.status === 'completed' && record.filePath ? (
                     <>
                       <div className="overflow-hidden rounded-[4px] border border-[var(--op-hairline)] bg-black">
@@ -2402,7 +2437,7 @@ function App() {
                               : preparedShareFilesRef.current.has(record.id)
                                 ? 'Bagikan'
                                 : record.shareFileReady
-                                  ? 'Ambil file share'
+                                  ? 'Siapkan untuk dibagikan'
                                   : 'Siapkan video'}
                           </button>
                           <button
@@ -2415,7 +2450,7 @@ function App() {
                             {preparedShareFilesRef.current.has(record.id)
                               ? 'Bagikan ke WhatsApp'
                               : record.shareFileReady
-                                ? 'Ambil untuk WhatsApp'
+                                ? 'Siapkan untuk WhatsApp'
                                 : 'Siapkan ke WhatsApp'}
                           </button>
                         </>
