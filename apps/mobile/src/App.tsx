@@ -8,7 +8,6 @@ import {
   EyeOffIcon,
   HistoryIcon,
   Logout02Icon,
-  Menu02Icon,
   Moon02Icon,
   PlayCircleIcon,
   ScanIcon,
@@ -2403,103 +2402,108 @@ function App() {
       {historyDetailTarget ? (
         <Sheet open onOpenChange={(open) => { if (!open) setHistoryDetailTarget(null) }}>
           <SheetContent side="bottom" className="w-full rounded-t-[4px] border-border bg-popover p-0" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-            <SheetHeader className="px-4 pt-5">
-              <SheetTitle className="text-left text-base">{historyDetailTarget.resiNumber}</SheetTitle>
-              <SheetDescription className="text-left">
-                {historyDetailTarget.rows.length} dokumentasi · {getGroupShareStatus(historyDetailTarget.rows).label}
+            <SheetHeader className="border-b border-[var(--op-hairline)] px-4 pb-3 pt-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 text-left">
+                  <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--op-mute)]">Detail resi</p>
+                  <SheetTitle className="mt-1 truncate text-left text-[18px] leading-none">{historyDetailTarget.resiNumber}</SheetTitle>
+                </div>
+                <span className={getGroupShareStatusClassName(getGroupShareStatus(historyDetailTarget.rows).ready)}>
+                  {getGroupShareStatus(historyDetailTarget.rows).label}
+                </span>
+              </div>
+              <SheetDescription className="text-left text-[12px]">
+                {historyDetailTarget.rows.length} dokumentasi tersimpan untuk resi ini.
               </SheetDescription>
             </SheetHeader>
-            <div className="grid max-h-[70vh] gap-4 overflow-y-auto px-4 pb-6 pt-2">
+            <div className="grid max-h-[76vh] gap-3 overflow-y-auto px-4 pb-6 pt-3">
               {historyDetailTarget.rows.map((record) => (
-                <div key={record.id} className="grid gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[14px] font-semibold">{formatTask(record.taskType)}</span>
-                    <span className={record.status === 'completed' ? 'text-[12px]' : 'text-[12px] text-[var(--op-mute)]'}>
-                      {formatStatus(record.status)}
-                    </span>
+                <article key={record.id} className="grid gap-3 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="grid min-w-0 gap-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-[4px] bg-[var(--op-ink)] px-2 py-0.5 text-[12px] font-medium text-[var(--op-canvas)]">
+                          {formatTask(record.taskType)}
+                        </span>
+                        <span className={record.status === 'completed' ? 'text-[12px] font-medium' : 'text-[12px] text-[var(--op-mute)]'}>
+                          {formatStatus(record.status)}
+                        </span>
+                      </div>
+                      <span className="text-[12px] leading-snug text-[var(--op-mute)]">
+                        {formatDateTime(record.updatedAt)} · oleh {record.operatorName || '-'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="grid h-9 w-10 shrink-0 place-items-center rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] text-[var(--op-ink)] hover:bg-[var(--op-surface-soft)]"
+                      onClick={() => void handleCopyResi(record.resiNumber)}
+                      aria-label="Salin nomor resi"
+                    >
+                      <HugeiconsIcon icon={Copy01Icon} size={14} />
+                    </button>
                   </div>
-                  <span className="text-[12px] text-[var(--op-mute)]">
-                    {formatDateTime(record.updatedAt)} · oleh {record.operatorName || '-'}
-                  </span>
+
+                  {record.status === 'completed' && record.filePath ? (
+                    <div className="overflow-hidden rounded-[4px] border border-[var(--op-hairline)] bg-black">
+                      <video
+                        className="block max-h-[44vh] w-full bg-black object-contain"
+                        src={buildServerFileUrl(record.filePath)}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        crossOrigin="use-credentials"
+                      />
+                    </div>
+                  ) : null}
+
                   <div className="grid gap-1 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-2">
-                    <span className={getShareStatusClassName(record)}>{getShareStatusLabel(record)}</span>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={getShareStatusClassName(record)}>{getShareStatusLabel(record)}</span>
+                    </div>
                     <span className="text-[12px] leading-relaxed text-[var(--op-mute)]">{getShareStatusDescription(record)}</span>
                   </div>
-                  {record.status === 'completed' && record.filePath ? (
-                    <>
-                      <div className="overflow-hidden rounded-[4px] border border-[var(--op-hairline)] bg-black">
-                        <video
-                          className="block max-h-[50vh] w-full bg-black object-contain"
-                          src={buildServerFileUrl(record.filePath)}
-                          controls
-                          playsInline
-                          preload="metadata"
-                          crossOrigin="use-credentials"
-                        />
-                      </div>
-                    </>
-                  ) : null}
-                  <details className="relative justify-self-end">
-                    <summary className="grid h-9 w-11 cursor-pointer list-none place-items-center rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] text-[var(--op-ink)] [&::-webkit-details-marker]:hidden" aria-label="Opsi dokumentasi">
-                      <HugeiconsIcon icon={Menu02Icon} size={16} />
-                    </summary>
-                    <div className="absolute bottom-10 right-0 z-20 grid w-56 gap-1 rounded-[4px] border border-[var(--op-hairline-strong)] bg-[var(--op-canvas)] p-1 text-sm">
-                      {record.status === 'completed' && record.filePath ? (
-                        <>
-                          <button
-                            type="button"
-                            className="flex items-center gap-2 rounded-[4px] px-3 py-2 text-left hover:bg-[var(--op-surface-soft)]"
-                            onClick={() => void handleShareRecording(record, 'native')}
-                            disabled={sharingRecordId === record.id || deletingRecordId !== null}
-                          >
-                            <HugeiconsIcon icon={Share08Icon} size={14} />
-                            {sharingRecordId === record.id
-                              ? 'Menyiapkan...'
-                              : preparedShareFilesRef.current.has(record.id)
-                                ? 'Bagikan'
-                                : record.shareFileReady
-                                  ? 'Siapkan untuk dibagikan'
-                                  : 'Siapkan video'}
-                          </button>
-                          <button
-                            type="button"
-                            className="flex items-center gap-2 rounded-[4px] px-3 py-2 text-left hover:bg-[var(--op-surface-soft)]"
-                            onClick={() => void handleShareRecording(record, 'whatsapp')}
-                            disabled={sharingRecordId === record.id || deletingRecordId !== null}
-                          >
-                            <HugeiconsIcon icon={SentIcon} size={14} />
-                            {preparedShareFilesRef.current.has(record.id)
-                              ? 'Bagikan ke WhatsApp'
-                              : record.shareFileReady
-                                ? 'Siapkan untuk WhatsApp'
-                                : 'Siapkan ke WhatsApp'}
-                          </button>
-                        </>
-                      ) : null}
-                      <button
-                        type="button"
-                        className="flex items-center gap-2 rounded-[4px] px-3 py-2 text-left hover:bg-[var(--op-surface-soft)]"
-                        onClick={() => void handleCopyResi(record.resiNumber)}
-                      >
-                        <HugeiconsIcon icon={Copy01Icon} size={14} />
-                        Salin nomor resi
-                      </button>
-                      <span className="my-1 border-t border-[var(--op-hairline)]" />
-                      <button
-                        type="button"
-                        className="flex items-center gap-2 rounded-[4px] px-3 py-2 text-left text-destructive hover:bg-destructive/10"
-                        onClick={() => {
-                          setHistoryDeleteConfirm(record)
-                          setHistoryDetailTarget(null)
-                        }}
-                        disabled={deletingRecordId !== null || sharingRecordId !== null}
-                      >
-                        <HugeiconsIcon icon={TrashIcon} size={14} />
-                        Hapus dokumentasi
-                      </button>
-                    </div>
-                  </details>
-                </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {record.status === 'completed' && record.filePath ? (
+                      <>
+                        <button
+                          type="button"
+                          className="flex h-10 items-center justify-center gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 text-sm font-medium hover:bg-[var(--op-surface-soft)] disabled:opacity-50"
+                          onClick={() => void handleShareRecording(record, 'native')}
+                          disabled={sharingRecordId === record.id || deletingRecordId !== null}
+                        >
+                          <HugeiconsIcon icon={Share08Icon} size={14} />
+                          {sharingRecordId === record.id
+                            ? 'Menyiapkan...'
+                            : preparedShareFilesRef.current.has(record.id)
+                              ? 'Bagikan'
+                              : 'Siapkan share'}
+                        </button>
+                        <button
+                          type="button"
+                          className="flex h-10 items-center justify-center gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 text-sm font-medium hover:bg-[var(--op-surface-soft)] disabled:opacity-50"
+                          onClick={() => void handleShareRecording(record, 'whatsapp')}
+                          disabled={sharingRecordId === record.id || deletingRecordId !== null}
+                        >
+                          <HugeiconsIcon icon={SentIcon} size={14} />
+                          WhatsApp
+                        </button>
+                      </>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="col-span-2 flex h-10 items-center justify-center gap-2 rounded-[4px] border border-destructive/40 bg-transparent px-3 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                      onClick={() => {
+                        setHistoryDeleteConfirm(record)
+                        setHistoryDetailTarget(null)
+                      }}
+                      disabled={deletingRecordId !== null || sharingRecordId !== null}
+                    >
+                      <HugeiconsIcon icon={TrashIcon} size={14} />
+                      Hapus dokumentasi
+                    </button>
+                  </div>
+                </article>
               ))}
             </div>
           </SheetContent>
