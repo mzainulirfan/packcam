@@ -138,6 +138,13 @@ type ScanProgressState = {
   message: string
 }
 
+type PreparedShareFile = {
+  fileName: string
+  filePath: string
+  mimeType: string
+  file: File
+}
+
 type StartScanRecordingFn = (
   resiInput: string,
   source?: 'manual' | 'camera',
@@ -234,6 +241,7 @@ function App() {
   const scanFeedbackContextRef = useRef<AudioContext | null>(null)
   const startScanRecordingRef = useRef<StartScanRecordingFn | null>(null)
   const processCameraScanQueueRef = useRef<(() => Promise<void>) | null>(null)
+  const preparedShareFilesRef = useRef(new Map<string, PreparedShareFile>())
 
   const appName = systemConfig?.appName ?? 'Pakti'
   const tagline = systemConfig?.tagline ?? 'Paket Tercatat, Bukti Terjaga'
@@ -1296,6 +1304,24 @@ function App() {
       return
     }
 
+    const preparedShareFile = preparedShareFilesRef.current.get(record.id)
+    if (preparedShareFile) {
+      const shareData: ShareData = {
+        title: shareText,
+        text: shareText,
+        files: [preparedShareFile.file],
+      }
+
+      if (navigator.canShare?.(shareData)) {
+        await navigator.share(shareData)
+        return
+      }
+
+      const targetName = target === 'whatsapp' ? 'WhatsApp' : 'aplikasi lain'
+      setBootError(`Browser ini belum mendukung share file video ke ${targetName}.`)
+      return
+    }
+
     setSharingRecordId(record.id)
 
     try {
@@ -1323,18 +1349,17 @@ function App() {
       const file = new File([blob], shareFile.fileName, {
         type: shareFile.mimeType || blob.type || 'video/mp4',
       })
-      const shareData: ShareData = {
-        title: shareText,
-        text: shareText,
-        files: [file],
-      }
-
-      if (navigator.canShare?.(shareData)) {
-        await navigator.share(shareData)
-      } else {
-        const targetName = target === 'whatsapp' ? 'WhatsApp' : 'aplikasi lain'
-        throw new Error(`Browser ini belum mendukung share file video ke ${targetName}.`)
-      }
+      preparedShareFilesRef.current.set(record.id, {
+        fileName: shareFile.fileName,
+        filePath: shareFile.filePath,
+        mimeType: shareFile.mimeType || blob.type || 'video/mp4',
+        file,
+      })
+      showScanNotice({
+        kind: 'success',
+        title: 'Video siap dibagikan',
+        message: 'Ketuk Bagikan sekali lagi untuk membuka pilihan aplikasi.',
+      })
     } catch (error) {
       setBootError(normalizeError(error))
     } finally {
@@ -2283,7 +2308,7 @@ function App() {
                             disabled={sharingRecordId === record.id || deletingRecordId !== null}
                           >
                             <HugeiconsIcon icon={Share08Icon} size={14} />
-                            {sharingRecordId === record.id ? 'Menyiapkan...' : record.shareFileReady ? 'Bagikan' : 'Siapkan & bagikan'}
+                            {sharingRecordId === record.id ? 'Menyiapkan...' : preparedShareFilesRef.current.has(record.id) ? 'Bagikan' : 'Siapkan video'}
                           </button>
                           <button
                             type="button"
@@ -2292,7 +2317,7 @@ function App() {
                             disabled={sharingRecordId === record.id || deletingRecordId !== null}
                           >
                             <HugeiconsIcon icon={SentIcon} size={14} />
-                            {record.shareFileReady ? 'Bagikan ke WhatsApp' : 'Siapkan ke WhatsApp'}
+                            {preparedShareFilesRef.current.has(record.id) ? 'Bagikan ke WhatsApp' : 'Siapkan ke WhatsApp'}
                           </button>
                         </>
                       ) : null}
