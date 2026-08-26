@@ -315,8 +315,35 @@ function App() {
     recordingSession.state.mode === 'recording'
       ? recordingSession.state.activeResi ?? watermarkResi ?? (scanResi.trim() || null)
       : null
+  const currentRecordingResi = activeRecordingResi ?? recordingSession.state.savingResi
   const recordingHasAudio = Boolean(cameraState.stream?.getAudioTracks().some((track) => track.readyState === 'live'))
   const scannerIntervalMs = recordingSession.state.mode === 'recording' ? 700 : 360
+  const scanModeLabel = isPackingMode ? 'Packing' : 'QC'
+  const scanStatusLabel = cameraState.error
+    ? 'Kamera error'
+    : recordingSession.state.mode === 'recording'
+      ? 'Merekam'
+      : recordingSession.state.mode === 'stopping' || recordingSession.state.mode === 'saving'
+        ? 'Menyimpan'
+        : scanBusy
+          ? 'Memproses'
+          : recordingSession.state.lastSavedResi
+            ? 'Video tersimpan'
+          : `Siap scan ${scanModeLabel}`
+  const scanStatusDescription = recordingSession.state.mode === 'recording'
+    ? 'Tekan stop setelah paket selesai direkam.'
+    : recordingSession.state.mode === 'stopping' || recordingSession.state.mode === 'saving'
+      ? 'Jangan tutup halaman sampai video tersimpan.'
+      : recordingSession.state.lastSavedResi
+        ? 'File share akan disiapkan otomatis.'
+      : isPackingMode
+        ? 'Packing hanya bisa dimulai setelah QC selesai.'
+        : 'Scan barcode atau ketik resi untuk mulai rekaman QC.'
+  const scanPrimaryActionLabel = scanBusy || recordingSession.state.mode === 'stopping' || recordingSession.state.mode === 'saving'
+    ? 'Menyimpan video...'
+    : recordingSession.state.mode === 'recording'
+      ? 'Stop & simpan'
+      : 'Mulai rekam'
 
   const recordingStateRef = useRef(recordingSession.state)
   const sessionRef = useRef(session)
@@ -902,29 +929,29 @@ function App() {
           return {
             tone: 'success',
             title: 'QC selesai',
-            message: 'Resi siap packing.',
+            message: 'Resi siap untuk packing.',
           }
         }
 
         return {
           tone: 'success',
           title: 'QC selesai',
-          message: 'Resi siap dipacking.',
+          message: 'Resi siap untuk packing.',
         }
       }
 
       if (qc?.status === 'recording') {
         return {
           tone: 'warning',
-          title: 'QC sedang jalan',
-          message: 'Tunggu QC selesai dulu.',
+          title: 'QC masih berjalan',
+          message: 'Coba lagi setelah QC selesai.',
         }
       }
 
       return {
         tone: 'warning',
         title: 'QC belum selesai',
-        message: 'Resi ini belum masuk QC. Packing belum bisa jalan.',
+        message: 'Resi ini belum punya QC selesai.',
       }
     }
 
@@ -940,15 +967,15 @@ function App() {
       return {
         tone: 'success',
         title: 'QC selesai',
-        message: 'Resi siap packing.',
+        message: 'Resi siap untuk packing.',
       }
     }
 
     if (qc?.status === 'recording') {
       return {
         tone: 'warning',
-        title: 'QC sedang jalan',
-        message: 'Tunggu proses QC selesai.',
+        title: 'QC masih berjalan',
+        message: 'Coba lagi setelah QC selesai.',
       }
     }
 
@@ -962,8 +989,8 @@ function App() {
 
     return {
       tone: 'neutral',
-      title: isPackingMode ? 'Mode packing' : 'Mode QC',
-      message: isPackingMode ? 'Resi harus QC dulu.' : 'Siapkan resi untuk QC.',
+      title: isPackingMode ? 'Packing aktif' : 'Siap scan QC',
+      message: isPackingMode ? 'Packing menunggu QC selesai.' : 'Scan resi untuk mulai rekaman QC.',
     }
   }, [isPackingMode, recordings, scanResi])
 
@@ -1724,6 +1751,23 @@ function App() {
       {activeTab === 'scan' ? (
         <section className="grid gap-3">
           <div className="relative">
+            <div className="mb-3 grid gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="rounded-[4px] bg-[var(--op-ink)] px-2.5 py-1 text-[0.68rem] font-bold uppercase tracking-[0.14em] text-[var(--op-canvas)]">
+                  {scanModeLabel}
+                </span>
+                <span className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-2.5 py-1 text-[0.68rem] font-semibold text-[var(--op-ink)]">
+                  {scanStatusLabel}
+                </span>
+              </div>
+              <div className="flex items-start justify-between gap-3 text-[0.72rem] leading-snug text-muted-foreground">
+                <span>{scanStatusDescription}</span>
+                <span className="shrink-0 rounded-[4px] border border-[var(--op-hairline)] px-2 py-0.5 text-[0.66rem] font-medium text-[var(--op-mute)]">
+                  {recordingHasAudio ? 'Audio aktif' : 'Tanpa audio'}
+                </span>
+              </div>
+            </div>
+
             {scanNotice ? (
               <div
                 className={
@@ -1753,7 +1797,7 @@ function App() {
                     <span className="flex min-w-0 flex-1 items-center gap-2 truncate rounded-[4px] border border-[rgba(253,252,252,0.36)] bg-[#201d1d] px-2.5 py-1 text-[0.7rem] font-semibold text-[#fdfcfc]">
                       <HugeiconsIcon icon={Camera01Icon} size={14} className="shrink-0" />
                       <span className="min-w-0 flex-1 truncate">
-                        {activeRecordingResi ? `${formatTask(currentTaskType)}: ${activeRecordingResi}` : 'Scan resi'}
+                        {currentRecordingResi ? `Resi ${currentRecordingResi}` : scanStatusLabel}
                       </span>
                     </span>
                     {isAdmin ? (
@@ -1779,9 +1823,11 @@ function App() {
                       Audio aktif
                     </span>
                   ) : null}
-                  {activeRecordingResi ? (
-                      <div className="w-fit rounded-[4px] border border-[rgba(253,252,252,0.36)] bg-[#201d1d] px-3 py-2">
-                      <strong className="block text-[0.68rem] font-bold tracking-wide text-white">RESI {activeRecordingResi}</strong>
+                  {currentRecordingResi ? (
+                    <div className="w-fit rounded-[4px] border border-[rgba(253,252,252,0.36)] bg-[#201d1d] px-3 py-2">
+                      <strong className="block text-[0.68rem] font-bold tracking-wide text-white">
+                        {recordingSession.state.mode === 'recording' ? 'SEDANG MEREKAM' : 'MENYIMPAN VIDEO'}
+                      </strong>
                       <span className="block text-[0.62rem] font-medium leading-tight text-[#d8d4d4]">
                         {formatTask(currentTaskType)} · {session.operatorName || session.operatorCode || '-'} · {watermarkOverlayTime}
                       </span>
@@ -1813,6 +1859,20 @@ function App() {
                     </div>
                   ) : null}
 
+                  {currentRecordingResi ? (
+                    <div className="grid gap-1 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-3 text-[0.72rem]">
+                      <div className="flex items-center justify-between gap-2">
+                        <strong className="font-semibold text-[var(--op-ink)]">
+                          {recordingSession.state.mode === 'recording' ? 'Sedang merekam' : 'Menyimpan video'}
+                        </strong>
+                        <span className="rounded-[4px] border border-[var(--op-hairline)] px-2 py-0.5 text-[0.66rem] text-[var(--op-mute)]">
+                          {formatTask(currentTaskType)}
+                        </span>
+                      </div>
+                      <span className="break-all text-muted-foreground">Resi: {currentRecordingResi}</span>
+                    </div>
+                  ) : null}
+
                   <div className="grid gap-2">
                     <Label htmlFor="mobile-scan-resi" className="text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                       Nomor resi
@@ -1823,13 +1883,13 @@ function App() {
                         id="mobile-scan-resi"
                         value={scanResi}
                         onChange={(event) => setScanResi(event.target.value)}
-                        placeholder="Ketik atau scan otomatis"
+                        placeholder="Scan barcode atau ketik resi"
                         inputMode="text"
                         autoCapitalize="characters"
                         className="h-12 rounded-[4px] border-[var(--op-hairline)] bg-[var(--op-canvas)] pl-10 text-[0.95rem] shadow-none"
                       />
                     </div>
-                    <p className="text-[0.68rem] leading-none text-muted-foreground">Arahkan barcode ke kotak atau ketik manual</p>
+                    <p className="text-[0.68rem] leading-snug text-muted-foreground">{scanStatusDescription}</p>
                   </div>
 
                   <Button
@@ -1846,11 +1906,7 @@ function App() {
                     }
                   >
                     <HugeiconsIcon icon={ScanIcon} size={16} />
-                    {scanBusy || recordingSession.state.mode === 'stopping' || recordingSession.state.mode === 'saving'
-                      ? 'Memproses...'
-                      : recordingSession.state.mode === 'recording'
-                        ? 'Hentikan Rekaman'
-                        : 'Scan & Rekam'}
+                    {scanPrimaryActionLabel}
                   </Button>
                 </div>
               }
