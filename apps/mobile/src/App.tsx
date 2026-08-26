@@ -60,6 +60,7 @@ import {
 } from './history/historyUtils'
 import { useMobileHistoryFilters } from './history/useMobileHistoryFilters'
 import { useSharePreparation } from './history/useSharePreparation'
+import { useScanQueue } from './scan/useScanQueue'
 import { HistoryDeleteDialog } from './tabs/HistoryDeleteDialog'
 import { HistoryDetailSheet } from './tabs/HistoryDetailSheet'
 import { SessionTab } from './tabs/SessionTab'
@@ -104,11 +105,6 @@ type ScanProgressState = {
   title: string
   message: string
 }
-
-type StartScanRecordingFn = (
-  resiInput: string,
-  source?: 'manual' | 'camera',
-) => Promise<'started' | 'duplicate' | 'queued' | 'error'>
 
 const ACTIVE_TAB_STORAGE_KEY = 'pakti_mobile_active_tab'
 const THEME_STORAGE_KEY = 'pakti_mobile_theme'
@@ -192,14 +188,8 @@ function App() {
   const [scanVideoElement, setScanVideoElement] = useState<HTMLVideoElement | null>(null)
   const [scannerResetToken, setScannerResetToken] = useState(0)
   const scanNoticeTimerRef = useRef<number | null>(null)
-  const pendingScanResiRef = useRef<string[]>([])
-  const rejectedResiRef = useRef<string | null>(null)
   const previousRecordingModeRef = useRef<string>('idle')
-  const scanQueueBusyRef = useRef(false)
-  const scanQueueRetryTimerRef = useRef<number | null>(null)
   const scanFeedbackContextRef = useRef<AudioContext | null>(null)
-  const startScanRecordingRef = useRef<StartScanRecordingFn | null>(null)
-  const processCameraScanQueueRef = useRef<(() => Promise<void>) | null>(null)
 
   const appName = systemConfig?.appName ?? 'Pakti'
   const tagline = systemConfig?.tagline ?? 'Paket Tercatat, Bukti Terjaga'
@@ -256,21 +246,18 @@ function App() {
       ? 'Stop & simpan'
       : 'Mulai rekam'
 
-  const recordingStateRef = useRef(recordingSession.state)
-  const sessionRef = useRef(session)
-  const activeTabRef = useRef(activeTab)
-
-  useEffect(() => {
-    recordingStateRef.current = recordingSession.state
-  }, [recordingSession.state])
-
-  useEffect(() => {
-    sessionRef.current = session
-  }, [session])
-
-  useEffect(() => {
-    activeTabRef.current = activeTab
-  }, [activeTab])
+  const {
+    enqueueCameraScan,
+    processCameraScanQueue,
+    setStartScanRecording,
+    isRejectedResi,
+    rejectResi,
+    clearRejectedResi,
+  } = useScanQueue({
+    active: Boolean(session) && activeTab === 'scan',
+    recordingState: recordingSession.state,
+    stopRecording: recordingSession.stopRecording,
+  })
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -393,103 +380,6 @@ function App() {
     }
   }, [])
 
-  function enqueueCameraScan(resiNumber: string) {
-    if (pendingScanResiRef.current.includes(resiNumber)) {
-      return
-    }
-
-    pendingScanResiRef.current.push(resiNumber)
-  }
-
-  async function waitForNextQueueTurn() {
-    await new Promise<void>((resolve) => {
-      window.setTimeout(resolve, 0)
-    })
-  }
-
-  const processCameraScanQueue = useCallback(async () => {
-    if (scanQueueBusyRef.current || !sessionRef.current || activeTabRef.current !== 'scan') {
-      return
-    }
-
-    scanQueueBusyRef.current = true
-
-    try {
-      while (pendingScanResiRef.current.length > 0 && sessionRef.current && activeTabRef.current === 'scan') {
-        const nextResi = pendingScanResiRef.current[0]
-        if (!nextResi) {
-          pendingScanResiRef.current.shift()
-          continue
-        }
-
-        if (rejectedResiRef.current === nextResi) {
-          pendingScanResiRef.current.shift()
-          continue
-        }
-
-        const currentRecordingState = recordingStateRef.current
-
-        if (currentRecordingState.mode === 'recording') {
-          if (currentRecordingState.activeResi === nextResi) {
-            pendingScanResiRef.current.shift()
-            continue
-          }
-
-          pendingScanResiRef.current.shift()
-          const startScanRecording = startScanRecordingRef.current
-          if (!startScanRecording) {
-            return
-          }
-
-          const result = await startScanRecording(nextResi, 'camera')
-          if (result === 'queued') {
-            pendingScanResiRef.current.unshift(nextResi)
-          } else {
-            continue
-          }
-
-          await recordingSession.stopRecording()
-          await waitForNextQueueTurn()
-          continue
-        }
-
-        if (currentRecordingState.mode !== 'idle') {
-          await waitForNextQueueTurn()
-          continue
-        }
-
-        pendingScanResiRef.current.shift()
-        const startScanRecording = startScanRecordingRef.current
-        if (!startScanRecording) {
-          return
-        }
-
-        const result = await startScanRecording(nextResi, 'camera')
-
-        if (result === 'started') {
-          return
-        }
-      }
-    } finally {
-      scanQueueBusyRef.current = false
-
-      if (
-        pendingScanResiRef.current.length > 0 &&
-        sessionRef.current &&
-        activeTabRef.current === 'scan' &&
-        scanQueueRetryTimerRef.current === null
-      ) {
-        scanQueueRetryTimerRef.current = window.setTimeout(() => {
-          scanQueueRetryTimerRef.current = null
-          void processCameraScanQueueRef.current?.()
-        }, 0)
-      }
-    }
-  }, [recordingSession])
-
-  useEffect(() => {
-    processCameraScanQueueRef.current = processCameraScanQueue
-  }, [processCameraScanQueue])
   useBarcodeScanner({
     videoElement: scanVideoElement,
     enabled: Boolean(session) && activeTab === 'scan',
@@ -503,7 +393,7 @@ function App() {
       }
 
       const normalizedValue = value.trim()
-      if (!normalizedValue || rejectedResiRef.current === normalizedValue) {
+      if (!normalizedValue || isRejectedResi(normalizedValue)) {
         return
       }
 
@@ -547,10 +437,6 @@ function App() {
         window.clearTimeout(scanNoticeTimerRef.current)
       }
 
-      if (scanQueueRetryTimerRef.current !== null) {
-        window.clearTimeout(scanQueueRetryTimerRef.current)
-      }
-
       if (scanFeedbackContextRef.current) {
         scanFeedbackContextRef.current.close().catch(() => undefined)
         scanFeedbackContextRef.current = null
@@ -565,11 +451,11 @@ function App() {
 
     if (previousMode !== 'idle' && recordingSession.state.mode === 'idle') {
       setScannerResetToken((current) => current + 1)
-      rejectedResiRef.current = null
+      clearRejectedResi()
       setWatermarkResi(null)
       void processCameraScanQueue()
     }
-  }, [processCameraScanQueue, recordingSession.state.mode])
+  }, [clearRejectedResi, processCameraScanQueue, recordingSession.state.mode])
 
   const {
     groupedRecordings,
@@ -1073,12 +959,7 @@ function App() {
         const existing = await findRecordingByResi(resiNumber, session.taskType)
         if (existing) {
           playScanFeedback('warning')
-          rejectedResiRef.current = resiNumber
-          window.setTimeout(() => {
-            if (rejectedResiRef.current === resiNumber) {
-              rejectedResiRef.current = null
-            }
-          }, 4000)
+          rejectResi(resiNumber)
           const currentTaskName = formatTask(session.taskType)
           const duplicateTitle =
             existing.status === 'completed'
@@ -1106,7 +987,7 @@ function App() {
           return 'duplicate'
         }
 
-        rejectedResiRef.current = null
+        clearRejectedResi()
         if (recordingSession.state.mode === 'recording' && recordingSession.state.activeResi !== resiNumber) {
           return 'queued'
         }
@@ -1138,7 +1019,9 @@ function App() {
       findRecordingByResi,
       primeScanFeedbackAudio,
       playScanFeedback,
+      clearRejectedResi,
       recordingSession,
+      rejectResi,
       resolveLatestTaskProgress,
       session,
       showScanNotice,
@@ -1146,8 +1029,8 @@ function App() {
   )
 
   useEffect(() => {
-    startScanRecordingRef.current = startScanRecording
-  }, [startScanRecording])
+    setStartScanRecording(startScanRecording)
+  }, [setStartScanRecording, startScanRecording])
 
   const stopScanRecording = useCallback(async () => {
     if (scanBusy || !session) {
