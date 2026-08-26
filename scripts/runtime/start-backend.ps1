@@ -1,8 +1,10 @@
 $ErrorActionPreference = "Stop"
 
-$ProjectRoot = "D:\dev\apps\ngepak\packcam"
+$ProjectRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $LogDir = Join-Path $ProjectRoot ".cache\runtime-logs"
 $LogFile = Join-Path $LogDir "backend.log"
+$StdOutLog = Join-Path $LogDir "backend.out.log"
+$StdErrLog = Join-Path $LogDir "backend.err.log"
 
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 Set-Location $ProjectRoot
@@ -19,7 +21,7 @@ if ($null -ne $ExistingBackend) {
   exit 0
 }
 
-$env:CORS_ORIGINS = "https://pakti.vercel.app,https://pakti.zakado.id,https://mpakti.zakado.id"
+$env:CORS_ORIGINS = "https://pakti.vercel.app,https://pakti.zakado.id,https://pakti-mobile.vercel.app,https://mpakti.zakado.id"
 $env:COOKIE_SAMESITE = "none"
 $env:COOKIE_SECURE = "true"
 $env:SESSION_TTL_HOURS = "12"
@@ -27,4 +29,22 @@ $env:LOGIN_RATE_LIMIT_WINDOW_MS = "900000"
 $env:LOGIN_RATE_LIMIT_MAX_ATTEMPTS = "10"
 
 "[$(Get-Date -Format o)] Starting Pakti backend..." | Tee-Object -FilePath $LogFile -Append
-npm run api:start *>&1 | Tee-Object -FilePath $LogFile -Append
+
+$NpmCommand = Get-Command npm.cmd -ErrorAction SilentlyContinue
+if ($null -eq $NpmCommand) {
+  $NpmCommand = Get-Command npm -ErrorAction SilentlyContinue
+}
+if ($null -eq $NpmCommand) {
+  throw "npm tidak ditemukan. Install Node.js atau tambahkan npm ke PATH."
+}
+
+$Process = Start-Process `
+  -FilePath $NpmCommand.Source `
+  -ArgumentList "run api:start" `
+  -WorkingDirectory $ProjectRoot `
+  -WindowStyle Hidden `
+  -RedirectStandardOutput $StdOutLog `
+  -RedirectStandardError $StdErrLog `
+  -PassThru
+
+"[$(Get-Date -Format o)] Pakti backend started in background (PID $($Process.Id)). Logs: $StdOutLog, $StdErrLog" | Tee-Object -FilePath $LogFile -Append

@@ -1,16 +1,5 @@
 import { useEffect, useState } from 'react'
 import type { InputHTMLAttributes } from 'react'
-import {
-  ArrowRight,
-  BadgeCheck,
-  Eye,
-  EyeOff,
-  KeyRound,
-  LoaderCircle,
-  ShieldCheck,
-  UserRoundPlus,
-  Workflow,
-} from 'lucide-react'
 
 import { AuthShell } from '../components/auth/AuthShell'
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert'
@@ -26,22 +15,22 @@ type MessageTone = 'info' | 'error'
 
 const SETUP_HIGHLIGHTS = [
   {
-    icon: UserRoundPlus,
+    marker: '[+]',
     title: 'Buat identitas admin',
     description: 'Isi nama lengkap agar profil admin pertama punya identitas yang jelas.',
   },
   {
-    icon: Workflow,
+    marker: '[x]',
     title: 'Tentukan username dan kode',
     description: 'Username dipakai saat login, sementara kode user membantu identifikasi internal.',
   },
   {
-    icon: KeyRound,
+    marker: '[-]',
     title: 'Set password login',
     description: 'Buat password yang aman agar akses awal ke aplikasi tetap terjaga.',
   },
   {
-    icon: ShieldCheck,
+    marker: '[~]',
     title: 'Langsung siap dipakai',
     description: 'Sesudah akun dibuat, kamu bisa langsung masuk ke dashboard Pakti.',
   },
@@ -49,12 +38,12 @@ const SETUP_HIGHLIGHTS = [
 
 const NEXT_STEP_HIGHLIGHTS = [
   {
-    icon: BadgeCheck,
+    marker: '[x]',
     title: 'Login dengan akun baru',
     description: 'Gunakan username dan password yang baru dibuat untuk masuk ke sistem.',
   },
   {
-    icon: Workflow,
+    marker: '[+]',
     title: 'Lanjut ke scan resi',
     description: 'Setelah login, alur kerja berikutnya langsung ke halaman Scan.',
   },
@@ -169,18 +158,18 @@ export function WelcomePage() {
         highlights={NEXT_STEP_HIGHLIGHTS}
         footerNote="Buka kembali layar login untuk masuk"
       >
-        <Card className="w-full max-w-xl border-slate-200/80 bg-white/95 shadow-2xl shadow-slate-900/10 backdrop-blur">
+        <Card className="auth-opencode__card w-full max-w-xl">
           <CardHeader className="space-y-3 p-6 pb-0">
             <div className="flex items-center gap-3">
-              <div className="grid size-12 place-items-center rounded-2xl bg-emerald-600 text-sm font-semibold text-white shadow-sm">
-                <BadgeCheck className="size-5" />
+              <div className="auth-opencode__mark grid size-12 place-items-center">
+                [x]
               </div>
               <div className="min-w-0">
-                <p className="text-xs uppercase tracking-[0.22em] text-slate-500">{systemConfig.appName}</p>
-                <CardTitle className="text-2xl">Setup selesai</CardTitle>
+                <p className="auth-opencode__app-name">{systemConfig.appName}</p>
+                <CardTitle>Setup selesai</CardTitle>
               </div>
             </div>
-            <CardDescription className="max-w-lg text-sm leading-6 text-slate-500">
+            <CardDescription>
               Akun admin pertama berhasil dibuat. Klik tombol di bawah untuk kembali ke halaman login.
             </CardDescription>
           </CardHeader>
@@ -194,8 +183,7 @@ export function WelcomePage() {
             </Alert>
 
             <Button type="button" size="lg" className="w-full" onClick={() => window.location.reload()}>
-              Lanjut ke Login
-              <ArrowRight className="size-4" />
+              [login]
             </Button>
           </CardContent>
         </Card>
@@ -213,18 +201,18 @@ export function WelcomePage() {
       highlights={SETUP_HIGHLIGHTS}
       footerNote="Setup awal hanya perlu dilakukan sekali"
     >
-      <Card className="w-full max-w-xl border-slate-200/80 bg-white/95 shadow-2xl shadow-slate-900/10 backdrop-blur">
+      <Card className="auth-opencode__card w-full max-w-xl">
         <CardHeader className="space-y-4 p-6 pb-0">
           <div className="flex items-center gap-3">
-            <div className="grid size-12 place-items-center rounded-2xl bg-slate-950 text-sm font-semibold text-white shadow-sm">
+            <div className="auth-opencode__mark grid size-12 place-items-center">
               {systemConfig.brandMark || systemConfig.appName.charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0">
-              <p className="text-xs uppercase tracking-[0.22em] text-slate-500">{systemConfig.appName}</p>
-              <CardTitle className="text-2xl">Setup admin</CardTitle>
+              <p className="auth-opencode__app-name">{systemConfig.appName}</p>
+              <CardTitle>Setup admin</CardTitle>
             </div>
           </div>
-          <CardDescription className="max-w-lg text-sm leading-6 text-slate-500">{systemConfig.tagline}</CardDescription>
+          <CardDescription>{systemConfig.tagline}</CardDescription>
         </CardHeader>
 
           <CardContent className="space-y-5 pt-6">
@@ -248,12 +236,11 @@ export function WelcomePage() {
 
             {needsSetup === false ? (
               <div className="grid gap-4">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-500">
+                <div className="auth-opencode__note">
                   Bootstrap sudah selesai. Masuk ke halaman login untuk menggunakan akun admin yang sudah ada.
                 </div>
                 <Button type="button" size="lg" className="w-full" onClick={() => window.location.reload()}>
-                  Ke Login
-                  <ArrowRight className="size-4" />
+                  [login]
                 </Button>
               </div>
             ) : (
@@ -331,17 +318,7 @@ export function WelcomePage() {
                 ) : null}
 
                 <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <>
-                      <LoaderCircle className="size-4 animate-spin" />
-                      Membuat akun...
-                    </>
-                  ) : (
-                    <>
-                      Buat akun admin
-                      <ArrowRight className="size-4" />
-                    </>
-                  )}
+                  {isSubmitting ? '[creating]' : '[create_admin]'}
                 </Button>
               </form>
             )}
@@ -362,12 +339,12 @@ function Field({
   description?: string
 } & InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <div className="space-y-2">
-      <Label htmlFor={id} className="text-xs uppercase tracking-[0.18em] text-slate-500">
+    <div className="auth-opencode__field space-y-2">
+      <Label htmlFor={id}>
         {label}
       </Label>
-      <Input id={id} className="h-12" {...inputProps} />
-      {description ? <p className="text-xs leading-5 text-slate-500">{description}</p> : null}
+      <Input id={id} className="auth-opencode__input" {...inputProps} />
+      {description ? <p>{description}</p> : null}
     </div>
   )
 }
@@ -387,29 +364,29 @@ function PasswordField({
   onToggle: () => void
 } & InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <div className="space-y-2">
-      <Label htmlFor={id} className="text-xs uppercase tracking-[0.18em] text-slate-500">
+    <div className="auth-opencode__field space-y-2">
+      <Label htmlFor={id}>
         {label}
       </Label>
       <div className="relative">
         <Input
           id={id}
           type={showPassword ? 'text' : 'password'}
-          className="h-12 pr-12"
+          className="auth-opencode__input pr-12"
           {...inputProps}
         />
         <Button
           type="button"
           variant="ghost"
           size="icon-sm"
-          className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-950"
+          className="auth-opencode__password-toggle absolute right-1 top-1/2 -translate-y-1/2"
           onClick={onToggle}
           aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
         >
-          {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+          {showPassword ? '[hide]' : '[show]'}
         </Button>
       </div>
-      {helpText ? <p className="text-xs leading-5 text-slate-500">{helpText}</p> : null}
+      {helpText ? <p>{helpText}</p> : null}
     </div>
   )
 }

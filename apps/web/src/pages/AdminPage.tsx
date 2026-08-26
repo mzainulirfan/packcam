@@ -1,11 +1,8 @@
 import { useEffect, useState } from 'react'
-import type { ComponentType } from 'react'
-import { Database, HardDriveDownload, RefreshCcw, ShieldCheck, SquareActivity } from 'lucide-react'
 
-import { StageCard } from '../components/StageCard'
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { readServerAdminStatusApi } from '@pakti/api-client'
 
 type AdminStatus = Awaited<ReturnType<typeof readServerAdminStatusApi>>
@@ -67,161 +64,108 @@ export function AdminPage() {
   }
 
   return (
-    <StageCard title="Admin">
-      <div className="grid gap-4">
-        <section className="grid gap-4 rounded-[2rem] border border-slate-200/80 bg-gradient-to-br from-white to-slate-50 p-4 shadow-xl shadow-slate-900/5 lg:p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="grid gap-2">
-              <div className="inline-flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs uppercase tracking-[0.22em] text-slate-500">
-                <ShieldCheck className="size-3.5" />
-                Server audit
-              </div>
-              <h3 className="text-2xl font-semibold tracking-tight text-slate-950">Audit server dan migrasi</h3>
-              <p className="max-w-3xl text-sm leading-6 text-slate-500">
-                Pantau status server SQLite, lihat data terbaru, dan sinkronkan cache browser ke server bila perlu.
-              </p>
-            </div>
-
-            <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500 shadow-sm">
-              <div className="flex items-center justify-between gap-10">
-                <span>Status</span>
-                <strong className="text-slate-950">{loading ? 'Loading' : error ? 'Error' : 'Ready'}</strong>
-              </div>
-              <div className="flex items-center justify-between gap-10">
-                <span>Mode</span>
-                <strong className="text-slate-950">Server only</strong>
-              </div>
-            </div>
+    <div className="admin-opencode mx-auto grid w-full max-w-[1520px] gap-5 px-0 py-1">
+      <section className="admin-opencode__summary flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="grid gap-2">
+            <div className="admin-opencode__section-label">[+] Admin</div>
+            <h1 className="admin-opencode__title">Admin</h1>
           </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard label="Operator profiles" value={adminStatus?.counts.operatorProfiles ?? 0} icon={Database} />
-            <StatCard label="Recordings" value={adminStatus?.counts.recordings ?? 0} icon={HardDriveDownload} />
-            <StatCard label="Scan logs" value={adminStatus?.counts.scanLogs ?? 0} icon={SquareActivity} />
-            <StatCard
-              label="Sessions"
-              value={adminStatus?.counts.sessions ?? 0}
-              icon={ShieldCheck}
-            />
+          <div className="flex flex-wrap gap-2">
+            <span className="admin-opencode__badge">{loading ? '[~] loading' : error ? '[!] error' : '[x] ready'}</span>
+            <span className="admin-opencode__badge">server only</span>
           </div>
         </section>
 
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-          <Card className="border-slate-200/80 shadow-xl shadow-slate-900/5">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card className="admin-opencode__panel">
             <CardHeader className="space-y-2">
-              <CardTitle className="text-lg">Status server</CardTitle>
-              <CardDescription>Bootstrap dan ringkasan kesehatan database server.</CardDescription>
+              <CardTitle>Status server</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 pt-4">
               {loading ? (
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                  Memuat status server...
+                <div className="admin-opencode__empty">
+                  [~] Memuat status server...
                 </div>
               ) : error ? (
                 <Alert variant="destructive">
-                  <div className="grid gap-1">
-                    <p className="font-medium">Status server belum tersedia</p>
-                    <p className="text-sm leading-6 text-current/80">{error}</p>
+                  <div className="admin-opencode__alert grid gap-1">
+                    <p>[!] Status server belum tersedia</p>
+                    <p>{error}</p>
                   </div>
                 </Alert>
               ) : adminStatus ? (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <InfoCard label="Bootstrap" value={adminStatus.bootstrap.needsSetup ? 'Needed' : 'Ready'} />
-                  <InfoCard label="User count" value={String(adminStatus.bootstrap.operatorCount)} />
-                  <InfoCard label="Admin count" value={String(adminStatus.bootstrap.adminCount)} />
-                  <InfoCard label="Last error" value={adminStatus.lastError ? 'Ada' : 'Tidak ada'} />
-                  <InfoCard label="Health" value="OK" />
+                <div className="grid gap-2">
+                  <InfoLine label="Bootstrap" value={adminStatus.bootstrap.needsSetup ? 'Needed' : 'Ready'} />
+                  <InfoLine label="Operators" value={String(adminStatus.bootstrap.operatorCount)} />
+                  <InfoLine label="Admins" value={String(adminStatus.bootstrap.adminCount)} />
+                  <InfoLine label="Recordings" value={String(adminStatus.counts.recordings)} />
+                  <InfoLine label="Scan logs" value={String(adminStatus.counts.scanLogs)} />
+                  <InfoLine label="Sessions" value={String(adminStatus.counts.sessions)} />
+                  <InfoLine label="Last error" value={adminStatus.lastError ? 'Ada' : 'Tidak ada'} />
                 </div>
               ) : null}
 
               <div className="flex flex-col gap-3 sm:flex-row">
                 <Button type="button" onClick={() => void handleRefresh()}>
-                  <RefreshCcw className="size-4" />
-                  Refresh status
+                  [refresh]
                 </Button>
               </div>
 
               <Alert variant={error ? 'destructive' : 'info'}>
-                <div className="grid gap-1">
-                  <p className="font-medium">Pesan</p>
-                  <p className="text-sm leading-6 text-current/80">{message}</p>
+                <div className="admin-opencode__alert grid gap-1">
+                  <p>{error ? '[!]' : '[+]'} Pesan</p>
+                  <p>{message}</p>
                 </div>
               </Alert>
             </CardContent>
           </Card>
 
-          <Card className="border-slate-200/80 shadow-xl shadow-slate-900/5">
+          <Card className="admin-opencode__panel">
             <CardHeader className="space-y-2">
-              <CardTitle className="text-lg">Recent data</CardTitle>
-              <CardDescription>Audit cepat terhadap data terbaru yang tersimpan di server.</CardDescription>
+              <CardTitle>Recent data</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 pt-4">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Recent recordings</p>
+              <div className="admin-opencode__list-block">
+                <p>[+] Recent recordings</p>
                 <div className="mt-3 grid gap-2">
                   {adminStatus?.recentRecordings.slice(0, 5).map((recording) => (
-                    <div key={recording.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
-                      <span className="min-w-0 truncate font-medium text-slate-950">{recording.resiNumber}</span>
-                      <span className="shrink-0 text-slate-500">{recording.status}</span>
+                    <div key={recording.id} className="admin-opencode__list-row">
+                      <span>{recording.resiNumber}</span>
+                      <span>[{recording.status}]</span>
                     </div>
                   ))}
                   {adminStatus?.recentRecordings.length === 0 ? (
-                    <p className="text-sm text-slate-500">Belum ada recording di server.</p>
+                    <p>[-] Belum ada recording di server.</p>
                   ) : null}
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Recent scan logs</p>
+              <div className="admin-opencode__list-block">
+                <p>[+] Recent scan logs</p>
                 <div className="mt-3 grid gap-2">
                   {adminStatus?.recentScanLogs.slice(0, 5).map((log) => (
-                    <div key={log.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
-                      <span className="min-w-0 truncate font-medium text-slate-950">{log.resiNumber}</span>
-                      <span className="shrink-0 text-slate-500">{log.action}</span>
+                    <div key={log.id} className="admin-opencode__list-row">
+                      <span>{log.resiNumber}</span>
+                      <span>[{log.action}]</span>
                     </div>
                   ))}
                   {adminStatus?.recentScanLogs.length === 0 ? (
-                    <p className="text-sm text-slate-500">Belum ada scan log di server.</p>
+                    <p>[-] Belum ada scan log di server.</p>
                   ) : null}
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
-      </div>
-    </StageCard>
+    </div>
   )
 }
 
-function StatCard({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string
-  value: number
-  icon: ComponentType<{ className?: string }>
-}) {
+function InfoLine({ label, value }: { label: string; value: string }) {
   return (
-    <Card className="border-slate-200/80 shadow-sm shadow-slate-900/5">
-      <CardContent className="space-y-3 p-4">
-        <div className="flex items-center justify-between gap-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{label}</p>
-          <div className="grid size-9 place-items-center rounded-xl bg-slate-950 text-white">
-            <Icon className="size-4" />
-          </div>
-        </div>
-        <div className="text-3xl font-semibold tracking-tight text-slate-950">{value}</div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function InfoCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{label}</p>
-      <strong className="mt-2 block text-2xl tracking-tight text-slate-950">{value}</strong>
+    <div className="admin-opencode__list-row">
+      <span>{label}</span>
+      <strong>{value}</strong>
     </div>
   )
 }

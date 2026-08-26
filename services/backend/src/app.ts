@@ -81,6 +81,25 @@ function getLoginRateLimitKey(req: Request, operatorName: string) {
   return `${req.ip ?? req.socket.remoteAddress ?? 'unknown'}:${operatorName.trim().toLowerCase()}`
 }
 
+function readQueryString(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return value[0]?.trim() ?? ''
+  }
+
+  return value?.trim() ?? ''
+}
+
+function canSessionAccessRecording(session: HttpSession, record: ReturnType<typeof listRecordings>[number]) {
+  if (session.role === 'admin') {
+    return true
+  }
+
+  return (
+    (record.operator_name ?? '').trim().toLowerCase() === session.operatorName.trim().toLowerCase() &&
+    (record.operator_code ?? '').trim().toLowerCase() === session.operatorCode.trim().toLowerCase()
+  )
+}
+
 function isLoginRateLimited(key: string) {
   const now = Date.now()
   const attempt = loginAttempts.get(key)
@@ -125,6 +144,13 @@ app.use(
 )
 app.use(express.json({ limit: '4mb' }))
 app.use(express.urlencoded({ extended: true }))
+app.use((error: unknown, _req: Request, res: Response, next: NextFunction) => {
+  if (error instanceof SyntaxError) {
+    return sendError(res, 400, 'Request JSON tidak valid.')
+  }
+
+  return next(error)
+})
 app.use('/files', requireSession, express.static(getUploadsDir()))
 
 app.get('/api/health', (_req, res) => {
@@ -263,6 +289,7 @@ app.use('/api', (req, res, next) => {
     '/settings',
     '/operators',
     '/recordings',
+    '/history',
     '/scan-logs',
     '/last-error',
     '/events',
@@ -442,13 +469,73 @@ app.post('/api/operators/:operatorName/:operatorCode/:role/password', requireAdm
   }
 })
 
-app.get('/api/recordings', (_req, res) => {
-  sendOk(res, listRecordings())
+app.get('/api/recordings', (req, res) => {
+  const session = getRequestSession(req)
+  if (!session) {
+    return sendError(res, 401, 'Sesi login diperlukan.')
+  }
+
+  sendOk(res, listRecordings().filter((record) => canSessionAccessRecording(session, record)))
+})
+
+app.get('/api/history/recordings', (req, res) => {
+  const session = getRequestSession(req)
+  if (!session) {
+    return sendError(res, 401, 'Sesi login diperlukan.')
+  }
+
+  const query = req.query as Record<string, string | string[] | undefined>
+  const searchText = readQueryString(query.search).toLowerCase()
+  const taskFilter = readQueryString(query.taskType)
+  const operatorFilter = readQueryString(query.operator)
+  const dateFrom = readQueryString(query.dateFrom)
+  const dateTo = readQueryString(query.dateTo)
+
+  const records = listRecordings().filter((record) => {
+    const matchesSession =
+      session.role === 'admin' ||
+      ((record.operator_name ?? '').trim().toLowerCase() === session.operatorName.trim().toLowerCase() &&
+        (record.operator_code ?? '').trim().toLowerCase() === session.operatorCode.trim().toLowerCase())
+
+    if (!matchesSession) {
+      return false
+    }
+
+    const matchesSearch =
+      !searchText ||
+      record.resi_number.toLowerCase().includes(searchText) ||
+      record.file_name.toLowerCase().includes(searchText) ||
+      record.file_path.toLowerCase().includes(searchText) ||
+      (record.note?.toLowerCase().includes(searchText) ?? false) ||
+      record.task_type.includes(searchText) ||
+      record.status.includes(searchText)
+    const matchesTask = taskFilter !== 'qc' && taskFilter !== 'packing' ? true : record.task_type === taskFilter
+    const matchesOperator =
+      session.role !== 'admin' ||
+      !operatorFilter ||
+      operatorFilter === 'all' ||
+      ((record.operator_name ?? '').trim().toLowerCase() || (record.operator_code ?? '').trim().toLowerCase()) ===
+        operatorFilter.trim().toLowerCase()
+    const matchesDateFrom = !dateFrom || record.record_date >= dateFrom
+    const matchesDateTo = !dateTo || record.record_date <= dateTo
+
+    return matchesSearch && matchesTask && matchesOperator && matchesDateFrom && matchesDateTo
+  })
+
+  return sendOk(res, {
+    records,
+    totalRecords: records.length,
+  })
 })
 
 app.get('/api/recordings/resi/:resiNumber', (req, res) => {
+  const session = getRequestSession(req)
+  if (!session) {
+    return sendError(res, 401, 'Sesi login diperlukan.')
+  }
+
   const params = req.params as Record<string, string | undefined>
-  sendOk(res, listRecordingsByResi(params.resiNumber ?? ''))
+  sendOk(res, listRecordingsByResi(params.resiNumber ?? '').filter((record) => canSessionAccessRecording(session, record)))
 })
 
 app.post('/api/recordings', (req, res) => {
@@ -532,7 +619,21 @@ app.post('/api/recordings/:id/recover', (req, res) => {
 
 app.post('/api/recordings/:id/share-file', async (req, res) => {
   try {
+    const session = getRequestSession(req)
+    if (!session) {
+      return sendError(res, 401, 'Sesi login diperlukan.')
+    }
+
     const params = req.params as Record<string, string | undefined>
+    const recording = getRecordingById(params.id ?? '')
+    if (!recording) {
+      return sendError(res, 404, 'Recording tidak ditemukan.')
+    }
+
+    if (!canSessionAccessRecording(session, recording)) {
+      return sendError(res, 403, 'Recording ini tidak bisa diakses oleh sesi login saat ini.')
+    }
+
     return sendOk(res, await prepareRecordingShareFile(params.id ?? ''))
   } catch (error) {
     return sendError(res, 400, error instanceof Error ? error.message : 'Gagal menyiapkan file share.')
@@ -550,7 +651,21 @@ app.post('/api/recordings/repeat-qc', (req, res) => {
 })
 
 app.delete('/api/recordings/:id', (req, res) => {
+  const session = getRequestSession(req)
+  if (!session) {
+    return sendError(res, 401, 'Sesi login diperlukan.')
+  }
+
   const params = req.params as Record<string, string | undefined>
+  const recording = getRecordingById(params.id ?? '')
+  if (!recording) {
+    return sendError(res, 404, 'Recording tidak ditemukan.')
+  }
+
+  if (!canSessionAccessRecording(session, recording)) {
+    return sendError(res, 403, 'Recording ini tidak bisa dihapus oleh sesi login saat ini.')
+  }
+
   const deleted = deleteRecording(params.id ?? '')
   if (!deleted) {
     return sendError(res, 404, 'Recording tidak ditemukan.')
@@ -612,6 +727,10 @@ app.delete('/api/data/all', requireAdmin, (_req, res) => {
 
 app.use((_req, res) => {
   sendError(res, 404, 'Endpoint tidak ditemukan.')
+})
+
+app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  sendError(res, 500, error instanceof Error ? error.message : 'Server error.')
 })
 
 app.listen(port, host, () => {

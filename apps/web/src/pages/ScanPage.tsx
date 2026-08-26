@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { LoaderCircle, ScanLine, StopCircle } from 'lucide-react'
 
 import { updateOperatorSessionTask, useOperatorSession } from '../app/operatorSession'
 import { BarcodeInput } from '../components/BarcodeInput'
 import { CameraPreview } from '../components/CameraPreview'
-import { StageCard } from '../components/StageCard'
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
@@ -296,65 +294,26 @@ export function ScanPage() {
     recordingSession.state.mode === 'saving' ||
     recordingSession.state.mode === 'ready_to_record_next'
   return (
-    <StageCard title="Scan">
-      <div className="grid gap-4 xl:grid-cols-[minmax(320px,0.52fr)_minmax(0,1.48fr)]">
+    <div className="scan-opencode mx-auto grid w-full max-w-[1520px] gap-5 px-0 py-1">
+      <section className="scan-opencode__hero flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="grid gap-2">
+          <div className="scan-opencode__section-label">[+] Scan</div>
+          <h1 className="scan-opencode__title">Scan Resi</h1>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="scan-opencode__badge">
+            [x] {activeTask}
+          </span>
+          <span className="scan-opencode__badge">
+            {operatorSession?.operatorName || operatorSession?.operatorCode || 'operator'}
+          </span>
+          <RecordModePill mode={recordingSession.state.mode} />
+        </div>
+      </section>
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(300px,0.42fr)_minmax(0,1.58fr)]">
         <section className="grid gap-4 self-start">
-          <div className="grid gap-4 rounded-[4px] border border-slate-300 bg-white p-4 lg:p-5">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="grid gap-1">
-                <div className="inline-flex w-fit items-center gap-2 rounded-[4px] border border-slate-300 bg-slate-50 px-3 py-1 text-[0.68rem] uppercase tracking-[0.24em] text-slate-600">
-                  <ScanLine className="size-3.5" />
-                  Workstation
-                </div>
-                <h2 className="text-lg font-semibold tracking-[-0.02em] text-slate-950">Scan resi</h2>
-              </div>
-              <RecordModePill mode={recordingSession.state.mode} />
-            </div>
-
-            <div className="grid gap-2 rounded-[4px] border border-slate-300 bg-slate-50 p-3 text-sm">
-              <InfoRow label="Operator" value={operatorSession?.operatorName || 'Belum login'} />
-              <InfoRow label="Kode" value={operatorSession?.operatorCode || '-'} />
-              <InfoRow label="Task" value={activeTask} strong />
-            </div>
-
-            {canSwitchTask ? (
-              <div className="grid gap-3 rounded-[4px] border border-slate-300 bg-white p-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="grid gap-1">
-                    <p className="text-[0.65rem] uppercase tracking-[0.2em] text-slate-500">Task admin</p>
-                    <p className="text-xs leading-5 text-slate-500">Switch sebelum scan. Terkunci saat recording aktif.</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {(['qc', 'packing'] as const).map((taskType) => {
-                      const isActive = activeTask === taskType
-                      return (
-                        <Button
-                          key={taskType}
-                          type="button"
-                          variant={isActive ? 'default' : 'outline'}
-                          className="h-8 rounded-[4px] px-3 text-[0.65rem] uppercase tracking-[0.16em]"
-                          disabled={isTaskSwitchLocked || isActive}
-                          onClick={() => handleTaskSwitch(taskType)}
-                        >
-                          {taskType}
-                        </Button>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-          {scanAlert ? (
-            <Alert
-              variant={scanAlert.kind === 'error' ? 'destructive' : scanAlert.kind === 'success' ? 'success' : 'info'}
-            >
-              <p className="text-sm leading-6">{scanAlert.message}</p>
-            </Alert>
-          ) : null}
-
-          <Card className="border-slate-300 shadow-none">
+          <Card className="scan-opencode__panel">
             <CardContent className="space-y-4 p-5">
               <BarcodeInput
                 inputRef={barcodeScanner.inputRef}
@@ -369,89 +328,92 @@ export function ScanPage() {
                   barcodeScanner.focusInput()
                 }}
               />
-
-              <div className="grid gap-3 border-t border-slate-300 pt-4 text-sm text-slate-600">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="uppercase tracking-[0.18em] text-slate-500">Status</p>
-                  <span className="text-xs uppercase tracking-[0.18em] text-slate-500">{recordingElapsedLabel}</span>
-                </div>
-                <p className="leading-6 text-slate-700">{recordingSession.state.message}</p>
-                <p className="leading-6 text-slate-500">
-                  {currentProcessingResi
-                    ? `Sedang memproses resi ${currentProcessingResi}`
-                    : 'Belum ada resi yang diproses.'}
-                </p>
-                <div className="grid gap-2 rounded-[4px] border border-slate-300 bg-slate-50 p-3 text-slate-700">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-xs uppercase tracking-[0.18em] text-slate-400">Tugas</span>
-                    <strong className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-950">
-                      {activeTask}
-                    </strong>
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <TaskProgressList
-                      title="Sudah dikerjakan"
-                      items={taskProgress?.done ?? []}
-                      emptyLabel="Belum ada proses selesai."
-                    />
-                    <TaskProgressList
-                      title="Akan dikerjakan"
-                      items={taskProgress?.pending ?? []}
-                      emptyLabel="Tidak ada task berikutnya."
-                    />
-                  </div>
-                </div>
-                {repeatQcResi ? (
-                  <div className="flex flex-col gap-3 rounded-[4px] border border-amber-300 bg-amber-50 p-3 text-amber-800 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="grid gap-1">
-                      <p className="text-xs uppercase tracking-[0.18em] text-amber-700">Mode ulangi QC aktif</p>
-                      <p className="text-sm leading-6">
-                        Resi {repeatQcResi} siap discan ulang. QC lama dan packing lama akan dibuat tidak valid.
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="rounded-[4px] border-amber-300 bg-white text-amber-800 hover:bg-amber-50"
-                      onClick={() => {
-                        clearRepeatQcResi()
-                        setRepeatQcResi(null)
-                        barcodeScanner.setValue('')
-                        barcodeScanner.focusInput()
-                      }}
-                    >
-                      Batal
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
             </CardContent>
           </Card>
+
+          <div className="scan-opencode__panel grid gap-3">
+            <div className="flex items-center justify-between gap-3">
+              <h2>[+] Status</h2>
+              <span className="scan-opencode__badge">{recordingElapsedLabel}</span>
+            </div>
+            <p>{recordingSession.state.message}</p>
+            <p>
+              {currentProcessingResi ? `Resi: ${currentProcessingResi}` : 'Belum ada resi aktif.'}
+            </p>
+            <p>
+              Done: {taskProgress?.done.length ? taskProgress.done.join(', ') : '-'} / Next:{' '}
+              {taskProgress?.pending.length ? taskProgress.pending.join(', ') : '-'}
+            </p>
+
+            {canSwitchTask ? (
+              <div className="flex flex-wrap items-center gap-2 border-t border-[rgba(15,0,0,0.12)] pt-3">
+                {(['qc', 'packing'] as const).map((taskType) => {
+                  const isActive = activeTask === taskType
+                  return (
+                    <Button
+                      key={taskType}
+                      type="button"
+                      variant={isActive ? 'default' : 'outline'}
+                      className="scan-opencode__button"
+                      disabled={isTaskSwitchLocked || isActive}
+                      onClick={() => handleTaskSwitch(taskType)}
+                    >
+                      {isActive ? '[x]' : '[+]'} {taskType}
+                    </Button>
+                  )
+                })}
+              </div>
+            ) : null}
+
+            {repeatQcResi ? (
+              <div className="scan-opencode__repeat-card flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p>[!] Ulangi QC: {repeatQcResi}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="scan-opencode__button"
+                  onClick={() => {
+                    clearRepeatQcResi()
+                    setRepeatQcResi(null)
+                    barcodeScanner.setValue('')
+                    barcodeScanner.focusInput()
+                  }}
+                >
+                  [cancel]
+                </Button>
+              </div>
+            ) : null}
+          </div>
+
+          {scanAlert ? (
+            <Alert
+              variant={scanAlert.kind === 'error' ? 'destructive' : scanAlert.kind === 'success' ? 'success' : 'info'}
+            >
+              <p>{scanAlert.message}</p>
+            </Alert>
+          ) : null}
         </section>
 
-        <Card className="overflow-hidden border-slate-300 bg-white shadow-none xl:sticky xl:top-4">
-          <CardHeader className="border-b border-slate-300 bg-white p-4 lg:p-5">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="grid gap-2">
-                <div className="inline-flex w-fit rounded-[4px] border border-slate-300 bg-slate-50 px-3 py-1 text-[0.68rem] uppercase tracking-[0.22em] text-slate-600">
-                  [ camera ]
-                </div>
-                <CardTitle className="text-lg text-slate-950">Preview kamera</CardTitle>
+        <Card className="scan-opencode__camera-panel overflow-hidden xl:sticky xl:top-4">
+          <CardHeader className="scan-opencode__camera-header px-5 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="grid gap-1">
+                <CardTitle>Preview kamera</CardTitle>
               </div>
-              <span className="rounded-[4px] border border-slate-300 bg-slate-50 px-3 py-1 text-xs uppercase tracking-[0.18em] text-slate-600">
+              <span className="scan-opencode__badge">
                 {scanMode === 'full-frame' ? 'full-frame' : 'center-first'}
               </span>
             </div>
           </CardHeader>
 
           <CardContent className="space-y-4 p-4 lg:p-5">
-            <div className="grid gap-3 rounded-[4px] border border-slate-300 bg-slate-50 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <div className="scan-opencode__camera-controls grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
               <div className="grid gap-2">
-                <Label htmlFor="camera-device" className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                  Device
+                <Label htmlFor="camera-device">
+                  Kamera
                 </Label>
                 <Select value={settings.cameraDeviceId || '__default__'} onValueChange={handleCameraChange}>
-                  <SelectTrigger id="camera-device" className="h-11 w-full rounded-[4px] border-slate-300 bg-white">
+                  <SelectTrigger id="camera-device" className="scan-opencode__input w-full">
                     <SelectValue placeholder="Default camera" />
                   </SelectTrigger>
                   <SelectContent>
@@ -468,29 +430,23 @@ export function ScanPage() {
               </div>
 
               <div className="grid gap-2">
-                <Label className="text-xs uppercase tracking-[0.18em] text-slate-500">Mode scan</Label>
+                <Label>Mode scan</Label>
                 <div className="grid gap-2 sm:grid-cols-2">
                   <Button
                     type="button"
                     variant={scanMode === 'center-first' ? 'default' : 'outline'}
-                    className="h-auto justify-start rounded-[4px] border-slate-300 px-3 py-2 text-left"
+                    className="scan-opencode__choice"
                     onClick={() => setScanMode('center-first')}
                   >
-                    <div className="grid gap-1">
-                      <span className="text-sm font-semibold">Cepat</span>
-                      <span className="text-xs leading-5 opacity-80">Area tengah + fallback.</span>
-                    </div>
+                    <span>{scanMode === 'center-first' ? '[x]' : '[+]'} cepat</span>
                   </Button>
                   <Button
                     type="button"
                     variant={scanMode === 'full-frame' ? 'default' : 'outline'}
-                    className="h-auto justify-start rounded-[4px] border-slate-300 px-3 py-2 text-left"
+                    className="scan-opencode__choice"
                     onClick={() => setScanMode('full-frame')}
                   >
-                    <div className="grid gap-1">
-                      <span className="text-sm font-semibold">Longgar</span>
-                      <span className="text-xs leading-5 opacity-80">Seluruh frame terus.</span>
-                    </div>
+                    <span>{scanMode === 'full-frame' ? '[x]' : '[+]'} longgar</span>
                   </Button>
                 </div>
               </div>
@@ -505,54 +461,54 @@ export function ScanPage() {
               scanGuideLabel="Pusatkan resi di kotak ini"
               scanGuideDetail={
                 scanMode === 'full-frame'
-                  ? 'Mode longgar aktif. Pastikan barcode tetap terlihat jelas di seluruh layar.'
-                  : 'Jika belum terbaca, geser perlahan sampai barcode masuk kotak penuh.'
+                  ? 'Seluruh frame dibaca.'
+                  : 'Area tengah dibaca dulu.'
               }
               emptyMessage="Pilih kamera untuk memulai preview."
               topSlot={
-                <div className="grid gap-2 rounded-[4px] border border-slate-300 bg-white px-3 py-2 text-slate-950">
+                <div className="scan-opencode__camera-hud grid gap-2 px-3 py-2">
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex rounded-[4px] border border-slate-300 bg-slate-50 px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-slate-600">
-                      Countdown
+                    <span>
+                      [+] Countdown
                     </span>
-                    <span className="text-sm font-semibold tracking-tight text-slate-950">{recordingElapsedLabel}</span>
+                    <span>{recordingElapsedLabel}</span>
                   </div>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs uppercase tracking-[0.18em] text-slate-500">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                     <span>
-                      Tugas: <strong className="text-slate-950">{activeTask}</strong>
+                      Tugas: <strong>{activeTask}</strong>
                     </span>
                     <span>
-                      Operator: <strong className="text-slate-950">{operatorSession?.operatorName || operatorSession?.operatorCode || '-'}</strong>
+                      Operator: <strong>{operatorSession?.operatorName || operatorSession?.operatorCode || '-'}</strong>
                     </span>
                   </div>
                 </div>
               }
               centerSlot={
                 isSavingFlowVisible ? (
-                  <div className="w-full max-w-md rounded-[4px] border border-slate-300 bg-white px-4 py-3">
+                  <div className="scan-opencode__saving-card w-full max-w-md px-4 py-3">
                     {recordingSession.state.mode === 'ready_to_record_next' ? (
                       <div className="grid gap-1 text-center">
-                        <p className="text-sm font-semibold text-emerald-700">Penyimpanan selesai</p>
-                        <p className="text-xs text-emerald-600">Siap merekam resi berikutnya.</p>
+                        <p>[x] Penyimpanan selesai</p>
+                        <p>Siap merekam resi berikutnya.</p>
                       </div>
                     ) : (
                       <div className="space-y-4">
                         <div className="flex items-center gap-3">
-                          <LoaderCircle className="size-5 animate-spin text-slate-950" />
                           <div className="min-w-0">
-                            <p className="text-sm font-semibold text-slate-950">
+                            <p>
+                              [~]{' '}
                               {recordingSession.state.mode === 'saving'
                                 ? 'Menyimpan video lama...'
                                 : 'Menghentikan rekaman...'}
                             </p>
-                            <p className="truncate text-xs text-slate-500">
+                            <p className="truncate">
                               {recordingSession.state.mode === 'saving'
                                 ? `Resi ${recordingSession.state.savingResi ?? recordingSession.state.activeResi ?? '-'} sedang diproses`
                                 : 'Mohon tunggu sebentar'}
                             </p>
                           </div>
                         </div>
-                        <progress className="h-2 w-full overflow-hidden rounded-[4px] [&::-webkit-progress-bar]:bg-slate-200 [&::-webkit-progress-value]:rounded-[4px] [&::-webkit-progress-value]:bg-slate-950 [&::-moz-progress-bar]:bg-slate-950" />
+                        <progress className="scan-opencode__progress h-2 w-full overflow-hidden" />
                       </div>
                     )}
                   </div>
@@ -564,7 +520,7 @@ export function ScanPage() {
                     <Button
                       type="button"
                       size="lg"
-                      className="rounded-[4px] bg-rose-600 px-5 py-6 text-base shadow-none hover:bg-rose-700"
+                      className="scan-opencode__button px-5 py-6 text-base"
                       onClick={() => {
                         void recordingSession.stopRecording().then((message) => {
                           setScanAlert({ kind: 'success', message })
@@ -572,8 +528,7 @@ export function ScanPage() {
                       }}
                       disabled={recordingSession.state.mode !== 'recording' && recordingSession.state.mode !== 'stopping'}
                     >
-                      <StopCircle className="size-4" />
-                      Stop rekam
+                      [stop-record]
                     </Button>
                   </div>
                 ) : null
@@ -583,10 +538,9 @@ export function ScanPage() {
           </CardContent>
         </Card>
       </div>
-    </StageCard>
+    </div>
   )
 }
-
 function readScanMode(): ScanMode {
   if (typeof window === 'undefined') {
     return 'full-frame'
@@ -634,33 +588,7 @@ function formatElapsedClock(totalSeconds: number) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
-function InfoRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <span className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</span>
-      <strong
-        className={
-          strong
-            ? 'truncate text-right text-xs font-semibold uppercase tracking-[0.18em] text-slate-950'
-            : 'truncate text-right font-semibold text-slate-950'
-        }
-      >
-        {value}
-      </strong>
-    </div>
-  )
-}
-
 function RecordModePill({ mode }: { mode: 'idle' | 'recording' | 'stopping' | 'saving' | 'ready_to_record_next' | 'error' }) {
-  const className = {
-    idle: 'border-slate-200 bg-slate-50 text-slate-600',
-    recording: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    stopping: 'border-amber-200 bg-amber-50 text-amber-700',
-    saving: 'border-blue-200 bg-blue-50 text-blue-700',
-    ready_to_record_next: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    error: 'border-rose-200 bg-rose-50 text-rose-700',
-  }[mode]
-
   const label = {
     idle: 'idle',
     recording: 'recording',
@@ -670,39 +598,19 @@ function RecordModePill({ mode }: { mode: 'idle' | 'recording' | 'stopping' | 's
     error: 'error',
   }[mode]
 
+  const marker = {
+    idle: '[-]',
+    recording: '[x]',
+    stopping: '[~]',
+    saving: '[~]',
+    ready_to_record_next: '[x]',
+    error: '[!]',
+  }[mode]
+
   return (
-    <span className={`inline-flex rounded-[4px] border px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] ${className}`}>
-      {label}
+    <span className="scan-opencode__badge">
+      {marker} {label}
     </span>
   )
 }
 
-function TaskProgressList({
-  title,
-  items,
-  emptyLabel,
-}: {
-  title: string
-  items: Array<'qc' | 'packing'>
-  emptyLabel: string
-}) {
-  return (
-    <div className="grid gap-2 rounded-[4px] border border-slate-300 bg-white p-3">
-      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{title}</p>
-      {items.length ? (
-        <div className="flex flex-wrap gap-2">
-          {items.map((item) => (
-            <span
-              key={item}
-              className="inline-flex rounded-[4px] border border-slate-950 bg-slate-950 px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-white"
-            >
-              {item}
-            </span>
-          ))}
-        </div>
-      ) : (
-        <p className="text-sm leading-6 text-slate-500">{emptyLabel}</p>
-      )}
-    </div>
-  )
-}

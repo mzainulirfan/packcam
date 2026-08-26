@@ -30,15 +30,6 @@ const PAGE_COMPONENTS: Record<PageId, ReactElement> = {
   admin: <AdminPage />,
 }
 
-const ICONS = {
-  scan: 'bx-scan',
-  history: 'bx-history',
-  settings: 'bx-cog',
-  users: 'bx-user-circle',
-  health: 'bx-health',
-  admin: 'bx-shield-alt-2',
-} satisfies Record<(typeof NAV_ITEMS)[number]['icon'], string>
-
 const ADMIN_ONLY_PAGES = new Set<PageId>(['users', 'settings', 'health', 'admin'])
 
 function App() {
@@ -50,7 +41,6 @@ function App() {
     bootstrapNeedsSetup,
     operatorSession,
   })
-  const [hasScrolled, setHasScrolled] = useState(() => window.scrollY > 0)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const isAdmin = operatorSession?.role === 'admin'
 
@@ -63,15 +53,16 @@ function App() {
     [isAdmin],
   )
   const sidebarSections = useMemo(() => {
-    const sectionOrder: Array<{ id: NavGroupId; label: string }> = [
-      { id: 'operasional', label: 'Operasional' },
-      { id: 'administrasi', label: 'Administrasi' },
+    const sectionOrder: Array<{ id: NavGroupId | 'system'; label: string; items: PageId[] }> = [
+      { id: 'operasional', label: 'Operasional', items: ['scan', 'history'] },
+      { id: 'administrasi', label: 'Administrasi', items: ['users', 'settings'] },
+      { id: 'system', label: 'System', items: ['health', 'admin'] },
     ]
 
     return sectionOrder
       .map((section) => ({
         ...section,
-        items: visibleNavItems.filter((item) => item.group === section.id),
+        items: visibleNavItems.filter((item) => section.items.includes(item.id)),
       }))
       .filter((section) => section.items.length > 0)
   }, [visibleNavItems])
@@ -112,19 +103,6 @@ function App() {
 
     return () => {
       cancelled = true
-    }
-  }, [])
-
-  useEffect(() => {
-    function handleScroll() {
-      setHasScrolled(window.scrollY > 0)
-    }
-
-    handleScroll()
-    window.addEventListener('scroll', handleScroll, { passive: true })
-
-    return () => {
-      window.removeEventListener('scroll', handleScroll)
     }
   }, [])
 
@@ -203,53 +181,73 @@ function App() {
           onClick={() => setIsMobileSidebarOpen(false)}
         />
         <aside className="dashboard-sidebar">
-          <div className="sidebar-brand">
-            <div className="sidebar-brand__row">
-              <div className="sidebar-brand__mark" aria-hidden="true">
-                {systemConfig.brandMark || systemConfig.appName.charAt(0).toUpperCase()}
-              </div>
-              <div className="sidebar-brand__text">
-                <h1>{systemConfig.appName}</h1>
-                <p>{systemConfig.tagline}</p>
+          <div className="sidebar-inner">
+            <div className="sidebar-brand">
+              <div className="sidebar-brand__row">
+                <div className="sidebar-brand__mark" aria-hidden="true">
+                  {systemConfig.brandMark || systemConfig.appName.charAt(0).toUpperCase()}
+                </div>
+                <div className="sidebar-brand__text">
+                  <h1>{systemConfig.appName}</h1>
+                  <p>{systemConfig.tagline}</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          <nav className="sidebar-nav" aria-label="Navigasi utama">
-            {sidebarSections.map((section) => (
-              <div className="sidebar-nav__group" key={section.id}>
-                <p className="sidebar-nav__group-title">{section.label}</p>
-                <ul className="sidebar-nav__list">
-                  {section.items.map((item) => (
-                    <li key={item.id}>
-                      <button
-                        type="button"
-                        className={item.id === activePage ? 'nav-tab active' : 'nav-tab'}
-                        onClick={() => {
-                          navigateTo(item.id)
-                          setIsMobileSidebarOpen(false)
-                        }}
-                      >
-                        <i className={`bx ${ICONS[item.icon]} nav-tab__icon`} aria-hidden="true" />
-                        <span className="nav-tab__content">
-                          <span className="nav-tab__label">{item.label}</span>
-                          <small className="nav-tab__hint">{item.hint}</small>
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </nav>
+            <nav className="sidebar-nav" aria-label="Navigasi utama">
+              {sidebarSections.map((section) => (
+                <div className="sidebar-nav__group" key={section.id}>
+                  <p className="sidebar-nav__group-title">{section.label}</p>
+                  <ul className="sidebar-nav__list">
+                    {section.items.map((item) => (
+                      <li key={item.id}>
+                        <button
+                          type="button"
+                          className={item.id === activePage ? 'nav-tab active' : 'nav-tab'}
+                          onClick={() => {
+                            navigateTo(item.id)
+                            setIsMobileSidebarOpen(false)
+                          }}
+                        >
+                          <span className="nav-tab__marker" aria-hidden="true">
+                            {item.id === activePage ? '[x]' : '[+]'}
+                          </span>
+                          <span className="nav-tab__content">
+                            <span className="nav-tab__label">{item.label}</span>
+                            <small className="nav-tab__hint">{item.hint}</small>
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </nav>
+
+            <div className="sidebar-session">
+              <button
+                type="button"
+                className="sidebar-session__button"
+                onClick={() => {
+                  logoutOperator()
+                }}
+                title="Keluar"
+              >
+                <div className="sidebar-session__avatar" aria-hidden="true">
+                  {getInitials(operatorSession.operatorName)}
+                </div>
+                <div className="sidebar-session__identity">
+                  <div>{operatorSession.operatorName}</div>
+                  <span>{operatorSession.role}{operatorSession.operatorCode ? ` · ${operatorSession.operatorCode}` : ''}</span>
+                </div>
+                <span className="sidebar-session__logout" aria-hidden="true">[x]</span>
+              </button>
+            </div>
+          </div>
         </aside>
 
         <section className="dashboard-main">
-          <header
-            className={
-              hasScrolled ? 'dashboard-header dashboard-header--scrolled' : 'dashboard-header'
-            }
-          >
+          <header className="dashboard-header">
             <div className="dashboard-header__title">
               <button
                 type="button"
@@ -258,33 +256,16 @@ function App() {
                 aria-expanded={isMobileSidebarOpen}
                 onClick={() => setIsMobileSidebarOpen((current) => !current)}
               >
-                <i className="bx bx-menu" aria-hidden="true" />
+                <span className="dashboard-header__menu-icon" aria-hidden="true">[=]</span>
               </button>
               <div className="dashboard-header__heading">
-                <p>[ {activeItem.group} ]</p>
-                <h2>{activeItem.label}</h2>
+                <h2>{systemConfig.appName}</h2>
+                <p>{activePage === 'history' ? 'History Dokumentasi' : activeItem.label}</p>
               </div>
             </div>
-            <div className="dashboard-header__actions">
-              <div className="operator-chip" title={operatorSession.operatorName}>
-                <i className="bx bx-user" aria-hidden="true" />
-                <span className="operator-chip__identity">
-                  <strong>{operatorSession.operatorName}</strong>
-                  <small>{operatorSession.role}{operatorSession.operatorCode ? ` · ${operatorSession.operatorCode}` : ''}</small>
-                </span>
-                <button
-                  type="button"
-                  className="operator-chip__logout"
-                  onClick={() => {
-                    logoutOperator()
-                  }}
-                  aria-label="Keluar"
-                  title="Keluar"
-                >
-                  <i className="bx bx-log-out" aria-hidden="true" />
-                </button>
-              </div>
-            </div>
+            <button className="dashboard-header__avatar" type="button" onClick={() => logoutOperator()} title="Keluar">
+              {getInitials(operatorSession.operatorName)}
+            </button>
           </header>
 
           <main className="dashboard-content">{pageContent}</main>
@@ -332,5 +313,17 @@ function AccessDeniedPanel({
       </Card>
     </div>
   )
+}
+
+function getInitials(value: string) {
+  const initials = value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('')
+
+  return initials || 'AD'
 }
 

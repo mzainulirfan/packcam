@@ -1,28 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
-  BadgeCheck,
-  Eye,
-  EyeOff,
-  LoaderCircle,
-  Plus,
-  RefreshCcw,
-  Search,
-  Trash2,
-  Users,
-} from 'lucide-react'
-
-import {
   removeOperatorProfile,
   updateOperatorPassword,
   upsertOperatorProfile,
   useOperatorProfiles,
   useOperatorSession,
 } from '../app/operatorSession'
-import { StageCard } from '../components/StageCard'
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { ModalOverlay } from '../components/ui/ModalOverlay'
@@ -161,7 +147,7 @@ export function UsersPage() {
   const totalAdmins = operatorProfiles.filter((profile) => profile.role === 'admin').length
   const totalOperators = operatorProfiles.filter((profile) => profile.role === 'operator').length
   const nextCreateCode = useMemo(() => generateNextOperatorCode(operatorProfiles), [operatorProfiles])
-  const hasSearch = Boolean(searchText.trim())
+  const hasActiveFilters = Boolean(searchText.trim()) || roleFilter !== 'all' || taskFilter !== 'all'
   const currentSessionKey = operatorSession
     ? profileKey({
         operatorName: operatorSession.operatorName,
@@ -532,279 +518,216 @@ export function UsersPage() {
   }
 
   return (
-    <StageCard title="Users">
-      <div className="grid gap-4">
-        <section className="grid gap-4 rounded-[4px] border border-slate-300 bg-white p-4 lg:p-5">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-            <div className="grid gap-2">
-              <div className="inline-flex w-fit items-center gap-2 rounded-[4px] border border-slate-300 bg-slate-50 px-3 py-1 text-xs uppercase tracking-[0.22em] text-slate-600">
-                <Users className="size-3.5" />
-                [ operators ]
-              </div>
-              <h3 className="text-2xl font-semibold tracking-tight text-slate-950">Kelola user</h3>
-              <p className="max-w-2xl text-sm leading-6 text-slate-500">
-                Tambah, edit, reset password, atau hapus akun operator QC / packing.
-              </p>
-            </div>
+    <div className="users-opencode mx-auto grid w-full max-w-[1520px] gap-8 px-0 py-1">
+      <section className="users-opencode__hero flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="users-opencode__section-label">[+] Administrasi</div>
+          <h1 className="users-opencode__title">Users</h1>
+          <p className="users-opencode__lede">
+            Tambah, edit, reset password, atau hapus akun operator QC dan packing.
+          </p>
+        </div>
+        <Button type="button" className="users-opencode__button" onClick={openCreateModal}>
+          [new-user]
+        </Button>
+      </section>
 
-            <div className="grid gap-2 rounded-[4px] border border-slate-300 bg-slate-50 p-3 text-sm sm:grid-cols-3 xl:min-w-[360px]">
-              <StatLine label="Total" value={operatorProfiles.length} />
-              <StatLine label="Admin" value={totalAdmins} />
-              <StatLine label="Operator" value={totalOperators} />
-            </div>
+      <section className="users-opencode__stats">
+        <StatCard marker="[+]" label="Total user" value={operatorProfiles.length} unit="akun" />
+        <StatCard marker="[x]" label="Admin" value={totalAdmins} unit="akun" />
+        <StatCard marker="[-]" label="Operator" value={totalOperators} unit="akun" />
+      </section>
+
+      <section className="users-opencode__filters users-opencode__filters--inline">
+        <div className="users-opencode__filter-grid">
+          <div className="users-opencode__search-block">
+            <span className="users-opencode__filter-label">search</span>
+            <span className="users-opencode__input-prefix" aria-hidden="true">[?]</span>
+            <Input
+              id="users-search"
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+              placeholder="Cari nama, username, kode..."
+              className="users-opencode__input pl-12"
+              aria-label="Cari user"
+            />
           </div>
 
-          <div className="grid gap-3 rounded-[4px] border border-slate-300 bg-slate-50 p-3">
-            <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_auto_auto] lg:items-end">
-              <div className="grid gap-2">
-                <Label htmlFor="users-search" className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                  Search
-                </Label>
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-                  <Input
-                    id="users-search"
-                    value={searchText}
-                    onChange={(event) => setSearchText(event.target.value)}
-                    placeholder="Nama, kode, role, atau task"
-                    className="h-11 border-slate-300 bg-white pl-10"
-                  />
-                </div>
-              </div>
+          <div className="users-opencode__filter-controls">
+            <FilterGroup
+              label="role"
+              options={[
+                ['all', 'Semua'],
+                ['admin', 'Admin'],
+                ['operator', 'Operator'],
+              ]}
+              value={roleFilter}
+              onChange={(value) => setRoleFilter(value as UserRoleFilter)}
+            />
 
-              <FilterGroup
-                label="Role"
-                options={[
-                  ['all', 'Semua'],
-                  ['admin', 'Admin'],
-                  ['operator', 'Operator'],
-                ]}
-                value={roleFilter}
-                onChange={(value) => setRoleFilter(value as UserRoleFilter)}
-              />
-
-              <FilterGroup
-                label="Task"
-                options={[
-                  ['all', 'Semua'],
-                  ['qc', 'QC'],
-                  ['packing', 'Packing'],
-                ]}
-                value={taskFilter}
-                onChange={(value) => setTaskFilter(value as UserTaskFilter)}
-              />
-            </div>
-
-            <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
-              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                Menampilkan <strong className="text-slate-950">{filteredProfiles.length}</strong> dari {operatorProfiles.length} user
-              </p>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-10 rounded-[4px] border-slate-300 bg-white"
-                  onClick={clearFilters}
-                  disabled={!hasSearch && roleFilter === 'all' && taskFilter === 'all'}
-                >
-                  Bersihkan filter
-                </Button>
-                <Button type="button" className="h-10 rounded-[4px]" onClick={openCreateModal}>
-                  <Plus className="size-4" />
-                  Tambah operator
-                </Button>
-              </div>
-            </div>
+            <FilterGroup
+              label="task"
+              options={[
+                ['all', 'Semua'],
+                ['qc', 'QC'],
+                ['packing', 'Packing'],
+              ]}
+              value={taskFilter}
+              onChange={(value) => setTaskFilter(value as UserTaskFilter)}
+            />
           </div>
 
-          {shouldShowStatusAlert ? (
-            <Alert variant={messageTone === 'error' ? 'destructive' : 'default'}>
-              <div className="grid gap-1">
-                <p className="font-medium">Status</p>
-                <p className="text-sm leading-6 text-current/80">{message}</p>
-              </div>
-            </Alert>
-          ) : null}
-        </section>
+          <div className="users-opencode__filter-actions">
+            <span><strong>{filteredProfiles.length}</strong>/{operatorProfiles.length}</span>
+            <Button type="button" variant="ghost" className="users-opencode__button" onClick={clearFilters} disabled={!hasActiveFilters}>
+              [reset]
+            </Button>
+          </div>
+        </div>
 
-        <Card className="border-slate-300 shadow-none">
-          <CardHeader className="border-b border-slate-300 p-4 lg:p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <CardTitle className="text-lg">Daftar operator</CardTitle>
-              <span className="rounded-[4px] border border-slate-300 bg-slate-50 px-3 py-1 text-xs uppercase tracking-[0.18em] text-slate-600">
-                {filteredProfiles.length} rows
-              </span>
+        {shouldShowStatusAlert ? (
+          <Alert variant={messageTone === 'error' ? 'destructive' : 'default'}>
+            <div className="users-opencode__alert grid gap-1">
+              <p>{messageTone === 'error' ? '[!] Status' : '[+] Status'}</p>
+              <p>{message}</p>
             </div>
-          </CardHeader>
-          <CardContent className="p-4 lg:p-5">
-              <div className="grid gap-3 md:hidden">
+          </Alert>
+        ) : null}
+      </section>
+
+      <section className="users-opencode__table-section overflow-hidden">
+        <div className="users-opencode__table-header flex items-center justify-between px-5 py-4">
+          <div>
+            <h2>[+] Daftar operator</h2>
+            <p>Klik nama operator untuk edit detail akun.</p>
+          </div>
+          <span className="users-opencode__badge">
+            {filteredProfiles.length} hasil
+          </span>
+        </div>
+
+        <div className="p-0">
+          <div className="users-opencode__mobile-list md:hidden">
+            {filteredProfiles.length ? (
+              filteredProfiles.map((profile) => {
+                const key = profileKey(profile)
+                const isSelected = selectedKey === key
+
+                return (
+                  <article key={key} className={isSelected ? 'users-opencode__mobile-card is-selected' : 'users-opencode__mobile-card'}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 grid gap-1">
+                        <button type="button" className="users-opencode__name-button truncate text-left" onClick={() => openEditModal(profile)}>
+                          {profile.fullName ?? profile.operatorName}
+                        </button>
+                        <p className="users-opencode__meta truncate">{profile.operatorCode}</p>
+                      </div>
+                      <RoleBadge role={profile.role} />
+                    </div>
+
+                    <div className="users-opencode__task-grid grid grid-cols-2 gap-3">
+                      <div>
+                        <div className="users-opencode__meta">Task</div>
+                        <div className="mt-1"><TaskBadge taskType={profile.taskType} /></div>
+                      </div>
+                      <div>
+                        <div className="users-opencode__meta">Last used</div>
+                        <div className="mt-1"><DateTimeCell value={profile.lastUsedAt} compact /></div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                      <Button type="button" variant="outline" size="sm" className="users-opencode__button w-full" onClick={() => openEditModal(profile)}>[edit]</Button>
+                      <Button type="button" variant="outline" size="sm" className="users-opencode__button w-full" onClick={() => openResetModal(profile)}>[reset]</Button>
+                      <Button type="button" variant="destructive" size="sm" className="users-opencode__button" onClick={() => openDeleteModal(profile)} aria-label={`Hapus ${profile.fullName ?? profile.operatorName}`}>[delete]</Button>
+                    </div>
+                  </article>
+                )
+              })
+            ) : (
+              <div className="users-opencode__empty">
+                <strong>[-] Belum ada operator yang cocok.</strong>
+                <p>Ubah kata kunci pencarian atau buat operator baru.</p>
+              </div>
+            )}
+          </div>
+
+          <div className="hidden overflow-x-auto md:block">
+            <table className="users-opencode__table w-full min-w-[900px] border-collapse">
+              <thead>
+                <tr>
+                  <Th>Nama</Th>
+                  <Th>Kode</Th>
+                  <Th>Role</Th>
+                  <Th>Tugas</Th>
+                  <Th>Last used</Th>
+                  <Th className="text-right">Aksi</Th>
+                </tr>
+              </thead>
+              <tbody>
                 {filteredProfiles.length ? (
                   filteredProfiles.map((profile) => {
                     const key = profileKey(profile)
-                    const isSelected = selectedKey === key
 
                     return (
-                      <article
-                        key={key}
-                        className={
-                          isSelected
-                            ? 'grid gap-4 rounded-[4px] border border-slate-400 bg-slate-50 p-4'
-                            : 'grid gap-4 rounded-[4px] border border-slate-300 bg-white p-4'
-                        }
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="min-w-0 grid gap-1">
-                            <button
-                              type="button"
-                              className="truncate text-left text-base font-semibold tracking-tight text-slate-950 hover:underline"
-                              onClick={() => openEditModal(profile)}
-                            >
-                              {profile.fullName ?? profile.operatorName}
-                            </button>
-                            <p className="truncate text-sm text-slate-500">{profile.operatorCode}</p>
+                      <tr key={key} className={selectedKey === key ? 'users-opencode__row is-selected table-row' : 'users-opencode__row table-row'}>
+                        <Td>
+                          <div className="flex items-center gap-2">
+                            <div className="users-opencode__avatar">
+                              [{getInitials(profile.fullName ?? profile.operatorName)}]
+                            </div>
+                            <div className="min-w-0">
+                              <button type="button" className="users-opencode__name-button truncate" onClick={() => openEditModal(profile)}>
+                                {profile.fullName ?? profile.operatorName}
+                              </button>
+                              <p className="users-opencode__meta mt-0.5 truncate">{profile.operatorName}</p>
+                            </div>
                           </div>
-                          <RoleBadge role={profile.role} />
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.16em] text-slate-500">
-                          <span>Tugas</span>
-                          <TaskBadge taskType={profile.taskType} />
-                        </div>
-
-                        <div className="grid gap-2 text-sm">
-                          <div className="flex items-start justify-between gap-4">
-                            <span className="text-slate-500">Last used</span>
-                            <span className="text-right font-medium text-slate-950">{formatTableDateTime(profile.lastUsedAt)}</span>
+                        </Td>
+                        <Td>{profile.operatorCode}</Td>
+                        <Td><RoleBadge role={profile.role} /></Td>
+                        <Td><TaskBadge taskType={profile.taskType} /></Td>
+                        <Td className="whitespace-nowrap"><DateTimeCell value={profile.lastUsedAt} /></Td>
+                        <Td>
+                          <div className="row-actions flex items-center justify-end gap-1 opacity-80 transition">
+                            <Button type="button" variant="outline" size="sm" className="users-opencode__button" onClick={() => openEditModal(profile)}>[edit]</Button>
+                            <Button type="button" variant="outline" size="sm" className="users-opencode__button" onClick={() => openResetModal(profile)}>[reset]</Button>
+                            <Button type="button" variant="destructive" size="sm" className="users-opencode__button" onClick={() => openDeleteModal(profile)}>[delete]</Button>
                           </div>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="w-full rounded-[4px] border-slate-300"
-                            onClick={() => openEditModal(profile)}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="w-full rounded-[4px] border-slate-300"
-                            onClick={() => openResetModal(profile)}
-                          >
-                            Reset
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            className="w-full rounded-[4px]"
-                            onClick={() => openDeleteModal(profile)}
-                          >
-                            Hapus
-                          </Button>
-                        </div>
-                      </article>
+                        </Td>
+                      </tr>
                     )
                   })
                 ) : (
-                  <div className="grid gap-2 rounded-[4px] border border-dashed border-slate-300 bg-slate-50 p-6 text-slate-500">
-                    <strong className="text-slate-950">Belum ada operator yang cocok.</strong>
-                    <p>Ubah kata kunci pencarian atau buat operator baru.</p>
-                  </div>
+                  <tr>
+                    <td colSpan={6} className="p-6">
+                      <div className="users-opencode__empty">
+                        <strong>[-] Belum ada operator yang cocok.</strong>
+                        <p>Ubah kata kunci pencarian atau buat operator baru.</p>
+                      </div>
+                    </td>
+                  </tr>
                 )}
-              </div>
-
-              <div className="hidden overflow-hidden rounded-[4px] border border-slate-300 md:block">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full border-separate border-spacing-0">
-                    <thead className="bg-slate-50">
-                      <tr className="text-left text-xs uppercase tracking-[0.18em] text-slate-500">
-                        <Th>Nama</Th>
-                        <Th>Kode</Th>
-                        <Th>Role</Th>
-                        <Th>Tugas</Th>
-                        <Th>Last used</Th>
-                        <Th className="text-right">Aksi</Th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredProfiles.length ? (
-                        filteredProfiles.map((profile) => {
-                          const key = profileKey(profile)
-
-                          return (
-                            <tr
-                              key={key}
-                              className={selectedKey === key ? 'bg-slate-50' : 'bg-white hover:bg-slate-50'}
-                            >
-                              <Td>
-                                <button
-                                  type="button"
-                                  className="font-medium text-slate-950 hover:underline"
-                                  onClick={() => openEditModal(profile)}
-                                >
-                                  {profile.fullName ?? profile.operatorName}
-                                </button>
-                              </Td>
-                              <Td>{profile.operatorCode}</Td>
-                              <Td>
-                                <RoleBadge role={profile.role} />
-                              </Td>
-                              <Td>
-                                <TaskBadge taskType={profile.taskType} />
-                              </Td>
-                              <Td className="whitespace-nowrap text-slate-500">{formatTableDateTime(profile.lastUsedAt)}</Td>
-                              <Td>
-                                <div className="flex flex-wrap justify-end gap-2">
-                                  <Button type="button" variant="outline" size="sm" className="rounded-[4px] border-slate-300" onClick={() => openEditModal(profile)}>
-                                    Edit
-                                  </Button>
-                                  <Button type="button" variant="outline" size="sm" className="rounded-[4px] border-slate-300" onClick={() => openResetModal(profile)}>
-                                    Reset
-                                  </Button>
-                                  <Button type="button" variant="destructive" size="sm" className="rounded-[4px]" onClick={() => openDeleteModal(profile)}>
-                                    Hapus
-                                  </Button>
-                                </div>
-                              </Td>
-                            </tr>
-                          )
-                        })
-                      ) : (
-                        <tr>
-                          <td colSpan={6} className="p-6">
-                            <div className="grid gap-2 rounded-[4px] border border-dashed border-slate-300 bg-slate-50 p-6 text-slate-500">
-                              <strong className="text-slate-950">Belum ada operator yang cocok.</strong>
-                              <p>Ubah kata kunci pencarian atau buat operator baru.</p>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </CardContent>
-        </Card>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
 
         {dialogState === 'form' ? (
-          <ModalOverlay onClose={closeFormModal}>
-            <div className="grid gap-4">
-              <DialogHeader className="flex items-start justify-between gap-4 text-left">
+          <ModalOverlay onClose={closeFormModal} contentClassName="users-opencode__modal">
+            <div className="users-opencode__modal-shell grid gap-4">
+              <DialogHeader className="users-opencode__modal-header flex items-start justify-between gap-4 text-left">
                 <div className="grid gap-1">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                    {formMode === 'edit' ? 'Edit user' : 'Tambah user'}
+                  <p>
+                    {formMode === 'edit' ? '[+] Edit user' : '[+] Tambah user'}
                   </p>
-                  <DialogTitle className="text-xl">
+                  <DialogTitle>
                     {formMode === 'edit'
                       ? `Edit ${formSourceProfile?.operatorName ?? 'user'}`
                       : 'Buat operator baru'}
                   </DialogTitle>
-                  <DialogDescription className="text-sm leading-6 text-slate-500">
+                  <DialogDescription>
                     {formMode === 'edit' ? 'Edit akun operator.' : 'Tambah akun operator.'}
                   </DialogDescription>
                 </div>
@@ -813,16 +736,16 @@ export function UsersPage() {
 
               {formMode === 'edit' && formSourceProfile ? (
                 <Alert variant={isEditingCurrentSession ? 'info' : 'default'}>
-                  <div className="grid gap-1">
-                    <p className="font-medium">
-                      {isEditingCurrentSession ? 'Akun aktif sedang diedit' : 'Mode edit aktif'}
+                  <div className="users-opencode__modal-alert grid gap-1">
+                    <p>
+                      {isEditingCurrentSession ? '[!] Akun aktif sedang diedit' : '[+] Mode edit aktif'}
                     </p>
-                    <p className="text-sm leading-6 text-current/80">
+                    <p>
                       {isEditingCurrentSession
                         ? 'Akun ini sedang dipakai pada sesi login saat ini. Simpan perubahan dengan hati-hati.'
                         : `Perubahan akan diterapkan ke ${formatOperator(formSourceProfile.operatorName, formSourceProfile.operatorCode)}.`}
                     </p>
-                    <p className="text-sm leading-6 text-current/70">
+                    <p>
                       Username dan operator code dikunci saat edit. Gunakan reset password bila hanya ingin mengganti kata sandi.
                     </p>
                   </div>
@@ -850,8 +773,8 @@ export function UsersPage() {
                   readOnly={formMode === 'edit'}
                 />
 
-                <div className="grid gap-2">
-                  <Label className="text-xs uppercase tracking-[0.18em] text-slate-500">Tugas operator</Label>
+                <div className="users-opencode__field grid gap-2">
+                  <Label>Tugas operator</Label>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {TASK_OPTIONS.map((option) => {
                       const checked = operatorTaskType === option.value
@@ -860,15 +783,11 @@ export function UsersPage() {
                         <button
                           key={option.value}
                           type="button"
-                          className={
-                            checked
-                              ? 'grid gap-1 rounded-[4px] border border-slate-950 bg-slate-950 px-4 py-3 text-left text-white'
-                              : 'grid gap-1 rounded-[4px] border border-slate-300 bg-white px-4 py-3 text-left text-slate-950'
-                          }
+                          className={checked ? 'users-opencode__choice is-selected' : 'users-opencode__choice'}
                           onClick={() => setOperatorTaskType(option.value)}
                         >
-                          <strong className="text-sm uppercase tracking-[0.14em]">{option.label}</strong>
-                          <span className={checked ? 'text-xs text-white/75' : 'text-xs text-slate-500'}>
+                          <strong>{checked ? '[x]' : '[+]'} {option.label}</strong>
+                          <span>
                             {option.description}
                           </span>
                         </button>
@@ -890,8 +809,8 @@ export function UsersPage() {
                       tone={codeConflict ? 'error' : 'default'}
                     />
 
-                    <div className="grid gap-2">
-                      <Label className="text-xs uppercase tracking-[0.18em] text-slate-500">operator_role</Label>
+                    <div className="users-opencode__field grid gap-2">
+                      <Label>operator_role</Label>
                       <div className="flex flex-wrap gap-2">
                         {ROLE_OPTIONS.map((option) => {
                           const checked = operatorRole === option.value
@@ -902,9 +821,10 @@ export function UsersPage() {
                               type="button"
                               variant={checked ? 'default' : 'outline'}
                               size="sm"
+                              className="users-opencode__button"
                               onClick={() => setOperatorRole(option.value)}
                             >
-                              {option.label}
+                              {checked ? '[x]' : '[+]'} {option.label}
                             </Button>
                           )
                         })}
@@ -913,26 +833,25 @@ export function UsersPage() {
 
                   </>
                 ) : (
-                  <div className="grid gap-2 rounded-[4px] border border-dashed border-slate-300 bg-slate-50 p-4">
-                    <Label className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                  <div className="users-opencode__auto-code grid gap-2">
+                    <Label>
                       operator_code otomatis
                     </Label>
-                    <strong className="text-2xl tracking-tight text-slate-950">{nextCreateCode}</strong>
-                    <p className="text-sm leading-6 text-slate-500">Kode ini akan dipakai untuk operator baru.</p>
-                    <p className="text-xs leading-5 text-slate-500">
-                      Password awal untuk user baru adalah <span className="font-medium text-slate-950">user123</span>.
+                    <strong>{nextCreateCode}</strong>
+                    <p>Kode ini akan dipakai untuk operator baru.</p>
+                    <p>
+                      Password awal untuk user baru adalah <span>user123</span>.
                     </p>
                   </div>
                 )}
               </div>
 
               <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                <Button type="button" variant="outline" onClick={closeFormModal}>
-                  Batal
+                <Button type="button" variant="outline" className="users-opencode__button" onClick={closeFormModal}>
+                  [cancel]
                 </Button>
-                <Button type="button" onClick={() => void handleSaveForm()}>
-                  <SaveIcon />
-                  Simpan
+                <Button type="button" className="users-opencode__button" onClick={() => void handleSaveForm()}>
+                  [save]
                 </Button>
               </div>
             </div>
@@ -940,15 +859,15 @@ export function UsersPage() {
         ) : null}
 
         {dialogState === 'confirm-save' && pendingSaveAction ? (
-          <ModalOverlay onClose={closeConfirmSaveModal}>
-            <div className="grid gap-4">
-              <DialogHeader className="flex items-start justify-between gap-4 text-left">
+          <ModalOverlay onClose={closeConfirmSaveModal} contentClassName="users-opencode__modal">
+            <div className="users-opencode__modal-shell grid gap-4">
+              <DialogHeader className="users-opencode__modal-header flex items-start justify-between gap-4 text-left">
                 <div className="grid gap-1">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Konfirmasi simpan</p>
-                  <DialogTitle className="text-xl">
+                  <p>[+] Konfirmasi simpan</p>
+                  <DialogTitle>
                     {pendingSaveAction.isEditMode ? `Simpan perubahan ${pendingSaveAction.name}` : `Buat ${pendingSaveAction.name}`}
                   </DialogTitle>
-                  <DialogDescription className="text-sm leading-6 text-slate-500">
+                  <DialogDescription>
                     Lanjutkan hanya jika perubahan ini memang sudah benar.
                   </DialogDescription>
                 </div>
@@ -956,9 +875,9 @@ export function UsersPage() {
               </DialogHeader>
 
               <Alert variant="info">
-                <div className="grid gap-1">
-                  <p className="font-medium">Alasan konfirmasi</p>
-                  <p className="text-sm leading-6 text-current/80">
+                <div className="users-opencode__modal-alert grid gap-1">
+                  <p>[+] Alasan konfirmasi</p>
+                  <p>
                     {[
                       isEditingCurrentSession ? 'Akun ini sedang dipakai pada sesi login aktif.' : null,
                       pendingSaveAction.role === 'admin' && pendingSaveAction.sourceProfile?.role !== 'admin'
@@ -980,11 +899,12 @@ export function UsersPage() {
               </dl>
 
               <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                <Button type="button" variant="outline" onClick={closeConfirmSaveModal}>
-                  Kembali
+                <Button type="button" variant="outline" className="users-opencode__button" onClick={closeConfirmSaveModal}>
+                  [back]
                 </Button>
                 <Button
                   type="button"
+                  className="users-opencode__button"
                   onClick={() => {
                     if (!pendingSaveAction) {
                       return
@@ -993,7 +913,7 @@ export function UsersPage() {
                     void commitSaveAction(pendingSaveAction)
                   }}
                 >
-                  Simpan sekarang
+                  [save-now]
                 </Button>
               </div>
             </div>
@@ -1001,15 +921,15 @@ export function UsersPage() {
         ) : null}
 
         {dialogState === 'reset' && resetTarget ? (
-          <ModalOverlay onClose={() => setResetTarget(null)}>
-            <div className="grid gap-4">
-              <DialogHeader className="flex items-start justify-between gap-4 text-left">
+          <ModalOverlay onClose={() => setResetTarget(null)} contentClassName="users-opencode__modal">
+            <div className="users-opencode__modal-shell grid gap-4">
+              <DialogHeader className="users-opencode__modal-header flex items-start justify-between gap-4 text-left">
                 <div className="grid gap-1">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Reset password</p>
-                  <DialogTitle className="text-xl">
+                  <p>[+] Reset password</p>
+                  <DialogTitle>
                     {formatOperator(resetTarget.operatorName, resetTarget.operatorCode)}
                   </DialogTitle>
-                  <DialogDescription className="text-sm leading-6 text-slate-500">{resetTarget.role}</DialogDescription>
+                  <DialogDescription>{resetTarget.role}</DialogDescription>
                 </div>
                 <DialogCloseButton onClick={() => setResetTarget(null)} />
               </DialogHeader>
@@ -1037,12 +957,11 @@ export function UsersPage() {
               </div>
 
               <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                <Button type="button" variant="outline" onClick={() => setResetTarget(null)} disabled={isResetting}>
-                  Batal
+                <Button type="button" variant="outline" className="users-opencode__button" onClick={() => setResetTarget(null)} disabled={isResetting}>
+                  [cancel]
                 </Button>
-                <Button type="button" onClick={() => void handleResetPassword()} disabled={isResetting}>
-                  {isResetting ? <LoaderCircle className="size-4 animate-spin" /> : <RefreshCcw className="size-4" />}
-                  {isResetting ? 'Menyimpan...' : 'Simpan password'}
+                <Button type="button" className="users-opencode__button" onClick={() => void handleResetPassword()} disabled={isResetting}>
+                  {isResetting ? '[saving]' : '[save-password]'}
                 </Button>
               </div>
             </div>
@@ -1050,15 +969,15 @@ export function UsersPage() {
         ) : null}
 
         {dialogState === 'delete' && deleteTarget ? (
-          <ModalOverlay onClose={() => setDeleteTarget(null)}>
-            <div className="grid gap-4">
-              <DialogHeader className="flex items-start justify-between gap-4 text-left">
+          <ModalOverlay onClose={() => setDeleteTarget(null)} contentClassName="users-opencode__modal">
+            <div className="users-opencode__modal-shell grid gap-4">
+              <DialogHeader className="users-opencode__modal-header flex items-start justify-between gap-4 text-left">
                 <div className="grid gap-1">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Hapus user</p>
-                  <DialogTitle className="text-xl">
+                  <p>[!] Hapus user</p>
+                  <DialogTitle>
                     {deleteTarget.fullName ?? deleteTarget.operatorName}
                   </DialogTitle>
-                  <DialogDescription className="text-sm leading-6 text-slate-500">
+                  <DialogDescription>
                     {deleteTarget.operatorCode} · {deleteTarget.role}
                   </DialogDescription>
                 </div>
@@ -1066,37 +985,49 @@ export function UsersPage() {
               </DialogHeader>
 
               <Alert variant="destructive">
-                <div className="grid gap-1">
-                  <p className="font-medium">Konfirmasi hapus</p>
-                  <p className="text-sm leading-6 text-current/80">
+                <div className="users-opencode__modal-alert is-danger grid gap-1">
+                  <p>[!] Konfirmasi hapus</p>
+                  <p>
                     Data user ini akan dihapus dari daftar operator. Lanjutkan?
                   </p>
                 </div>
               </Alert>
 
               <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                <Button type="button" variant="outline" onClick={() => setDeleteTarget(null)}>
-                  Batal
+                <Button type="button" variant="outline" className="users-opencode__button" onClick={() => setDeleteTarget(null)}>
+                  [cancel]
                 </Button>
-                <Button type="button" variant="destructive" onClick={() => void handleDeleteProfile(deleteTarget)}>
-                  <Trash2 className="size-4" />
-                  Hapus user
+                <Button type="button" variant="destructive" className="users-opencode__button" onClick={() => void handleDeleteProfile(deleteTarget)}>
+                  [delete-user]
                 </Button>
               </div>
             </div>
           </ModalOverlay>
         ) : null}
-      </div>
-    </StageCard>
+    </div>
   )
 }
 
-function StatLine({ label, value }: { label: string; value: number }) {
+function StatCard({
+  marker,
+  label,
+  value,
+  unit,
+}: {
+  marker: string
+  label: string
+  value: number
+  unit: string
+}) {
   return (
-    <div className="flex items-center justify-between gap-4 sm:grid sm:gap-1">
-      <span className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</span>
-      <strong className="text-lg font-semibold tracking-tight text-slate-950">{value}</strong>
-    </div>
+    <article className="users-opencode__stat">
+      <span className="users-opencode__stat-marker">{marker}</span>
+      <div>
+        <p>{label}</p>
+        <strong>{value}</strong>
+        <span>{unit}</span>
+      </div>
+    </article>
   )
 }
 
@@ -1112,20 +1043,20 @@ function FilterGroup({
   onChange: (value: string) => void
 }) {
   return (
-    <div className="grid gap-2">
-      <span className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</span>
-      <div className="flex flex-wrap gap-2 rounded-[4px] border border-slate-300 bg-white p-1">
+    <div className="users-opencode__filter-group grid gap-2">
+      <span>{label}</span>
+      <div className="flex flex-wrap gap-2">
         {options.map(([optionValue, optionLabel]) => (
           <Button
             key={optionValue}
             type="button"
             size="sm"
             variant={value === optionValue ? 'default' : 'ghost'}
-            className="h-8 rounded-[4px] px-3 text-xs uppercase tracking-[0.14em]"
+            className="users-opencode__button"
             onClick={() => onChange(optionValue)}
             aria-pressed={value === optionValue}
           >
-            {optionLabel}
+            {value === optionValue ? '[x]' : '[+]'} {optionLabel}
           </Button>
         ))}
       </div>
@@ -1135,22 +1066,16 @@ function FilterGroup({
 
 function RoleBadge({ role }: { role: OperatorRole }) {
   return (
-    <span
-      className={
-        role === 'admin'
-          ? 'inline-flex rounded-[4px] border border-slate-950 bg-slate-950 px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-white'
-          : 'inline-flex rounded-[4px] border border-slate-300 bg-white px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-slate-700'
-      }
-    >
-      {role}
+    <span className="users-opencode__badge">
+      {role === 'admin' ? '[x]' : '[+]'} {role}
     </span>
   )
 }
 
 function TaskBadge({ taskType }: { taskType: WorkTask }) {
   return (
-    <span className="inline-flex rounded-[4px] border border-slate-300 bg-white px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-slate-700">
-      {taskType}
+    <span className="users-opencode__badge">
+      [+] {taskType}
     </span>
   )
 }
@@ -1168,17 +1093,17 @@ function Field({
   tone?: 'default' | 'error'
 } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <div className="grid gap-2">
-      <Label htmlFor={id} className="text-xs uppercase tracking-[0.18em] text-slate-500">
+    <div className="users-opencode__field grid gap-2">
+      <Label htmlFor={id}>
         {label}
       </Label>
       <Input
         id={id}
-        className={tone === 'error' ? 'h-12 border-rose-200 focus-visible:ring-rose-200' : 'h-12'}
+        className={tone === 'error' ? 'users-opencode__input is-error' : 'users-opencode__input'}
         {...inputProps}
       />
       {helperText ? (
-        <p className={tone === 'error' ? 'text-xs leading-5 text-rose-600' : 'text-xs leading-5 text-slate-500'}>
+        <p className={tone === 'error' ? 'users-opencode__help is-error' : 'users-opencode__help'}>
           {helperText}
         </p>
       ) : null}
@@ -1199,21 +1124,21 @@ function PasswordField({
   onToggle: () => void
 } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <div className="grid gap-2">
-      <Label htmlFor={id} className="text-xs uppercase tracking-[0.18em] text-slate-500">
+    <div className="users-opencode__field grid gap-2">
+      <Label htmlFor={id}>
         {label}
       </Label>
       <div className="relative">
-        <Input id={id} type={showPassword ? 'text' : 'password'} className="h-12 pr-12" {...inputProps} />
+        <Input id={id} type={showPassword ? 'text' : 'password'} className="users-opencode__input pr-12" {...inputProps} />
         <Button
           type="button"
           variant="ghost"
           size="icon-sm"
-          className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-950"
+          className="users-opencode__password-toggle absolute right-1 top-1/2 -translate-y-1/2"
           onClick={onToggle}
           aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
         >
-          {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+          {showPassword ? '[hide]' : '[show]'}
         </Button>
       </div>
     </div>
@@ -1221,15 +1146,45 @@ function PasswordField({
 }
 
 function Th({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <th className={`px-4 py-4 ${className}`}>{children}</th>
+  return <th className={`px-5 py-3 ${className}`}>{children}</th>
 }
 
 function Td({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <td className={`border-t border-slate-100 px-4 py-4 align-top text-sm text-slate-700 ${className}`}>{children}</td>
+  return <td className={`px-5 py-4 align-top ${className}`}>{children}</td>
 }
 
-function SaveIcon() {
-  return <BadgeCheck className="size-4" />
+function DateTimeCell({ value, compact = false }: { value: string; compact?: boolean }) {
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return <span>{value}</span>
+  }
+
+  const dateLabel = new Intl.DateTimeFormat('id-ID', { dateStyle: compact ? 'short' : 'medium' }).format(date)
+  const timeLabel = new Intl.DateTimeFormat('id-ID', { timeStyle: 'short' }).format(date)
+
+  if (compact) {
+    return <span>{dateLabel} · {timeLabel}</span>
+  }
+
+  return (
+    <div className="users-opencode__datetime">
+      <div>{dateLabel}</div>
+      <div>{timeLabel}</div>
+    </div>
+  )
+}
+
+function getInitials(value: string) {
+  const initials = value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('')
+
+  return initials || 'US'
 }
 
 function DetailRow({
@@ -1240,9 +1195,9 @@ function DetailRow({
   value: ReactNode
 }) {
   return (
-    <div className="grid gap-1 rounded-[4px] border border-slate-300 bg-white p-4">
-      <dt className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</dt>
-      <dd className="text-sm leading-6 text-slate-950 [overflow-wrap:anywhere]">{value}</dd>
+    <div className="users-opencode__detail-row grid gap-1">
+      <dt>{label}</dt>
+      <dd>{value}</dd>
     </div>
   )
 }
@@ -1259,19 +1214,6 @@ function generateNextOperatorCode(profiles: OperatorProfile[]) {
     }, 0) + 1
 
   return String(nextNumber).padStart(3, '0')
-}
-
-function formatTableDateTime(value: string) {
-  const date = new Date(value)
-
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-
-  return new Intl.DateTimeFormat('id-ID', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  }).format(date)
 }
 
 function formatOperator(operatorName: string, operatorCode: string) {

@@ -1,11 +1,8 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, CheckCircle2, Database, HardDriveDownload, RefreshCcw, ShieldAlert, Sparkles, SquareActivity, XCircle } from 'lucide-react'
 
-import { StageCard } from '../components/StageCard'
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
-import { Separator } from '../components/ui/separator'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { ModalOverlay } from '../components/ui/ModalOverlay'
 import { DialogCloseButton } from '../components/ui/dialog'
 import { DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog'
@@ -161,136 +158,68 @@ export function HealthPage() {
     },
   ] as const
 
-  const dataStats = [
-    { label: 'Settings', value: String(Object.keys(serverHealth?.settings ?? {}).length), icon: Database },
-    { label: 'Recordings', value: String(serverHealth?.storage?.counts?.recordings ?? 0), icon: HardDriveDownload },
-    { label: 'Scan logs', value: String(serverHealth?.storage?.counts?.scanLogs ?? 0), icon: SquareActivity },
-    { label: 'Last error', value: serverHealth?.lastError ? '1' : '0', icon: AlertTriangle },
-  ] as const
-
   return (
-    <StageCard title="Health">
-      <div className="grid gap-4">
-        <section className="grid gap-4 rounded-[2rem] border border-slate-200/80 bg-gradient-to-br from-white to-slate-50 p-4 shadow-xl shadow-slate-900/5 lg:p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="grid gap-2">
-              <div className="inline-flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs uppercase tracking-[0.22em] text-slate-500">
-                <Sparkles className="size-3.5" />
-                System diagnostics
-              </div>
-              <h3 className="text-2xl font-semibold tracking-tight text-slate-950">Status kesehatan aplikasi</h3>
-              <p className="max-w-3xl text-sm leading-6 text-slate-500">
-                Halaman ini memperlihatkan status runtime, ringkasan data server, serta akses cepat untuk membersihkan data
-                bila diperlukan.
-              </p>
-            </div>
-
-            <Card className="border-slate-200/80 bg-white shadow-sm shadow-slate-900/5">
-              <CardContent className="grid gap-2 p-4 text-sm text-slate-500">
-                <div className="flex items-center justify-between gap-10">
-                  <span>Version</span>
-                  <strong className="text-slate-950">{buildInfo.version}</strong>
-                </div>
-                <div className="flex items-center justify-between gap-10">
-                  <span>Build time</span>
-                  <strong className="text-slate-950">{buildInfo.buildTime}</strong>
-                </div>
-              </CardContent>
-            </Card>
+    <div className="health-opencode mx-auto grid w-full max-w-[1520px] gap-5 px-0 py-1">
+        <section className="health-opencode__summary flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="grid gap-2">
+            <div className="health-opencode__section-label">[+] Health</div>
+            <h1 className="health-opencode__title">Health</h1>
           </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {dataStats.map((item) => {
-              const Icon = item.icon
-              return (
-                <Card key={item.label} className="border-slate-200/80 shadow-sm shadow-slate-900/5">
-                  <CardContent className="space-y-3 p-4">
-                    <div className="flex items-center justify-between gap-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{item.label}</p>
-                      <div className="grid size-9 place-items-center rounded-xl bg-slate-950 text-white">
-                        <Icon className="size-4" />
-                      </div>
-                    </div>
-                    <div className="text-3xl font-semibold tracking-tight text-slate-950">{item.value}</div>
-                  </CardContent>
-                </Card>
-              )
-            })}
+          <div className="flex flex-wrap gap-2">
+            <span className="health-opencode__badge">v{buildInfo.version}</span>
+            <span className="health-opencode__badge">{serverHealth ? '[x] server' : '[!] server'}</span>
           </div>
         </section>
 
         <Alert variant={serverHealth ? 'info' : 'destructive'}>
-          <div className="grid gap-1">
-            <p className="font-medium">Status server</p>
-            <p className="text-sm leading-6 text-current/80">{loading ? 'Memuat ringkasan server...' : message}</p>
+          <div className="health-opencode__alert grid gap-1">
+            <p>{serverHealth ? '[x]' : '[!]'} Status server</p>
+            <p>{loading ? 'Memuat ringkasan server...' : message}</p>
           </div>
         </Alert>
 
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-          <Card className="border-slate-200/80 shadow-xl shadow-slate-900/5">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card className="health-opencode__panel">
             <CardHeader className="space-y-2">
-              <CardTitle className="text-lg">Runtime checks</CardTitle>
-              <CardDescription>Komponen browser dan platform yang dibutuhkan aplikasi.</CardDescription>
+              <CardTitle>Runtime checks</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 pt-4">
               {runtimeChecks.map((check) => (
                 <div
                   key={check.label}
-                  className="flex items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4"
+                  className="health-opencode__check-row"
                 >
                   <div className="min-w-0">
-                    <div className="font-medium text-slate-950">{check.label}</div>
-                    <p className="mt-1 text-sm leading-6 text-slate-500">{check.description}</p>
+                    <div>{check.label}</div>
                   </div>
-                  <span
-                    className={
-                      check.value
-                        ? 'inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700'
-                        : 'inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700'
-                    }
-                  >
-                    {check.value ? <CheckCircle2 className="size-3.5" /> : <XCircle className="size-3.5" />}
-                      {check.value ? 'OK' : 'Missing'}
+                  <span className="health-opencode__badge">
+                    {check.value ? '[x] OK' : '[!] Missing'}
                     </span>
                   </div>
                 ))}
             </CardContent>
           </Card>
 
-          <Card className="border-slate-200/80 shadow-xl shadow-slate-900/5">
+          <Card className="health-opencode__panel">
             <CardHeader className="space-y-2">
-              <CardTitle className="text-lg">Data overview</CardTitle>
-              <CardDescription>Ringkasan data yang tersimpan di server saat ini.</CardDescription>
+              <CardTitle>Server data</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 pt-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Recordings</p>
-                  <strong className="mt-2 block text-2xl tracking-tight text-slate-950">
-                    {serverHealth?.storage?.counts?.recordings ?? 0}
-                  </strong>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">File video yang sudah direkam dan dicatat.</p>
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Scan logs</p>
-                  <strong className="mt-2 block text-2xl tracking-tight text-slate-950">
-                    {serverHealth?.storage?.counts?.scanLogs ?? 0}
-                  </strong>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">Log aktivitas scan, QC, dan packing.</p>
-                </div>
+              <div className="grid gap-2">
+                <DataLine label="Recordings" value={serverHealth?.storage?.counts?.recordings ?? 0} />
+                <DataLine label="Scan logs" value={serverHealth?.storage?.counts?.scanLogs ?? 0} />
+                <DataLine label="Operators" value={serverHealth?.storage?.counts?.operatorProfiles ?? 0} />
+                <DataLine label="Sessions" value={serverHealth?.storage?.counts?.sessions ?? 0} />
               </div>
-
-              <Separator />
 
               {serverHealth?.lastError ? (
               <Alert variant="destructive">
-                  <div className="grid gap-3">
-                    <p className="flex items-center gap-2 font-medium">
-                      <ShieldAlert className="size-4" />
-                      Last error
+                  <div className="health-opencode__alert grid gap-3">
+                    <p>
+                      [!] Last error
                     </p>
-                    <p className="leading-6 text-current/80">{serverHealth.lastError.message}</p>
-                    <p className="text-xs uppercase tracking-[0.18em] text-current/70">{serverHealth.lastError.createdAt}</p>
+                    <p>{serverHealth.lastError.message}</p>
+                    <p>{serverHealth.lastError.createdAt}</p>
                     <div>
                       <Button
                         type="button"
@@ -298,32 +227,29 @@ export function HealthPage() {
                         size="sm"
                         onClick={() => void clearServerLastErrorApi().then(() => refreshHealth())}
                       >
-                        Clear error
+                        [clear-error]
                       </Button>
                     </div>
                   </div>
                 </Alert>
               ) : (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                  Belum ada error terakhir.
+                <div className="health-opencode__empty">
+                  [-] Belum ada error terakhir.
                 </div>
               )}
             </CardContent>
           </Card>
         </div>
 
-        <Card className="border-rose-200/80 bg-gradient-to-br from-white to-rose-50/70 shadow-xl shadow-slate-900/5">
+        <Card className="health-opencode__panel">
           <CardHeader className="space-y-2">
-            <CardTitle className="text-lg text-slate-950">Reset data</CardTitle>
-            <CardDescription>
-              Gunakan aksi ini hanya jika perlu membersihkan data proses atau menghapus seluruh data Pakti.
-            </CardDescription>
+            <CardTitle>Reset data</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 pt-4">
             <Alert variant="info">
               <div className="grid gap-1">
-                <p className="font-medium">Perhatian</p>
-                <p className="text-sm leading-6 text-current/80">
+                <p>[!] Perhatian</p>
+                <p>
                   Reset scan menghapus data QC, packing, recording, dan log. Reset all akan menghapus seluruh data server
                   termasuk user dan session login.
                 </p>
@@ -334,13 +260,13 @@ export function HealthPage() {
               <Button
                 type="button"
                 variant="outline"
-                className="border-slate-200 bg-white"
+                className="health-opencode__button"
                 onClick={() => setActiveModal('scan')}
               >
-                Hapus data scan
+                [clear-scan]
               </Button>
-              <Button type="button" variant="destructive" onClick={() => setActiveModal('all')}>
-                Hapus semua data
+              <Button type="button" variant="destructive" className="health-opencode__button" onClick={() => setActiveModal('all')}>
+                [clear-all]
               </Button>
             </div>
           </CardContent>
@@ -369,8 +295,16 @@ export function HealthPage() {
             disabled={loading}
           />
         ) : null}
-      </div>
-    </StageCard>
+    </div>
+  )
+}
+
+function DataLine({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="health-opencode__list-row">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   )
 }
 
@@ -392,34 +326,33 @@ function ConfirmDialog({
   disabled?: boolean
 }) {
   return (
-    <ModalOverlay onClose={onCancel} contentClassName="max-w-lg">
+    <ModalOverlay onClose={onCancel} contentClassName="health-opencode__modal max-w-lg">
       <div className="grid gap-4">
-        <DialogHeader className="flex-row items-start justify-between gap-4">
+        <DialogHeader className="health-opencode__modal-header flex-row items-start justify-between gap-4">
           <div className="grid gap-2">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Peringatan</p>
+            <p>{tone === 'danger' ? '[!]' : '[+]'} Peringatan</p>
             <DialogTitle
               id={tone === 'danger' ? 'health-reset-title' : 'health-reset-scan-title'}
-              className="text-lg font-semibold tracking-tight text-slate-950"
             >
               {title}
             </DialogTitle>
-            <DialogDescription className="text-sm leading-6 text-slate-500">{description}</DialogDescription>
+            <DialogDescription>{description}</DialogDescription>
           </div>
           <DialogCloseButton onClick={onCancel} />
         </DialogHeader>
 
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Batal
+          <Button type="button" variant="outline" className="health-opencode__button" onClick={onCancel}>
+            [cancel]
           </Button>
           <Button
             type="button"
             variant={tone === 'danger' ? 'destructive' : 'default'}
+            className="health-opencode__button"
             onClick={() => void onConfirm()}
             disabled={disabled}
           >
-            <RefreshCcw className="size-4" />
-            {confirmLabel}
+            [{confirmLabel.toLowerCase().replaceAll(' ', '-')}]
           </Button>
         </div>
       </div>

@@ -18,7 +18,7 @@ export const NAV_ITEMS: Array<{
   {
     id: 'history',
     label: 'History',
-    hint: 'Riwayat rekaman',
+    hint: 'Riwayat dokumentasi',
     icon: 'history',
     group: 'operasional',
   },

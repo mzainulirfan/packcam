@@ -1,31 +1,29 @@
-import { AlertCircle, CheckCircle2, Info } from 'lucide-react'
-
 import { Card, CardContent } from '@/components/ui/card'
 import { dismissToast, useToasts } from '@/app/toastState'
 
-function getToastIcon(variant: 'default' | 'info' | 'success' | 'destructive') {
+function getToastMarker(variant: 'default' | 'info' | 'success' | 'destructive') {
   switch (variant) {
     case 'destructive':
-      return AlertCircle
+      return '[!]'
     case 'success':
-      return CheckCircle2
+      return '[x]'
     case 'info':
-      return Info
+      return '[+]'
     default:
-      return Info
+      return '[-]'
   }
 }
 
-function getToastTone(variant: 'default' | 'info' | 'success' | 'destructive') {
+function getToastLabel(variant: 'default' | 'info' | 'success' | 'destructive') {
   switch (variant) {
     case 'destructive':
-      return 'border-rose-200 bg-rose-50 text-rose-950'
+      return 'error'
     case 'success':
-      return 'border-emerald-200 bg-emerald-50 text-emerald-950'
+      return 'ok'
     case 'info':
-      return 'border-sky-200 bg-sky-50 text-sky-950'
+      return 'info'
     default:
-      return 'border-slate-200 bg-white text-slate-950'
+      return 'note'
   }
 }
 
@@ -37,32 +35,27 @@ export function ToastViewport() {
   }
 
   return (
-    <div className="pointer-events-none fixed right-4 top-4 z-[80] grid w-[min(24rem,calc(100vw-2rem))] gap-3">
-      {toasts.map((toast) => {
-        const Icon = getToastIcon(toast.variant)
-
-        return (
-          <Card key={toast.id} className={`pointer-events-auto shadow-xl shadow-slate-900/10 ${getToastTone(toast.variant)}`}>
-            <CardContent className="flex items-start gap-3 p-4">
-              <div className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl bg-slate-950 text-white">
-                <Icon className="size-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium leading-6">{toast.title}</p>
-                {toast.description ? <p className="mt-1 text-sm leading-6 text-current/75">{toast.description}</p> : null}
-              </div>
-              <button
-                type="button"
-                className="rounded-full border border-transparent px-2 py-1 text-sm text-current/60 transition hover:text-current"
-                onClick={() => dismissToast(toast.id)}
-                aria-label="Tutup toast"
-              >
-                ×
-              </button>
-            </CardContent>
-          </Card>
-        )
-      })}
+    <div className="pointer-events-none fixed right-4 top-4 z-[80] grid w-[min(26rem,calc(100vw-2rem))] gap-2">
+      {toasts.map((toast) => (
+        <Card key={toast.id} className="toast-opencode pointer-events-auto" data-variant={toast.variant}>
+          <CardContent className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 p-3">
+            <span className="toast-opencode__marker">{getToastMarker(toast.variant)}</span>
+            <div className="min-w-0">
+              <div className="toast-opencode__meta">{getToastLabel(toast.variant)}</div>
+              <p className="toast-opencode__title">{toast.title}</p>
+              {toast.description ? <p className="toast-opencode__description">{toast.description}</p> : null}
+            </div>
+            <button
+              type="button"
+              className="toast-opencode__close"
+              onClick={() => dismissToast(toast.id)}
+              aria-label="Tutup toast"
+            >
+              [x]
+            </button>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   )
 }

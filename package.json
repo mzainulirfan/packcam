@@ -17,6 +17,7 @@
     "dev:mobile": "npm run dev -w @pakti/mobile",
     "api:dev": "npm run dev:backend",
     "api:start": "npm run start -w @pakti/backend",
+    "backup": "node scripts/backup-pakti.mjs",
     "migrate:videos": "node scripts/migrate-video-storage.mjs",
     "clean:build": "node scripts/clean-build.mjs",
     "smoke": "node scripts/smoke.mjs",

@@ -82,6 +82,19 @@ export type BootstrapStatusPayload = {
   operatorCount: number
 }
 
+export type HistoryRecordingsQuery = {
+  search?: string
+  taskType?: 'all' | 'qc' | 'packing'
+  operator?: string
+  dateFrom?: string
+  dateTo?: string
+}
+
+export type HistoryRecordingsPayload = {
+  records: RecordingRow[]
+  totalRecords: number
+}
+
 function normalizeRecordingRow(record: ServerRecordingRow): RecordingRow {
   return {
     id: record.id,
@@ -301,6 +314,24 @@ export function updateServerSessionTaskApi(taskType: 'qc' | 'packing') {
 export function readServerRecordingsApi() {
   return requestApi<ServerRecordingRow[]>('/api/recordings')
     .then((records) => records.map(normalizeRecordingRow))
+}
+
+export function readServerHistoryRecordingsApi(query: HistoryRecordingsQuery = {}) {
+  const params = new URLSearchParams()
+
+  if (query.search?.trim()) params.set('search', query.search.trim())
+  if (query.taskType && query.taskType !== 'all') params.set('taskType', query.taskType)
+  if (query.operator?.trim() && query.operator !== 'all') params.set('operator', query.operator.trim())
+  if (query.dateFrom?.trim()) params.set('dateFrom', query.dateFrom.trim())
+  if (query.dateTo?.trim()) params.set('dateTo', query.dateTo.trim())
+
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+
+  return requestApi<{ records: ServerRecordingRow[]; totalRecords: number }>(`/api/history/recordings${suffix}`)
+    .then((payload) => ({
+      records: payload.records.map(normalizeRecordingRow),
+      totalRecords: payload.totalRecords,
+    }))
 }
 
 export function readServerRecordingsByResiApi(resiNumber: string) {

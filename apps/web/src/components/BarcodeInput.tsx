@@ -1,7 +1,5 @@
 import type { KeyboardEvent, RefObject } from 'react'
 
-import { ScanLine, Trash2 } from 'lucide-react'
-
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
@@ -26,9 +24,9 @@ export function BarcodeInput({
   placeholder = 'Scan resi lalu tekan Enter',
 }: BarcodeInputProps) {
   return (
-    <div className="grid gap-4">
-      <div className="grid gap-2">
-        <Label htmlFor="barcode-input" className="text-xs uppercase tracking-[0.18em] text-slate-500">
+    <div className="scan-opencode__barcode grid gap-4">
+      <div className="scan-opencode__field grid gap-2">
+        <Label htmlFor="barcode-input">
           Barcode scanner
         </Label>
         <Input
@@ -43,18 +41,16 @@ export function BarcodeInput({
           onChange={(event) => onValueChange(event.target.value)}
           onKeyDown={onKeyDown}
           placeholder={placeholder}
-          className="h-12"
+          className="scan-opencode__input"
         />
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row">
-        <Button type="button" className="flex-1" onClick={onSubmit}>
-          <ScanLine className="size-4" />
-          Proses scan
+        <Button type="button" className="scan-opencode__button flex-1" onClick={onSubmit}>
+          [process-scan]
         </Button>
-        <Button type="button" variant="outline" className="flex-1 border-slate-200" onClick={onClear}>
-          <Trash2 className="size-4" />
-          Bersihkan
+        <Button type="button" variant="outline" className="scan-opencode__button flex-1" onClick={onClear}>
+          [clear]
         </Button>
       </div>
     </div>

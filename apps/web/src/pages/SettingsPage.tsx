@@ -1,15 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Copy, FolderOpen, Monitor, RefreshCcw, Save, ScanSearch, Settings2, Sparkles } from 'lucide-react'
 
-import { StageCard } from '../components/StageCard'
-import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert'
+import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Separator } from '../components/ui/separator'
 import { DEFAULT_SYSTEM_CONFIG, DEFAULT_VIDEO_BITRATE, DEFAULT_VIDEO_RESOLUTION, DEFAULT_VIDEO_ROOT_PATH } from '@pakti/shared/defaults'
 import { notify } from '../app/notify'
@@ -113,16 +110,6 @@ export function SettingsPage() {
       active = false
     }
   }, [])
-
-  const liveSummary = useMemo(
-    () => [
-      { label: 'Folder video', value: settings.videoRootPath || DEFAULT_VIDEO_ROOT_PATH, icon: FolderOpen },
-      { label: 'Format rekaman', value: settings.videoFormat.toUpperCase(), icon: ScanSearch },
-      { label: 'Resolusi', value: settings.videoResolution || DEFAULT_VIDEO_RESOLUTION, icon: Monitor },
-      { label: 'Bitrate', value: settings.videoBitrate || DEFAULT_VIDEO_BITRATE, icon: Settings2 },
-    ],
-    [settings],
-  )
 
   const isOperationalDirty = !areAppSettingsEqual(settings, savedSettings)
   const isBrandingDirty = !areSystemConfigEqual(systemConfig, savedSystemConfig)
@@ -297,149 +284,69 @@ export function SettingsPage() {
   }
 
   return (
-    <StageCard title="Settings">
-      <div className="grid gap-4">
-        <section className="grid gap-4 rounded-[2rem] border border-slate-200/80 bg-gradient-to-br from-white to-slate-50 p-4 shadow-xl shadow-slate-900/5 lg:p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="grid gap-2">
-              <div className="inline-flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs uppercase tracking-[0.22em] text-slate-500">
-                <Sparkles className="size-3.5" />
-                System settings
-              </div>
-              <h3 className="text-2xl font-semibold tracking-tight text-slate-950">Konfigurasi Pakti</h3>
-              <p className="max-w-3xl text-sm leading-6 text-slate-500">
-                Atur konfigurasi operasional dan branding secara terpisah supaya pengaturan tetap ringkas dan mudah
-                dipelihara.
-              </p>
+    <div className="settings-opencode mx-auto grid w-full max-w-[1520px] gap-8 px-0 py-1">
+      <section className="settings-opencode__hero flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="grid gap-2">
+          <div className="settings-opencode__section-label">[+] Settings</div>
+          <h1 className="settings-opencode__title">Settings</h1>
+        </div>
+        <strong className="settings-opencode__badge">
+          {serverStatus === 'online' ? '[x]' : serverStatus === 'offline' ? '[!]' : '[~]'} {serverStatusLabel}
+        </strong>
+      </section>
+
+      <div className="grid gap-6">
+        {shouldShowStatusAlert ? (
+          <Alert variant={statusAlertVariant}>
+            <div className="grid gap-1">
+              {serverStatus === 'offline' ? <p>{sourceMessage}</p> : null}
+              {isOperationalDirty ? <p>{saveMessage}</p> : null}
+              {isBrandingDirty ? <p>{brandingMessage}</p> : null}
             </div>
+          </Alert>
+        ) : null}
 
-            <Card className="min-w-0 border-slate-200/80 bg-white shadow-sm shadow-slate-900/5">
-              <CardContent className="grid gap-3 p-4 text-sm text-slate-500">
-                <div className="flex min-w-0 items-center justify-between gap-4">
-                  <span>Status server</span>
-                  <strong
-                    className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
-                      serverStatus === 'online'
-                        ? 'bg-emerald-50 text-emerald-700'
-                        : serverStatus === 'offline'
-                          ? 'bg-rose-50 text-rose-700'
-                          : 'bg-slate-100 text-slate-600'
-                    }`}
-                  >
-                    {serverStatusLabel}
-                  </strong>
-                </div>
-                <div className="flex min-w-0 items-center justify-between gap-4">
-                  <span>Operasional</span>
-                  <strong className="min-w-0 truncate text-right text-slate-950">
-                    {operationalSavedAt || 'Belum tersimpan di sesi ini'}
-                  </strong>
-                </div>
-                <div className="flex min-w-0 items-center justify-between gap-4">
-                  <span>Branding</span>
-                  <strong className="min-w-0 truncate text-right text-slate-950">
-                    {brandingSavedAt || 'Belum tersimpan di sesi ini'}
-                  </strong>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {liveSummary.map((item) => {
-              const Icon = item.icon
-              return (
-                <Card key={item.label} className="border-slate-200/80 shadow-sm shadow-slate-900/5">
-                  <CardContent className="space-y-3 p-4">
-                    <div className="flex items-center justify-between gap-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{item.label}</p>
-                      <div className="grid size-9 place-items-center rounded-xl bg-slate-950 text-white">
-                        <Icon className="size-4" />
-                      </div>
-                    </div>
-                    <div className="min-w-0 break-all text-sm font-medium leading-6 text-slate-950">
-                      {item.value}
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
-
-          {shouldShowStatusAlert ? (
-            <Alert variant={statusAlertVariant}>
-              <div className="grid gap-2">
-                <AlertTitle>Status settings</AlertTitle>
-                <AlertDescription className="grid gap-1">
-                  {serverStatus === 'offline' ? <span>{sourceMessage}</span> : null}
-                  {isOperationalDirty ? <span>{saveMessage}</span> : null}
-                  {isBrandingDirty ? <span>{brandingMessage}</span> : null}
-                </AlertDescription>
-              </div>
-            </Alert>
-          ) : null}
-        </section>
-
-        <Tabs defaultValue="operational" className="grid gap-4">
-          <div className="flex justify-start">
-            <TabsList variant="line" className="w-full sm:w-auto">
-              <TabsTrigger value="operational" className="gap-2">
-                <span>Operational</span>
-                {isOperationalDirty ? <span className="size-2 rounded-full bg-amber-500" aria-hidden="true" /> : null}
-              </TabsTrigger>
-              <TabsTrigger value="branding" className="gap-2">
-                <span>Brand identity</span>
-                {isBrandingDirty ? <span className="size-2 rounded-full bg-amber-500" aria-hidden="true" /> : null}
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          <TabsContent value="operational" className="grid gap-4">
-            <Card className="border-slate-200/80 shadow-xl shadow-slate-900/5">
+        <div className="settings-opencode__simple-grid">
+            <Card className="settings-opencode__panel">
               <CardHeader className="space-y-2">
-                <CardTitle className="text-lg">Operational settings</CardTitle>
-                <CardDescription>Pengaturan yang memengaruhi kamera, penyimpanan, dan format rekaman.</CardDescription>
+                <CardTitle>Operational</CardTitle>
+                <p>{operationalSavedAt || 'Belum tersimpan di sesi ini'}</p>
               </CardHeader>
               <CardContent className="space-y-5 pt-4">
                 <div className="grid gap-4">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="settings-opencode__folder-box">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div className="grid gap-1">
-                        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Folder aktif</p>
-                        <p className="break-all text-sm font-medium text-slate-950">{settings.videoRootPath}</p>
+                        <p>{settings.videoRootPath}</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <Button type="button" variant="outline" size="sm" className="border-slate-200 bg-white" onClick={() => void handleCopyVideoFolder()}>
-                          <Copy className="size-4" />
-                          Copy path
+                        <Button type="button" variant="outline" size="sm" className="settings-opencode__button" onClick={() => void handleCopyVideoFolder()}>
+                          [copy-path]
                         </Button>
-                        <Button type="button" variant="outline" size="sm" className="border-slate-200 bg-white" onClick={handleOpenVideoFolder}>
-                          <FolderOpen className="size-4" />
-                          Open folder
+                        <Button type="button" variant="outline" size="sm" className="settings-opencode__button" onClick={handleOpenVideoFolder}>
+                          [open-folder]
                         </Button>
                       </div>
                     </div>
                   </div>
 
                   <div className="flex flex-col gap-3 sm:flex-row">
-                    <Button type="button" size="sm" variant="outline" className="border-slate-200" onClick={() => void handleChooseVideoFolder()}>
-                      <FolderOpen className="size-4" />
-                      Pilih folder
+                    <Button type="button" size="sm" variant="outline" className="settings-opencode__button" onClick={() => void handleChooseVideoFolder()}>
+                      [choose-folder]
                     </Button>
-                    <Button type="button" size="sm" variant="outline" className="border-slate-200" onClick={handleResetOperational}>
-                      <RefreshCcw className="size-4" />
-                      Reset operational
+                    <Button type="button" size="sm" variant="outline" className="settings-opencode__button" onClick={handleResetOperational}>
+                      [reset-operational]
                     </Button>
                   </div>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
-                  <FieldGroup controlId="settings-format-input" label="video_format" description="Format default hasil rekaman.">
+                  <FieldGroup controlId="settings-format-input" label="video_format">
                     <Select
                       value={settings.videoFormat}
                       onValueChange={(value) => updateField('videoFormat', value as AppSettings['videoFormat'])}
                     >
-                      <SelectTrigger id="settings-format-input" className="h-12 w-full">
+                      <SelectTrigger id="settings-format-input" className="settings-opencode__input w-full">
                         <SelectValue placeholder="Pilih format" />
                       </SelectTrigger>
                       <SelectContent>
@@ -451,23 +358,23 @@ export function SettingsPage() {
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
-                  <FieldGroup controlId="settings-resolution-input" label="video_resolution" description="Contoh: 1280x720.">
+                  <FieldGroup controlId="settings-resolution-input" label="video_resolution">
                     <Input
                       id="settings-resolution-input"
                       value={settings.videoResolution}
                       onChange={(event) => updateField('videoResolution', event.target.value)}
                       placeholder={DEFAULT_VIDEO_RESOLUTION}
-                      className="h-12 min-w-0"
+                      className="settings-opencode__input"
                     />
                   </FieldGroup>
 
-                  <FieldGroup controlId="settings-bitrate-input" label="video_bitrate" description="Angka dalam bps.">
+                  <FieldGroup controlId="settings-bitrate-input" label="video_bitrate">
                     <Input
                       id="settings-bitrate-input"
                       value={settings.videoBitrate}
                       onChange={(event) => updateField('videoBitrate', event.target.value)}
                       placeholder={DEFAULT_VIDEO_BITRATE}
-                      className="h-12 min-w-0"
+                      className="settings-opencode__input"
                     />
                   </FieldGroup>
                 </div>
@@ -475,13 +382,12 @@ export function SettingsPage() {
                 <FieldGroup
                   controlId="settings-camera-input"
                   label="camera_device_id"
-                  description="Pilih device kamera yang dipakai preview dan recording."
                 >
                   <Select
                     value={settings.cameraDeviceId || '__default__'}
                     onValueChange={(value) => updateField('cameraDeviceId', value === '__default__' ? '' : value)}
                   >
-                    <SelectTrigger id="settings-camera-input" className="h-12 w-full">
+                    <SelectTrigger id="settings-camera-input" className="settings-opencode__input w-full">
                       <SelectValue placeholder="Default camera" />
                     </SelectTrigger>
                     <SelectContent>
@@ -497,95 +403,81 @@ export function SettingsPage() {
                   </Select>
                 </FieldGroup>
 
-                <FieldGroup controlId="settings-auto-open-input" label="auto_open_folder" description="Buka folder video setelah rekaman selesai.">
-                  <label className="flex min-w-0 items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <FieldGroup controlId="settings-auto-open-input" label="auto_open_folder">
+                  <label className="settings-opencode__check-row flex min-w-0 items-start gap-3">
                     <input
                       id="settings-auto-open-input"
                       type="checkbox"
                       checked={settings.autoOpenFolder}
                       onChange={(event) => updateField('autoOpenFolder', event.target.checked)}
-                      className="size-4 rounded border-slate-300 text-slate-950 focus:ring-slate-950/10"
+                      className="size-4"
                     />
-                    <span className="min-w-0 text-sm leading-6 text-slate-700">Aktifkan pembukaan folder otomatis.</span>
+                    <span>Aktifkan pembukaan folder otomatis.</span>
                   </label>
                 </FieldGroup>
 
                 <Separator />
 
                 <div className="flex flex-col gap-3 sm:flex-row">
-                  <Button type="button" size="lg" onClick={handleSave}>
-                    <Save className="size-4" />
-                    Simpan pengaturan
+                  <Button type="button" size="lg" className="settings-opencode__button" onClick={handleSave}>
+                    [save-settings]
                   </Button>
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
 
-          <TabsContent value="branding" className="grid gap-4">
-            <Card className="border-slate-200/80 shadow-xl shadow-slate-900/5">
+            <Card className="settings-opencode__panel">
               <CardHeader className="space-y-2">
-                <CardTitle className="text-lg">Brand identity</CardTitle>
-                <CardDescription>Identitas sistem yang tampil di login, sidebar, dan header aplikasi.</CardDescription>
+                <CardTitle>Branding</CardTitle>
+                <p>{brandingSavedAt || 'Belum tersimpan di sesi ini'}</p>
               </CardHeader>
               <CardContent className="space-y-5 pt-4">
                 <div className="grid gap-4">
-                  <FieldGroup controlId="branding-app-name-input" label="app_name" description="Nama aplikasi di sidebar dan title browser.">
+                  <FieldGroup controlId="branding-app-name-input" label="app_name">
                     <Input
                       id="branding-app-name-input"
                       value={systemConfig.appName}
                       onChange={(event) => updateBrandingField('appName', event.target.value)}
                       placeholder={DEFAULT_SYSTEM_CONFIG.appName}
-                      className="h-12 min-w-0"
+                      className="settings-opencode__input"
                     />
                   </FieldGroup>
 
-                  <FieldGroup controlId="branding-tagline-input" label="tagline" description="Deskripsi singkat untuk metadata halaman.">
+                  <FieldGroup controlId="branding-tagline-input" label="tagline">
                     <Input
                       id="branding-tagline-input"
                       value={systemConfig.tagline}
                       onChange={(event) => updateBrandingField('tagline', event.target.value)}
                       placeholder={DEFAULT_SYSTEM_CONFIG.tagline}
-                      className="h-12 min-w-0"
+                      className="settings-opencode__input"
                     />
                   </FieldGroup>
 
-                  <FieldGroup controlId="branding-mark-input" label="brand_mark" description="Inisial di logo sidebar.">
+                  <FieldGroup controlId="branding-mark-input" label="brand_mark">
                     <Input
                       id="branding-mark-input"
                       value={systemConfig.brandMark}
                       onChange={(event) => updateBrandingField('brandMark', event.target.value)}
                       placeholder={DEFAULT_SYSTEM_CONFIG.brandMark}
-                      className="h-12 min-w-0"
+                      className="settings-opencode__input"
                     />
                   </FieldGroup>
 
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                    <p className="font-medium text-slate-950">Ringkasan branding</p>
-                    <p className="mt-1 leading-6">
-                      Branding sekarang dibatasi ke nama aplikasi, tagline, dan brand mark. Warna tema dikelola internal
-                      supaya settings tetap fokus.
-                    </p>
-                  </div>
                 </div>
 
-                <Separator />
-
                 <div className="flex flex-col gap-3 sm:flex-row">
-                  <Button type="button" size="lg" onClick={handleSaveBranding}>
-                    <Sparkles className="size-4" />
-                    Simpan branding
+                  <Button type="button" size="lg" className="settings-opencode__button" onClick={handleSaveBranding}>
+                    [save-branding]
                   </Button>
-                  <Button type="button" size="lg" variant="outline" className="border-slate-200" onClick={handleResetBranding}>
-                    Reset branding
+                  <Button type="button" size="lg" variant="outline" className="settings-opencode__button" onClick={handleResetBranding}>
+                    [reset-branding]
                   </Button>
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
+        </div>
       </div>
-    </StageCard>
+    </div>
   )
 }
 
@@ -601,12 +493,12 @@ function FieldGroup({
   children: ReactNode
 }) {
   return (
-    <div className="grid min-w-0 gap-2">
-      <Label htmlFor={controlId} className="text-xs uppercase tracking-[0.18em] text-slate-500">
+    <div className="settings-opencode__field grid min-w-0 gap-2">
+      <Label htmlFor={controlId}>
         {label}
       </Label>
       {children}
-      {description ? <p className="text-xs leading-5 text-slate-500">{description}</p> : null}
+      {description ? <p>{description}</p> : null}
     </div>
   )
 }

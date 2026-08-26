@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { ArrowRight, Eye, EyeOff, LoaderCircle, ScanSearch, ShieldCheck, Workflow } from 'lucide-react'
 
 import { authOperatorByUsername } from '../app/operatorSession'
 import { navigateTo } from '../app/uiState'
@@ -16,17 +15,17 @@ type MessageTone = 'info' | 'error'
 
 const LOGIN_HIGHLIGHTS = [
   {
-    icon: ShieldCheck,
+    marker: '[+]',
     title: 'Akses operator terkontrol',
     description: 'Hanya akun yang sudah terdaftar yang bisa masuk ke dashboard Pakti.',
   },
   {
-    icon: ScanSearch,
+    marker: '[x]',
     title: 'Masuk lalu scan',
     description: 'Begitu login berhasil, operator langsung diarahkan ke alur kerja scan resi.',
   },
   {
-    icon: Workflow,
+    marker: '[-]',
     title: 'Workflow tetap ringkas',
     description: 'Tampilan fokus ke proses kerja, bukan ke dekorasi yang mengganggu.',
   },
@@ -74,18 +73,18 @@ export function OperatorLoginPage() {
       highlights={LOGIN_HIGHLIGHTS}
       footerNote="Login aman untuk desktop operasional"
     >
-      <Card className="w-full max-w-xl border-slate-200/80 bg-white/95 shadow-2xl shadow-slate-900/10 backdrop-blur">
+      <Card className="auth-opencode__card w-full max-w-xl">
         <CardHeader className="space-y-4 p-6 pb-0">
           <div className="flex items-center gap-3">
-            <div className="grid size-12 place-items-center rounded-2xl bg-slate-950 text-sm font-semibold text-white shadow-sm">
+            <div className="auth-opencode__mark grid size-12 place-items-center">
               {systemConfig.brandMark || systemConfig.appName.charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0">
-              <p className="text-xs uppercase tracking-[0.22em] text-slate-500">{systemConfig.appName}</p>
-              <CardTitle className="text-2xl">Login operator</CardTitle>
+              <p className="auth-opencode__app-name">{systemConfig.appName}</p>
+              <CardTitle>Login operator</CardTitle>
             </div>
           </div>
-          <CardDescription className="max-w-lg text-sm leading-6 text-slate-500">
+          <CardDescription>
             Masuk dengan username dan password yang sudah dibuat untuk operator ini.
           </CardDescription>
         </CardHeader>
@@ -98,8 +97,8 @@ export function OperatorLoginPage() {
               void handleLogin()
             }}
           >
-            <div className="space-y-2">
-              <Label htmlFor="operator-username" className="text-xs uppercase tracking-[0.18em] text-slate-500">
+            <div className="auth-opencode__field space-y-2">
+              <Label htmlFor="operator-username">
                 username
               </Label>
               <Input
@@ -108,12 +107,12 @@ export function OperatorLoginPage() {
                 onChange={(event) => setOperatorName(event.target.value)}
                 placeholder="Username"
                 autoComplete="username"
-                className="h-12"
+                className="auth-opencode__input"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="operator-password" className="text-xs uppercase tracking-[0.18em] text-slate-500">
+            <div className="auth-opencode__field space-y-2">
+              <Label htmlFor="operator-password">
                 password
               </Label>
               <div className="relative">
@@ -124,17 +123,17 @@ export function OperatorLoginPage() {
                   onChange={(event) => setOperatorPassword(event.target.value)}
                   placeholder="Password"
                   autoComplete="current-password"
-                  className="h-12 pr-12"
+                  className="auth-opencode__input pr-12"
                 />
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-950"
+                  className="auth-opencode__password-toggle absolute right-1 top-1/2 -translate-y-1/2"
                   onClick={() => setShowPassword((current) => !current)}
                   aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
                 >
-                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  {showPassword ? '[hide]' : '[show]'}
                 </Button>
               </div>
             </div>
@@ -149,17 +148,7 @@ export function OperatorLoginPage() {
             ) : null}
 
             <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <LoaderCircle className="size-4 animate-spin" />
-                  Memproses...
-                </>
-              ) : (
-                <>
-                  Masuk
-                  <ArrowRight className="size-4" />
-                </>
-              )}
+              {isSubmitting ? '[processing]' : '[login]'}
             </Button>
           </form>
         </CardContent>
