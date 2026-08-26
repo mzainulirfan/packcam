@@ -9,7 +9,6 @@ import {
   HistoryIcon,
   Logout02Icon,
   Menu02Icon,
-  Mic01Icon,
   Moon02Icon,
   PlayCircleIcon,
   ScanIcon,
@@ -316,7 +315,6 @@ function App() {
       ? recordingSession.state.activeResi ?? watermarkResi ?? (scanResi.trim() || null)
       : null
   const currentRecordingResi = activeRecordingResi ?? recordingSession.state.savingResi
-  const recordingHasAudio = Boolean(cameraState.stream?.getAudioTracks().some((track) => track.readyState === 'live'))
   const scannerIntervalMs = recordingSession.state.mode === 'recording' ? 700 : 360
   const scanModeLabel = isPackingMode ? 'Packing' : 'QC'
   const scanStatusLabel = cameraState.error
@@ -329,16 +327,16 @@ function App() {
           ? 'Memproses'
           : recordingSession.state.lastSavedResi
             ? 'Video tersimpan'
-          : `Siap scan ${scanModeLabel}`
+            : `Siap scan ${scanModeLabel}`
   const scanStatusDescription = recordingSession.state.mode === 'recording'
     ? 'Tekan stop setelah paket selesai direkam.'
     : recordingSession.state.mode === 'stopping' || recordingSession.state.mode === 'saving'
       ? 'Jangan tutup halaman sampai video tersimpan.'
       : recordingSession.state.lastSavedResi
         ? 'File share akan disiapkan otomatis.'
-      : isPackingMode
-        ? 'Packing hanya bisa dimulai setelah QC selesai.'
-        : 'Scan barcode atau ketik resi untuk mulai rekaman QC.'
+        : isPackingMode
+          ? 'Packing hanya bisa dimulai setelah QC selesai.'
+          : 'Scan barcode atau ketik resi untuk mulai rekaman QC.'
   const scanPrimaryActionLabel = scanBusy || recordingSession.state.mode === 'stopping' || recordingSession.state.mode === 'saving'
     ? 'Menyimpan video...'
     : recordingSession.state.mode === 'recording'
@@ -1751,23 +1749,6 @@ function App() {
       {activeTab === 'scan' ? (
         <section className="grid gap-3">
           <div className="relative">
-            <div className="mb-3 grid gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className="rounded-[4px] bg-[var(--op-ink)] px-2.5 py-1 text-[0.68rem] font-bold uppercase tracking-[0.14em] text-[var(--op-canvas)]">
-                  {scanModeLabel}
-                </span>
-                <span className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-2.5 py-1 text-[0.68rem] font-semibold text-[var(--op-ink)]">
-                  {scanStatusLabel}
-                </span>
-              </div>
-              <div className="flex items-start justify-between gap-3 text-[0.72rem] leading-snug text-muted-foreground">
-                <span>{scanStatusDescription}</span>
-                <span className="shrink-0 rounded-[4px] border border-[var(--op-hairline)] px-2 py-0.5 text-[0.66rem] font-medium text-[var(--op-mute)]">
-                  {recordingHasAudio ? 'Audio aktif' : 'Tanpa audio'}
-                </span>
-              </div>
-            </div>
-
             {scanNotice ? (
               <div
                 className={
@@ -1817,12 +1798,6 @@ function App() {
                       </span>
                     )}
                   </div>
-                  {recordingHasAudio ? (
-                    <span className="inline-flex w-fit items-center gap-1.5 rounded-[4px] border border-[rgba(253,252,252,0.36)] bg-[#201d1d] px-2.5 py-1 text-[0.68rem] font-medium text-[#fdfcfc]">
-                      <HugeiconsIcon icon={Mic01Icon} size={12} />
-                      Audio aktif
-                    </span>
-                  ) : null}
                   {currentRecordingResi ? (
                     <div className="w-fit rounded-[4px] border border-[rgba(253,252,252,0.36)] bg-[#201d1d] px-3 py-2">
                       <strong className="block text-[0.68rem] font-bold tracking-wide text-white">
@@ -1856,20 +1831,6 @@ function App() {
                     <div className={`scan-progress-note scan-progress-note--${scanProgressState.tone} rounded-[4px]`}>
                       <strong>{scanProgressState.title}</strong>
                       <span>{scanProgressState.message}</span>
-                    </div>
-                  ) : null}
-
-                  {currentRecordingResi ? (
-                    <div className="grid gap-1 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-3 text-[0.72rem]">
-                      <div className="flex items-center justify-between gap-2">
-                        <strong className="font-semibold text-[var(--op-ink)]">
-                          {recordingSession.state.mode === 'recording' ? 'Sedang merekam' : 'Menyimpan video'}
-                        </strong>
-                        <span className="rounded-[4px] border border-[var(--op-hairline)] px-2 py-0.5 text-[0.66rem] text-[var(--op-mute)]">
-                          {formatTask(currentTaskType)}
-                        </span>
-                      </div>
-                      <span className="break-all text-muted-foreground">Resi: {currentRecordingResi}</span>
                     </div>
                   ) : null}
 
