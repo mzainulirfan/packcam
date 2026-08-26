@@ -1327,42 +1327,50 @@ function scheduleRecordingWatermark(recording: RecordingRow | null) {
   async function prepareShareFile() {
     try {
       await prepareRecordingShareFile(completedRecording.id)
+      return true
     } catch (error) {
       reportLastError(error instanceof Error ? error.message : 'Gagal menyiapkan file share recording.')
+      return false
     }
   }
 
   if (isMp4Recording(completedRecording)) {
     const inputPath = getUploadedFilePath(completedRecording)
     watermarkQueue = watermarkQueue.then(async () => {
+      let transcodeError: unknown = null
       try {
         await runFfmpegMp4Transcode(completedRecording, inputPath)
       } catch (error) {
+        transcodeError = error
         if (fs.existsSync(`${inputPath}.whatsapp.mp4`)) {
           fs.rmSync(`${inputPath}.whatsapp.mp4`, { force: true })
         }
-
-        reportLastError(error instanceof Error ? error.message : 'Gagal mengonversi MP4 recording.')
       }
 
-      await prepareShareFile()
+      const sharePrepared = await prepareShareFile()
+      if (!sharePrepared && transcodeError) {
+        reportLastError(transcodeError instanceof Error ? transcodeError.message : 'Gagal mengonversi MP4 recording.')
+      }
     })
     return
   }
 
   const inputPath = getUploadedFilePath(completedRecording)
   watermarkQueue = watermarkQueue.then(async () => {
+    let watermarkError: unknown = null
     try {
       await runFfmpegWatermark(completedRecording, inputPath)
     } catch (error) {
+      watermarkError = error
       if (fs.existsSync(`${inputPath}.watermarked.webm`)) {
         fs.rmSync(`${inputPath}.watermarked.webm`, { force: true })
       }
-
-      reportLastError(error instanceof Error ? error.message : 'Gagal memberi watermark video.')
     }
 
-    await prepareShareFile()
+    const sharePrepared = await prepareShareFile()
+    if (!sharePrepared && watermarkError) {
+      reportLastError(watermarkError instanceof Error ? watermarkError.message : 'Gagal memberi watermark video.')
+    }
   })
 }
 

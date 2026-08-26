@@ -286,6 +286,7 @@ function App() {
   const startScanRecordingRef = useRef<StartScanRecordingFn | null>(null)
   const processCameraScanQueueRef = useRef<(() => Promise<void>) | null>(null)
   const preparedShareFilesRef = useRef(new Map<string, PreparedShareFile>())
+  const requestedShareFileIdsRef = useRef(new Set<string>())
 
   const appName = systemConfig?.appName ?? 'Pakti'
   const tagline = systemConfig?.tagline ?? 'Paket Tercatat, Bukti Terjaga'
@@ -1296,6 +1297,49 @@ function App() {
       window.clearInterval(timer)
     }
   }, [historyDetailTarget, refreshHistory, session])
+
+  useEffect(() => {
+    if (!session) {
+      return
+    }
+
+    const pendingRecords = recordings
+      .filter((record) => record.status === 'completed' && Boolean(record.filePath) && !record.shareFileReady)
+      .slice(0, 3)
+
+    if (pendingRecords.length === 0) {
+      return
+    }
+
+    let cancelled = false
+
+    async function preparePendingShareFiles() {
+      let preparedAny = false
+      for (const record of pendingRecords) {
+        if (cancelled || requestedShareFileIdsRef.current.has(record.id)) {
+          continue
+        }
+
+        requestedShareFileIdsRef.current.add(record.id)
+        try {
+          await prepareServerRecordingShareFileApi(record.id)
+          preparedAny = true
+        } catch {
+          // Manual prepare remains available from the detail sheet if background work fails.
+        }
+      }
+
+      if (!cancelled && preparedAny) {
+        void refreshHistory()
+      }
+    }
+
+    void preparePendingShareFiles()
+
+    return () => {
+      cancelled = true
+    }
+  }, [recordings, refreshHistory, session])
 
   const startScanRecording = useCallback(
     async (resiInput: string, source: 'manual' | 'camera' = 'manual'): Promise<'started' | 'duplicate' | 'queued' | 'error'> => {
