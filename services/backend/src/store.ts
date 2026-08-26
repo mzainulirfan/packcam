@@ -99,6 +99,10 @@ const LEGACY_SYSTEM_TAGLINE = 'Aplikasi yang membantu UMKM merekam proses QC dan
 const SESSION_TTL_HOURS = Number(process.env.SESSION_TTL_HOURS ?? 12)
 const SESSION_TTL_MS = Math.max(1, SESSION_TTL_HOURS) * 60 * 60 * 1000
 const WATERMARK_TIME_ZONE = process.env.PAKTI_TIME_ZONE || 'Asia/Jakarta'
+const SHOPEE_VIDEO_LIMIT_BYTES = 25 * 1024 * 1024
+const SHARE_VIDEO_TARGET_BYTES = 24 * 1024 * 1024
+const SHARE_MAX_VIDEO_BITRATE = 1_200_000
+const SHARE_MIN_VIDEO_BITRATE = 80_000
 let watermarkQueue = Promise.resolve()
 
 function nowIso() {
@@ -895,8 +899,9 @@ export function recoverRecordingDraft(id: string) {
   return finalized
 }
 
-async function runFfmpegShareMp4Transcode(inputPath: string, outputPath: string) {
+async function runFfmpegShareMp4Transcode(recording: RecordingRow, inputPath: string, outputPath: string) {
   fs.mkdirSync(path.dirname(outputPath), { recursive: true })
+  const { videoBitrate, audioBitrate } = getShareEncodingProfile(recording)
 
   await runFfmpeg([
     '-y',
@@ -906,22 +911,33 @@ async function runFfmpegShareMp4Transcode(inputPath: string, outputPath: string)
     '0:v:0',
     '-map',
     '0:a?',
+    '-vf',
+    'scale=-2:min(720\,ih),fps=15',
     '-c:v',
     'libx264',
     '-preset',
     'veryfast',
-    '-crf',
-    '28',
+    '-b:v',
+    String(videoBitrate),
+    '-maxrate',
+    String(videoBitrate),
+    '-bufsize',
+    String(videoBitrate * 2),
     '-pix_fmt',
     'yuv420p',
     '-c:a',
     'aac',
     '-b:a',
-    '128k',
+    String(audioBitrate),
     '-movflags',
     '+faststart',
     outputPath,
   ])
+
+  const outputSize = fs.statSync(outputPath).size
+  if (outputSize > SHOPEE_VIDEO_LIMIT_BYTES) {
+    throw new Error(`File share masih lebih dari 25MB (${Math.ceil(outputSize / 1024 / 1024)}MB). Rekaman terlalu panjang untuk batas Shopee.`)
+  }
 }
 
 function getRecordingShareFileInfo(recording: RecordingRow): RecordingShareFileInfo {
@@ -976,7 +992,7 @@ export async function prepareRecordingShareFile(id: string) {
   const shareFile = getRecordingShareFileInfo(recording)
 
   if (!shareFile.isReady) {
-    await runFfmpegShareMp4Transcode(inputPath, shareFile.outputPath)
+    await runFfmpegShareMp4Transcode(recording, inputPath, shareFile.outputPath)
     broadcastBackendEvent('recordings-updated', { recordingId: recording.id, action: 'share-file-ready', resiNumber: recording.resi_number })
   }
 
@@ -1083,6 +1099,19 @@ function appendBufferToPendingRecording(recordingId: string, buffer: Buffer) {
 
 function getFfmpegPath() {
   return process.env.FFMPEG_PATH || ffmpegStatic || 'ffmpeg'
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
+}
+
+function getShareEncodingProfile(recording: RecordingRow) {
+  const durationSeconds = Math.max(1, Math.ceil(recording.duration_seconds ?? 60))
+  const totalBitrate = Math.floor((SHARE_VIDEO_TARGET_BYTES * 8 * 0.92) / durationSeconds)
+  const audioBitrate = totalBitrate < 260_000 ? 32_000 : 48_000
+  const videoBitrate = clampNumber(totalBitrate - audioBitrate, SHARE_MIN_VIDEO_BITRATE, SHARE_MAX_VIDEO_BITRATE)
+
+  return { videoBitrate, audioBitrate }
 }
 
 function getWatermarkFontPath() {

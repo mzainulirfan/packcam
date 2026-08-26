@@ -33,6 +33,9 @@ type RecordingSessionRef = {
   hasUploadFailure: boolean
 } | null
 
+const RECORDING_VIDEO_BITS_PER_SECOND = 900_000
+const RECORDING_AUDIO_BITS_PER_SECOND = 64_000
+
 function pickRecorderMimeType() {
   const candidates = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
   return candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ?? ''
@@ -197,7 +200,11 @@ export function useMobileRecordingSession({ stream, settings, operatorName, oper
     }
 
     const mimeType = pickRecorderMimeType()
-    const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+    const recorder = new MediaRecorder(stream, {
+      ...(mimeType ? { mimeType } : {}),
+      videoBitsPerSecond: RECORDING_VIDEO_BITS_PER_SECOND,
+      audioBitsPerSecond: RECORDING_AUDIO_BITS_PER_SECOND,
+    })
     const startedAt = new Date()
     const draft = createRecordingDraft({
       resiNumber,
