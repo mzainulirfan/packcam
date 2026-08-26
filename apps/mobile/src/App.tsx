@@ -45,15 +45,28 @@ import { BottomNav } from './components/BottomNav'
 import { useBarcodeScanner } from './hooks/useBarcodeScanner'
 import { useCameraStream } from './hooks/useCameraStream'
 import { useMobileRecordingSession } from './hooks/useRecordingSession'
+import {
+  formatDateTime,
+  formatSectionDate,
+  formatStatus,
+  formatTask,
+  getDocStatus,
+  getGroupShareStatus,
+  getGroupShareStatusClassName,
+  getShareStatusClassName,
+  getShareStatusDescription,
+  getShareStatusLabel,
+  type HistoryDateFilter,
+  type HistorySortOrder,
+  type HistoryTaskFilter,
+} from './history/historyUtils'
+import { useMobileHistoryFilters } from './history/useMobileHistoryFilters'
 import { HistoryDeleteDialog } from './tabs/HistoryDeleteDialog'
 import { HistoryDetailSheet } from './tabs/HistoryDetailSheet'
 import { SessionTab } from './tabs/SessionTab'
 import './App.css'
 
 type TabKey = 'scan' | 'history' | 'session'
-type HistoryTaskFilter = 'all' | WorkTask
-type HistoryDateFilter = 'all' | 'today' | 'yesterday' | 'week'
-type HistorySortOrder = 'newest' | 'oldest'
 
 type LoginFormState = {
   operatorName: string
@@ -70,95 +83,6 @@ const tabOptions: Array<{ key: TabKey; label: string; icon: typeof ScanIcon }> =
   { key: 'history', label: 'History', icon: HistoryIcon },
   { key: 'session', label: 'Session', icon: UserIcon },
 ]
-
-function formatDateTime(value: string | null | undefined) {
-  if (!value) {
-    return '-'
-  }
-
-  try {
-    return new Intl.DateTimeFormat('id-ID', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(new Date(value))
-  } catch {
-    return value
-  }
-}
-
-function formatTask(taskType: WorkTask) {
-  return taskType === 'qc' ? 'QC' : 'Packing'
-}
-
-function formatOperatorIdentity(operatorName?: string | null, operatorCode?: string | null) {
-  const name = operatorName?.trim() ?? ''
-  const code = operatorCode?.trim() ?? ''
-
-  if (name && code) {
-    return `${name} (${code})`
-  }
-
-  return name || code || 'operator lain'
-}
-
-type HistoryEmptyState = {
-  tone: 'neutral' | 'warning'
-  title: string
-  message: string
-  detail: string
-  taskType?: WorkTask
-}
-
-function formatStatus(status: RecordingRow['status']) {
-  if (status === 'completed') return 'Selesai'
-  if (status === 'recording') return 'Rekam'
-  return 'Error'
-}
-
-function getShareStatusLabel(record: RecordingRow) {
-  if (record.status !== 'completed' || !record.filePath) {
-    return 'Belum selesai'
-  }
-
-  return record.shareFileReady ? 'Share siap' : 'Menyiapkan share'
-}
-
-function getShareStatusDescription(record: RecordingRow) {
-  if (record.status !== 'completed' || !record.filePath) {
-    return 'Selesaikan rekaman dulu untuk share.'
-  }
-
-  return record.shareFileReady
-    ? 'File siap dibagikan.'
-    : 'File MP4 sedang disiapkan otomatis.'
-}
-
-function getGroupShareStatus(rows: RecordingRow[]) {
-  const completedRows = rows.filter((record) => record.status === 'completed' && Boolean(record.filePath))
-  if (completedRows.length === 0) {
-    return { label: 'Belum selesai', ready: false }
-  }
-
-  return completedRows.every((record) => record.shareFileReady)
-    ? { label: 'Share siap', ready: true }
-    : { label: 'Menyiapkan share', ready: false }
-}
-
-function getShareStatusClassName(record: RecordingRow) {
-  if (record.status !== 'completed' || !record.filePath) {
-    return 'rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-2 py-0.5 text-[11px] text-[var(--op-mute)]'
-  }
-
-  return record.shareFileReady
-    ? 'rounded-[4px] bg-[var(--op-ink)] px-2 py-0.5 text-[11px] font-medium text-[var(--op-canvas)]'
-    : 'rounded-[4px] border border-[var(--op-warning,#ff9f0a)] px-2 py-0.5 text-[11px] text-[var(--op-warning,#ff9f0a)]'
-}
-
-function getGroupShareStatusClassName(ready: boolean) {
-  return ready
-    ? 'rounded-[4px] bg-[var(--op-ink)] px-2 py-0.5 text-[11px] font-medium text-[var(--op-canvas)]'
-    : 'rounded-[4px] border border-[var(--op-warning,#ff9f0a)] px-2 py-0.5 text-[11px] text-[var(--op-warning,#ff9f0a)]'
-}
 
 function normalizeError(error: unknown) {
   if (error instanceof Error) {
@@ -658,77 +582,23 @@ function App() {
     }
   }, [processCameraScanQueue, recordingSession.state.mode])
 
-  const currentOperatorName = session?.operatorName.trim().toLowerCase() ?? ''
-  const currentOperatorCode = session?.operatorCode.trim().toLowerCase() ?? ''
-  const historyQuery = historyResiQuery.trim()
-  const normalizedHistoryQuery = historyQuery.toLowerCase()
-  const matchesHistoryDateFilter = useCallback((updatedAt: string) => {
-    if (historyDateFilter === 'all') {
-      return true
-    }
-
-    const recordTime = new Date(updatedAt).getTime()
-    if (!Number.isFinite(recordTime)) {
-      return false
-    }
-
-    const now = new Date()
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-    const startOfYesterday = startOfToday - 86400000
-
-    if (historyDateFilter === 'today') {
-      return recordTime >= startOfToday
-    }
-
-    if (historyDateFilter === 'yesterday') {
-      return recordTime >= startOfYesterday && recordTime < startOfToday
-    }
-
-    return recordTime >= startOfToday - 6 * 86400000
-  }, [historyDateFilter])
-
-  const filteredRecordings = useMemo(() => {
-    return recordings.filter((record) => {
-      const recordOperatorName = record.operatorName?.trim().toLowerCase() ?? ''
-      const recordOperatorCode = record.operatorCode?.trim().toLowerCase() ?? ''
-      const matchesTask = historyTaskFilter === 'all' ? true : record.taskType === historyTaskFilter
-      const matchesDate = matchesHistoryDateFilter(record.updatedAt)
-      const matchesQuery = normalizedHistoryQuery
-        ? record.resiNumber.trim().toLowerCase().includes(normalizedHistoryQuery)
-        : true
-      const matchesAccount = historyAllAccounts
-        ? true
-        : currentOperatorCode
-          ? recordOperatorCode === currentOperatorCode ||
-            (recordOperatorName === currentOperatorName && recordOperatorCode === '')
-          : recordOperatorName === currentOperatorName
-
-      return matchesTask && matchesDate && matchesQuery && matchesAccount
-    })
-  }, [
-    currentOperatorCode,
-    currentOperatorName,
-    historyAllAccounts,
-    historyTaskFilter,
-    matchesHistoryDateFilter,
-    normalizedHistoryQuery,
+  const {
+    groupedRecordings,
+    groupedByDate,
+    hasHistoryFilters,
+    historyFilterSheetActive,
+    historyEmptyState,
+  } = useMobileHistoryFilters({
     recordings,
-  ])
-  const hasHistoryFilters = historyTaskFilter !== 'all' || Boolean(historyQuery) || historyAllAccounts || historyDateFilter !== 'all'
-  const matchingResiRecords = useMemo(() => {
-    if (!normalizedHistoryQuery) {
-      return []
-    }
-
-    return recordings.filter((record) => record.resiNumber.trim().toLowerCase().includes(normalizedHistoryQuery))
-  }, [normalizedHistoryQuery, recordings])
-  const latestMatchingResiRecord = useMemo(() => {
-    if (!historyQuery || matchingResiRecords.length === 0) {
-      return null
-    }
-
-    return [...matchingResiRecords].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0] ?? null
-  }, [historyQuery, matchingResiRecords])
+    operatorName: session?.operatorName,
+    operatorCode: session?.operatorCode,
+    historyTaskFilter,
+    historyResiQuery,
+    historyAllAccounts,
+    historyDateFilter,
+    historySortOrder,
+    historyDocStatusFilter,
+  })
 
   useEffect(() => {
     if (!historyHighlightedResi) {
@@ -760,143 +630,6 @@ function App() {
       ? { ...current, rows }
       : current)
   }, [historyDetailResiNumber, recordings])
-
-  const groupedRecordings = useMemo(() => {
-    const groups = new Map<string, RecordingRow[]>()
-    const order: string[] = []
-
-    for (const record of filteredRecordings) {
-      const key = record.resiNumber.trim()
-
-      if (!groups.has(key)) {
-        groups.set(key, [])
-        order.push(key)
-      }
-
-      groups.get(key)?.push(record)
-    }
-
-    return order.map((resiNumber) => {
-      const rows = groups.get(resiNumber) ?? []
-      const sortedRows = [...rows].sort((a, b) => {
-        if (a.taskType !== b.taskType) {
-          return a.taskType === 'qc' ? -1 : 1
-        }
-
-        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-      })
-
-      return {
-        resiNumber,
-        rows: sortedRows,
-        latestRow: sortedRows[0] ?? null,
-      }
-    }).sort((a, b) => {
-      const aTime = a.latestRow?.updatedAt ? new Date(a.latestRow.updatedAt).getTime() : 0
-      const bTime = b.latestRow?.updatedAt ? new Date(b.latestRow.updatedAt).getTime() : 0
-      return historySortOrder === 'newest' ? bTime - aTime : aTime - bTime
-    })
-  }, [filteredRecordings, historySortOrder])
-
-  const docStatus = (group: { rows: RecordingRow[] }) => {
-    const qc = group.rows.find((r: RecordingRow) => r.taskType === 'qc')
-    const packing = group.rows.find((r: RecordingRow) => r.taskType === 'packing')
-    const qcDone = qc?.status === 'completed'
-    const packingDone = packing?.status === 'completed'
-
-    if (qcDone && packingDone) return 'lengkap' as const
-    if (qcDone || packingDone) return 'belum-lengkap' as const
-    return 'kosong' as const
-  }
-
-  const historyFilterSheetActive = historyDocStatusFilter !== 'all' || historyAllAccounts || historyDateFilter !== 'all' || historySortOrder !== 'newest'
-
-  // Group by date for history sections
-  const groupedByDate = useMemo(() => {
-    const sections = new Map<string, Array<{ resiNumber: string; rows: RecordingRow[]; latestRow: RecordingRow | null }>>()
-    const filteredByDocStatus = historyDocStatusFilter === 'all'
-      ? groupedRecordings
-      : groupedRecordings.filter((group) => docStatus(group) === historyDocStatusFilter)
-    for (const group of filteredByDocStatus) {
-      const dateKey = group.latestRow?.updatedAt ? new Date(group.latestRow.updatedAt).toDateString() : '-'
-      if (!sections.has(dateKey)) sections.set(dateKey, [])
-      sections.get(dateKey)?.push(group)
-    }
-    return [...sections.entries()]
-  }, [groupedRecordings, historyDocStatusFilter])
-
-  function formatSectionDate(dateKey: string) {
-    if (dateKey === '-') return ''
-    const d = new Date(dateKey)
-    const today = new Date().toDateString()
-    const yesterday = new Date(Date.now() - 86400000).toDateString()
-    if (dateKey === today) return 'Hari ini'
-    if (dateKey === yesterday) return 'Kemarin'
-    return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(d)
-  }
-  const historyEmptyState = useMemo<HistoryEmptyState | null>(() => {
-    if (groupedRecordings.length > 0) {
-      return null
-    }
-
-    if (!historyQuery) {
-      return {
-        tone: 'neutral',
-        title: 'Belum ada history',
-        message: 'Belum ada history untuk akun ini.',
-        detail: 'Coba scan resi atau ubah filter untuk melihat data lain.',
-      }
-    }
-
-    if (matchingResiRecords.length === 0) {
-      return {
-        tone: 'neutral',
-        title: 'Resi tidak ada',
-        message: 'Resi tidak ada.',
-        detail: 'Nomor resi ini belum masuk ke server.',
-      }
-    }
-
-    const hasCurrentAccountMatch = matchingResiRecords.some((record) => {
-      const recordOperatorName = record.operatorName?.trim().toLowerCase() ?? ''
-      const recordOperatorCode = record.operatorCode?.trim().toLowerCase() ?? ''
-
-      return historyAllAccounts
-        ? true
-        : currentOperatorCode
-          ? recordOperatorCode === currentOperatorCode ||
-            (recordOperatorName === currentOperatorName && recordOperatorCode === '')
-          : recordOperatorName === currentOperatorName
-    })
-
-    if (!hasCurrentAccountMatch && !historyAllAccounts) {
-      return {
-        tone: 'warning',
-        title: 'Sudah diproses',
-        message: `Resi ini sudah diproses oleh ${formatOperatorIdentity(
-          latestMatchingResiRecord?.operatorName,
-          latestMatchingResiRecord?.operatorCode,
-        )}.`,
-        detail: 'Aktifkan mode semua akun bila ingin melihat riwayat lengkapnya.',
-        taskType: latestMatchingResiRecord?.taskType,
-      }
-    }
-
-    return {
-      tone: 'neutral',
-      title: 'Belum ada hasil',
-      message: 'Belum ada history yang cocok dengan filter ini.',
-      detail: 'Coba ubah filter task atau pencarian resi.',
-    }
-  }, [
-    currentOperatorCode,
-    currentOperatorName,
-    groupedRecordings.length,
-    historyAllAccounts,
-    historyQuery,
-    matchingResiRecords,
-    latestMatchingResiRecord,
-  ])
 
   const scanProgressState = useMemo<ScanProgressState | null>(() => {
     const resiNumber = scanResi.trim()
@@ -2199,7 +1932,7 @@ function App() {
                     <p className="text-[12px] font-bold tracking-wide text-[var(--op-mute)]">{formatSectionDate(dateKey)}</p>
                     <div className="grid gap-2">
                     {groups.map((group) => {
-                      const status = docStatus(group)
+                      const status = getDocStatus(group)
                       const statusLabel = status === 'lengkap' ? '✓ Lengkap' : status === 'belum-lengkap' ? '! Belum lengkap' : '— Belum ada'
                       const qcRow = group.rows.find((r: RecordingRow) => r.taskType === 'qc')
                       const packingRow = group.rows.find((r: RecordingRow) => r.taskType === 'packing')
