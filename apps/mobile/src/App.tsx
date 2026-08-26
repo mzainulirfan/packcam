@@ -12,11 +12,8 @@ import {
   PlayCircleIcon,
   ScanIcon,
   SearchAreaIcon,
-  SentIcon,
   ShieldAlertIcon,
-  Share08Icon,
   Sun03Icon,
-  TrashIcon,
   UserIcon,
 } from '@hugeicons/core-free-icons'
 import {
@@ -48,6 +45,9 @@ import { BottomNav } from './components/BottomNav'
 import { useBarcodeScanner } from './hooks/useBarcodeScanner'
 import { useCameraStream } from './hooks/useCameraStream'
 import { useMobileRecordingSession } from './hooks/useRecordingSession'
+import { HistoryDeleteDialog } from './tabs/HistoryDeleteDialog'
+import { HistoryDetailSheet } from './tabs/HistoryDetailSheet'
+import { SessionTab } from './tabs/SessionTab'
 import './App.css'
 
 type TabKey = 'scan' | 'history' | 'session'
@@ -2343,247 +2343,49 @@ function App() {
 
       {/* ——— SESSION TAB ——— */}
       {activeTab === 'session' ? (
-        <div className="grid gap-3 pt-1" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-          <div className="flex items-start justify-between gap-3 border-b border-[var(--op-hairline)] pb-3">
-            <div className="grid gap-1">
-              <p className="text-[12px] font-bold tracking-wide">[ Session ]</p>
-              <h2 className="text-[16px] font-bold leading-none">Sesi operator</h2>
-              <p className="text-[14px] leading-relaxed text-[var(--op-mute)]">Cek akun dan mode sebelum scan.</p>
-            </div>
-            <span className="grid size-9 place-items-center rounded-[4px] bg-[var(--op-ink)] text-[var(--op-canvas)]">
-              <HugeiconsIcon icon={UserIcon} size={16} />
-            </span>
-          </div>
-
-          <div className="grid gap-3">
-            <section className="grid gap-3 border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--op-mute)]">Akun aktif</p>
-                  <h3 className="mt-1 truncate text-[20px] font-bold leading-none tracking-tight">{session.operatorName}</h3>
-                </div>
-                <span className="shrink-0 rounded-[4px] bg-[var(--op-ink)] px-2 py-0.5 text-[12px] font-medium text-[var(--op-canvas)]">
-                  {session.role === 'admin' ? 'Admin' : 'Operator'}
-                </span>
-              </div>
-
-              <div className="grid gap-2 border-t border-[var(--op-hairline)] pt-3 text-[13px]">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-[var(--op-mute)]">Kode operator</span>
-                  <strong className="truncate text-right font-medium">{session.operatorCode || '-'}</strong>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-[var(--op-mute)]">Akses</span>
-                  <strong className="font-medium">{session.role === 'admin' ? 'Admin' : 'Operator'}</strong>
-                </div>
-                <div className="grid gap-1 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-3 py-2">
-                  <span className="text-[var(--op-mute)]">Login</span>
-                  <strong className="font-medium leading-tight">{formatDateTime(session.loggedInAt)}</strong>
-                </div>
-              </div>
-            </section>
-
-            <section className="grid gap-3 border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--op-mute)]">Mode kerja aktif</p>
-                  <h3 className="mt-1 text-[18px] font-bold leading-none">{formatTask(session.taskType)}</h3>
-                </div>
-                <span className="shrink-0 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-2 py-0.5 text-[12px] font-medium text-[var(--op-mute)]">
-                  Scan berikutnya
-                </span>
-              </div>
-
-              {isAdmin ? (
-                <div className="grid grid-cols-2 gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className={session.taskType === 'qc'
-                      ? 'h-10 rounded-[4px] bg-[var(--op-ink)] text-[var(--op-canvas)] hover:bg-[var(--op-ink)] hover:text-[var(--op-canvas)]'
-                      : 'h-10 rounded-[4px] text-[var(--op-mute)] hover:bg-[var(--op-surface-soft)] hover:text-[var(--op-ink)]'}
-                    onClick={() => void handleTaskChange('qc')}
-                    disabled={taskBusy}
-                  >
-                    QC
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className={session.taskType === 'packing'
-                      ? 'h-10 rounded-[4px] bg-[var(--op-ink)] text-[var(--op-canvas)] hover:bg-[var(--op-ink)] hover:text-[var(--op-canvas)]'
-                      : 'h-10 rounded-[4px] text-[var(--op-mute)] hover:bg-[var(--op-surface-soft)] hover:text-[var(--op-ink)]'}
-                    onClick={() => void handleTaskChange('packing')}
-                    disabled={taskBusy}
-                  >
-                    Packing
-                  </Button>
-                </div>
-              ) : (
-                <div className="rounded-[4px] bg-[var(--op-ink)] px-3 py-3 text-center text-sm font-medium text-[var(--op-canvas)]">
-                  {formatTask(session.taskType)}
-                </div>
-              )}
-
-              <p className="text-[12px] leading-relaxed text-[var(--op-mute)]">
-                {isAdmin ? 'Mode baru dipakai saat scan berikutnya.' : 'Mode ditentukan admin. Hubungi admin jika mode kerja perlu diganti.'}
-              </p>
-            </section>
-
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11 rounded-[4px] border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-              onClick={() => setLogoutConfirmOpen(true)}
-            >
-              <HugeiconsIcon icon={Logout02Icon} size={16} />
-              Keluar
-            </Button>
-          </div>
-        </div>
+        <SessionTab
+          session={session}
+          isAdmin={isAdmin}
+          taskBusy={taskBusy}
+          formatDateTime={formatDateTime}
+          formatTask={formatTask}
+          onTaskChange={(taskType) => void handleTaskChange(taskType)}
+          onLogoutClick={() => setLogoutConfirmOpen(true)}
+        />
       ) : null}
 
-      {historyDetailTarget ? (
-        <Sheet open onOpenChange={(open) => { if (!open) setHistoryDetailTarget(null) }}>
-          <SheetContent side="bottom" className="w-full rounded-t-[4px] border-border bg-popover p-0" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-            <SheetHeader className="border-b border-[var(--op-hairline)] px-4 pb-3 pt-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 text-left">
-                  <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--op-mute)]">Detail resi</p>
-                  <SheetTitle className="mt-1 truncate text-left text-[18px] leading-none">{historyDetailTarget.resiNumber}</SheetTitle>
-                </div>
-                <span className={getGroupShareStatusClassName(getGroupShareStatus(historyDetailTarget.rows).ready)}>
-                  {getGroupShareStatus(historyDetailTarget.rows).label}
-                </span>
-              </div>
-              <SheetDescription className="text-left text-[12px]">
-                {historyDetailTarget.rows.length} dokumentasi tersimpan untuk resi ini.
-              </SheetDescription>
-            </SheetHeader>
-            <div className="grid max-h-[76vh] gap-3 overflow-y-auto px-4 pb-6 pt-3">
-              {historyDetailTarget.rows.map((record) => (
-                <article key={record.id} className="grid gap-3 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="grid min-w-0 gap-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-[4px] bg-[var(--op-ink)] px-2 py-0.5 text-[12px] font-medium text-[var(--op-canvas)]">
-                          {formatTask(record.taskType)}
-                        </span>
-                        <span className={record.status === 'completed' ? 'text-[12px] font-medium' : 'text-[12px] text-[var(--op-mute)]'}>
-                          {formatStatus(record.status)}
-                        </span>
-                      </div>
-                      <span className="text-[12px] leading-snug text-[var(--op-mute)]">
-                        {formatDateTime(record.updatedAt)} · oleh {record.operatorName || '-'}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      className="grid h-9 w-10 shrink-0 place-items-center rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] text-[var(--op-ink)] hover:bg-[var(--op-surface-soft)]"
-                      onClick={() => void handleCopyResi(record.resiNumber)}
-                      aria-label="Salin nomor resi"
-                    >
-                      <HugeiconsIcon icon={Copy01Icon} size={14} />
-                    </button>
-                  </div>
+      <HistoryDetailSheet
+        target={historyDetailTarget}
+        sharingRecordId={sharingRecordId}
+        deletingRecordId={deletingRecordId}
+        preparedShareFileIds={new Set(preparedShareFilesRef.current.keys())}
+        formatDateTime={formatDateTime}
+        formatTask={formatTask}
+        formatStatus={formatStatus}
+        getGroupShareStatus={getGroupShareStatus}
+        getGroupShareStatusClassName={getGroupShareStatusClassName}
+        getShareStatusClassName={getShareStatusClassName}
+        getShareStatusLabel={getShareStatusLabel}
+        getShareStatusDescription={getShareStatusDescription}
+        onOpenChange={(open) => { if (!open) setHistoryDetailTarget(null) }}
+        onCopyResi={(resiNumber) => void handleCopyResi(resiNumber)}
+        onShareRecording={(record, target) => void handleShareRecording(record, target)}
+        onDeleteClick={(record) => {
+          setHistoryDeleteConfirm(record)
+          setHistoryDetailTarget(null)
+        }}
+      />
 
-                  {record.status === 'completed' && record.filePath ? (
-                    <div className="overflow-hidden rounded-[4px] border border-[var(--op-hairline)] bg-black">
-                      <video
-                        className="block max-h-[44vh] w-full bg-black object-contain"
-                        src={buildServerFileUrl(record.filePath)}
-                        controls
-                        playsInline
-                        preload="metadata"
-                        crossOrigin="use-credentials"
-                      />
-                    </div>
-                  ) : null}
-
-                  <div className="grid gap-1 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={getShareStatusClassName(record)}>{getShareStatusLabel(record)}</span>
-                    </div>
-                    <span className="text-[12px] leading-relaxed text-[var(--op-mute)]">{getShareStatusDescription(record)}</span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    {record.status === 'completed' && record.filePath ? (
-                      <>
-                        <button
-                          type="button"
-                          className="flex h-10 items-center justify-center gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 text-sm font-medium hover:bg-[var(--op-surface-soft)] disabled:opacity-50"
-                          onClick={() => void handleShareRecording(record, 'native')}
-                          disabled={sharingRecordId === record.id || deletingRecordId !== null}
-                        >
-                          <HugeiconsIcon icon={Share08Icon} size={14} />
-                          {sharingRecordId === record.id
-                            ? 'Menyiapkan...'
-                            : preparedShareFilesRef.current.has(record.id)
-                              ? 'Bagikan'
-                              : 'Siapkan share'}
-                        </button>
-                        <button
-                          type="button"
-                          className="flex h-10 items-center justify-center gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 text-sm font-medium hover:bg-[var(--op-surface-soft)] disabled:opacity-50"
-                          onClick={() => void handleShareRecording(record, 'whatsapp')}
-                          disabled={sharingRecordId === record.id || deletingRecordId !== null}
-                        >
-                          <HugeiconsIcon icon={SentIcon} size={14} />
-                          WhatsApp
-                        </button>
-                      </>
-                    ) : null}
-                    <button
-                      type="button"
-                      className="col-span-2 flex h-10 items-center justify-center gap-2 rounded-[4px] border border-destructive/40 bg-transparent px-3 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
-                      onClick={() => {
-                        setHistoryDeleteConfirm(record)
-                        setHistoryDetailTarget(null)
-                      }}
-                      disabled={deletingRecordId !== null || sharingRecordId !== null}
-                    >
-                      <HugeiconsIcon icon={TrashIcon} size={14} />
-                      Hapus dokumentasi
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </SheetContent>
-        </Sheet>
-      ) : null}
-
-      <Dialog open={Boolean(historyDeleteConfirm)} onOpenChange={(open) => { if (!open) setHistoryDeleteConfirm(null) }}>
-        <DialogContent className="rounded-[4px] border-border bg-popover text-popover-foreground" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-          <DialogHeader>
-            <DialogTitle>Hapus dokumentasi?</DialogTitle>
-            <DialogDescription>
-              Video {historyDeleteConfirm ? formatTask(historyDeleteConfirm.taskType) : ''} untuk resi{' '}
-              <strong>{historyDeleteConfirm?.resiNumber}</strong> akan dihapus. Tindakan ini tidak dapat dibatalkan.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="outline" className="rounded-[4px]" onClick={() => setHistoryDeleteConfirm(null)}>
-              Batal
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              className="gap-2 rounded-[4px]"
-              disabled={deletingRecordId !== null || !historyDeleteConfirm}
-              onClick={() => {
-                if (!historyDeleteConfirm) return
-                void handleDeleteRecording(historyDeleteConfirm)
-                setHistoryDeleteConfirm(null)
-              }}
-            >
-              <HugeiconsIcon icon={TrashIcon} size={14} />
-              {deletingRecordId ? 'Menghapus...' : 'Hapus'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <HistoryDeleteDialog
+        record={historyDeleteConfirm}
+        deletingRecordId={deletingRecordId}
+        formatTask={formatTask}
+        onOpenChange={(open) => { if (!open) setHistoryDeleteConfirm(null) }}
+        onConfirm={(record) => {
+          void handleDeleteRecording(record)
+          setHistoryDeleteConfirm(null)
+        }}
+      />
 
       {bootError ? (
         <Alert variant="destructive" className="rounded-[4px]">
