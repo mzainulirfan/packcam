@@ -75,3 +75,26 @@ export type ScanLogRow = {
   action: 'start' | 'stop' | 'duplicate' | 'invalid'
   message: string | null
 }
+
+export type ShopeeOrderItem = {
+  id?: string
+  sku: string | null
+  productName: string
+  variationName: string | null
+  quantity: number
+  imageUrl: string | null
+}
+
+export type ShopeeOrder = {
+  id?: string
+  source: 'shopee'
+  orderNumber: string
+  trackingNumber: string | null
+  buyerUsername: string | null
+  shippingChannel: string | null
+  orderStatus: string | null
+  rawPayload: unknown | null
+  items: ShopeeOrderItem[]
+  createdAt?: string
+  updatedAt?: string
+}

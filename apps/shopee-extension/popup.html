@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pakti Shopee Sync</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Pakti</p>
+        <h1>Shopee Sync</h1>
+        <p class="muted">Import order Shopee Seller ke Pakti berdasarkan nomor pesanan dan resi.</p>
+      </header>
+
+      <label>
+        API Base URL
+        <input id="apiBaseUrl" type="url" placeholder="https://api-pakti.zakado.id" />
+      </label>
+
+      <label>
+        Extension API Key
+        <input id="apiKey" type="password" placeholder="SHOPEE_EXTENSION_API_KEY" />
+      </label>
+
+      <div class="actions">
+        <button id="saveButton" type="button" class="secondary">Save</button>
+        <button id="syncButton" type="button">Extract & Sync</button>
+      </div>
+
+      <section class="preview" aria-live="polite">
+        <strong>Status</strong>
+        <pre id="statusText">Ready.</pre>
+      </section>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

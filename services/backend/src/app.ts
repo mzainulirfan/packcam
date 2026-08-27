@@ -6,9 +6,9 @@ import express from 'express'
 import type { NextFunction, Request, Response } from 'express'
 import multer from 'multer'
 import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
-import type { AppSettings } from '@pakti/types'
+import type { AppSettings, ShopeeOrder } from '@pakti/types'
 
-import { clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deleteRecording, deleteSessionById, finalizeRecording, getBootstrapStatus, getHealthSnapshot, getRecordingById, invalidateCompletedRecordingsForResi, listOperatorProfiles, listRecordings, listRecordingsByResi, listScanLogs, prepareRecordingShareFile, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, saveSettings, saveSystemConfig, updateSessionTaskType, upsertOperatorProfile } from './store'
+import { clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deleteRecording, deleteSessionById, finalizeRecording, getBootstrapStatus, getHealthSnapshot, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, importShopeeOrders, invalidateCompletedRecordingsForResi, listOperatorProfiles, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, prepareRecordingShareFile, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, saveSettings, saveSystemConfig, updateSessionTaskType, upsertOperatorProfile } from './store'
 import { clearSessionCookie, getCookie, normalizeRole, readStringField, sendError, sendOk, setSessionCookie } from './http'
 import type { HttpSession } from './http'
 import { ensureServerStorage, getUploadsDir } from './db'
@@ -36,6 +36,10 @@ type AuthenticatedRequest = Request & {
 }
 
 function isAllowedCorsOrigin(origin: string) {
+  if (origin.startsWith('chrome-extension://') && process.env.SHOPEE_EXTENSION_API_KEY?.trim()) {
+    return true
+  }
+
   return corsOrigins.some((allowedOrigin) => {
     if (allowedOrigin === origin) {
       return true
@@ -75,6 +79,23 @@ function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFuncti
 
   req.session = session
   return next()
+}
+
+function hasValidExtensionKey(req: Request) {
+  const configuredKey = process.env.SHOPEE_EXTENSION_API_KEY?.trim()
+  if (!configuredKey) {
+    return false
+  }
+
+  return req.header('X-Pakti-Extension-Key')?.trim() === configuredKey
+}
+
+function requireOrderImportAccess(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  if (hasValidExtensionKey(req)) {
+    return next()
+  }
+
+  return requireAdmin(req, res, next)
 }
 
 function getLoginRateLimitKey(req: Request, operatorName: string) {
@@ -448,6 +469,45 @@ app.delete('/api/operators/:operatorName/:operatorCode/:role', requireAdmin, (re
   }
 })
 
+app.post('/api/import/shopee/orders', requireOrderImportAccess, (req, res) => {
+  try {
+    const orders = Array.isArray(req.body?.orders) ? (req.body.orders as Array<Partial<ShopeeOrder>>) : []
+    if (orders.length === 0) {
+      return sendError(res, 400, 'orders wajib berisi minimal 1 order.')
+    }
+
+    return sendOk(res, importShopeeOrders(orders))
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal import order Shopee.')
+  }
+})
+
+app.get('/api/orders/by-resi/:resi', requireSession, (req, res) => {
+  const params = req.params as Record<string, string | undefined>
+  const order = getShopeeOrderByResi(params.resi ?? '')
+  if (!order) {
+    return sendError(res, 404, 'Order tidak ditemukan untuk resi ini.')
+  }
+
+  return sendOk(res, order)
+})
+
+app.get('/api/orders/by-order/:orderNumber', requireSession, (req, res) => {
+  const params = req.params as Record<string, string | undefined>
+  const order = getShopeeOrderByOrderNumber(params.orderNumber ?? '')
+  if (!order) {
+    return sendError(res, 404, 'Order tidak ditemukan.')
+  }
+
+  return sendOk(res, order)
+})
+
+app.get('/api/orders/recent', requireSession, (req, res) => {
+  const query = req.query as Record<string, string | string[] | undefined>
+  const limit = Number(readQueryString(query.limit) || 50)
+  return sendOk(res, listRecentShopeeOrders(Number.isFinite(limit) ? limit : 50))
+})
+
 app.post('/api/operators/:operatorName/:operatorCode/:role/password', requireAdmin, (req, res) => {
   try {
     const password = readStringField(req.body?.password, 'password')
@@ -730,6 +790,7 @@ app.use((_req, res) => {
 })
 
 app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  void _next
   sendError(res, 500, error instanceof Error ? error.message : 'Server error.')
 })
 

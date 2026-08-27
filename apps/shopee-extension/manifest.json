@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Pakti Shopee Sync",
+  "version": "0.1.0",
+  "description": "Extract Shopee Seller orders and sync them into Pakti.",
+  "permissions": ["activeTab", "storage"],
+  "host_permissions": [
+    "https://seller.shopee.co.id/*",
+    "https://seller.shopee.com/*",
+    "https://api-pakti.zakado.id/*",
+    "http://localhost:3001/*",
+    "http://localhost:3002/*"
+  ],
+  "action": {
+    "default_title": "Pakti Shopee Sync",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://seller.shopee.co.id/*", "https://seller.shopee.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

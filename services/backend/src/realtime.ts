@@ -8,6 +8,7 @@ type BackendRealtimeEventName =
   | 'system-config-updated'
   | 'sessions-updated'
   | 'last-error-updated'
+  | 'orders-updated'
 
 type RealtimeClient = {
   response: Response

@@ -3,12 +3,14 @@ import { useEffect, useState } from 'react'
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
-import { readServerAdminStatusApi } from '@pakti/api-client'
+import { readRecentShopeeOrdersApi, readServerAdminStatusApi } from '@pakti/api-client'
+import type { ShopeeOrder } from '@pakti/types'
 
 type AdminStatus = Awaited<ReturnType<typeof readServerAdminStatusApi>>
 
 export function AdminPage() {
   const [adminStatus, setAdminStatus] = useState<AdminStatus | null>(null)
+  const [recentShopeeOrders, setRecentShopeeOrders] = useState<ShopeeOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState('Memuat status server...')
@@ -16,13 +18,14 @@ export function AdminPage() {
   useEffect(() => {
     let active = true
 
-    void readServerAdminStatusApi()
-      .then((status) => {
+    void Promise.all([readServerAdminStatusApi(), readRecentShopeeOrdersApi(10)])
+      .then(([status, orders]) => {
         if (!active) {
           return
         }
 
         setAdminStatus(status)
+        setRecentShopeeOrders(orders)
         setError(null)
         setMessage('Status server dimuat.')
       })
@@ -32,6 +35,7 @@ export function AdminPage() {
         }
 
         setAdminStatus(null)
+        setRecentShopeeOrders([])
         setError('Sesi login diperlukan atau server belum aktif, panel admin memakai mode terbatas.')
         setMessage('Sesi login diperlukan atau server belum aktif, panel admin memakai mode terbatas.')
       })
@@ -51,11 +55,13 @@ export function AdminPage() {
     setError(null)
 
     try {
-      const status = await readServerAdminStatusApi()
+      const [status, orders] = await Promise.all([readServerAdminStatusApi(), readRecentShopeeOrdersApi(10)])
       setAdminStatus(status)
+      setRecentShopeeOrders(orders)
       setMessage('Status server dimuat.')
     } catch {
       setAdminStatus(null)
+      setRecentShopeeOrders([])
       setError('Sesi login diperlukan atau server belum aktif, panel admin memakai mode terbatas.')
       setMessage('Status belum bisa diperbarui karena sesi login diperlukan atau server belum aktif.')
     } finally {
@@ -151,6 +157,25 @@ export function AdminPage() {
                   ))}
                   {adminStatus?.recentScanLogs.length === 0 ? (
                     <p>[-] Belum ada scan log di server.</p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="admin-opencode__list-block">
+                <p>[+] Recent Shopee orders</p>
+                <div className="mt-3 grid gap-2">
+                  {recentShopeeOrders.slice(0, 10).map((order) => (
+                    <div key={order.id ?? order.orderNumber} className="admin-opencode__list-row items-start gap-3">
+                      <span className="min-w-0">
+                        <strong>{order.orderNumber}</strong>
+                        <small className="block">{order.trackingNumber ?? '-'} · {order.buyerUsername ?? '-'}</small>
+                        <small className="block">{order.items.map((item) => `${item.productName} x${item.quantity}`).join(', ') || '-'}</small>
+                      </span>
+                      <span>[{order.shippingChannel ?? '-'}]</span>
+                    </div>
+                  ))}
+                  {recentShopeeOrders.length === 0 ? (
+                    <p>[-] Belum ada order Shopee di server.</p>
                   ) : null}
                 </div>
               </div>

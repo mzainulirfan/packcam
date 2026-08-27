@@ -9,9 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Label } from '../components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { DEFAULT_APP_SETTINGS } from '@pakti/shared/defaults'
-import { readServerSettingsApi, saveServerSettingsApi } from '@pakti/api-client'
+import { readServerSettingsApi, readShopeeOrderByResiApi, saveServerSettingsApi } from '@pakti/api-client'
 import { getRecordingTaskProgress, refreshRecordingsFromServer } from '@pakti/shared/recordings'
 import { logScanEvent } from '@pakti/shared'
+import type { ShopeeOrder } from '@pakti/types'
 import { clearRepeatQcResi, readRepeatQcResi } from '../app/repeatQcState'
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner'
 import { useCameraDevices } from '../hooks/useCameraDevices'
@@ -38,6 +39,9 @@ export function ScanPage() {
     { kind: 'info' | 'success' | 'warning' | 'error'; message: string } | null
   >(null)
   const [repeatQcResi, setRepeatQcResi] = useState(() => readRepeatQcResi())
+  const [shopeeOrder, setShopeeOrder] = useState<ShopeeOrder | null>(null)
+  const [shopeeOrderLoading, setShopeeOrderLoading] = useState(false)
+  const [shopeeOrderMessage, setShopeeOrderMessage] = useState('Scan resi untuk cek data Shopee.')
   const [watermarkResi, setWatermarkResi] = useState<string | null>(null)
   const [clockText, setClockText] = useState(() => formatClock(new Date()))
   const [scanMode, setScanMode] = useState<ScanMode>(() => readScanMode())
@@ -271,6 +275,63 @@ export function ScanPage() {
       ? barcodeScanner.value.trim() || null
       : null)
   const taskProgress = recordingCacheTick >= 0 && currentProcessingResi ? getRecordingTaskProgress(currentProcessingResi) : null
+
+  useEffect(() => {
+    let active = true
+    const resi = currentProcessingResi?.trim()
+
+    if (!resi) {
+      queueMicrotask(() => {
+        if (!active) {
+          return
+        }
+
+        setShopeeOrder(null)
+        setShopeeOrderLoading(false)
+        setShopeeOrderMessage('Scan resi untuk cek data Shopee.')
+      })
+      return () => {
+        active = false
+      }
+    }
+
+    queueMicrotask(() => {
+      if (!active) {
+        return
+      }
+
+      setShopeeOrderLoading(true)
+      setShopeeOrderMessage(`Mencari order Shopee untuk resi ${resi}...`)
+    })
+
+    void readShopeeOrderByResiApi(resi)
+      .then((order) => {
+        if (!active) {
+          return
+        }
+
+        setShopeeOrder(order)
+        setShopeeOrderMessage('Order Shopee ditemukan.')
+      })
+      .catch(() => {
+        if (!active) {
+          return
+        }
+
+        setShopeeOrder(null)
+        setShopeeOrderMessage('Order Shopee belum ada di Pakti. Jalankan sync dari extension Shopee.')
+      })
+      .finally(() => {
+        if (active) {
+          setShopeeOrderLoading(false)
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [currentProcessingResi])
+
   useEffect(() => {
     const timer = window.setInterval(() => {
       setClockText(formatClock(new Date()))
@@ -392,6 +453,8 @@ export function ScanPage() {
               <p>{scanAlert.message}</p>
             </Alert>
           ) : null}
+
+          <ShopeeOrderPanel order={shopeeOrder} loading={shopeeOrderLoading} message={shopeeOrderMessage} />
         </section>
 
         <Card className="scan-opencode__camera-panel overflow-hidden xl:sticky xl:top-4">
@@ -611,6 +674,59 @@ function RecordModePill({ mode }: { mode: 'idle' | 'recording' | 'stopping' | 's
     <span className="scan-opencode__badge">
       {marker} {label}
     </span>
+  )
+}
+
+function ShopeeOrderPanel({
+  order,
+  loading,
+  message,
+}: {
+  order: ShopeeOrder | null
+  loading: boolean
+  message: string
+}) {
+  return (
+    <Card className="scan-opencode__panel">
+      <CardHeader className="space-y-2">
+        <CardTitle>Order Shopee</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-3 pt-0">
+        <div className="scan-opencode__repeat-card grid gap-2">
+          <p>{loading ? '[~]' : order ? '[x]' : '[-]'} {message}</p>
+        </div>
+
+        {order ? (
+          <div className="grid gap-3 text-sm">
+            <div className="grid gap-2 rounded-2xl border border-[rgba(15,0,0,0.12)] bg-white/60 p-3">
+              <InfoPair label="No. Pesanan" value={order.orderNumber} />
+              <InfoPair label="No. Resi" value={order.trackingNumber ?? '-'} />
+              <InfoPair label="Pembeli" value={order.buyerUsername ?? '-'} />
+              <InfoPair label="Jasa kirim" value={order.shippingChannel ?? '-'} />
+            </div>
+
+            <div className="grid gap-2">
+              <p className="font-semibold">Produk</p>
+              {order.items.map((item) => (
+                <div key={item.id ?? `${item.productName}-${item.quantity}`} className="flex items-start justify-between gap-3 rounded-xl border border-[rgba(15,0,0,0.1)] bg-white/50 px-3 py-2">
+                  <span className="min-w-0 flex-1">{item.productName}</span>
+                  <strong className="shrink-0">x{item.quantity}</strong>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  )
+}
+
+function InfoPair({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <span className="text-muted-foreground">{label}</span>
+      <strong className="text-right">{value}</strong>
+    </div>
   )
 }
 

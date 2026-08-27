@@ -1,4 +1,4 @@
-import type { AppSettings, OperatorProfile, OperatorRole, OperatorSession, RecordingRow, ScanLogRow, SystemConfig } from '@pakti/types'
+import type { AppSettings, OperatorProfile, OperatorRole, OperatorSession, RecordingRow, ScanLogRow, ShopeeOrder, SystemConfig } from '@pakti/types'
 
 type ApiResponse<T> = {
   ok: boolean
@@ -94,6 +94,12 @@ export type HistoryRecordingsQuery = {
 export type HistoryRecordingsPayload = {
   records: RecordingRow[]
   totalRecords: number
+}
+
+export type ShopeeOrderImportResult = {
+  imported: number
+  updated: number
+  skipped: number
 }
 
 function normalizeRecordingRow(record: ServerRecordingRow): RecordingRow {
@@ -338,6 +344,26 @@ export function readServerHistoryRecordingsApi(query: HistoryRecordingsQuery = {
 export function readServerRecordingsByResiApi(resiNumber: string) {
   return requestApi<ServerRecordingRow[]>(`/api/recordings/resi/${encodeURIComponent(resiNumber)}`)
     .then((records) => records.map(normalizeRecordingRow))
+}
+
+export function importShopeeOrdersApi(orders: Array<Partial<ShopeeOrder>>, extensionApiKey?: string) {
+  return requestApi<ShopeeOrderImportResult>('/api/import/shopee/orders', {
+    method: 'POST',
+    headers: extensionApiKey ? { 'X-Pakti-Extension-Key': extensionApiKey } : undefined,
+    body: JSON.stringify({ orders }),
+  })
+}
+
+export function readShopeeOrderByResiApi(resiNumber: string) {
+  return requestApi<ShopeeOrder>(`/api/orders/by-resi/${encodeURIComponent(resiNumber)}`)
+}
+
+export function readShopeeOrderByOrderNumberApi(orderNumber: string) {
+  return requestApi<ShopeeOrder>(`/api/orders/by-order/${encodeURIComponent(orderNumber)}`)
+}
+
+export function readRecentShopeeOrdersApi(limit = 50) {
+  return requestApi<ShopeeOrder[]>(`/api/orders/recent?limit=${encodeURIComponent(String(limit))}`)
 }
 
 export function createServerRecordingDraftApi(payload: {

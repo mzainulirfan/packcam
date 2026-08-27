@@ -76,4 +76,31 @@ export const SCHEMA_SQL = [
     value TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS orders (
+    id TEXT PRIMARY KEY NOT NULL,
+    source TEXT NOT NULL,
+    order_number TEXT NOT NULL,
+    tracking_number TEXT,
+    buyer_username TEXT,
+    shipping_channel TEXT,
+    order_status TEXT,
+    raw_payload TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(source, order_number)
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_orders_tracking_number ON orders (tracking_number)`,
+  `CREATE TABLE IF NOT EXISTS order_items (
+    id TEXT PRIMARY KEY NOT NULL,
+    order_id TEXT NOT NULL,
+    sku TEXT,
+    product_name TEXT NOT NULL,
+    variation_name TEXT,
+    quantity INTEGER NOT NULL,
+    image_url TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items (order_id)`,
 ] as const

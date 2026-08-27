@@ -60,6 +60,10 @@ function ensureTaskColumns(database: SQLiteDatabase) {
   )
 }
 
+function ensureOrderColumns(database: SQLiteDatabase) {
+  ensureColumn(database, 'orders', 'shipping_channel', 'TEXT')
+}
+
 export function getDb() {
   if (db) {
     return db
@@ -71,6 +75,7 @@ export function getDb() {
   db.pragma('foreign_keys = ON')
   applySchema(db)
   ensureTaskColumns(db)
+  ensureOrderColumns(db)
   return db
 }
 
