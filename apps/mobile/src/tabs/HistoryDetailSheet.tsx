@@ -17,6 +17,7 @@ type GroupShareStatus = {
 type HistoryDetailSheetProps = {
   target: HistoryDetailTarget | null
   sharingRecordId: string | null
+  preparingChatSendId: string | null
   deletingRecordId: string | null
   preparedShareFileIds: ReadonlySet<string>
   formatDateTime: (value: string | null | undefined) => string
@@ -30,12 +31,14 @@ type HistoryDetailSheetProps = {
   onOpenChange: (open: boolean) => void
   onCopyResi: (resiNumber: string) => void
   onShareRecording: (record: RecordingRow, target: 'native' | 'whatsapp') => void
+  onPrepareShopeeChat: (record: RecordingRow) => void
   onDeleteClick: (record: RecordingRow) => void
 }
 
 export function HistoryDetailSheet({
   target,
   sharingRecordId,
+  preparingChatSendId,
   deletingRecordId,
   preparedShareFileIds,
   formatDateTime,
@@ -49,6 +52,7 @@ export function HistoryDetailSheet({
   onOpenChange,
   onCopyResi,
   onShareRecording,
+  onPrepareShopeeChat,
   onDeleteClick,
 }: HistoryDetailSheetProps) {
   if (!target) {
@@ -143,6 +147,15 @@ export function HistoryDetailSheet({
                     >
                       <HugeiconsIcon icon={SentIcon} size={14} />
                       WhatsApp
+                    </button>
+                    <button
+                      type="button"
+                      className="col-span-2 flex h-10 items-center justify-center gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 text-sm font-medium hover:bg-[var(--op-surface-soft)] disabled:opacity-50"
+                      onClick={() => onPrepareShopeeChat(record)}
+                      disabled={preparingChatSendId === record.id || sharingRecordId !== null || deletingRecordId !== null}
+                    >
+                      <HugeiconsIcon icon={SentIcon} size={14} />
+                      {preparingChatSendId === record.id ? 'Menyiapkan Shopee...' : 'Shopee Chat'}
                     </button>
                   </>
                 ) : null}

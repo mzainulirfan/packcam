@@ -103,4 +103,27 @@ export const SCHEMA_SQL = [
     FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE
   )`,
   `CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items (order_id)`,
+  `CREATE TABLE IF NOT EXISTS recording_chat_sends (
+    id TEXT PRIMARY KEY NOT NULL,
+    recording_id TEXT NOT NULL,
+    order_id TEXT,
+    resi_number TEXT NOT NULL,
+    order_number TEXT,
+    buyer_username TEXT NOT NULL,
+    task_type TEXT NOT NULL,
+    video_file_path TEXT NOT NULL,
+    status TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    message_template TEXT,
+    error_message TEXT,
+    prepared_at TEXT,
+    sent_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(recording_id, buyer_username)
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_recording_chat_sends_recording_id ON recording_chat_sends (recording_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_recording_chat_sends_status ON recording_chat_sends (status)`,
+  `CREATE INDEX IF NOT EXISTS idx_recording_chat_sends_buyer_username ON recording_chat_sends (buyer_username)`,
+  `CREATE INDEX IF NOT EXISTS idx_recording_chat_sends_resi_number ON recording_chat_sends (resi_number)`,
 ] as const

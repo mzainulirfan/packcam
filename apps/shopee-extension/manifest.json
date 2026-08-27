@@ -3,7 +3,7 @@
   "name": "Pakti Shopee Sync",
   "version": "0.1.0",
   "description": "Extract Shopee Seller orders and sync them into Pakti.",
-  "permissions": ["activeTab", "storage"],
+  "permissions": ["activeTab", "clipboardWrite", "storage"],
   "host_permissions": [
     "https://seller.shopee.co.id/*",
     "https://seller.shopee.com/*",

@@ -1,4 +1,4 @@
-import type { AppSettings, OperatorProfile, OperatorRole, OperatorSession, RecordingRow, ScanLogRow, ShopeeOrder, SystemConfig } from '@pakti/types'
+import type { AppSettings, OperatorProfile, OperatorRole, OperatorSession, RecordingChatSend, RecordingRow, ScanLogRow, ShopeeOrder, SystemConfig } from '@pakti/types'
 
 type ApiResponse<T> = {
   ok: boolean
@@ -418,6 +418,45 @@ export function prepareServerRecordingShareFileApi(recordingId: string) {
       method: 'POST',
     },
   )
+}
+
+export function prepareShopeeChatSendApi(recordingId: string, messageTemplate?: string | null) {
+  return requestApi<RecordingChatSend>(`/api/recordings/${encodeURIComponent(recordingId)}/chat-send/prepare`, {
+    method: 'POST',
+    body: JSON.stringify({ messageTemplate }),
+  })
+}
+
+export function readPendingShopeeChatSendsApi(extensionApiKey?: string) {
+  return requestApi<RecordingChatSend[]>('/api/chat-sends/pending', {
+    headers: extensionApiKey ? { 'X-Pakti-Extension-Key': extensionApiKey } : undefined,
+  })
+}
+
+export function readRecentShopeeChatSendsApi(limit = 20) {
+  return requestApi<RecordingChatSend[]>(`/api/chat-sends/recent?limit=${encodeURIComponent(String(limit))}`)
+}
+
+export function markShopeeChatSendPreparedApi(id: string, extensionApiKey?: string) {
+  return requestApi<RecordingChatSend>(`/api/chat-sends/${encodeURIComponent(id)}/prepared`, {
+    method: 'POST',
+    headers: extensionApiKey ? { 'X-Pakti-Extension-Key': extensionApiKey } : undefined,
+  })
+}
+
+export function markShopeeChatSendSentApi(id: string, extensionApiKey?: string) {
+  return requestApi<RecordingChatSend>(`/api/chat-sends/${encodeURIComponent(id)}/sent`, {
+    method: 'POST',
+    headers: extensionApiKey ? { 'X-Pakti-Extension-Key': extensionApiKey } : undefined,
+  })
+}
+
+export function markShopeeChatSendFailedApi(id: string, error: string, extensionApiKey?: string) {
+  return requestApi<RecordingChatSend>(`/api/chat-sends/${encodeURIComponent(id)}/failed`, {
+    method: 'POST',
+    headers: extensionApiKey ? { 'X-Pakti-Extension-Key': extensionApiKey } : undefined,
+    body: JSON.stringify({ error }),
+  })
 }
 
 export function deleteServerRecordingApi(recordingId: string) {

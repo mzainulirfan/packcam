@@ -64,7 +64,19 @@ input {
   outline: none;
 }
 
-input:focus {
+select {
+  width: 100%;
+  border: 1px solid #d8d0c2;
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: #172033;
+  background: rgb(255 255 255 / 0.86);
+  font: inherit;
+  outline: none;
+}
+
+input:focus,
+select:focus {
   border-color: #f17522;
   box-shadow: 0 0 0 3px rgb(241 117 34 / 0.16);
 }
@@ -73,6 +85,10 @@ input:focus {
   display: grid;
   grid-template-columns: 1fr 1.4fr;
   gap: 10px;
+}
+
+.actions.single {
+  grid-template-columns: 1fr;
 }
 
 button {

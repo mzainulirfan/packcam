@@ -160,15 +160,45 @@ function extractOrders() {
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type !== 'PAKTI_EXTRACT_SHOPEE_ORDERS') {
-    return false
+  if (message?.type === 'PAKTI_EXTRACT_SHOPEE_ORDERS') {
+    try {
+      sendResponse({ ok: true, orders: extractOrders() })
+    } catch (error) {
+      sendResponse({ ok: false, error: error instanceof Error ? error.message : 'Extractor gagal.' })
+    }
+
+    return true
   }
 
-  try {
-    sendResponse({ ok: true, orders: extractOrders() })
-  } catch (error) {
-    sendResponse({ ok: false, error: error instanceof Error ? error.message : 'Extractor gagal.' })
+  if (message?.type === 'PAKTI_PREPARE_SHOPEE_CHAT') {
+    try {
+      const job = message.job || {}
+      const input = document.querySelector('input.shopee-react-input__input[placeholder="Cari Semua"], input[placeholder="Cari Semua"]')
+      if (!input) {
+        throw new Error('Field cari customer Shopee Webchat tidak ditemukan.')
+      }
+
+      input.focus()
+      input.value = job.buyerUsername || ''
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+
+      navigator.clipboard?.writeText([
+        `Pembeli: ${job.buyerUsername || '-'}`,
+        `No. Pesanan: ${job.orderNumber || '-'}`,
+        `No. Resi: ${job.resiNumber || '-'}`,
+        `Video: ${job.videoUrl || '-'}`,
+        '',
+        job.message || '',
+      ].join('\n')).catch(() => undefined)
+
+      sendResponse({ ok: true })
+    } catch (error) {
+      sendResponse({ ok: false, error: error instanceof Error ? error.message : 'Prepare Shopee Webchat gagal.' })
+    }
+
+    return true
   }
 
-  return true
+  return false
 })

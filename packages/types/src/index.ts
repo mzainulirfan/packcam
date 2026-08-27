@@ -98,3 +98,24 @@ export type ShopeeOrder = {
   createdAt?: string
   updatedAt?: string
 }
+
+export type ChatSendStatus = 'pending' | 'prepared' | 'sent' | 'failed' | 'cancelled'
+
+export type RecordingChatSend = {
+  id: string
+  recordingId: string
+  resiNumber: string
+  orderNumber: string | null
+  buyerUsername: string
+  taskType: WorkTask
+  videoFilePath: string
+  videoUrl?: string
+  status: ChatSendStatus
+  attempts: number
+  messageTemplate: string | null
+  errorMessage: string | null
+  preparedAt: string | null
+  sentAt: string | null
+  createdAt: string
+  updatedAt: string
+}

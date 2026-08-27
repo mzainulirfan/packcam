@@ -29,6 +29,18 @@
         <button id="syncButton" type="button">Extract & Sync</button>
       </div>
 
+      <div class="actions single">
+        <button id="loadChatJobsButton" type="button" class="secondary">Load Pending Chats</button>
+        <label>
+          Pending Chat Job
+          <select id="chatJobSelect" disabled>
+            <option value="">Belum ada job dimuat</option>
+          </select>
+        </label>
+        <button id="prepareChatButton" type="button" class="secondary">Prepare Shopee Chat</button>
+        <button id="markSentButton" type="button" class="secondary" disabled>Mark Last Chat Sent</button>
+      </div>
+
       <section class="preview" aria-live="polite">
         <strong>Status</strong>
         <pre id="statusText">Ready.</pre>

@@ -13,7 +13,7 @@ import { Button } from '../components/ui/button'
 import { ModalOverlay } from '../components/ui/ModalOverlay'
 import { DialogCloseButton, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog'
 import { notify } from '../app/notify'
-import { buildServerFileUrl, deleteServerRecordingApi, openServerSettingsFolderApi, prepareServerRecordingShareFileApi, readServerHistoryRecordingsApi } from '@pakti/api-client'
+import { buildServerFileUrl, deleteServerRecordingApi, openServerSettingsFolderApi, prepareServerRecordingShareFileApi, prepareShopeeChatSendApi, readServerHistoryRecordingsApi } from '@pakti/api-client'
 import { recordsToCsv, recordsToExcelXml } from '@pakti/shared/exporters'
 import type { LocalRecordingRecord } from '@pakti/shared/recordings'
 import type { RecordingRow, WorkTask } from '@pakti/types'
@@ -102,6 +102,7 @@ export function HistoryPage() {
   const [previewTarget, setPreviewTarget] = useState<LocalRecordingRecord | null>(null)
   const [dualPreviewTarget, setDualPreviewTarget] = useState<HistoryRecordingGroup | null>(null)
   const [downloadingRecordId, setDownloadingRecordId] = useState<string | null>(null)
+  const [preparingChatSendId, setPreparingChatSendId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<LocalRecordingRecord | null>(null)
   const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null)
   const [recordings, setRecordings] = useState<LocalRecordingRecord[]>([])
@@ -378,6 +379,29 @@ export function HistoryPage() {
       )
     } finally {
       setDownloadingRecordId(null)
+    }
+  }
+
+  async function handlePrepareShopeeChat(record: LocalRecordingRecord) {
+    if (preparingChatSendId) {
+      return
+    }
+
+    try {
+      setPreparingChatSendId(record.id)
+      const job = await prepareShopeeChatSendApi(record.id)
+      notify.save(
+        'Job Shopee Chat siap',
+        `Buka Shopee Webchat dan jalankan extension untuk ${job.buyerUsername}.`,
+      )
+      window.open('https://seller.shopee.co.id/new-webchat/conversations', '_blank', 'noopener')
+    } catch (error) {
+      notify.error(
+        'Gagal siapkan Shopee Chat',
+        error instanceof Error ? error.message : 'Job kirim chat belum bisa dibuat.',
+      )
+    } finally {
+      setPreparingChatSendId(null)
     }
   }
 
@@ -894,6 +918,16 @@ export function HistoryPage() {
                         onClick={() => void handleOpenVideoFolder()}
                       >
                         [folder]
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="history-opencode__button"
+                        disabled={preparingChatSendId === selectedRecord.id || selectedRecord.status !== 'completed'}
+                        onClick={() => void handlePrepareShopeeChat(selectedRecord)}
+                      >
+                        {preparingChatSendId === selectedRecord.id ? '[preparing-chat]' : '[prepare-shopee-chat]'}
                       </Button>
                     </div>
                   </div>

@@ -8,7 +8,7 @@ import multer from 'multer'
 import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
 import type { AppSettings, ShopeeOrder } from '@pakti/types'
 
-import { clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deleteRecording, deleteSessionById, finalizeRecording, getBootstrapStatus, getHealthSnapshot, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, importShopeeOrders, invalidateCompletedRecordingsForResi, listOperatorProfiles, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, prepareRecordingShareFile, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, saveSettings, saveSystemConfig, updateSessionTaskType, upsertOperatorProfile } from './store'
+import { clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deleteRecording, deleteSessionById, finalizeRecording, getBootstrapStatus, getHealthSnapshot, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, importShopeeOrders, invalidateCompletedRecordingsForResi, listOperatorProfiles, listPendingChatSends, listRecentChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, prepareRecordingChatSend, prepareRecordingShareFile, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, saveSettings, saveSystemConfig, updateChatSendStatus, updateSessionTaskType, upsertOperatorProfile } from './store'
 import { clearSessionCookie, getCookie, normalizeRole, readStringField, sendError, sendOk, setSessionCookie } from './http'
 import type { HttpSession } from './http'
 import { ensureServerStorage, getUploadsDir } from './db'
@@ -96,6 +96,18 @@ function requireOrderImportAccess(req: AuthenticatedRequest, res: Response, next
   }
 
   return requireAdmin(req, res, next)
+}
+
+function requireSessionOrExtensionKey(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  if (hasValidExtensionKey(req)) {
+    return next()
+  }
+
+  return requireSession(req, res, next)
+}
+
+function getPublicApiBaseUrl(req: Request) {
+  return (process.env.PUBLIC_API_BASE_URL ?? `${req.protocol}://${req.get('host') ?? `localhost:${port}`}`).trim().replace(/\/+$/, '')
 }
 
 function getLoginRateLimitKey(req: Request, operatorName: string) {
@@ -699,6 +711,78 @@ app.post('/api/recordings/:id/share-file', async (req, res) => {
     return sendOk(res, await prepareRecordingShareFile(params.id ?? ''))
   } catch (error) {
     return sendError(res, 400, error instanceof Error ? error.message : 'Gagal menyiapkan file share.')
+  }
+})
+
+app.post('/api/recordings/:id/chat-send/prepare', async (req, res) => {
+  try {
+    const session = getRequestSession(req)
+    if (!session) {
+      return sendError(res, 401, 'Sesi login diperlukan.')
+    }
+
+    const params = req.params as Record<string, string | undefined>
+    const recording = getRecordingById(params.id ?? '')
+    if (!recording) {
+      return sendError(res, 404, 'Recording tidak ditemukan.')
+    }
+
+    if (!canSessionAccessRecording(session, recording)) {
+      return sendError(res, 403, 'Recording ini tidak bisa diakses oleh sesi login saat ini.')
+    }
+
+    const shareFile = recording.share_file_ready && recording.share_file_path
+      ? { filePath: recording.share_file_path }
+      : await prepareRecordingShareFile(recording.id)
+    const job = prepareRecordingChatSend({
+      recordingId: recording.id,
+      videoFilePath: shareFile.filePath,
+      messageTemplate: typeof req.body?.messageTemplate === 'string' ? req.body.messageTemplate : null,
+    })
+
+    return sendOk(res, {
+      ...job,
+      videoUrl: `${getPublicApiBaseUrl(req)}/files/${job.videoFilePath}`,
+    })
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal menyiapkan kirim chat Shopee.')
+  }
+})
+
+app.get('/api/chat-sends/pending', requireSessionOrExtensionKey, (req, res) => {
+  sendOk(res, listPendingChatSends(getPublicApiBaseUrl(req)))
+})
+
+app.get('/api/chat-sends/recent', requireSession, (req, res) => {
+  const query = req.query as Record<string, string | string[] | undefined>
+  const limit = Number(readQueryString(query.limit) || 20)
+  sendOk(res, listRecentChatSends(Number.isFinite(limit) ? limit : 20, getPublicApiBaseUrl(req)))
+})
+
+app.post('/api/chat-sends/:id/prepared', requireSessionOrExtensionKey, (req, res) => {
+  try {
+    const params = req.params as Record<string, string | undefined>
+    return sendOk(res, updateChatSendStatus(params.id ?? '', 'prepared'))
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal memperbarui status chat.')
+  }
+})
+
+app.post('/api/chat-sends/:id/sent', requireSessionOrExtensionKey, (req, res) => {
+  try {
+    const params = req.params as Record<string, string | undefined>
+    return sendOk(res, updateChatSendStatus(params.id ?? '', 'sent'))
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal memperbarui status chat.')
+  }
+})
+
+app.post('/api/chat-sends/:id/failed', requireSessionOrExtensionKey, (req, res) => {
+  try {
+    const params = req.params as Record<string, string | undefined>
+    return sendOk(res, updateChatSendStatus(params.id ?? '', 'failed', typeof req.body?.error === 'string' ? req.body.error : null))
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal memperbarui status chat.')
   }
 })
 

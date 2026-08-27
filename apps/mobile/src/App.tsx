@@ -28,6 +28,7 @@ import {
   readServerSystemConfigApi,
   updateServerSessionTaskApi,
   buildApiUrl,
+  prepareShopeeChatSendApi,
 } from '@pakti/api-client'
 import { DEFAULT_APP_SETTINGS } from '@pakti/shared/defaults'
 import type { AppSettings, OperatorSession, RecordingRow, ShopeeOrder, SystemConfig, WorkTask } from '@pakti/types'
@@ -183,6 +184,7 @@ function App() {
   const [historySortOrder, setHistorySortOrder] = useState<HistorySortOrder>('newest')
   const historyPullStartYRef = useRef<number | null>(null)
   const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null)
+  const [preparingChatSendId, setPreparingChatSendId] = useState<string | null>(null)
   const [watermarkResi, setWatermarkResi] = useState<string | null>(null)
   const [scanClockTick, setScanClockTick] = useState(() => Date.now())
   const [menuOpen, setMenuOpen] = useState(false)
@@ -818,6 +820,30 @@ function App() {
       return null
     }
   }, [mergeRecordingsForResi, recordings])
+
+  const handlePrepareShopeeChat = useCallback(async (record: RecordingRow) => {
+    if (preparingChatSendId) {
+      return
+    }
+
+    setPreparingChatSendId(record.id)
+    try {
+      const job = await prepareShopeeChatSendApi(record.id)
+      showScanNotice({
+        kind: 'success',
+        title: 'Job Shopee Chat siap',
+        message: `Lanjutkan di desktop Chrome Extension untuk ${job.buyerUsername}.`,
+      })
+    } catch (error) {
+      showScanNotice({
+        kind: 'warning',
+        title: 'Gagal siapkan Shopee Chat',
+        message: normalizeError(error),
+      })
+    } finally {
+      setPreparingChatSendId(null)
+    }
+  }, [preparingChatSendId, showScanNotice])
 
   const resolveLatestTaskProgress = useCallback(
     async (resiNumber: string) => {
@@ -1850,6 +1876,7 @@ function App() {
       <HistoryDetailSheet
         target={historyDetailTarget}
         sharingRecordId={sharingRecordId}
+        preparingChatSendId={preparingChatSendId}
         deletingRecordId={deletingRecordId}
         preparedShareFileIds={preparedShareFileIds}
         formatDateTime={formatDateTime}
@@ -1863,6 +1890,7 @@ function App() {
         onOpenChange={(open) => { if (!open) setHistoryDetailTarget(null) }}
         onCopyResi={(resiNumber) => void handleCopyResi(resiNumber)}
         onShareRecording={(record, target) => void handleShareRecording(record, target)}
+        onPrepareShopeeChat={(record) => void handlePrepareShopeeChat(record)}
         onDeleteClick={(record) => {
           setHistoryDeleteConfirm(record)
           setHistoryDetailTarget(null)

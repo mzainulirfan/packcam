@@ -243,7 +243,7 @@ export function getShopeeOrderByResi(resiNumber: string) {
       `SELECT id, source, order_number, tracking_number, buyer_username, shipping_channel, order_status, raw_payload, created_at, updated_at
        FROM orders
        WHERE source = 'shopee'
-         AND tracking_number = ?
+         AND lower(tracking_number) = lower(?)
        ORDER BY updated_at DESC
        LIMIT 1`,
     )

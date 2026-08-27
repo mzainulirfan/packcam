@@ -3,14 +3,15 @@ import { useEffect, useState } from 'react'
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
-import { readRecentShopeeOrdersApi, readServerAdminStatusApi } from '@pakti/api-client'
-import type { ShopeeOrder } from '@pakti/types'
+import { readRecentShopeeChatSendsApi, readRecentShopeeOrdersApi, readServerAdminStatusApi } from '@pakti/api-client'
+import type { RecordingChatSend, ShopeeOrder } from '@pakti/types'
 
 type AdminStatus = Awaited<ReturnType<typeof readServerAdminStatusApi>>
 
 export function AdminPage() {
   const [adminStatus, setAdminStatus] = useState<AdminStatus | null>(null)
   const [recentShopeeOrders, setRecentShopeeOrders] = useState<ShopeeOrder[]>([])
+  const [recentChatSends, setRecentChatSends] = useState<RecordingChatSend[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState('Memuat status server...')
@@ -18,14 +19,15 @@ export function AdminPage() {
   useEffect(() => {
     let active = true
 
-    void Promise.all([readServerAdminStatusApi(), readRecentShopeeOrdersApi(10)])
-      .then(([status, orders]) => {
+    void Promise.all([readServerAdminStatusApi(), readRecentShopeeOrdersApi(10), readRecentShopeeChatSendsApi(10)])
+      .then(([status, orders, chatSends]) => {
         if (!active) {
           return
         }
 
         setAdminStatus(status)
         setRecentShopeeOrders(orders)
+        setRecentChatSends(chatSends)
         setError(null)
         setMessage('Status server dimuat.')
       })
@@ -36,6 +38,7 @@ export function AdminPage() {
 
         setAdminStatus(null)
         setRecentShopeeOrders([])
+        setRecentChatSends([])
         setError('Sesi login diperlukan atau server belum aktif, panel admin memakai mode terbatas.')
         setMessage('Sesi login diperlukan atau server belum aktif, panel admin memakai mode terbatas.')
       })
@@ -55,13 +58,15 @@ export function AdminPage() {
     setError(null)
 
     try {
-      const [status, orders] = await Promise.all([readServerAdminStatusApi(), readRecentShopeeOrdersApi(10)])
+      const [status, orders, chatSends] = await Promise.all([readServerAdminStatusApi(), readRecentShopeeOrdersApi(10), readRecentShopeeChatSendsApi(10)])
       setAdminStatus(status)
       setRecentShopeeOrders(orders)
+      setRecentChatSends(chatSends)
       setMessage('Status server dimuat.')
     } catch {
       setAdminStatus(null)
       setRecentShopeeOrders([])
+      setRecentChatSends([])
       setError('Sesi login diperlukan atau server belum aktif, panel admin memakai mode terbatas.')
       setMessage('Status belum bisa diperbarui karena sesi login diperlukan atau server belum aktif.')
     } finally {
@@ -176,6 +181,25 @@ export function AdminPage() {
                   ))}
                   {recentShopeeOrders.length === 0 ? (
                     <p>[-] Belum ada order Shopee di server.</p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="admin-opencode__list-block">
+                <p>[+] Recent Shopee chat sends</p>
+                <div className="mt-3 grid gap-2">
+                  {recentChatSends.slice(0, 10).map((job) => (
+                    <div key={job.id} className="admin-opencode__list-row items-start gap-3">
+                      <span className="min-w-0">
+                        <strong>{job.buyerUsername}</strong>
+                        <small className="block">{job.orderNumber ?? '-'} · {job.resiNumber}</small>
+                        <small className="block">{job.errorMessage ?? job.videoFilePath}</small>
+                      </span>
+                      <span>[{job.status}]</span>
+                    </div>
+                  ))}
+                  {recentChatSends.length === 0 ? (
+                    <p>[-] Belum ada job Shopee Chat.</p>
                   ) : null}
                 </div>
               </div>
