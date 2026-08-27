@@ -13,8 +13,8 @@ import { Button } from '../components/ui/button'
 import { ModalOverlay } from '../components/ui/ModalOverlay'
 import { DialogCloseButton, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog'
 import { notify } from '../app/notify'
-import { buildServerFileUrl, deleteServerRecordingApi, openServerSettingsFolderApi, prepareServerRecordingShareFileApi, prepareShopeeChatSendApi, readServerHistoryRecordingsApi, readShopeeChatSendsByRecordingIdsApi } from '@pakti/api-client'
-import type { RecordingChatSend } from '@pakti/types'
+import { buildServerFileUrl, deleteServerRecordingApi, openServerSettingsFolderApi, prepareServerRecordingShareFileApi, prepareShopeeChatSendApi, readRecentShopeeOrdersApi, readServerHistoryRecordingsApi, readShopeeChatSendsByRecordingIdsApi } from '@pakti/api-client'
+import type { RecordingChatSend, ShopeeOrder } from '@pakti/types'
 import { recordsToCsv, recordsToExcelXml } from '@pakti/shared/exporters'
 import type { LocalRecordingRecord } from '@pakti/shared/recordings'
 import type { RecordingRow, WorkTask } from '@pakti/types'
@@ -112,6 +112,26 @@ export function HistoryPage() {
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [historyReloadKey, setHistoryReloadKey] = useState(0)
   const [chatSendByRecordingId, setChatSendByRecordingId] = useState<Map<string, RecordingChatSend>>(new Map())
+  const [shopeeOrderByResi, setShopeeOrderByResi] = useState<Map<string, ShopeeOrder>>(new Map())
+
+  useEffect(() => {
+    let cancelled = false
+    void readRecentShopeeOrdersApi(500)
+      .then((orders) => {
+        if (cancelled) return
+        const map = new Map<string, ShopeeOrder>()
+        for (const order of orders) {
+          if (order.trackingNumber) map.set(order.trackingNumber.trim().toLowerCase(), order)
+        }
+        setShopeeOrderByResi(map)
+      })
+      .catch(() => {
+        if (!cancelled) setShopeeOrderByResi(new Map())
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [historyReloadKey])
 
   useEffect(() => {
     if (recordings.length === 0) {
@@ -600,6 +620,9 @@ export function HistoryPage() {
                             >
                               {group.resiNumber}
                             </button>
+                            {shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())?.orderNumber ? (
+                              <p className="history-opencode__meta truncate text-[11px] opacity-80">No. Pesanan {shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())!.orderNumber}</p>
+                            ) : null}
                             <p className="history-opencode__meta">{formatCompactDateTime(group.latest.updatedAt)}</p>
                           </div>
                           <div className="flex flex-col items-end gap-2">
@@ -676,7 +699,7 @@ export function HistoryPage() {
                               }
                             >
                               <Td>
-                                <button
+                              <button
                                   type="button"
                                   className="history-opencode__resi-link"
                                   onClick={(event) => {
@@ -686,6 +709,9 @@ export function HistoryPage() {
                                 >
                                   {group.resiNumber}
                                 </button>
+                                {shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())?.orderNumber ? (
+                                  <div className="text-[11px] opacity-80">No. Pesanan {shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())!.orderNumber}</div>
+                                ) : null}
                               </Td>
                               <Td>
                                 <OperatorCell value={formatOperatorForCurrentSession(group.latest.operatorName, group.latest.operatorCode, currentOperatorName, currentOperatorCode)} />

@@ -1793,7 +1793,12 @@ function App() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex min-w-0 flex-1 items-center gap-2">
-                            <strong className="min-w-0 truncate text-[16px] font-bold leading-none tracking-tight">{group.resiNumber}</strong>
+                            <div className="grid min-w-0 gap-0.5">
+                              <strong className="min-w-0 truncate text-[16px] font-bold leading-none tracking-tight">{group.resiNumber}</strong>
+                              {shopeeOrders.find((o) => o.trackingNumber?.trim().toLowerCase() === group.resiNumber.trim().toLowerCase())?.orderNumber ? (
+                                <span className="truncate text-[11px] opacity-80">No. Pesanan {shopeeOrders.find((o) => o.trackingNumber?.trim().toLowerCase() === group.resiNumber.trim().toLowerCase())!.orderNumber}</span>
+                              ) : null}
+                            </div>
                             <Button
                               type="button"
                               variant="ghost"
