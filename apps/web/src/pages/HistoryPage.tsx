@@ -1607,27 +1607,6 @@ function formatDuration(durationSeconds: number | null) {
   return `${minutes}m ${seconds}s`
 }
 
-function formatBytes(value: number | null) {
-  if (value === null || typeof value === 'undefined' || Number.isNaN(value)) {
-    return '-'
-  }
-
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  let size = Number(value)
-  let unitIndex = 0
-
-  if (!Number.isFinite(size)) {
-    return '-'
-  }
-
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024
-    unitIndex += 1
-  }
-
-  return `${size.toFixed(size >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`
-}
-
 function groupRecordingsByResi(records: LocalRecordingRecord[]): HistoryRecordingGroup[] {
   const groups = new Map<string, LocalRecordingRecord[]>()
 
@@ -1731,31 +1710,6 @@ function formatDateInput(date: Date) {
   const day = String(date.getDate()).padStart(2, '0')
 
   return `${year}-${month}-${day}`
-}
-
-function buildRecordMetadataText(record: LocalRecordingRecord, group?: HistoryRecordingGroup | null) {
-  const lines = [
-    `resi_number: ${record.resiNumber}`,
-    `task_type: ${record.taskType}`,
-    `status: ${record.status}`,
-    `operator_name: ${record.operatorName ?? '-'}`,
-    `operator_code: ${record.operatorCode ?? '-'}`,
-    `record_date: ${record.recordDate}`,
-    `start_time: ${record.startTime}`,
-    `end_time: ${record.endTime ?? '-'}`,
-    `duration_seconds: ${record.durationSeconds ?? '-'}`,
-    `file_name: ${record.fileName}`,
-    `file_path: ${record.filePath}`,
-    `file_size_bytes: ${record.fileSizeBytes ?? '-'}`,
-    `note: ${record.note ?? '-'}`,
-  ]
-
-  if (group) {
-    lines.push(`group_record_count: ${group.records.length}`)
-    lines.push(`group_latest_status: ${getGroupStatus(group)}`)
-  }
-
-  return lines.join('\n')
 }
 
 function formatOperatorForCurrentSession(
