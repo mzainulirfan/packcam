@@ -10,18 +10,17 @@ import { navigateTo } from '../app/uiState'
 import { setRepeatQcResi } from '../app/repeatQcState'
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
-import { Input } from '../components/ui/input'
 import { ModalOverlay } from '../components/ui/ModalOverlay'
 import { DialogCloseButton, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { notify } from '../app/notify'
 import { buildServerFileUrl, deleteServerRecordingApi, openServerSettingsFolderApi, prepareServerRecordingShareFileApi, readServerHistoryRecordingsApi } from '@pakti/api-client'
 import { recordsToCsv, recordsToExcelXml } from '@pakti/shared/exporters'
 import type { LocalRecordingRecord } from '@pakti/shared/recordings'
 import type { RecordingRow, WorkTask } from '@pakti/types'
 import { downloadTextFile } from '@pakti/shared'
-
-type HistoryTaskFilter = 'all' | WorkTask
+import { HistoryDetailDialog } from '../history/HistoryDetailDialog'
+import { HistoryFilters, type HistoryTaskFilter } from '../history/HistoryFilters'
+import { HistoryRecordingCard } from '../history/HistoryRecordingCard'
 
 type HistoryRecordingGroup = {
   resiNumber: string
@@ -47,13 +46,6 @@ const defaultHistoryFilterState: HistoryFilterState = {
   dateFrom: '',
   dateTo: '',
 }
-
-const taskOptions: Array<{ value: HistoryTaskFilter; label: string }> = [
-  { value: 'all', label: 'Semua task' },
-  { value: 'qc', label: 'QC' },
-  { value: 'packing', label: 'Packing' },
-]
-
 
 function readStoredHistoryFilters(): HistoryFilterState {
   if (typeof window === 'undefined') {
@@ -487,68 +479,20 @@ export function HistoryPage() {
           <StatCard marker="[-]" label="Belum lengkap" value={historyMetrics.incomplete} unit="paket" />
         </section>
 
-        <section className="history-opencode__filters">
-            <div className="grid gap-3">
-              <div className="relative">
-                <span className="history-opencode__input-prefix" aria-hidden="true">[?]</span>
-                <Input value={searchText} onChange={(event) => handleTextChange(event.target.value)} placeholder="Cari nomor resi..." className="history-opencode__input pl-12" aria-label="Cari nomor resi" />
-                {searchText.trim() ? (
-                  <Button type="button" variant="ghost" size="sm" className="history-opencode__clear" onClick={() => handleTextChange('')}>
-                    [clear]
-                  </Button>
-                ) : null}
-              </div>
-
-              <div className="grid gap-3 xl:grid-cols-[180px_200px_minmax(360px,1fr)_auto]">
-                <Select value={taskFilter} onValueChange={(value) => handleTaskChange(value as HistoryTaskFilter)}>
-                  <SelectTrigger className="history-opencode__select">
-                    <SelectValue placeholder="Task" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {taskOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                {isAdmin ? (
-                  <Select value={operatorFilter} onValueChange={handleOperatorChange}>
-                    <SelectTrigger className="history-opencode__select">
-                      <SelectValue placeholder="User" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Semua user</SelectItem>
-                      {operatorOptions
-                        .filter((option) => option.value.trim() !== '')
-                        .map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                ) : null}
-
-                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                  <div className="relative">
-                    <span className="history-opencode__date-label">Mulai</span>
-                    <Input type="date" value={dateFrom} onChange={(event) => handleDateChange('from', event.target.value)} className="history-opencode__input pl-14" aria-label="Tanggal mulai" />
-                  </div>
-                  <span className="history-opencode__range-separator">to</span>
-                  <div className="relative">
-                    <span className="history-opencode__date-label">Sampai</span>
-                    <Input type="date" value={dateTo} onChange={(event) => handleDateChange('to', event.target.value)} className="history-opencode__input pl-16" aria-label="Tanggal akhir" />
-                  </div>
-                </div>
-
-                <Button type="button" variant="ghost" className="history-opencode__button" onClick={clearFilters} aria-label="Reset filter" title="Reset filter">
-                  [reset]
-                </Button>
-              </div>
-            </div>
-        </section>
+        <HistoryFilters
+          searchText={searchText}
+          taskFilter={taskFilter}
+          operatorFilter={operatorFilter}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          isAdmin={isAdmin}
+          operatorOptions={operatorOptions}
+          onSearchTextChange={handleTextChange}
+          onTaskFilterChange={handleTaskChange}
+          onOperatorFilterChange={handleOperatorChange}
+          onDateChange={handleDateChange}
+          onClearFilters={clearFilters}
+        />
 
         <div className="grid gap-4 min-w-0">
           <section className="history-opencode__table-section min-w-0 overflow-hidden">
@@ -819,30 +763,17 @@ export function HistoryPage() {
           </ModalOverlay>
         ) : null}
 
-        {isDetailModalOpen && selectedRecord ? (
-          <ModalOverlay
-            onClose={closeDetail}
-            contentClassName="w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] p-0 sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] lg:w-[114rem] lg:max-w-[114rem]"
-            staticBackdrop
-          >
-            <div className="history-opencode__detail-modal flex max-h-[88vh] flex-col overflow-hidden">
-              <DialogHeader className="history-opencode__detail-header flex items-start justify-between gap-3 text-left">
-                <div className="min-w-0 grid gap-1">
-                  <p>[+] Detail history</p>
-                  <DialogTitle className="truncate">{selectedRecord.resiNumber}</DialogTitle>
-                  <DialogDescription className="truncate">
-                    {formatOperatorForCurrentSession(
-                      selectedRecord.operatorName,
-                      selectedRecord.operatorCode,
-                      currentOperatorName,
-                      currentOperatorCode,
-                    )}
-                  </DialogDescription>
-                </div>
-                <DialogCloseButton onClick={closeDetail} />
-              </DialogHeader>
-
-              <div className="history-opencode__detail-body grid flex-1 items-start gap-3 overflow-y-auto lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+        <HistoryDetailDialog
+          open={isDetailModalOpen}
+          record={selectedRecord}
+          operatorLabel={selectedRecord ? formatOperatorForCurrentSession(
+            selectedRecord.operatorName,
+            selectedRecord.operatorCode,
+            currentOperatorName,
+            currentOperatorCode,
+          ) : '-'}
+          onClose={closeDetail}
+        >
                 <div className="grid gap-3">
                   <div className="history-opencode__detail-selected flex items-center justify-between gap-3">
                     <div className="grid min-w-0 gap-1">
@@ -982,65 +913,19 @@ export function HistoryPage() {
                           const isSelectedRecord = record.id === selectedRecord.id
 
                           return (
-                            <div
+                            <HistoryRecordingCard
                               key={record.id}
-                              className={isSelectedRecord ? 'history-opencode__record-card is-selected' : 'history-opencode__record-card'}
-                            >
-                              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                <div className="grid gap-1.5">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <TaskPill taskType={record.taskType} />
-                                    <StatusPill status={record.status} />
-                                    {invalidRecord ? (
-                                      <span className="history-opencode__badge">
-                                        [!] Tidak valid
-                                      </span>
-                                      ) : null}
-                                    {isSelectedRecord ? (
-                                      <span className="history-opencode__badge">
-                                        [x] Dipilih
-                                      </span>
-                                    ) : null}
-                                  </div>
-                                  <div className="history-opencode__record-meta grid gap-0.5">
-                                    <span className="truncate">File: {record.fileName}</span>
-                                    <span className="truncate">Path: {record.filePath}</span>
-                                    <span>{formatDateTime(record.startTime)}</span>
-                                    <span>{record.note ?? 'Tidak ada catatan tambahan.'}</span>
-                                  </div>
-                                </div>
-
-                                <div className="flex flex-wrap gap-2">
-                                  {record.status === 'completed' ? (
-                                    <Button type="button" size="sm" className="history-opencode__button" onClick={() => setPreviewTarget(record)}>
-                                      [preview]
-                                    </Button>
-                                  ) : null}
-                                  <Button type="button" variant="outline" size="sm" className="history-opencode__button" onClick={() => void handleCopyText(record.filePath, 'Path file')}>
-                                    [copy-path]
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="history-opencode__button"
-                                    disabled={downloadingRecordId !== null}
-                                    onClick={() => handleDownloadRecord(record)}
-                                  >
-                                    {downloadingRecordId === record.id ? '[preparing]' : record.shareFileReady ? '[download]' : '[preparing video]'}
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="destructive"
-                                    size="sm"
-                                    disabled={deletingRecordId !== null}
-                                    onClick={() => setDeleteTarget(record)}
-                                  >
-                                    {deletingRecordId === record.id ? '[deleting]' : '[delete]'}
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
+                              record={record}
+                              isSelected={isSelectedRecord}
+                              invalidRecord={invalidRecord}
+                              downloadingRecordId={downloadingRecordId}
+                              deletingRecordId={deletingRecordId}
+                              formatDateTime={formatDateTime}
+                              onPreview={setPreviewTarget}
+                              onCopyPath={(item) => void handleCopyText(item.filePath, 'Path file')}
+                              onDownload={handleDownloadRecord}
+                              onDelete={setDeleteTarget}
+                            />
                           )
                         })}
                       </div>
@@ -1051,10 +936,7 @@ export function HistoryPage() {
                     </div>
                   )}
                 </div>
-              </div>
-            </div>
-          </ModalOverlay>
-        ) : null}
+        </HistoryDetailDialog>
 
         {previewTarget ? (
           <ModalOverlay
