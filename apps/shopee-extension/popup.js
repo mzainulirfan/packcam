@@ -216,8 +216,15 @@ async function prepareShopeeChat() {
 
     const tab = await getActiveTab()
     if (!/^https:\/\/seller\.shopee\.co\.id\/new-webchat\/conversations/i.test(tab.url || '')) {
-      await chrome.tabs.create({ url: 'https://seller.shopee.co.id/new-webchat/conversations' })
-      setStatus('Shopee Webchat dibuka. Setelah halaman siap, klik Prepare Shopee Chat lagi.')
+      const existing = await chrome.tabs.query({ url: 'https://seller.shopee.co.id/new-webchat/conversations*' })
+      if (existing[0]?.id) {
+        await chrome.tabs.update(existing[0].id, { active: true })
+        if (existing[0].windowId) await chrome.windows.update(existing[0].windowId, { focused: true })
+        setStatus('Pakai tab Shopee Webchat yang sudah ada. Klik Prepare Shopee Chat lagi di tab tersebut.')
+      } else {
+        await chrome.tabs.create({ url: 'https://seller.shopee.co.id/new-webchat/conversations' })
+        setStatus('Shopee Webchat dibuka. Setelah halaman siap, klik Prepare Shopee Chat lagi.')
+      }
       return
     }
 
@@ -286,6 +293,8 @@ async function markLastChatSent() {
 readConfig().then((config) => {
   apiBaseUrlInput.value = config.apiBaseUrl
   apiKeyInput.value = config.apiKey
+  // Auto-load pending jobs agar user tidak perlu klik Load lagi setelah dari Pakti web
+  void loadPendingChatJobs().catch(() => undefined)
 })
 
 saveButton.addEventListener('click', saveConfig)

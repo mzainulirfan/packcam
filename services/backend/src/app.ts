@@ -36,8 +36,14 @@ type AuthenticatedRequest = Request & {
 }
 
 function isAllowedCorsOrigin(origin: string) {
-  if (origin.startsWith('chrome-extension://') && process.env.SHOPEE_EXTENSION_API_KEY?.trim()) {
-    return true
+  if (process.env.SHOPEE_EXTENSION_API_KEY?.trim()) {
+    if (origin.startsWith('chrome-extension://')) {
+      return true
+    }
+
+    if (origin === 'https://seller.shopee.co.id' || origin === 'https://seller.shopee.com') {
+      return true
+    }
   }
 
   return corsOrigins.some((allowedOrigin) => {
@@ -184,7 +190,15 @@ app.use((error: unknown, _req: Request, res: Response, next: NextFunction) => {
 
   return next(error)
 })
-app.use('/files', requireSession, express.static(getUploadsDir()))
+function requireFileAccess(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  if (hasValidExtensionKey(req)) {
+    return next()
+  }
+
+  return requireSession(req, res, next)
+}
+
+app.use('/files', requireFileAccess, express.static(getUploadsDir()))
 
 app.get('/api/health', (_req, res) => {
   sendOk(res, {

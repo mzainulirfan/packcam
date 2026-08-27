@@ -392,9 +392,9 @@ export function HistoryPage() {
       const job = await prepareShopeeChatSendApi(record.id)
       notify.save(
         'Job Shopee Chat siap',
-        `Buka Shopee Webchat dan jalankan extension untuk ${job.buyerUsername}.`,
+        `Job untuk ${job.buyerUsername} (${job.resiNumber}) siap. Shopee Webchat dibuka — cek tab Webchat yang sudah ada, tidak perlu klik extension lagi (otomatis isi chat).`,
       )
-      window.open('https://seller.shopee.co.id/new-webchat/conversations', '_blank', 'noopener')
+      window.open('https://seller.shopee.co.id/new-webchat/conversations', 'pakti-shopee-webchat')
     } catch (error) {
       notify.error(
         'Gagal siapkan Shopee Chat',
