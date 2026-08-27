@@ -763,17 +763,18 @@ export function HistoryPage() {
           </ModalOverlay>
         ) : null}
 
-        <HistoryDetailDialog
-          open={isDetailModalOpen}
-          record={selectedRecord}
-          operatorLabel={selectedRecord ? formatOperatorForCurrentSession(
-            selectedRecord.operatorName,
-            selectedRecord.operatorCode,
-            currentOperatorName,
-            currentOperatorCode,
-          ) : '-'}
-          onClose={closeDetail}
-        >
+        {selectedRecord ? (
+          <HistoryDetailDialog
+            open={isDetailModalOpen}
+            record={selectedRecord}
+            operatorLabel={formatOperatorForCurrentSession(
+              selectedRecord.operatorName,
+              selectedRecord.operatorCode,
+              currentOperatorName,
+              currentOperatorCode,
+            )}
+            onClose={closeDetail}
+          >
                 <div className="grid gap-3">
                   <div className="history-opencode__detail-selected flex items-center justify-between gap-3">
                     <div className="grid min-w-0 gap-1">
@@ -936,7 +937,8 @@ export function HistoryPage() {
                     </div>
                   )}
                 </div>
-        </HistoryDetailDialog>
+          </HistoryDetailDialog>
+        ) : null}
 
         {previewTarget ? (
           <ModalOverlay
