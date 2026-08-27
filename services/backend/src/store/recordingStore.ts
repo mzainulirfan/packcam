@@ -12,10 +12,12 @@ import {
 import {
   isMp4Recording as isVideoMp4Recording,
   runFfmpegMp4TranscodeToFile as runVideoFfmpegMp4TranscodeToFile,
-  runFfmpegShareMp4Transcode as runVideoFfmpegShareMp4Transcode,
   runFfmpegWatermarkToFile as runVideoFfmpegWatermarkToFile,
+} from '../video/watermark'
+import {
+  runFfmpegShareMp4Transcode as runVideoFfmpegShareMp4Transcode,
   SHOPEE_VIDEO_LIMIT_BYTES,
-} from '../video/videoProcessing'
+} from '../video/shareVideo'
 
 type RecordingRow = {
   id: string

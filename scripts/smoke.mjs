@@ -28,7 +28,7 @@ async function checkBackend() {
   }
 }
 
-assertExists(path.join(ROOT_DIR, 'dist', 'apps', 'web', 'index.html'), 'Build web')
+assertExists(path.join(ROOT_DIR, 'dist', 'index.html'), 'Build web')
 assertExists(path.join(ROOT_DIR, 'apps', 'mobile', 'dist', 'index.html'), 'Build mobile')
 
 await checkBackend()

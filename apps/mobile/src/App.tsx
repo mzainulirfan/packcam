@@ -60,6 +60,7 @@ import {
 } from './history/historyUtils'
 import { useMobileHistoryFilters } from './history/useMobileHistoryFilters'
 import { useSharePreparation } from './history/useSharePreparation'
+import { getDuplicateScanNotice, getPackingQcMessage } from './scan/scanCopy'
 import { useScanQueue } from './scan/useScanQueue'
 import { HistoryDeleteDialog } from './tabs/HistoryDeleteDialog'
 import { HistoryDetailSheet } from './tabs/HistoryDetailSheet'
@@ -937,16 +938,11 @@ function App() {
 
       const taskProgress = session.taskType === 'packing' ? await resolveLatestTaskProgress(resiNumber) : null
       if (session.taskType === 'packing' && taskProgress?.qc?.status !== 'completed') {
-        const qcMessage =
-          taskProgress?.qc?.status === 'recording'
-            ? 'Resi ini masih di QC. Tunggu selesai dulu.'
-            : 'Resi ini belum masuk QC. Packing belum bisa jalan.'
-
         playScanFeedback('warning')
         showScanNotice({
           kind: 'warning',
           title: 'QC belum selesai',
-          message: qcMessage,
+          message: getPackingQcMessage(taskProgress?.qc?.status),
         })
         setScanResi('')
         return 'error'
@@ -960,27 +956,17 @@ function App() {
         if (existing) {
           playScanFeedback('warning')
           rejectResi(resiNumber)
-          const currentTaskName = formatTask(session.taskType)
-          const duplicateTitle =
-            existing.status === 'completed'
-              ? session.taskType === 'packing' && taskProgress?.qc?.status === 'completed'
-                ? 'Sudah lengkap'
-                : `${currentTaskName} selesai`
-              : `${currentTaskName} sedang jalan`
-
-          const duplicateMessage =
-            existing.status === 'completed'
-              ? session.taskType === 'packing' && taskProgress?.qc?.status === 'completed'
-                ? 'QC dan Packing sudah selesai.'
-                : `Resi ini sudah diproses di ${currentTaskName}.`
-              : existing.status === 'recording'
-                ? `Resi ini sedang diproses di ${currentTaskName}.`
-                : `Resi ini sudah tercatat di ${currentTaskName}.`
+          const duplicateNotice = getDuplicateScanNotice({
+            existing,
+            taskType: session.taskType,
+            taskProgressQcStatus: taskProgress?.qc?.status,
+            formatTask,
+          })
 
           showScanNotice({
             kind: 'warning',
-            title: duplicateTitle,
-            message: duplicateMessage,
+            title: duplicateNotice.title,
+            message: duplicateNotice.message,
           })
           setWatermarkResi((current) => (current === resiNumber ? null : current))
           setScanResi('')
