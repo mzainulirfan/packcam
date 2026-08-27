@@ -1,13 +1,33 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
-import type { AppSettings, OperatorProfile, OperatorRole, RecordingStatus, SystemConfig, WorkTask } from '@pakti/types'
+import { DEFAULT_APP_SETTINGS } from '@pakti/shared/defaults'
+import type { RecordingStatus, WorkTask } from '@pakti/types'
 
 import { getDb, getDbPath, getPendingRecordingsDir, getUploadsDir, ensureServerStorage } from './db'
-import { createPasswordDigest, verifyPassword } from './auth'
-import type { HttpSession } from './http'
 import { broadcastBackendEvent } from './realtime'
+import {
+  getBootstrapStatus as getOperatorBootstrapStatus,
+} from './store/operatorStore'
+export {
+  deleteOperatorProfile,
+  findOperatorProfile,
+  findProfileByName,
+  getBootstrapStatus,
+  listOperatorProfiles,
+  resetOperatorPassword,
+  upsertOperatorProfile,
+} from './store/operatorStore'
+export {
+  authenticateOperator,
+  createSession,
+  deleteSessionById,
+  findSessionByIdentity,
+  getSessionById,
+  resolveSession,
+  updateSessionTaskType,
+} from './store/sessionStore'
+export { readSettings, readSystemConfig, saveSettings, saveSystemConfig } from './store/settingsStore'
 import {
   isMp4Recording as isVideoMp4Recording,
   runFfmpegMp4TranscodeToFile as runVideoFfmpegMp4TranscodeToFile,
@@ -15,27 +35,6 @@ import {
   runFfmpegWatermarkToFile as runVideoFfmpegWatermarkToFile,
   SHOPEE_VIDEO_LIMIT_BYTES,
 } from './video/videoProcessing'
-
-type OperatorProfileRow = {
-  operator_name: string
-  operator_code: string
-  role: OperatorRole
-  task_type: WorkTask
-  full_name: string | null
-  last_used_at: string
-  password_salt: string | null
-  password_hash: string | null
-}
-
-type SessionRow = {
-  session_id: string
-  operator_name: string
-  operator_code: string
-  role: OperatorRole
-  task_type: WorkTask
-  created_at: string
-  updated_at: string
-}
 
 type RecordingRow = {
   id: string
@@ -100,9 +99,6 @@ type RecordingDraftInput = {
 
 const JSON_STATE_KEY = 'current'
 const MAX_SCAN_LOGS = 500
-const LEGACY_SYSTEM_TAGLINE = 'Aplikasi yang membantu UMKM merekam proses QC dan packing paket secara lebih rapi.'
-const SESSION_TTL_HOURS = Number(process.env.SESSION_TTL_HOURS ?? 12)
-const SESSION_TTL_MS = Math.max(1, SESSION_TTL_HOURS) * 60 * 60 * 1000
 let watermarkQueue = Promise.resolve()
 
 function nowIso() {
@@ -129,36 +125,6 @@ function canStartPackingForResi(resiNumber: string) {
     .get(resiNumber.trim()) as { count: number }
 
   return (row.count ?? 0) > 0
-}
-
-function assertValidVideoRootPath(value: string) {
-  const normalized = value.trim().replace(/\\/g, '/')
-
-  if (!normalized) {
-    throw new Error('Folder video wajib diisi.')
-  }
-
-  if (normalized.startsWith('/') || /^[A-Za-z]:/.test(normalized)) {
-    throw new Error('Folder video harus menggunakan path relatif, bukan path absolut.')
-  }
-
-  if (normalized.split('/').some((segment) => segment === '..')) {
-    throw new Error('Folder video tidak boleh mengandung "..".')
-  }
-
-  if (/[<>:"|?*\0]/.test(normalized)) {
-    throw new Error('Folder video mengandung karakter yang tidak valid.')
-  }
-
-  return normalized.replace(/\/+/g, '/').replace(/^\.\/+/, '')
-}
-
-function normalizeVideoRootPath(value: string | null | undefined, fallback = DEFAULT_APP_SETTINGS.videoRootPath) {
-  try {
-    return assertValidVideoRootPath(value ?? fallback)
-  } catch {
-    return fallback
-  }
 }
 
 function sanitizeFileSegment(value: string) {
@@ -217,31 +183,6 @@ function db() {
   return getDb()
 }
 
-function readJsonRowMeta<T>(table: string, fallback: T) {
-  const row = db()
-    .prepare(`SELECT value, updated_at FROM ${table} WHERE key = ? LIMIT 1`)
-    .get(JSON_STATE_KEY) as { value?: string; updated_at?: string } | undefined
-
-  if (!row?.value) {
-    return {
-      value: fallback,
-      updatedAt: null as string | null,
-    }
-  }
-
-  try {
-    return {
-      value: JSON.parse(row.value) as T,
-      updatedAt: row.updated_at ?? null,
-    }
-  } catch {
-    return {
-      value: fallback,
-      updatedAt: row.updated_at ?? null,
-    }
-  }
-}
-
 function writeJsonRow(table: string, value: unknown) {
   const timestamp = nowIso()
   db().prepare(
@@ -257,88 +198,6 @@ function removeJsonRow(table: string) {
   db().prepare(`DELETE FROM ${table} WHERE key = ?`).run(JSON_STATE_KEY)
 }
 
-function sanitizeSystemConfig(value: Partial<SystemConfig> | null | undefined): SystemConfig {
-  const next = value ?? {}
-  const tagline = next.tagline?.trim()
-  return {
-    appName: next.appName?.trim() || DEFAULT_SYSTEM_CONFIG.appName,
-    tagline: tagline && tagline !== LEGACY_SYSTEM_TAGLINE ? tagline : DEFAULT_SYSTEM_CONFIG.tagline,
-    brandMark: next.brandMark?.trim() || DEFAULT_SYSTEM_CONFIG.brandMark,
-  }
-}
-
-function sanitizeSettings(value: Partial<AppSettings> | null | undefined): AppSettings {
-  const next = value ?? {}
-  return {
-    videoRootPath: normalizeVideoRootPath(next.videoRootPath),
-    videoFormat: next.videoFormat === 'mp4' ? 'mp4' : 'webm',
-    videoResolution: next.videoResolution?.trim() || DEFAULT_APP_SETTINGS.videoResolution,
-    videoBitrate: next.videoBitrate?.trim() || DEFAULT_APP_SETTINGS.videoBitrate,
-    cameraDeviceId: next.cameraDeviceId?.trim() || DEFAULT_APP_SETTINGS.cameraDeviceId,
-    autoOpenFolder: Boolean(next.autoOpenFolder),
-  }
-}
-
-function mapOperatorProfile(row: OperatorProfileRow): OperatorProfile {
-  return {
-    fullName: row.full_name,
-    operatorName: row.operator_name,
-    operatorCode: row.operator_code,
-    role: row.role,
-    taskType: row.task_type,
-    lastUsedAt: row.last_used_at,
-    passwordSalt: row.password_salt,
-    passwordHash: row.password_hash,
-  }
-}
-
-function mapSession(row: SessionRow): HttpSession {
-  return {
-    sessionId: row.session_id,
-    operatorName: row.operator_name,
-    operatorCode: row.operator_code,
-    role: row.role,
-    taskType: row.task_type,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  }
-}
-
-function normalizeOperatorName(value: string) {
-  return value.trim()
-}
-
-function normalizeOperatorCode(value: string) {
-  return value.trim()
-}
-
-function normalizeRole(value: OperatorRole | string | undefined | null): OperatorRole {
-  return value === 'admin' ? 'admin' : 'operator'
-}
-
-function isSameIdentity(row: OperatorProfileRow | SessionRow, operatorName: string, operatorCode: string, role: OperatorRole) {
-  return (
-    row.operator_name.trim().toLowerCase() === operatorName.trim().toLowerCase() &&
-    row.operator_code.trim().toLowerCase() === operatorCode.trim().toLowerCase() &&
-    row.role === role
-  )
-}
-
-export function getBootstrapStatus() {
-  const operatorCount = db()
-    .prepare(`SELECT COUNT(*) AS count FROM operator_profiles`)
-    .get() as { count: number }
-  const adminCount = db()
-    .prepare(`SELECT COUNT(*) AS count FROM operator_profiles WHERE role = 'admin'`)
-    .get() as { count: number }
-
-  return {
-    needsSetup: (operatorCount.count ?? 0) === 0,
-    adminCount: adminCount.count ?? 0,
-    operatorCount: operatorCount.count ?? 0,
-  }
-}
-
 export function getHealthSnapshot() {
   const database = db()
 
@@ -352,7 +211,7 @@ export function getHealthSnapshot() {
   return {
     dbPath: getDbPath(),
     uploadDir: getUploadsDir(),
-    setupRequired: getBootstrapStatus().needsSetup,
+    setupRequired: getOperatorBootstrapStatus().needsSetup,
     counts: {
       operatorProfiles: counts.operatorProfiles.count ?? 0,
       sessions: counts.sessions.count ?? 0,
@@ -360,363 +219,6 @@ export function getHealthSnapshot() {
       scanLogs: counts.scanLogs.count ?? 0,
     },
   }
-}
-
-export function readSystemConfig() {
-  const { value: raw, updatedAt } = readJsonRowMeta<Partial<SystemConfig> | null>('system_config', null)
-  const normalized = sanitizeSystemConfig(raw)
-
-  if (raw && JSON.stringify(raw) !== JSON.stringify(normalized)) {
-    writeJsonRow('system_config', normalized)
-  }
-
-  return {
-    ...normalized,
-    updatedAt,
-  }
-}
-
-export function saveSystemConfig(nextConfig: SystemConfig) {
-  const normalized = sanitizeSystemConfig(nextConfig)
-  const updatedAt = writeJsonRow('system_config', normalized)
-  broadcastBackendEvent('system-config-updated', { updatedAt })
-  return {
-    ...normalized,
-    updatedAt,
-  }
-}
-
-export function readSettings() {
-  const { value: raw, updatedAt } = readJsonRowMeta<Partial<AppSettings> | null>('app_settings', null)
-  return {
-    ...sanitizeSettings(raw),
-    updatedAt,
-  }
-}
-
-export function saveSettings(nextSettings: AppSettings) {
-  const normalized = {
-    ...sanitizeSettings(nextSettings),
-    videoRootPath: assertValidVideoRootPath(nextSettings.videoRootPath),
-  }
-  const updatedAt = writeJsonRow('app_settings', normalized)
-  broadcastBackendEvent('settings-updated', { updatedAt })
-  return {
-    ...normalized,
-    updatedAt,
-  }
-}
-
-export function listOperatorProfiles() {
-  const rows = db()
-    .prepare(
-      `SELECT operator_name, operator_code, role, task_type, full_name, last_used_at, password_salt, password_hash
-       FROM operator_profiles
-       ORDER BY last_used_at DESC`,
-    )
-    .all() as OperatorProfileRow[]
-
-  return rows.map(mapOperatorProfile)
-}
-
-export function findOperatorProfile(operatorName: string, operatorCode: string, role: OperatorRole) {
-  const row = db()
-    .prepare(
-      `SELECT operator_name, operator_code, role, task_type, full_name, last_used_at, password_salt, password_hash
-       FROM operator_profiles
-       WHERE LOWER(operator_name) = LOWER(?)
-         AND LOWER(operator_code) = LOWER(?)
-         AND role = ?
-       LIMIT 1`,
-    )
-    .get(normalizeOperatorName(operatorName), normalizeOperatorCode(operatorCode), role) as OperatorProfileRow | undefined
-
-  return row ? mapOperatorProfile(row) : null
-}
-
-export function findProfileByName(operatorName: string) {
-  const row = db()
-    .prepare(
-      `SELECT operator_name, operator_code, role, task_type, full_name, last_used_at, password_salt, password_hash
-       FROM operator_profiles
-       WHERE LOWER(operator_name) = LOWER(?)
-       LIMIT 1`,
-    )
-    .get(normalizeOperatorName(operatorName)) as OperatorProfileRow | undefined
-
-  return row ? mapOperatorProfile(row) : null
-}
-
-export function upsertOperatorProfile(input: {
-  operatorName: string
-  operatorCode: string
-  role?: OperatorRole | null
-  taskType?: WorkTask | null
-  fullName?: string | null
-  password?: string | null
-}) {
-  const operatorName = normalizeOperatorName(input.operatorName)
-  const operatorCode = normalizeOperatorCode(input.operatorCode)
-  const role = normalizeRole(input.role)
-  const taskType = normalizeTaskType(input.taskType)
-
-  if (!operatorName || !operatorCode) {
-    throw new Error('Nama operator dan kode user wajib diisi.')
-  }
-
-  const existing = findOperatorProfile(operatorName, operatorCode, role)
-  const passwordValue = input.password?.trim() ?? ''
-  const digest = passwordValue ? createPasswordDigest(passwordValue) : null
-  const passwordSalt = digest?.salt ?? existing?.passwordSalt ?? null
-  const passwordHash = digest?.hash ?? existing?.passwordHash ?? null
-
-  if (!passwordHash || !passwordSalt) {
-    throw new Error('Kata sandi wajib diisi untuk akun baru.')
-  }
-
-  const duplicateName = db()
-    .prepare(
-      `SELECT operator_name, operator_code, role, task_type, full_name, last_used_at, password_salt, password_hash
-       FROM operator_profiles
-       WHERE LOWER(operator_name) = LOWER(?)
-       LIMIT 1`,
-    )
-    .get(operatorName) as OperatorProfileRow | undefined
-
-  if (duplicateName && !isSameIdentity(duplicateName, operatorName, operatorCode, role)) {
-    throw new Error('Nama operator sudah digunakan.')
-  }
-
-  const duplicateCode = db()
-    .prepare(
-      `SELECT operator_name, operator_code, role, task_type, full_name, last_used_at, password_salt, password_hash
-       FROM operator_profiles
-       WHERE LOWER(operator_code) = LOWER(?)
-       LIMIT 1`,
-    )
-    .get(operatorCode) as OperatorProfileRow | undefined
-
-  if (duplicateCode && !isSameIdentity(duplicateCode, operatorName, operatorCode, role)) {
-    throw new Error('Kode user sudah digunakan.')
-  }
-
-  const timestamp = nowIso()
-  db().prepare(
-    `INSERT INTO operator_profiles (
-      operator_name,
-      operator_code,
-      role,
-      task_type,
-      full_name,
-      last_used_at,
-      password_salt,
-      password_hash
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(operator_name, operator_code, role) DO UPDATE SET
-      task_type = excluded.task_type,
-      full_name = excluded.full_name,
-      last_used_at = excluded.last_used_at,
-      password_salt = excluded.password_salt,
-      password_hash = excluded.password_hash`,
-  ).run(operatorName, operatorCode, role, taskType, input.fullName?.trim() || null, timestamp, passwordSalt, passwordHash)
-
-  db().prepare(
-    `UPDATE operator_sessions
-     SET task_type = ?, updated_at = ?
-     WHERE LOWER(operator_name) = LOWER(?)
-       AND LOWER(operator_code) = LOWER(?)
-       AND role = ?`,
-  ).run(taskType, timestamp, operatorName, operatorCode, role)
-
-  broadcastBackendEvent('operators-updated', { operatorName, operatorCode, role, taskType, updatedAt: timestamp })
-  broadcastBackendEvent('sessions-updated', { operatorName, operatorCode, role, taskType, updatedAt: timestamp })
-  return findOperatorProfile(operatorName, operatorCode, role)
-}
-
-export function deleteOperatorProfile(operatorName: string, operatorCode: string, role: OperatorRole) {
-  const profile = findOperatorProfile(operatorName, operatorCode, role)
-
-  if (!profile) {
-    return false
-  }
-
-  const adminCount = db()
-    .prepare(`SELECT COUNT(*) AS count FROM operator_profiles WHERE role = 'admin'`)
-    .get() as { count: number }
-
-  if (role === 'admin' && (adminCount.count ?? 0) <= 1) {
-    throw new Error('Minimal satu akun admin harus tetap ada.')
-  }
-
-  db()
-    .prepare(
-      `DELETE FROM operator_profiles
-       WHERE LOWER(operator_name) = LOWER(?)
-         AND LOWER(operator_code) = LOWER(?)
-         AND role = ?`,
-    )
-    .run(normalizeOperatorName(operatorName), normalizeOperatorCode(operatorCode), role)
-
-  db()
-    .prepare(
-      `DELETE FROM operator_sessions
-       WHERE LOWER(operator_name) = LOWER(?)
-         AND LOWER(operator_code) = LOWER(?)
-         AND role = ?`,
-    )
-    .run(normalizeOperatorName(operatorName), normalizeOperatorCode(operatorCode), role)
-
-  broadcastBackendEvent('operators-updated', { operatorName, operatorCode, role, deleted: true })
-  broadcastBackendEvent('sessions-updated', { operatorName, operatorCode, role, deleted: true })
-  return true
-}
-
-export function resetOperatorPassword(
-  operatorName: string,
-  operatorCode: string,
-  role: OperatorRole,
-  password: string,
-) {
-  const profile = findOperatorProfile(operatorName, operatorCode, role)
-  if (!profile) {
-    throw new Error('Akun tidak ditemukan.')
-  }
-
-  const digest = createPasswordDigest(password)
-  db()
-    .prepare(
-      `UPDATE operator_profiles
-       SET password_salt = ?, password_hash = ?, last_used_at = ?
-       WHERE LOWER(operator_name) = LOWER(?)
-         AND LOWER(operator_code) = LOWER(?)
-         AND role = ?`,
-    )
-    .run(digest.salt, digest.hash, nowIso(), normalizeOperatorName(operatorName), normalizeOperatorCode(operatorCode), role)
-
-  broadcastBackendEvent('operators-updated', { operatorName, operatorCode, role, passwordReset: true })
-  return findOperatorProfile(operatorName, operatorCode, role)
-}
-
-export function createSession(operatorName: string, operatorCode: string, role: OperatorRole, taskType: WorkTask) {
-  const sessionId = makeId('session')
-  const timestamp = nowIso()
-  db().prepare(
-    `INSERT INTO operator_sessions (session_id, operator_name, operator_code, role, task_type, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-  ).run(sessionId, operatorName, operatorCode, role, taskType, timestamp, timestamp)
-
-  const session = getSessionById(sessionId)
-  if (!session) {
-    throw new Error('Gagal membuat sesi login.')
-  }
-
-  broadcastBackendEvent('sessions-updated', { sessionId, operatorName, operatorCode, role, taskType, createdAt: timestamp })
-  return session
-}
-
-export function updateSessionTaskType(sessionId: string, taskType: WorkTask) {
-  const timestamp = nowIso()
-  const updated = db().prepare(
-    `UPDATE operator_sessions
-     SET task_type = ?, updated_at = ?
-     WHERE session_id = ?`,
-  ).run(taskType, timestamp, sessionId)
-
-  if ((updated.changes ?? 0) === 0) {
-    return null
-  }
-
-  broadcastBackendEvent('sessions-updated', { sessionId, taskType, updatedAt: timestamp })
-  return getSessionById(sessionId)
-}
-
-export function getSessionById(sessionId: string) {
-  const row = db()
-    .prepare(
-      `SELECT session_id, operator_name, operator_code, role, task_type, created_at, updated_at
-       FROM operator_sessions
-       WHERE session_id = ?
-       LIMIT 1`,
-    )
-    .get(sessionId) as SessionRow | undefined
-
-  return row ? mapSession(row) : null
-}
-
-export function deleteSessionById(sessionId: string) {
-  db().prepare(`DELETE FROM operator_sessions WHERE session_id = ?`).run(sessionId)
-  broadcastBackendEvent('sessions-updated', { sessionId, deleted: true })
-}
-
-export function findSessionByIdentity(operatorName: string, operatorCode: string, role: OperatorRole) {
-  const row = db()
-    .prepare(
-      `SELECT session_id, operator_name, operator_code, role, task_type, created_at, updated_at
-       FROM operator_sessions
-       WHERE LOWER(operator_name) = LOWER(?)
-         AND LOWER(operator_code) = LOWER(?)
-         AND role = ?
-       ORDER BY updated_at DESC
-       LIMIT 1`,
-    )
-    .get(normalizeOperatorName(operatorName), normalizeOperatorCode(operatorCode), role) as SessionRow | undefined
-
-  return row ? mapSession(row) : null
-}
-
-export function authenticateOperator(input: {
-  operatorName: string
-  operatorCode?: string | null
-  password: string
-  role?: OperatorRole | null
-}) {
-  const role = normalizeRole(input.role)
-  const operatorName = normalizeOperatorName(input.operatorName)
-  const operatorCode = input.operatorCode?.trim() || ''
-
-  const profile = operatorCode
-    ? findOperatorProfile(operatorName, operatorCode, role)
-    : findProfileByName(operatorName)
-
-  if (!profile) {
-    throw new Error('Username atau password salah.')
-  }
-
-  if (!profile.passwordSalt || !profile.passwordHash) {
-    throw new Error('Akun ini belum punya password. Hubungi admin.')
-  }
-
-  if (!verifyPassword(input.password, profile.passwordSalt, profile.passwordHash)) {
-    throw new Error('Username atau password salah.')
-  }
-
-  const session = createSession(profile.operatorName, profile.operatorCode, profile.role, profile.taskType)
-  return {
-    session,
-    profile,
-  }
-}
-
-export function resolveSession(sessionId: string | null | undefined) {
-  if (!sessionId) {
-    return null
-  }
-
-  const session = getSessionById(sessionId)
-  if (!session) {
-    return null
-  }
-
-  if (Date.now() - new Date(session.updatedAt).getTime() > SESSION_TTL_MS) {
-    deleteSessionById(session.sessionId)
-    return null
-  }
-
-  db()
-    .prepare(`UPDATE operator_sessions SET updated_at = ? WHERE session_id = ?`)
-    .run(nowIso(), session.sessionId)
-
-  return getSessionById(session.sessionId)
 }
 
 export function listRecordings() {
