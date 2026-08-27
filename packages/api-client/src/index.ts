@@ -8,7 +8,8 @@ type ApiResponse<T> = {
 
 export const SESSION_INVALID_EVENT = 'pakti:session-invalid'
 
-const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL ?? '').trim().replace(/\/+$/, '')
+const configuredApiBaseUrl = (import.meta.env?.VITE_API_BASE_URL ?? '').trim().replace(/\/+$/, '')
+const API_BASE_URL = configuredApiBaseUrl || (import.meta.env?.PROD ? 'https://api-pakti.zakado.id' : '')
 
 export function getApiBaseUrl() {
   return API_BASE_URL
