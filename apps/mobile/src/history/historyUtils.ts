@@ -129,6 +129,7 @@ export function filterRecordings(input: {
   historyTaskFilter: HistoryTaskFilter
   historyDateFilter: HistoryDateFilter
   normalizedHistoryQuery: string
+  queryMatchedResiNumbers?: Set<string>
   historyAllAccounts: boolean
   currentOperatorName: string
   currentOperatorCode: string
@@ -138,8 +139,9 @@ export function filterRecordings(input: {
     const recordOperatorCode = record.operatorCode?.trim().toLowerCase() ?? ''
     const matchesTask = input.historyTaskFilter === 'all' ? true : record.taskType === input.historyTaskFilter
     const matchesDate = matchesHistoryDateFilter(record.updatedAt, input.historyDateFilter)
+    const normalizedRecordResi = record.resiNumber.trim().toLowerCase()
     const matchesQuery = input.normalizedHistoryQuery
-      ? record.resiNumber.trim().toLowerCase().includes(input.normalizedHistoryQuery)
+      ? normalizedRecordResi.includes(input.normalizedHistoryQuery) || Boolean(input.queryMatchedResiNumbers?.has(normalizedRecordResi))
       : true
     const matchesAccount = input.historyAllAccounts
       ? true

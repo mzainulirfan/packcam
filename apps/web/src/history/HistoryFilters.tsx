@@ -51,7 +51,7 @@ export function HistoryFilters({
       <div className="grid gap-3">
         <div className="relative">
           <span className="history-opencode__input-prefix" aria-hidden="true">[?]</span>
-          <Input value={searchText} onChange={(event) => onSearchTextChange(event.target.value)} placeholder="Cari nomor resi..." className="history-opencode__input pl-12" aria-label="Cari nomor resi" />
+          <Input value={searchText} onChange={(event) => onSearchTextChange(event.target.value)} placeholder="Cari resi / no. pesanan..." className="history-opencode__input pl-12" aria-label="Cari resi atau nomor pesanan" />
           {searchText.trim() ? (
             <Button type="button" variant="ghost" size="sm" className="history-opencode__clear" onClick={() => onSearchTextChange('')}>
               [clear]

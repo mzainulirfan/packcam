@@ -271,6 +271,25 @@ export function getShopeeOrderByOrderNumber(orderNumber: string) {
   return getOrderByRow(row)
 }
 
+export function listShopeeOrderResisByOrderNumberSearch(searchText: string) {
+  const normalizedSearch = searchText.trim().toLowerCase()
+  if (!normalizedSearch) {
+    return []
+  }
+
+  const rows = db()
+    .prepare(
+      `SELECT tracking_number
+       FROM orders
+       WHERE source = 'shopee'
+         AND tracking_number IS NOT NULL
+         AND lower(order_number) LIKE ?`,
+    )
+    .all(`%${normalizedSearch}%`) as Array<{ tracking_number: string | null }>
+
+  return rows.map((row) => row.tracking_number?.trim()).filter((resi): resi is string => Boolean(resi))
+}
+
 export function listRecentShopeeOrders(limit = 50) {
   const safeLimit = Math.min(200, Math.max(1, Math.floor(limit)))
   const rows = db()

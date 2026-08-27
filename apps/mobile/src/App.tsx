@@ -18,6 +18,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import {
   deleteServerRecordingApi,
+  readRecentShopeeOrdersApi,
   readServerSettingsApi,
   loginServerOperatorApi,
   logoutServerOperatorApi,
@@ -29,7 +30,7 @@ import {
   buildApiUrl,
 } from '@pakti/api-client'
 import { DEFAULT_APP_SETTINGS } from '@pakti/shared/defaults'
-import type { AppSettings, OperatorSession, RecordingRow, SystemConfig, WorkTask } from '@pakti/types'
+import type { AppSettings, OperatorSession, RecordingRow, ShopeeOrder, SystemConfig, WorkTask } from '@pakti/types'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -165,6 +166,7 @@ function App() {
   const [historyBusy, setHistoryBusy] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [recordings, setRecordings] = useState<RecordingRow[]>([])
+  const [shopeeOrders, setShopeeOrders] = useState<ShopeeOrder[]>([])
   const [historyTaskFilter, setHistoryTaskFilter] = useState<HistoryTaskFilter>('all')
   const [historyResiQuery, setHistoryResiQuery] = useState('')
   const [historyAllAccounts, setHistoryAllAccounts] = useState(false)
@@ -466,6 +468,7 @@ function App() {
     historyEmptyState,
   } = useMobileHistoryFilters({
     recordings,
+    shopeeOrders,
     operatorName: session?.operatorName,
     operatorCode: session?.operatorCode,
     historyTaskFilter,
@@ -654,9 +657,10 @@ function App() {
       setHistoryError(null)
 
       try {
-        const rows = await readServerRecordingsApi()
+        const [rows, orders] = await Promise.all([readServerRecordingsApi(), readRecentShopeeOrdersApi(500)])
         if (!cancelled) {
           setRecordings(rows)
+          setShopeeOrders(orders)
         }
       } catch (error) {
         if (!cancelled) {
@@ -729,6 +733,7 @@ function App() {
     } finally {
       setSession(null)
       setRecordings([])
+      setShopeeOrders([])
       setHistoryAllAccounts(false)
       setHistoryTaskFilter('all')
       setHistoryResiQuery('')
@@ -847,8 +852,9 @@ function App() {
     setHistoryError(null)
 
     try {
-      const rows = await readServerRecordingsApi()
+      const [rows, orders] = await Promise.all([readServerRecordingsApi(), readRecentShopeeOrdersApi(500)])
       setRecordings(rows)
+      setShopeeOrders(orders)
     } catch (error) {
       setHistoryError(normalizeError(error))
     } finally {
@@ -1445,7 +1451,7 @@ function App() {
             <div className="grid gap-3">
               <div className="grid gap-2">
                 <Label htmlFor="history-resi-search" className="text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                  Cari resi
+                  Cari resi / no. pesanan
                 </Label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
@@ -1457,7 +1463,7 @@ function App() {
                         setHistoryResiQuery(event.target.value)
                         setHistoryHighlightedResi(null)
                       }}
-                      placeholder="Cari resi..."
+                      placeholder="Cari resi atau no. pesanan..."
                       inputMode="text"
                       autoCapitalize="characters"
                       className="h-11 rounded-[4px] border-border bg-card pl-10"

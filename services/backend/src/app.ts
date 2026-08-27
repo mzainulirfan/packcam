@@ -8,7 +8,7 @@ import multer from 'multer'
 import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
 import type { AppSettings, ShopeeOrder } from '@pakti/types'
 
-import { clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deleteRecording, deleteSessionById, finalizeRecording, getBootstrapStatus, getHealthSnapshot, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, importShopeeOrders, invalidateCompletedRecordingsForResi, listOperatorProfiles, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, prepareRecordingShareFile, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, saveSettings, saveSystemConfig, updateSessionTaskType, upsertOperatorProfile } from './store'
+import { clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deleteRecording, deleteSessionById, finalizeRecording, getBootstrapStatus, getHealthSnapshot, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, importShopeeOrders, invalidateCompletedRecordingsForResi, listOperatorProfiles, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, prepareRecordingShareFile, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, saveSettings, saveSystemConfig, updateSessionTaskType, upsertOperatorProfile } from './store'
 import { clearSessionCookie, getCookie, normalizeRole, readStringField, sendError, sendOk, setSessionCookie } from './http'
 import type { HttpSession } from './http'
 import { ensureServerStorage, getUploadsDir } from './db'
@@ -550,6 +550,7 @@ app.get('/api/history/recordings', (req, res) => {
   const operatorFilter = readQueryString(query.operator)
   const dateFrom = readQueryString(query.dateFrom)
   const dateTo = readQueryString(query.dateTo)
+  const shopeeOrderResiMatches = new Set(listShopeeOrderResisByOrderNumberSearch(searchText).map((resi) => resi.toLowerCase()))
 
   const records = listRecordings().filter((record) => {
     const matchesSession =
@@ -564,6 +565,7 @@ app.get('/api/history/recordings', (req, res) => {
     const matchesSearch =
       !searchText ||
       record.resi_number.toLowerCase().includes(searchText) ||
+      shopeeOrderResiMatches.has(record.resi_number.trim().toLowerCase()) ||
       record.file_name.toLowerCase().includes(searchText) ||
       record.file_path.toLowerCase().includes(searchText) ||
       (record.note?.toLowerCase().includes(searchText) ?? false) ||

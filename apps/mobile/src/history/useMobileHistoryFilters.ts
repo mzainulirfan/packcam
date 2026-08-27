@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { RecordingRow } from '@pakti/types'
+import type { RecordingRow, ShopeeOrder } from '@pakti/types'
 import {
   filterRecordings,
   getHistoryEmptyState,
@@ -12,6 +12,7 @@ import {
 
 type UseMobileHistoryFiltersInput = {
   recordings: RecordingRow[]
+  shopeeOrders: ShopeeOrder[]
   operatorName?: string | null
   operatorCode?: string | null
   historyTaskFilter: HistoryTaskFilter
@@ -24,6 +25,7 @@ type UseMobileHistoryFiltersInput = {
 
 export function useMobileHistoryFilters({
   recordings,
+  shopeeOrders,
   operatorName,
   operatorCode,
   historyTaskFilter,
@@ -37,6 +39,18 @@ export function useMobileHistoryFilters({
   const currentOperatorCode = operatorCode?.trim().toLowerCase() ?? ''
   const historyQuery = historyResiQuery.trim()
   const normalizedHistoryQuery = historyQuery.toLowerCase()
+  const queryMatchedResiNumbers = useMemo(() => {
+    if (!normalizedHistoryQuery) {
+      return new Set<string>()
+    }
+
+    return new Set(
+      shopeeOrders
+        .filter((order) => order.orderNumber.trim().toLowerCase().includes(normalizedHistoryQuery))
+        .map((order) => order.trackingNumber?.trim().toLowerCase())
+        .filter((resi): resi is string => Boolean(resi)),
+    )
+  }, [normalizedHistoryQuery, shopeeOrders])
 
   const filteredRecordings = useMemo(() => {
     return filterRecordings({
@@ -44,6 +58,7 @@ export function useMobileHistoryFilters({
       historyTaskFilter,
       historyDateFilter,
       normalizedHistoryQuery,
+      queryMatchedResiNumbers,
       historyAllAccounts,
       currentOperatorName,
       currentOperatorCode,
@@ -55,6 +70,7 @@ export function useMobileHistoryFilters({
     historyDateFilter,
     historyTaskFilter,
     normalizedHistoryQuery,
+    queryMatchedResiNumbers,
     recordings,
   ])
 
@@ -65,8 +81,11 @@ export function useMobileHistoryFilters({
       return []
     }
 
-    return recordings.filter((record) => record.resiNumber.trim().toLowerCase().includes(normalizedHistoryQuery))
-  }, [normalizedHistoryQuery, recordings])
+    return recordings.filter((record) => {
+      const normalizedResi = record.resiNumber.trim().toLowerCase()
+      return normalizedResi.includes(normalizedHistoryQuery) || queryMatchedResiNumbers.has(normalizedResi)
+    })
+  }, [normalizedHistoryQuery, queryMatchedResiNumbers, recordings])
 
   const latestMatchingResiRecord = useMemo(() => {
     if (!historyQuery || matchingResiRecords.length === 0) {
