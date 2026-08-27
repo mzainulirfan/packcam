@@ -13,7 +13,8 @@ import { Button } from '../components/ui/button'
 import { ModalOverlay } from '../components/ui/ModalOverlay'
 import { DialogCloseButton, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog'
 import { notify } from '../app/notify'
-import { buildServerFileUrl, deleteServerRecordingApi, openServerSettingsFolderApi, prepareServerRecordingShareFileApi, prepareShopeeChatSendApi, readServerHistoryRecordingsApi } from '@pakti/api-client'
+import { buildServerFileUrl, deleteServerRecordingApi, openServerSettingsFolderApi, prepareServerRecordingShareFileApi, prepareShopeeChatSendApi, readServerHistoryRecordingsApi, readShopeeChatSendsByRecordingIdsApi } from '@pakti/api-client'
+import type { RecordingChatSend } from '@pakti/types'
 import { recordsToCsv, recordsToExcelXml } from '@pakti/shared/exporters'
 import type { LocalRecordingRecord } from '@pakti/shared/recordings'
 import type { RecordingRow, WorkTask } from '@pakti/types'
@@ -110,6 +111,33 @@ export function HistoryPage() {
   const [isRefreshingHistory, setIsRefreshingHistory] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [historyReloadKey, setHistoryReloadKey] = useState(0)
+  const [chatSendByRecordingId, setChatSendByRecordingId] = useState<Map<string, RecordingChatSend>>(new Map())
+
+  useEffect(() => {
+    if (recordings.length === 0) {
+      setChatSendByRecordingId(new Map())
+      return
+    }
+
+    let cancelled = false
+    const ids = recordings.map((record) => record.id)
+    void readShopeeChatSendsByRecordingIdsApi(ids)
+      .then((sends) => {
+        if (cancelled) return
+        const map = new Map<string, RecordingChatSend>()
+        for (const send of sends) {
+          map.set(send.recordingId, send)
+        }
+        setChatSendByRecordingId(map)
+      })
+      .catch(() => {
+        if (!cancelled) setChatSendByRecordingId(new Map())
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [recordings])
 
   useEffect(() => {
     let cancelled = false
@@ -390,6 +418,11 @@ export function HistoryPage() {
     try {
       setPreparingChatSendId(record.id)
       const job = await prepareShopeeChatSendApi(record.id)
+      setChatSendByRecordingId((prev) => {
+        const next = new Map(prev)
+        next.set(record.id, job)
+        return next
+      })
       notify.save(
         'Job Shopee Chat siap',
         `Job untuk ${job.buyerUsername} (${job.resiNumber}) siap. Shopee Webchat dibuka — cek tab Webchat yang sudah ada, tidak perlu klik extension lagi (otomatis isi chat).`,
@@ -552,6 +585,7 @@ export function HistoryPage() {
                 {!isLoadingHistory && !historyError && pageItems.length ? (
                   pageItems.map((group) => {
                     const isSelected = group.latest.id === selectedRecord?.id
+                    const groupChatSend = group.records.map((r) => chatSendByRecordingId.get(r.id)).find(Boolean)
                     return (
                       <article
                         key={group.resiNumber}
@@ -570,6 +604,11 @@ export function HistoryPage() {
                           </div>
                           <div className="flex flex-col items-end gap-2">
                             <StatusPill status={getGroupStatus(group)} />
+                            {groupChatSend ? (
+                              <span className="history-opencode__badge">
+                                {groupChatSend.status === 'sent' ? '[✓] Terkirim' : groupChatSend.status === 'prepared' ? '[~] Siap kirim' : '[…] Antri'} {groupChatSend.buyerUsername ? `· ${groupChatSend.buyerUsername}` : ''}
+                              </span>
+                            ) : null}
                             {group.records.some((record) => isRepeatQcInvalidRecord(record)) ? (
                               <span className="history-opencode__badge">
                                 [!] Repeat QC
@@ -953,6 +992,7 @@ export function HistoryPage() {
                               record={record}
                               isSelected={isSelectedRecord}
                               invalidRecord={invalidRecord}
+                              chatSend={chatSendByRecordingId.get(record.id) ?? null}
                               downloadingRecordId={downloadingRecordId}
                               deletingRecordId={deletingRecordId}
                               formatDateTime={formatDateTime}

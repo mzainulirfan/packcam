@@ -29,6 +29,7 @@ import {
   updateServerSessionTaskApi,
   buildApiUrl,
   prepareShopeeChatSendApi,
+  readShopeeChatSendsByRecordingIdsApi,
 } from '@pakti/api-client'
 import { DEFAULT_APP_SETTINGS } from '@pakti/shared/defaults'
 import type { AppSettings, OperatorSession, RecordingRow, ShopeeOrder, SystemConfig, WorkTask } from '@pakti/types'
@@ -185,6 +186,7 @@ function App() {
   const historyPullStartYRef = useRef<number | null>(null)
   const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null)
   const [preparingChatSendId, setPreparingChatSendId] = useState<string | null>(null)
+  const [chatSendByRecordingId, setChatSendByRecordingId] = useState<Map<string, import('@pakti/types').RecordingChatSend>>(new Map())
   const [watermarkResi, setWatermarkResi] = useState<string | null>(null)
   const [scanClockTick, setScanClockTick] = useState(() => Date.now())
   const [menuOpen, setMenuOpen] = useState(false)
@@ -694,6 +696,28 @@ function App() {
     }
   }, [session])
 
+  useEffect(() => {
+    if (recordings.length === 0) {
+      setChatSendByRecordingId(new Map())
+      return
+    }
+
+    let cancelled = false
+    void readShopeeChatSendsByRecordingIdsApi(recordings.map((r) => r.id))
+      .then((sends) => {
+        if (cancelled) return
+        const map = new Map<string, import('@pakti/types').RecordingChatSend>()
+        for (const s of sends) map.set(s.recordingId, s)
+        setChatSendByRecordingId(map)
+      })
+      .catch(() => {
+        if (!cancelled) setChatSendByRecordingId(new Map())
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [recordings])
+
   const isAdmin = session?.role === 'admin'
 
   useEffect(() => {
@@ -841,6 +865,11 @@ function App() {
     setPreparingChatSendId(record.id)
     try {
       const job = await prepareShopeeChatSendApi(record.id)
+      setChatSendByRecordingId((prev) => {
+        const next = new Map(prev)
+        next.set(record.id, job)
+        return next
+      })
       showScanNotice({
         kind: 'success',
         title: 'Job Shopee Chat siap',
@@ -1897,6 +1926,7 @@ function App() {
         preparingChatSendId={preparingChatSendId}
         deletingRecordId={deletingRecordId}
         preparedShareFileIds={preparedShareFileIds}
+        chatSendByRecordingId={chatSendByRecordingId}
         formatDateTime={formatDateTime}
         formatTask={formatTask}
         formatStatus={formatStatus}

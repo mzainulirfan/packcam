@@ -6,6 +6,7 @@ type HistoryRecordingCardProps = {
   record: LocalRecordingRecord
   isSelected: boolean
   invalidRecord: boolean
+  chatSend?: import('@pakti/types').RecordingChatSend | null
   downloadingRecordId: string | null
   deletingRecordId: string | null
   formatDateTime: (value: string) => string
@@ -19,6 +20,7 @@ export function HistoryRecordingCard({
   record,
   isSelected,
   invalidRecord,
+  chatSend,
   downloadingRecordId,
   deletingRecordId,
   formatDateTime,
@@ -42,6 +44,11 @@ export function HistoryRecordingCard({
             {isSelected ? (
               <span className="history-opencode__badge">
                 [x] Dipilih
+              </span>
+            ) : null}
+            {chatSend ? (
+              <span className="history-opencode__badge">
+                {chatSend.status === 'sent' ? '[✓] Terkirim ke pembeli' : chatSend.status === 'prepared' ? '[~] Siap kirim' : chatSend.status === 'pending' ? '[…] Antri kirim' : `[!] ${chatSend.status}`} {chatSend.buyerUsername ? `· ${chatSend.buyerUsername}` : ''}
               </span>
             ) : null}
           </div>

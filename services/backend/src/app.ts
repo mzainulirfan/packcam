@@ -8,7 +8,7 @@ import multer from 'multer'
 import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
 import type { AppSettings, ShopeeOrder } from '@pakti/types'
 
-import { clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deleteRecording, deleteSessionById, finalizeRecording, getBootstrapStatus, getHealthSnapshot, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, importShopeeOrders, invalidateCompletedRecordingsForResi, listOperatorProfiles, listPendingChatSends, listRecentChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, prepareRecordingChatSend, prepareRecordingShareFile, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, saveSettings, saveSystemConfig, updateChatSendStatus, updateSessionTaskType, upsertOperatorProfile } from './store'
+import { clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deleteRecording, deleteSessionById, finalizeRecording, getBootstrapStatus, getHealthSnapshot, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPendingChatSends, listRecentChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, prepareRecordingChatSend, prepareRecordingShareFile, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, saveSettings, saveSystemConfig, updateChatSendStatus, updateSessionTaskType, upsertOperatorProfile } from './store'
 import { clearSessionCookie, getCookie, normalizeRole, readStringField, sendError, sendOk, setSessionCookie } from './http'
 import type { HttpSession } from './http'
 import { ensureServerStorage, getUploadsDir } from './db'
@@ -771,6 +771,17 @@ app.get('/api/chat-sends/recent', requireSession, (req, res) => {
   const query = req.query as Record<string, string | string[] | undefined>
   const limit = Number(readQueryString(query.limit) || 20)
   sendOk(res, listRecentChatSends(Number.isFinite(limit) ? limit : 20, getPublicApiBaseUrl(req)))
+})
+
+app.get('/api/chat-sends/by-recordings', requireSession, (req, res) => {
+  const query = req.query as Record<string, string | string[] | undefined>
+  const raw = readQueryString(query.recordingIds)
+  const ids = raw
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean)
+    .slice(0, 200)
+  sendOk(res, listChatSendsByRecordingIds(ids, getPublicApiBaseUrl(req)))
 })
 
 app.post('/api/chat-sends/:id/prepared', requireSessionOrExtensionKey, (req, res) => {

@@ -174,7 +174,7 @@ async function requestApi(path, config, init = {}) {
 }
 
 function buildChatMessage(job) {
-  return job.messageTemplate || `Halo kak, berikut video dokumentasi paket untuk pesanan ${job.orderNumber || '-'} resi ${job.resiNumber}.`
+  return job.messageTemplate || `Halo kak ${job.buyerUsername || ''}, berikut video dokumentasi paket untuk pesanan ${job.orderNumber || '-'} resi ${job.resiNumber}.`
 }
 
 async function loadPendingChatJobs() {

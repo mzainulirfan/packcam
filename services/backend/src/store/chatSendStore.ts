@@ -143,7 +143,9 @@ export function prepareRecordingChatSend(input: {
 
   const timestamp = nowIso()
   const id = makeId('chatsend')
-  const messageTemplate = normalizeOptionalString(input.messageTemplate)
+  const messageTemplate =
+    normalizeOptionalString(input.messageTemplate) ??
+    `Halo kak ${buyerUsername}, berikut video dokumentasi paket untuk pesanan ${order.order_number} resi ${recording.resi_number}.`
   db().prepare(
     `INSERT INTO recording_chat_sends (
        id, recording_id, order_id, resi_number, order_number, buyer_username, task_type, video_file_path,
@@ -214,6 +216,24 @@ export function listRecentChatSends(limit = 20, apiBaseUrl = '') {
        LIMIT ?`,
     )
     .all(safeLimit) as ChatSendRow[]
+
+  return rows.map((row) => mapChatSend(row, apiBaseUrl))
+}
+
+export function listChatSendsByRecordingIds(recordingIds: string[], apiBaseUrl = '') {
+  if (recordingIds.length === 0) {
+    return [] as RecordingChatSend[]
+  }
+
+  const placeholders = recordingIds.map(() => '?').join(',')
+  const rows = db()
+    .prepare(
+      `SELECT id, recording_id, order_id, resi_number, order_number, buyer_username, task_type, video_file_path,
+              status, attempts, message_template, error_message, prepared_at, sent_at, created_at, updated_at
+       FROM recording_chat_sends
+       WHERE recording_id IN (${placeholders})`,
+    )
+    .all(...recordingIds.map((id) => id.trim()).filter(Boolean)) as ChatSendRow[]
 
   return rows.map((row) => mapChatSend(row, apiBaseUrl))
 }

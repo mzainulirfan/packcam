@@ -20,6 +20,7 @@ type HistoryDetailSheetProps = {
   preparingChatSendId: string | null
   deletingRecordId: string | null
   preparedShareFileIds: ReadonlySet<string>
+  chatSendByRecordingId?: Map<string, import('@pakti/types').RecordingChatSend>
   formatDateTime: (value: string | null | undefined) => string
   formatTask: (taskType: WorkTask) => string
   formatStatus: (status: RecordingRow['status']) => string
@@ -41,6 +42,7 @@ export function HistoryDetailSheet({
   preparingChatSendId,
   deletingRecordId,
   preparedShareFileIds,
+  chatSendByRecordingId,
   formatDateTime,
   formatTask,
   formatStatus,
@@ -121,6 +123,17 @@ export function HistoryDetailSheet({
                   <span className={getShareStatusClassName(record)}>{getShareStatusLabel(record)}</span>
                 </div>
                 <span className="text-[12px] leading-relaxed text-[var(--op-mute)]">{getShareStatusDescription(record)}</span>
+                {chatSendByRecordingId?.get(record.id) ? (
+                  <span className="text-[11px] font-medium text-[var(--op-ink)]">
+                    {(() => {
+                      const s = chatSendByRecordingId.get(record.id)!
+                      if (s.status === 'sent') return `✓ Terkirim ke ${s.buyerUsername}`
+                      if (s.status === 'prepared') return `~ Siap kirim ke ${s.buyerUsername}`
+                      if (s.status === 'pending') return `… Antri kirim ke ${s.buyerUsername}`
+                      return `! ${s.status} ke ${s.buyerUsername}`
+                    })()}
+                  </span>
+                ) : null}
               </div>
 
               <div className="grid grid-cols-2 gap-2">

@@ -437,6 +437,11 @@ export function readRecentShopeeChatSendsApi(limit = 20) {
   return requestApi<RecordingChatSend[]>(`/api/chat-sends/recent?limit=${encodeURIComponent(String(limit))}`)
 }
 
+export function readShopeeChatSendsByRecordingIdsApi(recordingIds: string[]) {
+  const ids = recordingIds.join(',')
+  return requestApi<RecordingChatSend[]>(`/api/chat-sends/by-recordings?recordingIds=${encodeURIComponent(ids)}`)
+}
+
 export function markShopeeChatSendPreparedApi(id: string, extensionApiKey?: string) {
   return requestApi<RecordingChatSend>(`/api/chat-sends/${encodeURIComponent(id)}/prepared`, {
     method: 'POST',

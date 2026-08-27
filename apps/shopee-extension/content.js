@@ -425,7 +425,7 @@ if (/seller\.shopee\.co\.id\/new-webchat\/conversations/.test(location.href)) {
       if (input?.value?.trim()) return
       lastAutoJobId = job.id
       sessionStorage.setItem('pakti:autoChatJobId', job.id)
-      const message = job.messageTemplate || `Halo kak, berikut video dokumentasi paket untuk pesanan ${job.orderNumber || '-'} resi ${job.resiNumber}.`
+      const message = job.messageTemplate || `Halo kak ${job.buyerUsername || ''}, berikut video dokumentasi paket untuk pesanan ${job.orderNumber || '-'} resi ${job.resiNumber}.`
       await fillWebchatSearchAndAttach({ ...job, message })
       await fetch(`${base}/api/chat-sends/${encodeURIComponent(job.id)}/prepared`, {
         method: 'POST',
