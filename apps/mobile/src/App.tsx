@@ -659,10 +659,22 @@ function App() {
       setHistoryError(null)
 
       try {
-        const [rows, orders] = await Promise.all([readServerRecordingsApi(), readRecentShopeeOrdersApi(500)])
-        if (!cancelled) {
-          setRecordings(rows)
-          setShopeeOrders(orders)
+        const rows = await readServerRecordingsApi()
+        if (cancelled) {
+          return
+        }
+
+        setRecordings(rows)
+
+        try {
+          const orders = await readRecentShopeeOrdersApi(500)
+          if (!cancelled) {
+            setShopeeOrders(orders)
+          }
+        } catch {
+          if (!cancelled) {
+            setShopeeOrders([])
+          }
         }
       } catch (error) {
         if (!cancelled) {
@@ -878,9 +890,15 @@ function App() {
     setHistoryError(null)
 
     try {
-      const [rows, orders] = await Promise.all([readServerRecordingsApi(), readRecentShopeeOrdersApi(500)])
+      const rows = await readServerRecordingsApi()
       setRecordings(rows)
-      setShopeeOrders(orders)
+
+      try {
+        const orders = await readRecentShopeeOrdersApi(500)
+        setShopeeOrders(orders)
+      } catch {
+        setShopeeOrders([])
+      }
     } catch (error) {
       setHistoryError(normalizeError(error))
     } finally {
