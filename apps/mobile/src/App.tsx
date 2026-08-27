@@ -1771,6 +1771,7 @@ function App() {
                       const packingRow = group.rows.find((r: RecordingRow) => r.taskType === 'packing')
                       const latest = group.latestRow
                       const shareStatus = getGroupShareStatus(group.rows)
+                      const groupChatSend = group.rows.map((r) => chatSendByRecordingId.get(r.id)).find(Boolean)
                       return (
                       <div
                         key={group.resiNumber}
@@ -1844,6 +1845,11 @@ function App() {
                               {!packingRow && !qcRow ? <span className="text-[13px] text-[var(--op-mute)]">{group.rows.length} dokumentasi</span> : null}
                               <div className="mt-auto flex min-w-0 flex-wrap items-center gap-1.5 pt-1">
                                 <span className={getGroupShareStatusClassName(shareStatus.ready)}>{shareStatus.label}</span>
+                                {groupChatSend ? (
+                                  <span className="rounded-[4px] bg-[var(--op-ink)] px-2 py-0.5 text-[11px] font-medium text-[var(--op-canvas)]">
+                                    {groupChatSend.status === 'sent' ? `✓ Terkirim ke ${groupChatSend.buyerUsername}` : groupChatSend.status === 'prepared' ? `~ Siap kirim ke ${groupChatSend.buyerUsername}` : `… ${groupChatSend.status} ke ${groupChatSend.buyerUsername}`}
+                                  </span>
+                                ) : null}
                                 <span className="min-w-0 truncate text-[12px] text-[var(--op-mute)]">
                                   {formatDateTime(latest.updatedAt)} · oleh {latest.operatorName || '-'}
                                 </span>

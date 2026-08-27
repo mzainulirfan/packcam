@@ -657,6 +657,7 @@ export function HistoryPage() {
                       {!isLoadingHistory && !historyError && pageItems.length ? (
                         pageItems.map((group) => {
                           const isSelected = group.latest.id === selectedRecord?.id
+                          const tableGroupChatSend = group.records.map((r) => chatSendByRecordingId.get(r.id)).find(Boolean)
                           return (
                             <tr
                               key={group.resiNumber}
@@ -693,8 +694,13 @@ export function HistoryPage() {
                               <Td><TaskStatusText record={getLatestRecordForTask(group, 'packing')} /></Td>
                               <Td><DateTimeCell value={group.latest.updatedAt} /></Td>
                               <Td>
-                                <div className="flex flex-col gap-2">
+                              <div className="flex flex-col gap-2">
                                   <StatusPill status={getGroupStatus(group)} />
+                                  {tableGroupChatSend ? (
+                                    <span className="history-opencode__badge">
+                                      {tableGroupChatSend.status === 'sent' ? '[✓] Terkirim' : tableGroupChatSend.status === 'prepared' ? '[~] Siap kirim' : '[…] Antri'} {tableGroupChatSend.buyerUsername ? `· ${tableGroupChatSend.buyerUsername}` : ''}
+                                    </span>
+                                  ) : null}
                                   {group.records.some((record) => isRepeatQcInvalidRecord(record)) ? (
                                     <span className="history-opencode__badge">
                                       [!] Repeat QC

@@ -404,6 +404,19 @@ async function fillWebchatSearchAndAttach(job) {
       await new Promise((r) => setTimeout(r, 400))
     }
   }
+  // Auto-kirim: coba klik tombol Send setelah file & pesan terisi agar tidak perlu Mark manual
+  try {
+    await new Promise((r) => setTimeout(r, 900))
+    const sendBtn =
+      document.querySelector('i.kgP1yPCqxR')?.closest('div.XsR3zIeGOc') ||
+      document.querySelector('div.XsR3zIeGOc') ||
+      document.querySelector('i.kgP1yPCqxR')?.parentElement
+    if (sendBtn) {
+      sendBtn.click()
+      sendBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      return true
+    }
+  } catch {}
   return clicked
 }
 
@@ -428,6 +441,12 @@ if (/seller\.shopee\.co\.id\/new-webchat\/conversations/.test(location.href)) {
       const message = job.messageTemplate || `Halo kak ${job.buyerUsername || ''}, berikut video dokumentasi paket untuk pesanan ${job.orderNumber || '-'} resi ${job.resiNumber}.`
       await fillWebchatSearchAndAttach({ ...job, message })
       await fetch(`${base}/api/chat-sends/${encodeURIComponent(job.id)}/prepared`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(stored.apiKey ? { 'X-Pakti-Extension-Key': stored.apiKey } : {}) },
+      }).catch(() => undefined)
+      // Tandai sent otomatis setelah auto-kirim, tidak perlu klik Mark manual
+      await new Promise((r) => setTimeout(r, 2200))
+      await fetch(`${base}/api/chat-sends/${encodeURIComponent(job.id)}/sent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(stored.apiKey ? { 'X-Pakti-Extension-Key': stored.apiKey } : {}) },
       }).catch(() => undefined)

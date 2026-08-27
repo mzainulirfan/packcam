@@ -244,7 +244,6 @@ async function prepareShopeeChat() {
     await requestApi(`/api/chat-sends/${encodeURIComponent(job.id)}/prepared`, config, { method: 'POST' })
     lastPreparedChatJob = job
     renderChatJobs(pendingChatJobs.map((current) => current.id === job.id ? { ...current, status: 'prepared' } : current))
-    markSentButton.disabled = false
     setStatus({
       prepared: {
         pembeli: job.buyerUsername,
@@ -253,8 +252,21 @@ async function prepareShopeeChat() {
         videoUrl: job.videoUrl,
         message,
       },
-      next: 'Pilih chat yang cocok, attach/download video dari URL, kirim manual, lalu klik Mark Last Chat Sent.',
+      next: 'Otomatis klik Send dan tandai terkirim...',
     })
+    await new Promise((r) => setTimeout(r, 2500))
+    const sentJob = await requestApi(`/api/chat-sends/${encodeURIComponent(job.id)}/sent`, config, { method: 'POST' })
+    renderChatJobs(pendingChatJobs.filter((current) => current.id !== job.id))
+    setStatus({
+      sent: {
+        pembeli: sentJob.buyerUsername,
+        nomorPesanan: sentJob.orderNumber,
+        nomorResi: sentJob.resiNumber,
+        status: sentJob.status,
+      },
+    })
+    lastPreparedChatJob = null
+    markSentButton.disabled = true
   } catch (error) {
     setStatus(error instanceof Error ? error.message : 'Prepare chat gagal.')
   } finally {
