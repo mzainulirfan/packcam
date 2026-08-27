@@ -15,14 +15,14 @@ if (fs.existsSync(TEST_DB_PATH)) {
 }
 process.env.PAKTI_DB_PATH = TEST_DB_PATH
 
-// 2. Import database and store modules after env is set
-import { getDb } from '../services/backend/src/db.ts'
-import {
+// 2. Import database and store modules dynamically after env is set
+const { getDb } = await import('../services/backend/src/db.ts')
+const {
   prepareShippingChatSends,
   getNextPendingShippingChatSend,
   updateShippingChatSendStatus,
   retryShippingChatSend,
-} from '../services/backend/src/store/shippingChatSendStore.ts'
+} = await import('../services/backend/src/store/shippingChatSendStore.ts')
 
 // 3. Initialize DB schema
 const database = getDb()
