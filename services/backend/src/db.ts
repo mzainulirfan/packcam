@@ -18,7 +18,7 @@ function ensureDataDir(dataDir: string) {
   fs.mkdirSync(dataDir, { recursive: true })
 }
 
-const DB_PATH = BACKEND_DB_PATH
+const DB_PATH = process.env.PAKTI_DB_PATH || BACKEND_DB_PATH
 const DATA_DIR = path.dirname(DB_PATH)
 const PENDING_RECORDINGS_DIR = path.join(DATA_DIR, 'pending-recordings')
 

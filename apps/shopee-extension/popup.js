@@ -4,6 +4,7 @@ const apiBaseUrlInput = document.querySelector('#apiBaseUrl')
 const apiKeyInput = document.querySelector('#apiKey')
 const saveButton = document.querySelector('#saveButton')
 const syncButton = document.querySelector('#syncButton')
+const prepareShippingChatsButton = document.querySelector('#prepareShippingChatsButton')
 const loadChatJobsButton = document.querySelector('#loadChatJobsButton')
 const chatJobSelect = document.querySelector('#chatJobSelect')
 const prepareChatButton = document.querySelector('#prepareChatButton')
@@ -18,6 +19,15 @@ function setStatus(value) {
 
 function normalizeBaseUrl(value) {
   return (value || DEFAULT_API_BASE_URL).trim().replace(/\/+$/, '')
+}
+
+function isShopeeShippingOrderUrl(value) {
+  try {
+    const url = new URL(value || '')
+    return url.hostname === 'seller.shopee.co.id' && url.pathname === '/portal/sale/order' && url.searchParams.get('type') === 'shipping'
+  } catch {
+    return false
+  }
 }
 
 function toOperationalOrder(order) {
@@ -152,6 +162,68 @@ async function syncOrders() {
     setStatus(error instanceof Error ? error.message : 'Sync gagal.')
   } finally {
     syncButton.disabled = false
+  }
+}
+
+async function prepareShippingChats() {
+  prepareShippingChatsButton.disabled = true
+  try {
+    await saveConfig()
+    const tab = await getActiveTab()
+    if (!isShopeeShippingOrderUrl(tab.url)) {
+      setStatus('Buka tab Shopee Pesanan Dikirim terlebih dulu: https://seller.shopee.co.id/portal/sale/order?type=shipping')
+      return
+    }
+
+    let response
+    try {
+      response = await chrome.tabs.sendMessage(tab.id, { type: 'PAKTI_PREPARE_VISIBLE_SHIPPING_CHATS' })
+    } catch (msgError) {
+      const isConnectionError = msgError instanceof Error && msgError.message.toLowerCase().includes('receiving end does not exist')
+      if (isConnectionError) {
+        setStatus('Tab Shopee perlu di-reload terlebih dulu. Tekan F5 di tab Pesanan Dikirim, lalu coba lagi.')
+        return
+      }
+      throw msgError
+    }
+
+    if (!response?.ok) {
+      throw new Error(response?.error || 'Extension gagal menyiapkan shipping chat.')
+    }
+
+    const data = response.data || {}
+    const newlyCreated = (data.created || []).map((item) => ({
+      orderNumber: item.orderNumber,
+      buyerUsername: item.buyerUsername,
+      status: item.status,
+    }))
+
+    const alreadyQueued = (data.skipped || [])
+      .filter((item) => item.reason && item.reason.startsWith('Shipping chat sudah'))
+      .map((item) => ({
+        orderNumber: item.orderNumber,
+        status: item.reason.replace('Shipping chat sudah ', '').replace('.', ''),
+      }))
+
+    const activeOrders = [...newlyCreated, ...alreadyQueued]
+
+    if (activeOrders.length === 0) {
+      setStatus({
+        status: 'Tidak ada pesanan aktif hari ini yang perlu disiapkan.',
+        keterangan: 'Pesanan pada halaman ini tidak memiliki rekaman/scan hari ini.',
+      })
+      return
+    }
+
+    setStatus({
+      status: `Total ${activeOrders.length} pesanan aktif dalam antrean chat.`,
+      pesanan: activeOrders,
+      next: 'Antrean akan diproses otomatis saat Shopee Webchat terbuka.',
+    })
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : 'Gagal menyiapkan shipping chat.')
+  } finally {
+    prepareShippingChatsButton.disabled = false
   }
 }
 
@@ -311,6 +383,7 @@ readConfig().then((config) => {
 
 saveButton.addEventListener('click', saveConfig)
 syncButton.addEventListener('click', syncOrders)
+prepareShippingChatsButton.addEventListener('click', prepareShippingChats)
 loadChatJobsButton.addEventListener('click', loadPendingChatJobs)
 prepareChatButton.addEventListener('click', prepareShopeeChat)
 markSentButton.addEventListener('click', markLastChatSent)

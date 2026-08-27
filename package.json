@@ -23,6 +23,7 @@
     "smoke": "node scripts/smoke.mjs",
     "test:unit": "tsx scripts/unit-shared.ts",
     "test:web": "tsx scripts/unit-web-scanner.ts",
+    "test:shipping": "tsx scripts/unit-shipping-chat.ts",
     "prebuild": "npm run clean:build",
     "build": "tsc -b && vite build",
     "build:vercel": "npm run build && npm run build -w @pakti/mobile -- --base /mobile/ --outDir ../../dist/mobile",

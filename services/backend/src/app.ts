@@ -8,7 +8,8 @@ import multer from 'multer'
 import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
 import type { AppSettings, ShopeeOrder } from '@pakti/types'
 
-import { clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deleteRecording, deleteSessionById, finalizeRecording, getBootstrapStatus, getHealthSnapshot, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPendingChatSends, listRecentChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, prepareRecordingChatSend, prepareRecordingShareFile, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, saveSettings, saveSystemConfig, updateChatSendStatus, updateSessionTaskType, upsertOperatorProfile } from './store'
+import { clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deleteRecording, deleteSessionById, finalizeRecording, getBootstrapStatus, getHealthSnapshot, getNextPendingShippingChatSend, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPendingChatSends, listRecentChatSends, listRecentShippingChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, prepareRecordingChatSend, prepareRecordingShareFile, prepareShippingChatSends, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, retryShippingChatSend, saveSettings, saveSystemConfig, updateChatSendStatus, updateSessionTaskType, updateShippingChatSendStatus, upsertOperatorProfile } from './store'
+import type { ShippingChatOrderInput } from './store/shippingChatSendStore'
 import { clearSessionCookie, getCookie, normalizeRole, readStringField, sendError, sendOk, setSessionCookie } from './http'
 import type { HttpSession } from './http'
 import { ensureServerStorage, getUploadsDir } from './db'
@@ -505,6 +506,87 @@ app.post('/api/import/shopee/orders', requireOrderImportAccess, (req, res) => {
     return sendOk(res, importShopeeOrders(orders))
   } catch (error) {
     return sendError(res, 400, error instanceof Error ? error.message : 'Gagal import order Shopee.')
+  }
+})
+
+app.post('/api/shopee/shipping-chat/prepare', requireSessionOrExtensionKey, (req, res) => {
+  try {
+    // Format baru: { orders: [{ orderNumber, trackingNumber?, buyerUsername? }] }
+    // Format lama (kompatibel): { orderNumbers: string[] }
+    let inputs: ShippingChatOrderInput[] = []
+
+    if (Array.isArray(req.body?.orders)) {
+      inputs = (req.body.orders as unknown[]).flatMap((item): ShippingChatOrderInput[] => {
+        if (typeof item === 'object' && item !== null && typeof (item as Record<string, unknown>).orderNumber === 'string') {
+          const o = item as Record<string, unknown>
+          return [{
+            orderNumber: String(o.orderNumber),
+            trackingNumber: typeof o.trackingNumber === 'string' ? o.trackingNumber : null,
+            buyerUsername: typeof o.buyerUsername === 'string' ? o.buyerUsername : null,
+          }]
+        }
+        return []
+      })
+    } else if (Array.isArray(req.body?.orderNumbers)) {
+      // Backward-compatible: extension lama hanya mengirim orderNumbers
+      inputs = (req.body.orderNumbers as unknown[])
+        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        .map((orderNumber) => ({ orderNumber }))
+    }
+
+    if (inputs.length === 0) {
+      return sendError(res, 400, 'orders atau orderNumbers wajib berisi minimal 1 nomor pesanan.')
+    }
+
+    return sendOk(res, prepareShippingChatSends(inputs))
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal menyiapkan shipping chat.')
+  }
+})
+
+app.get('/api/shopee/shipping-chat/next', requireSessionOrExtensionKey, (_req, res) => {
+  return sendOk(res, getNextPendingShippingChatSend())
+})
+
+app.get('/api/shopee/shipping-chat/recent', requireSession, (req, res) => {
+  const query = req.query as Record<string, string | string[] | undefined>
+  const limit = Number(readQueryString(query.limit) || 20)
+  return sendOk(res, listRecentShippingChatSends(Number.isFinite(limit) ? limit : 20))
+})
+
+app.post('/api/shopee/shipping-chat/:id/prepared', requireSessionOrExtensionKey, (req, res) => {
+  try {
+    const params = req.params as Record<string, string | undefined>
+    return sendOk(res, updateShippingChatSendStatus(params.id ?? '', 'prepared'))
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal memperbarui status shipping chat.')
+  }
+})
+
+app.post('/api/shopee/shipping-chat/:id/sent', requireSessionOrExtensionKey, (req, res) => {
+  try {
+    const params = req.params as Record<string, string | undefined>
+    return sendOk(res, updateShippingChatSendStatus(params.id ?? '', 'sent'))
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal memperbarui status shipping chat.')
+  }
+})
+
+app.post('/api/shopee/shipping-chat/:id/failed', requireSessionOrExtensionKey, (req, res) => {
+  try {
+    const params = req.params as Record<string, string | undefined>
+    return sendOk(res, updateShippingChatSendStatus(params.id ?? '', 'failed', typeof req.body?.error === 'string' ? req.body.error : null))
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal memperbarui status shipping chat.')
+  }
+})
+
+app.post('/api/shopee/shipping-chat/:id/retry', requireSession, (req, res) => {
+  try {
+    const params = req.params as Record<string, string | undefined>
+    return sendOk(res, retryShippingChatSend(params.id ?? ''))
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal memproses ulang shipping chat.')
   }
 })
 

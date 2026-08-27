@@ -159,6 +159,65 @@ function extractOrders() {
   })
 }
 
+function isShopeeShippingOrderPage() {
+  try {
+    const url = new URL(location.href)
+    return url.hostname === 'seller.shopee.co.id' && url.pathname === '/portal/sale/order' && url.searchParams.get('type') === 'shipping'
+  } catch {
+    return false
+  }
+}
+
+async function readExtensionConfig() {
+  const stored = await new Promise((resolve) => chrome.storage.sync.get({ apiBaseUrl: 'https://api-pakti.zakado.id', apiKey: '' }, resolve))
+  return {
+    apiBaseUrl: (stored.apiBaseUrl || 'https://api-pakti.zakado.id').replace(/\/+$/, ''),
+    apiKey: stored.apiKey || '',
+  }
+}
+
+async function requestPaktiApi(path, config, init = {}) {
+  const response = await fetch(`${config.apiBaseUrl}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(config.apiKey ? { 'X-Pakti-Extension-Key': config.apiKey } : {}),
+      ...(init.headers || {}),
+    },
+  })
+  const payload = await response.json().catch(() => null)
+  if (!response.ok || !payload?.ok) {
+    throw new Error(payload?.error || `Pakti API gagal: ${response.status}`)
+  }
+
+  return payload.data
+}
+
+async function prepareVisibleShippingChats() {
+  if (!isShopeeShippingOrderPage()) return
+
+  const orders = extractOrders()
+  const orderInputs = orders
+    .filter((order) => order.orderNumber)
+    .map((order) => ({
+      orderNumber: order.orderNumber,
+      trackingNumber: order.trackingNumber || null,
+      buyerUsername: order.buyerUsername || null,
+    }))
+  if (orderInputs.length === 0) return
+
+  const signature = orderInputs.map((o) => o.orderNumber).join('|')
+  if (sessionStorage.getItem('pakti:lastShippingScan') === signature) return
+
+  const config = await readExtensionConfig()
+  const result = await requestPaktiApi('/api/shopee/shipping-chat/prepare', config, {
+    method: 'POST',
+    body: JSON.stringify({ orders: orderInputs }),
+  })
+  sessionStorage.setItem('pakti:lastShippingScan', signature)
+  console.info('[Pakti] shipping chat queue prepared', result)
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === 'PAKTI_EXTRACT_SHOPEE_ORDERS') {
     try {
@@ -166,6 +225,41 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     } catch (error) {
       sendResponse({ ok: false, error: error instanceof Error ? error.message : 'Extractor gagal.' })
     }
+
+    return true
+  }
+
+  if (message?.type === 'PAKTI_PREPARE_VISIBLE_SHIPPING_CHATS') {
+    ;(async () => {
+      try {
+        if (!isShopeeShippingOrderPage()) {
+          throw new Error('Tab aktif harus halaman Pesanan Dikirim Shopee: /portal/sale/order?type=shipping')
+        }
+
+        const orders = extractOrders()
+        const orderInputs = orders
+          .filter((order) => order.orderNumber)
+          .map((order) => ({
+            orderNumber: order.orderNumber,
+            trackingNumber: order.trackingNumber || null,
+            buyerUsername: order.buyerUsername || null,
+          }))
+        if (orderInputs.length === 0) {
+          sendResponse({ ok: true, data: { created: [], skipped: [], visibleOrderCount: 0 } })
+          return
+        }
+
+        const config = await readExtensionConfig()
+        const result = await requestPaktiApi('/api/shopee/shipping-chat/prepare', config, {
+          method: 'POST',
+          body: JSON.stringify({ orders: orderInputs }),
+        })
+        sessionStorage.setItem('pakti:lastShippingScan', orderInputs.map((o) => o.orderNumber).join('|'))
+        sendResponse({ ok: true, data: { ...result, visibleOrderCount: orderInputs.length } })
+      } catch (error) {
+        sendResponse({ ok: false, error: error instanceof Error ? error.message : 'Gagal menyiapkan shipping chat.' })
+      }
+    })()
 
     return true
   }
@@ -282,28 +376,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           }
         }
         if (job.message) {
-          for (let attempt = 0; attempt < 8; attempt += 1) {
-            const composer =
-              document.querySelector('textarea.E2MWg3w8y6') ||
-              document.querySelector('textarea[placeholder="Tulis pesan"]') ||
-              document.querySelector('div[contenteditable="true"]') ||
-              document.querySelector('textarea') ||
-              document.querySelector('div[role="textbox"]')
-            if (composer) {
-              composer.focus()
-              if (composer.isContentEditable) {
-                document.execCommand('insertText', false, job.message)
-              } else if ('value' in composer) {
-                const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(composer), 'value')?.set
-                if (setter) setter.call(composer, job.message)
-                else composer.value = job.message
-                composer.dispatchEvent(new Event('input', { bubbles: true }))
-                composer.dispatchEvent(new Event('change', { bubbles: true }))
-              }
-              break
-            }
-            await new Promise((r) => setTimeout(r, 400))
-          }
+          await sendComposerMessage(job.message)
         }
 
         sendResponse({ ok: true, autoClicked: clicked })
@@ -318,12 +391,94 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return false
 })
 
-async function fillWebchatSearchAndAttach(job) {
-  const input =
+/**
+ * Klik tombol kirim chat Shopee Webchat.
+ * Selector berdasarkan DOM:
+ *   <div class="XsR3zIeGOc"><i class="... kgP1yPCqxR"><svg class="chat-icon">...</svg></i></div>
+ */
+function clickSendButton() {
+  const sendBtn =
+    document.querySelector('div.XsR3zIeGOc') ||
+    document.querySelector('i.kgP1yPCqxR')?.closest('div') ||
+    document.querySelector('svg.chat-icon')?.closest('div') ||
+    document.querySelector('i.kgP1yPCqxR')?.parentElement
+  if (sendBtn) {
+    sendBtn.click()
+    sendBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    return true
+  }
+  return false
+}
+
+/**
+ * Masukkan pesan ke composer Shopee Webchat dan kirimkan.
+ * Urutan pengiriman:
+ *  1. Insert teks ke composer (contenteditable atau textarea)
+ *  2. Tunggu React update (300ms)
+ *  3. Dispatch keydown Enter pada composer (cara utama: Enter = kirim di Shopee)
+ *  4. Tunggu 400ms, jika masih ada teks di composer, fallback klik tombol kirim
+ */
+async function sendComposerMessage(message) {
+  let composer = null
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    composer =
+      document.querySelector('textarea.E2MWg3w8y6') ||
+      document.querySelector('textarea[placeholder="Tulis pesan"]') ||
+      document.querySelector('div[contenteditable="true"]') ||
+      document.querySelector('textarea') ||
+      document.querySelector('div[role="textbox"]')
+    if (composer) break
+    await new Promise((r) => setTimeout(r, 300))
+  }
+  if (!composer) return false
+
+  composer.focus()
+
+  // Masukkan teks
+  if (composer.isContentEditable) {
+    // contenteditable: gunakan execCommand agar React mendeteksi perubahan
+    composer.textContent = ''
+    document.execCommand('insertText', false, message)
+  } else {
+    const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(composer), 'value')?.set
+    if (setter) setter.call(composer, message)
+    else composer.value = message
+    composer.dispatchEvent(new Event('input', { bubbles: true }))
+    composer.dispatchEvent(new Event('change', { bubbles: true }))
+  }
+
+  // Tunggu React memproses input
+  await new Promise((r) => setTimeout(r, 300))
+
+  // Cara 1: Kirim dengan keydown Enter (cara terbaik untuk Shopee)
+  composer.focus()
+  composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }))
+  composer.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }))
+  composer.dispatchEvent(new KeyboardEvent('keyup',   { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }))
+
+  // Tunggu dan cek apakah teks berhasil dikirim (composer kosong = sukses)
+  await new Promise((r) => setTimeout(r, 400))
+  const textAfter = composer.isContentEditable ? composer.textContent?.trim() : composer.value?.trim()
+  if (!textAfter) return true
+
+  // Cara 2 (fallback): Klik tombol Send
+  return clickSendButton()
+}
+
+function findSearchInput() {
+  return (
+    document.querySelector('#sidebar-minichat-list input[placeholder="Cari nama"]') ||
+    document.querySelector('#sidebar-minichat-list input.shopee-react-input__input') ||
     document.querySelector('input.shopee-react-input__input[placeholder="Cari Semua"]') ||
     document.querySelector('input[placeholder="Cari Semua"]') ||
+    document.querySelector('input[placeholder="Cari nama"]') ||
     document.querySelector('input[type="input"][placeholder*="Cari"]') ||
     document.querySelector('input[type="search"]')
+  )
+}
+
+async function fillWebchatSearchAndAttach(job) {
+  const input = findSearchInput()
   if (!input || !job?.buyerUsername) return false
   input.focus()
   const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), 'value')?.set
@@ -335,10 +490,19 @@ async function fillWebchatSearchAndAttach(job) {
   await new Promise((r) => setTimeout(r, 1300))
   const username = job.buyerUsername.trim().toLowerCase()
   let clicked = false
-  const spans = [...document.querySelectorAll('span.nFvbiqyLrq')]
+  const spans = [
+    ...document.querySelectorAll('#sidebar-minichat-list span'),
+    ...document.querySelectorAll('span.nFvbiqyLrq'),
+    ...document.querySelectorAll('[class*="username"], [class*="name"]'),
+  ]
   for (const span of spans) {
     if (textOf(span).toLowerCase() === username) {
-      const row = span.closest('div.SW7LUhQFDH') || span.closest('div[class*="SW7LUhQFDH"]') || span.closest('div.uR4DA9zSmz')?.parentElement || span.parentElement?.closest('div')
+      const row =
+        span.closest('li') ||
+        span.closest('div.SW7LUhQFDH') ||
+        span.closest('div[class*="SW7LUhQFDH"]') ||
+        span.closest('div.uR4DA9zSmz')?.parentElement ||
+        span.parentElement?.closest('div')
       const target = row || span
       try {
         target.click()
@@ -346,6 +510,26 @@ async function fillWebchatSearchAndAttach(job) {
         clicked = true
         break
       } catch {}
+    }
+  }
+  if (!clicked) {
+    const candidates = [
+      ...document.querySelectorAll('#sidebar-minichat-list li, #sidebar-minichat-list div, [class*="conversation"], [class*="chat-item"], [class*="user-item"], [data-testid*="conversation"], li, a, div'),
+    ]
+    for (const el of candidates) {
+      const t = textOf(el)
+      if (!t) continue
+      if (t === username || t.toLowerCase() === username || t.includes(username)) {
+        if (t.length > 80) continue
+        const rect = el.getBoundingClientRect()
+        if (rect.width < 20 || rect.height < 20) continue
+        try {
+          el.click()
+          el.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+          clicked = true
+          break
+        } catch {}
+      }
     }
   }
   if (clicked) await new Promise((r) => setTimeout(r, 900))
@@ -381,61 +565,91 @@ async function fillWebchatSearchAndAttach(job) {
       console.warn('[Pakti] video fetch/attach gagal', e)
     }
   }
+  let sent = false
   if (job.message) {
-    for (let attempt = 0; attempt < 8; attempt += 1) {
-      const composer =
-        document.querySelector('textarea.E2MWg3w8y6') ||
-        document.querySelector('textarea[placeholder="Tulis pesan"]') ||
-        document.querySelector('div[contenteditable="true"]') ||
-        document.querySelector('textarea') ||
-        document.querySelector('div[role="textbox"]')
-      if (composer) {
-        composer.focus()
-        if (composer.isContentEditable) document.execCommand('insertText', false, job.message)
-        else {
-          const s = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(composer), 'value')?.set
-          if (s) s.call(composer, job.message)
-          else composer.value = job.message
-          composer.dispatchEvent(new Event('input', { bubbles: true }))
-          composer.dispatchEvent(new Event('change', { bubbles: true }))
-        }
-        break
-      }
-      await new Promise((r) => setTimeout(r, 400))
-    }
+    sent = await sendComposerMessage(job.message)
   }
-  // Auto-kirim: coba klik tombol Send setelah file & pesan terisi agar tidak perlu Mark manual
-  try {
-    await new Promise((r) => setTimeout(r, 900))
-    const sendBtn =
-      document.querySelector('i.kgP1yPCqxR')?.closest('div.XsR3zIeGOc') ||
-      document.querySelector('div.XsR3zIeGOc') ||
-      document.querySelector('i.kgP1yPCqxR')?.parentElement
-    if (sendBtn) {
-      sendBtn.click()
-      sendBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-      return true
-    }
-  } catch {}
-  return clicked
+  return sent || clicked
 }
 
-// Jika webchat dibuka dari tombol Pakti web, jalan otomatis di background tanpa klik Prepare di extension
-if (/seller\.shopee\.co\.id\/new-webchat\/conversations/.test(location.href)) {
+// Jalankan otomatis di background pada semua halaman seller Shopee (via minichat sidebar atau webchat)
+if (/seller\.shopee\.co\.id/.test(location.href)) {
   let lastAutoJobId = sessionStorage.getItem('pakti:autoChatJobId') || ''
-  async function autoRunPending() {
+  let autoRunBusy = false
+
+  function clearSearchInput() {
+    const input = findSearchInput()
+    if (input) {
+      input.focus()
+      const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), 'value')?.set
+      if (setter) setter.call(input, '')
+      else input.value = ''
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+      input.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }))
+      
+      const clearBtn =
+        input.closest('.shopee-react-input__inner')?.querySelector('.shopee-react-input__clear-btn') ||
+        document.querySelector('.shopee-react-input__clear-icon') ||
+        document.querySelector('[class*="clear"]')
+      if (clearBtn) {
+        try { clearBtn.click() } catch (e) {}
+      }
+    }
+  }
+
+  async function autoRunShippingChat(config) {
+    const job = await requestPaktiApi('/api/shopee/shipping-chat/next', config)
+    if (!job) return false
+
+    const input = findSearchInput()
+    // Hanya skip jika input sedang di-focus (user sedang mengetik manual)
+    if (input?.value?.trim() && document.activeElement === input) return false
+
     try {
-      const stored = await new Promise((resolve) => chrome.storage.sync.get({ apiBaseUrl: 'https://api-pakti.zakado.id', apiKey: '' }, resolve))
-      const base = (stored.apiBaseUrl || 'https://api-pakti.zakado.id').replace(/\/+$/, '')
+      const sent = await fillWebchatSearchAndAttach({ ...job, message: job.message })
+      await requestPaktiApi(`/api/shopee/shipping-chat/${encodeURIComponent(job.id)}/prepared`, config, { method: 'POST' })
+      await new Promise((r) => setTimeout(r, 2200))
+      if (!sent) {
+        throw new Error('Tombol kirim Shopee Webchat / Minichat tidak ditemukan.')
+      }
+      await requestPaktiApi(`/api/shopee/shipping-chat/${encodeURIComponent(job.id)}/sent`, config, { method: 'POST' })
+      await new Promise((r) => setTimeout(r, 9000))
+      
+      // Bersihkan pencarian untuk job berikutnya
+      clearSearchInput()
+      return true
+    } catch (error) {
+      await requestPaktiApi(`/api/shopee/shipping-chat/${encodeURIComponent(job.id)}/failed`, config, {
+        method: 'POST',
+        body: JSON.stringify({ error: error instanceof Error ? error.message : 'Extension gagal mengirim shipping chat.' }),
+      }).catch(() => undefined)
+      // Bersihkan pencarian jika gagal agar antrean tidak macet
+      clearSearchInput()
+      return false
+    }
+  }
+
+  async function autoRunPending() {
+    if (autoRunBusy) return
+    autoRunBusy = true
+    try {
+      const stored = await readExtensionConfig()
+      const base = stored.apiBaseUrl
       const res = await fetch(`${base}/api/chat-sends/pending`, {
         headers: stored.apiKey ? { 'X-Pakti-Extension-Key': stored.apiKey } : undefined,
       })
       const payload = await res.json().catch(() => null)
-      if (!payload?.ok || !Array.isArray(payload.data) || payload.data.length === 0) return
+      if (!payload?.ok || !Array.isArray(payload.data) || payload.data.length === 0) {
+        await autoRunShippingChat(stored)
+        return
+      }
       const job = payload.data[0]
       if (!job || job.id === lastAutoJobId) return
-      const input = document.querySelector('input.shopee-react-input__input[placeholder="Cari Semua"]') || document.querySelector('input[placeholder="Cari Semua"]')
-      if (input?.value?.trim()) return
+      const input = findSearchInput()
+      // Hanya skip jika input sedang di-focus (user sedang mengetik manual)
+      if (input?.value?.trim() && document.activeElement === input) return
+      
       lastAutoJobId = job.id
       sessionStorage.setItem('pakti:autoChatJobId', job.id)
       const message = job.messageTemplate || `Halo kak ${job.buyerUsername || ''}, berikut video dokumentasi paket untuk pesanan ${job.orderNumber || '-'} resi ${job.resiNumber}.`
@@ -450,8 +664,20 @@ if (/seller\.shopee\.co\.id\/new-webchat\/conversations/.test(location.href)) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(stored.apiKey ? { 'X-Pakti-Extension-Key': stored.apiKey } : {}) },
       }).catch(() => undefined)
+
+      // Bersihkan pencarian untuk job berikutnya
+      clearSearchInput()
     } catch {}
+    finally {
+      autoRunBusy = false
+    }
   }
   setTimeout(autoRunPending, 1800)
   setInterval(autoRunPending, 5000)
 }
+
+if (isShopeeShippingOrderPage()) {
+  setTimeout(() => prepareVisibleShippingChats().catch((error) => console.warn('[Pakti] shipping scan gagal', error)), 2500)
+  setInterval(() => prepareVisibleShippingChats().catch((error) => console.warn('[Pakti] shipping scan gagal', error)), 15000)
+}
+

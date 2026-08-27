@@ -10,6 +10,7 @@ type BackendRealtimeEventName =
   | 'last-error-updated'
   | 'orders-updated'
   | 'chat-sends-updated'
+  | 'shipping-chat-sends-updated'
 
 type RealtimeClient = {
   response: Response

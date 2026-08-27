@@ -1,4 +1,4 @@
-import type { AppSettings, OperatorProfile, OperatorRole, OperatorSession, RecordingChatSend, RecordingRow, ScanLogRow, ShopeeOrder, SystemConfig } from '@pakti/types'
+import type { AppSettings, OperatorProfile, OperatorRole, OperatorSession, RecordingChatSend, RecordingRow, ScanLogRow, ShippingChatSend, ShopeeOrder, SystemConfig } from '@pakti/types'
 
 type ApiResponse<T> = {
   ok: boolean
@@ -100,6 +100,11 @@ export type ShopeeOrderImportResult = {
   imported: number
   updated: number
   skipped: number
+}
+
+export type PrepareShippingChatResult = {
+  created: ShippingChatSend[]
+  skipped: Array<{ orderNumber: string; reason: string }>
 }
 
 function normalizeRecordingRow(record: ServerRecordingRow): RecordingRow {
@@ -364,6 +369,52 @@ export function readShopeeOrderByOrderNumberApi(orderNumber: string) {
 
 export function readRecentShopeeOrdersApi(limit = 50) {
   return requestApi<ShopeeOrder[]>(`/api/orders/recent?limit=${encodeURIComponent(String(limit))}`)
+}
+
+export function prepareShippingChatSendsApi(orderNumbers: string[], extensionApiKey?: string) {
+  return requestApi<PrepareShippingChatResult>('/api/shopee/shipping-chat/prepare', {
+    method: 'POST',
+    headers: extensionApiKey ? { 'X-Pakti-Extension-Key': extensionApiKey } : undefined,
+    body: JSON.stringify({ orderNumbers }),
+  })
+}
+
+export function readNextShippingChatSendApi(extensionApiKey?: string) {
+  return requestApi<ShippingChatSend | null>('/api/shopee/shipping-chat/next', {
+    headers: extensionApiKey ? { 'X-Pakti-Extension-Key': extensionApiKey } : undefined,
+  })
+}
+
+export function readRecentShippingChatSendsApi(limit = 20) {
+  return requestApi<ShippingChatSend[]>(`/api/shopee/shipping-chat/recent?limit=${encodeURIComponent(String(limit))}`)
+}
+
+export function markShippingChatSendPreparedApi(id: string, extensionApiKey?: string) {
+  return requestApi<ShippingChatSend>(`/api/shopee/shipping-chat/${encodeURIComponent(id)}/prepared`, {
+    method: 'POST',
+    headers: extensionApiKey ? { 'X-Pakti-Extension-Key': extensionApiKey } : undefined,
+  })
+}
+
+export function markShippingChatSendSentApi(id: string, extensionApiKey?: string) {
+  return requestApi<ShippingChatSend>(`/api/shopee/shipping-chat/${encodeURIComponent(id)}/sent`, {
+    method: 'POST',
+    headers: extensionApiKey ? { 'X-Pakti-Extension-Key': extensionApiKey } : undefined,
+  })
+}
+
+export function markShippingChatSendFailedApi(id: string, error?: string | null, extensionApiKey?: string) {
+  return requestApi<ShippingChatSend>(`/api/shopee/shipping-chat/${encodeURIComponent(id)}/failed`, {
+    method: 'POST',
+    headers: extensionApiKey ? { 'X-Pakti-Extension-Key': extensionApiKey } : undefined,
+    body: JSON.stringify({ error }),
+  })
+}
+
+export function retryShippingChatSendApi(id: string) {
+  return requestApi<ShippingChatSend>(`/api/shopee/shipping-chat/${encodeURIComponent(id)}/retry`, {
+    method: 'POST',
+  })
 }
 
 export function createServerRecordingDraftApi(payload: {

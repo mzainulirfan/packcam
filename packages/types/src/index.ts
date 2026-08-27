@@ -119,3 +119,19 @@ export type RecordingChatSend = {
   createdAt: string
   updatedAt: string
 }
+
+export type ShippingChatSend = {
+  id: string
+  orderId: string
+  orderNumber: string
+  trackingNumber: string | null
+  buyerUsername: string
+  message: string
+  status: ChatSendStatus
+  attempts: number
+  errorMessage: string | null
+  preparedAt: string | null
+  sentAt: string | null
+  createdAt: string
+  updatedAt: string
+}
