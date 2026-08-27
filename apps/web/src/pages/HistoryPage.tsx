@@ -4,6 +4,7 @@ import {
   Download,
   Trash2,
 } from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 
 import { useOperatorSession } from '../app/operatorSession'
 import { navigateTo } from '../app/uiState'
@@ -40,29 +41,33 @@ type HistoryFilterState = {
 const PAGE_SIZE = 10
 const HISTORY_FILTERS_KEY = 'pakti.historyFilters'
 
-const defaultHistoryFilterState: HistoryFilterState = {
-  searchText: '',
-  taskFilter: 'all',
-  operatorFilter: 'all',
-  dateFrom: '',
-  dateTo: '',
+function getDefaultHistoryFilterState(): HistoryFilterState {
+  const today = formatDateInput(new Date())
+
+  return {
+    searchText: '',
+    taskFilter: 'all',
+    operatorFilter: 'all',
+    dateFrom: today,
+    dateTo: today,
+  }
 }
 
 function readStoredHistoryFilters(): HistoryFilterState {
   if (typeof window === 'undefined') {
-    return defaultHistoryFilterState
+    return getDefaultHistoryFilterState()
   }
 
   const raw = window.sessionStorage.getItem(HISTORY_FILTERS_KEY)
   if (!raw) {
-    return defaultHistoryFilterState
+    return getDefaultHistoryFilterState()
   }
 
   try {
     const parsed = JSON.parse(raw) as Partial<HistoryFilterState> | null
 
     if (!parsed || typeof parsed !== 'object') {
-      return defaultHistoryFilterState
+      return getDefaultHistoryFilterState()
     }
 
     return {
@@ -73,7 +78,7 @@ function readStoredHistoryFilters(): HistoryFilterState {
       dateTo: typeof parsed.dateTo === 'string' ? parsed.dateTo : '',
     }
   } catch {
-    return defaultHistoryFilterState
+    return getDefaultHistoryFilterState()
   }
 }
 
@@ -322,6 +327,15 @@ export function HistoryPage() {
     return getGroupByResi(filteredRecordings, selectedRecord.resiNumber) ?? null
   }, [filteredRecordings, selectedRecord])
 
+  const [detailHistoryTab, setDetailHistoryTab] = useState<'qc' | 'packing'>('qc')
+
+  useEffect(() => {
+    if (selectedRecord) {
+      setDetailHistoryTab(selectedRecord.taskType === 'packing' ? 'packing' : 'qc')
+    }
+  }, [selectedRecord?.id])
+
+  // @ts-ignore - kept for future dual preview
   const selectedPreviewMode = selectedGroup ? getGroupPreviewMode(selectedGroup) : 'none'
   const previewUrl = previewTarget ? buildServerFileUrl(previewTarget.filePath) : null
   const previewMessage = previewTarget ? `Preview siap untuk ${previewTarget.resiNumber}.` : 'Pilih rekaman untuk preview.'
@@ -334,6 +348,31 @@ export function HistoryPage() {
     return { completed, incomplete }
   }, [groupedRecordings])
   const hasActiveFilters = Boolean(searchText.trim() || taskFilter !== 'all' || operatorFilter !== 'all' || dateFrom || dateTo)
+  const selectedShopeeOrder = selectedRecord ? shopeeOrderByResi.get(selectedRecord.resiNumber.trim().toLowerCase()) ?? null : null
+  const selectedChatSend = selectedRecord ? chatSendByRecordingId.get(selectedRecord.id) ?? null : null
+  const selectedChatActionLabel = preparingChatSendId === selectedRecord?.id
+    ? '[Menyiapkan...]'
+    : selectedChatSend?.status === 'sent'
+      ? '[Sudah terkirim]'
+      : selectedChatSend?.status === 'prepared'
+        ? '[Buka Shopee Chat]'
+        : selectedChatSend?.status === 'pending'
+          ? '[Antri kirim]'
+          : selectedChatSend?.status === 'failed' || selectedChatSend?.status === 'cancelled'
+            ? '[Siapkan ulang]'
+            : '[Shopee Chat]'
+  const selectedChatActionDescription = selectedRecord?.status !== 'completed'
+    ? 'Hanya untuk rekaman selesai'
+    : selectedChatSend?.status === 'sent'
+      ? `Terkirim ke ${selectedChatSend.buyerUsername}`
+      : selectedChatSend?.status === 'prepared'
+        ? `Siap untuk ${selectedChatSend.buyerUsername}`
+        : selectedChatSend?.status === 'pending'
+          ? `Menunggu dikirim ke ${selectedChatSend.buyerUsername}`
+          : selectedChatSend?.status === 'failed' || selectedChatSend?.status === 'cancelled'
+            ? 'Job sebelumnya gagal/batal'
+            : 'Siapkan pesan ke pembeli'
+  const disableSelectedChatAction = preparingChatSendId === selectedRecord?.id || selectedRecord?.status !== 'completed' || selectedChatSend?.status === 'sent' || selectedChatSend?.status === 'pending'
 
   function handleTaskChange(nextFilter: HistoryTaskFilter) {
     setTaskFilter(nextFilter)
@@ -347,6 +386,14 @@ export function HistoryPage() {
 
   function handleTextChange(value: string) {
     setSearchText(value)
+    if (value.trim()) {
+      setDateFrom('')
+      setDateTo('')
+    } else {
+      const today = formatDateInput(new Date())
+      setDateFrom(today)
+      setDateTo(today)
+    }
     setPage(1)
   }
 
@@ -360,6 +407,7 @@ export function HistoryPage() {
   }
 
   function clearFilters() {
+    const defaultHistoryFilterState = getDefaultHistoryFilterState()
     setSearchText(defaultHistoryFilterState.searchText)
     setTaskFilter(defaultHistoryFilterState.taskFilter)
     setOperatorFilter(defaultHistoryFilterState.operatorFilter)
@@ -527,6 +575,7 @@ export function HistoryPage() {
     setPreviewTarget(null)
   }
 
+  // @ts-ignore - kept for future dual preview
   function openDualPreview(group: HistoryRecordingGroup) {
     setDualPreviewTarget(group)
   }
@@ -540,9 +589,9 @@ export function HistoryPage() {
       <div className="grid gap-8">
         <section className="history-opencode__hero flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <div className="history-opencode__section-label">[+] Operasional</div>
+            <div className="history-opencode__section-label">[+] Operasional · Riwayat</div>
             <h1 className="history-opencode__title">History Dokumentasi</h1>
-            <p className="history-opencode__lede">Pantau dokumentasi QC dan packing berdasarkan nomor resi.</p>
+            <p className="history-opencode__lede">Pantau dokumentasi QC dan packing berdasarkan nomor resi dan nomor pesanan. Klik baris untuk detail.</p>
           </div>
 
           <Button type="button" variant="outline" className="history-opencode__button" onClick={() => setIsExportOpen(true)}>
@@ -573,7 +622,7 @@ export function HistoryPage() {
 
         <div className="grid gap-4 min-w-0">
           <section className="history-opencode__table-section min-w-0 overflow-hidden">
-            <div className="history-opencode__table-header flex items-center justify-between px-5 py-4">
+            <div className="history-opencode__table-header flex items-center justify-between">
                 <div>
                   <h2>[+] Dokumentasi paket</h2>
                   <p>
@@ -640,18 +689,42 @@ export function HistoryPage() {
                           </div>
                         </div>
 
-                        <div className="history-opencode__task-grid grid grid-cols-2 gap-3">
-                          <MobileTaskBlock label="QC" record={getLatestRecordForTask(group, 'qc')} />
-                          <MobileTaskBlock label="Packing" record={getLatestRecordForTask(group, 'packing')} />
-                        </div>
-
                         <div className="flex items-center justify-between gap-3">
                           <span className="history-opencode__meta truncate">
-                            Operator: {formatOperatorForCurrentSession(group.latest.operatorName, group.latest.operatorCode, currentOperatorName, currentOperatorCode)}
+                            {formatOperatorForCurrentSession(group.latest.operatorName, group.latest.operatorCode, currentOperatorName, currentOperatorCode)}
                           </span>
-                          <Button type="button" variant="outline" size="sm" className="history-opencode__button" onClick={() => openDetail(group.latest)}>
-                            [detail]
-                          </Button>
+                          <div className="flex gap-1">
+                            {(() => {
+                              const latestChatSend = chatSendByRecordingId.get(group.latest.id)
+                              const label =
+                                preparingChatSendId === group.latest.id
+                                  ? '[...]'
+                                  : latestChatSend?.status === 'sent'
+                                    ? '[terkirim]'
+                                    : latestChatSend?.status === 'prepared'
+                                      ? '[siap]'
+                                      : latestChatSend?.status === 'pending'
+                                        ? '[antri]'
+                                        : '[kirim]'
+                              const disabled = preparingChatSendId === group.latest.id || group.latest.status !== 'completed' || latestChatSend?.status === 'sent'
+                              return (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="history-opencode__button"
+                                  disabled={disabled}
+                                  onClick={() => void handlePrepareShopeeChat(group.latest)}
+                                  title={latestChatSend?.status === 'sent' ? `Sudah terkirim ke ${latestChatSend.buyerUsername}` : 'Kirim video ke pembeli via Shopee Chat'}
+                                >
+                                  {label}
+                                </Button>
+                              )
+                            })()}
+                            <Button type="button" variant="outline" size="sm" className="history-opencode__button" onClick={() => openDetail(group.latest)}>
+                              [detail]
+                            </Button>
+                          </div>
                         </div>
 
                       </article>
@@ -664,15 +737,13 @@ export function HistoryPage() {
 
               <div className="hidden overflow-x-auto md:block">
                 <div className="overflow-x-auto">
-                  <table className="history-opencode__table w-full min-w-[1000px] border-collapse">
+                  <table className="history-opencode__table w-full min-w-[720px] border-collapse">
                     <thead>
                       <tr>
                         <Th>Resi</Th>
                         <Th>Operator</Th>
-                        <Th>QC</Th>
-                        <Th>Packing</Th>
-                        <Th>Terakhir diperbarui</Th>
                         <Th>Status</Th>
+                        <Th>Terkirim</Th>
                         <Th className="text-right">Aksi</Th>
                       </tr>
                     </thead>
@@ -699,9 +770,9 @@ export function HistoryPage() {
                               }
                             >
                               <Td>
-                              <button
+                                <button
                                   type="button"
-                                  className="history-opencode__resi-link"
+                                  className="history-opencode__resi-link text-left"
                                   onClick={(event) => {
                                     event.stopPropagation()
                                     openDetail(group.latest)
@@ -710,51 +781,59 @@ export function HistoryPage() {
                                   {group.resiNumber}
                                 </button>
                                 {shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())?.orderNumber ? (
-                                  <div className="text-[11px] opacity-80">No. Pesanan {shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())!.orderNumber}</div>
+                                  <div className="history-opencode__meta text-[11px]">No. Pesanan {shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())!.orderNumber}</div>
                                 ) : null}
+                                <div className="history-opencode__meta text-[11px]">{formatCompactDateTime(group.latest.updatedAt)}</div>
                               </Td>
                               <Td>
                                 <OperatorCell value={formatOperatorForCurrentSession(group.latest.operatorName, group.latest.operatorCode, currentOperatorName, currentOperatorCode)} />
                               </Td>
-                              <Td><TaskStatusText record={getLatestRecordForTask(group, 'qc')} /></Td>
-                              <Td><TaskStatusText record={getLatestRecordForTask(group, 'packing')} /></Td>
-                              <Td><DateTimeCell value={group.latest.updatedAt} /></Td>
                               <Td>
-                              <div className="flex flex-col gap-2">
+                                <div className="flex flex-col gap-1">
                                   <StatusPill status={getGroupStatus(group)} />
-                                  {tableGroupChatSend ? (
-                                    <span className="history-opencode__badge">
-                                      {tableGroupChatSend.status === 'sent' ? '[✓] Terkirim' : tableGroupChatSend.status === 'prepared' ? '[~] Siap kirim' : '[…] Antri'} {tableGroupChatSend.buyerUsername ? `· ${tableGroupChatSend.buyerUsername}` : ''}
-                                    </span>
-                                  ) : null}
                                   {group.records.some((record) => isRepeatQcInvalidRecord(record)) ? (
-                                    <span className="history-opencode__badge">
-                                      [!] Repeat QC
-                                    </span>
+                                    <span className="history-opencode__badge text-[11px]">[!] Repeat QC</span>
                                   ) : null}
                                 </div>
                               </Td>
                               <Td>
-                                <div className="grid gap-2">
-                                  <div className="row-actions flex items-center justify-end gap-1 opacity-80 transition" onClick={(event) => event.stopPropagation()}>
-                                    <Button type="button" variant="outline" size="sm" className="history-opencode__button" onClick={() => openDetail(group.latest)}>
-                                      [detail]
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      className="history-opencode__button"
-                                      aria-label={`Copy resi ${group.latest.resiNumber}`}
-                                      title="Copy resi"
-                                      onClick={() => void handleCopyText(group.latest.resiNumber, 'Resi')}
-                                    >
-                                      [copy]
-                                    </Button>
-                                    <Button type="button" variant="ghost" size="sm" className="history-opencode__button" aria-label="Aksi lainnya" title="Aksi lainnya">
-                                      [...]
-                                    </Button>
-                                  </div>
+                                {tableGroupChatSend ? (
+                                  <span className="history-opencode__badge">
+                                    {tableGroupChatSend.status === 'sent' ? '[✓] Terkirim' : tableGroupChatSend.status === 'prepared' ? '[~] Siap kirim' : '[…] Antri'} {tableGroupChatSend.buyerUsername ? `· ${tableGroupChatSend.buyerUsername}` : ''}
+                                  </span>
+                                ) : (
+                                  <span className="history-opencode__meta">—</span>
+                                )}
+                              </Td>
+                              <Td>
+                                <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+                                  {(() => {
+                                    const latestChatSend = chatSendByRecordingId.get(group.latest.id)
+                                    const label =
+                                      preparingChatSendId === group.latest.id
+                                        ? '[...]'
+                                        : latestChatSend?.status === 'sent'
+                                          ? '[terkirim]'
+                                          : latestChatSend?.status === 'prepared'
+                                            ? '[siap]'
+                                            : latestChatSend?.status === 'pending'
+                                              ? '[antri]'
+                                              : '[kirim]'
+                                    const disabled = preparingChatSendId === group.latest.id || group.latest.status !== 'completed' || latestChatSend?.status === 'sent'
+                                    return (
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="history-opencode__button"
+                                        disabled={disabled}
+                                        onClick={() => void handlePrepareShopeeChat(group.latest)}
+                                        title={latestChatSend?.status === 'sent' ? `Sudah terkirim ke ${latestChatSend.buyerUsername}` : group.latest.status !== 'completed' ? 'Hanya untuk rekaman selesai' : 'Kirim video ke pembeli via Shopee Chat'}
+                                      >
+                                        {label}
+                                      </Button>
+                                    )
+                                  })()}
                                 </div>
                               </Td>
                             </tr>
@@ -762,7 +841,7 @@ export function HistoryPage() {
                         })
                       ) : !isLoadingHistory && !historyError ? (
                         <tr>
-                            <td colSpan={7} className="p-6">
+                            <td colSpan={5} className="p-6">
                               <EmptyHistoryState hasActiveFilters={hasActiveFilters} onReset={clearFilters} />
                           </td>
                         </tr>
@@ -777,7 +856,7 @@ export function HistoryPage() {
                   <span>
                     Menampilkan <span>{(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, groupedRecordings.length)}</span> dari <span>{groupedRecordings.length}</span> dokumentasi
                   </span>
-                  <div className="flex items-center gap-1">
+                  <div className="flex flex-wrap items-center gap-1">
                     <Button
                       type="button"
                       variant="outline"
@@ -788,7 +867,36 @@ export function HistoryPage() {
                     >
                       ‹
                     </Button>
-                    <span className="history-opencode__page-number">{currentPage}</span>
+                    {(() => {
+                      const pages: (number | '…')[] = []
+                      if (totalPages <= 7) {
+                        for (let i = 1; i <= totalPages; i++) pages.push(i)
+                      } else {
+                        pages.push(1)
+                        if (currentPage > 3) pages.push('…')
+                        for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) pages.push(i)
+                        if (currentPage < totalPages - 2) pages.push('…')
+                        pages.push(totalPages)
+                      }
+                      return pages.map((p, idx) =>
+                        p === '…' ? (
+                          <span key={`e-${idx}`} className="px-1 text-slate-400">
+                            …
+                          </span>
+                        ) : (
+                          <Button
+                            key={p}
+                            type="button"
+                            variant={p === currentPage ? 'default' : 'outline'}
+                            size="sm"
+                            className={p === currentPage ? 'history-opencode__page-number' : 'history-opencode__button min-w-8'}
+                            onClick={() => setPage(p as number)}
+                          >
+                            {p}
+                          </Button>
+                        ),
+                      )
+                    })()}
                     <Button
                       type="button"
                       variant="outline"
@@ -868,179 +976,168 @@ export function HistoryPage() {
               currentOperatorName,
               currentOperatorCode,
             )}
+            onCopyResi={() => void handleCopyText(selectedRecord.resiNumber, 'Resi')}
             onClose={closeDetail}
           >
-                <div className="grid gap-3">
-                  <div className="history-opencode__detail-selected flex items-center justify-between gap-3">
-                    <div className="grid min-w-0 gap-1">
-                      <p>selected</p>
-                      <h4 className="truncate">
-                        {selectedRecord.resiNumber}
-                      </h4>
-                    </div>
-                    {selectedGroup ? <StatusPill status={getGroupStatus(selectedGroup)} /> : <StatusPill status={selectedRecord.status} />}
-                  </div>
-
-                  {selectedGroup ? (
-                    <div className={selectedGroup.records.some((record) => isRepeatQcInvalidRecord(record)) ? 'history-opencode__detail-note is-warning' : 'history-opencode__detail-note'}>
-                      <div className="grid gap-1">
-                        <p>[+] Ringkasan resi</p>
-                        <p>
-                          {selectedGroup.records.length} record untuk resi ini. QC terakhir{' '}
-                          {getLatestRecordForTask(selectedGroup, 'qc')?.status ?? 'idle'} dan packing terakhir{' '}
-                          {getLatestRecordForTask(selectedGroup, 'packing')?.status ?? 'idle'}.
-                        </p>
-                        {selectedGroup.records.some((record) => isRepeatQcInvalidRecord(record)) ? (
-                          <p>
-                            [!] Ada record lama yang sudah tidak valid karena repeat QC. Detailnya ditandai di daftar bawah.
-                          </p>
-                        ) : null}
-                      </div>
+                <div className="grid gap-4">
+                  {selectedGroup?.records.some((record) => isRepeatQcInvalidRecord(record)) ? (
+                    <div className="history-opencode__detail-note is-warning">
+                      <p>[!] Ada rekaman lama tidak valid karena repeat QC.</p>
                     </div>
                   ) : null}
 
-                  <dl className="grid min-w-0 gap-2 xl:grid-cols-2">
-                    <DetailRow label="Tugas" value={<TaskPill taskType={selectedRecord.taskType} />} />
-                    <DetailRow
-                      label="Group"
-                      value={`${getGroupByResi(filteredRecordings, selectedRecord.resiNumber)?.records.length ?? 0} rekaman`}
-                    />
-                    <DetailRow label="File name" value={selectedRecord.fileName} singleLine />
-                    <DetailRow
-                      label="Operator"
-                      value={formatOperatorForCurrentSession(
-                        selectedRecord.operatorName,
-                        selectedRecord.operatorCode,
-                        currentOperatorName,
-                        currentOperatorCode,
-                      )}
-                    />
-                    <DetailRow label="File path" value={selectedRecord.filePath} singleLine />
-                    <DetailRow label="Record date" value={selectedRecord.recordDate} />
-                    <DetailRow label="Start" value={formatDateTime(selectedRecord.startTime)} />
-                    <DetailRow label="End" value={selectedRecord.endTime ? formatDateTime(selectedRecord.endTime) : '-'} />
-                    <DetailRow label="Duration" value={formatDuration(selectedRecord.durationSeconds)} />
-                    <DetailRow label="Size" value={formatBytes(selectedRecord.fileSizeBytes)} />
-                    <DetailRow label="Note" value={selectedRecord.note ?? '-'} />
-                  </dl>
-
-                  <div className="flex flex-wrap gap-2">
-                    {selectedPreviewMode === 'dual' ? (
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="history-opencode__button"
-                        onClick={() => {
-                          if (selectedGroup) {
-                            openDualPreview(selectedGroup)
-                          }
-                        }}
-                      >
-                        [preview-2]
-                      </Button>
-                    ) : selectedPreviewMode === 'single' ? (
-                      <Button type="button" size="sm" className="history-opencode__button" onClick={() => setPreviewTarget(selectedRecord)}>
-                        [preview]
-                      </Button>
-                    ) : null}
-                    {selectedGroup && canRepeatQc(selectedGroup) ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="history-opencode__button"
-                        onClick={() => {
-                          setRepeatQcResi(selectedGroup.resiNumber)
-                          navigateTo('scan')
-                        }}
-                      >
-                        [repeat-qc]
-                      </Button>
-                    ) : null}
+                  <div className="grid gap-3">
+                    <dl className="grid gap-2">
+                      {selectedShopeeOrder ? (
+                        <OrderDetailRow order={selectedShopeeOrder} />
+                      ) : null}
+                      <DetailRow
+                        label="Waktu"
+                        value={`${formatDateTime(selectedRecord.startTime)} — ${selectedRecord.endTime ? formatDateTime(selectedRecord.endTime) : '-'} (${formatDuration(selectedRecord.durationSeconds)})`}
+                      />
+                      <DetailRow label="Catatan" value={selectedRecord.note ?? '-'} />
+                    </dl>
                   </div>
 
-                  <div className="history-opencode__quick-actions grid gap-2">
-                    <p>[+] Aksi cepat</p>
-                    <div className="flex flex-wrap gap-2">
+                  <div className="history-opencode__quick-actions grid gap-3">
+                    <div className="history-opencode__quick-actions-head">
+                      <p>Aksi cepat</p>
+                      <span>Pilih tindakan lanjutan untuk dokumentasi resi ini.</span>
+                    </div>
+                    <div className="history-opencode__quick-actions-grid">
+                      {selectedGroup && canRepeatQc(selectedGroup) ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="history-opencode__button history-opencode__quick-action-button is-primary"
+                          onClick={() => {
+                            setRepeatQcResi(selectedGroup.resiNumber)
+                            navigateTo('scan')
+                          }}
+                        >
+                          <span>[Ulangi QC]</span>
+                          <small>Rekam ulang proses QC</small>
+                        </Button>
+                      ) : null}
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="history-opencode__button"
-                        onClick={() => void handleCopyText(selectedRecord.resiNumber, 'Resi')}
-                      >
-                        [copy-resi]
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="history-opencode__button"
-                        onClick={() => void handleCopyText(buildRecordMetadataText(selectedRecord, selectedGroup), 'Metadata')}
-                      >
-                        [copy-meta]
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="history-opencode__button"
+                        className="history-opencode__button history-opencode__quick-action-button"
                         onClick={() => void handleOpenVideoFolder()}
                       >
-                        [folder]
+                        <span>[Buka folder]</span>
+                        <small>Lihat lokasi file video</small>
                       </Button>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="history-opencode__button"
-                        disabled={preparingChatSendId === selectedRecord.id || selectedRecord.status !== 'completed'}
+                        className="history-opencode__button history-opencode__quick-action-button"
+                        disabled={disableSelectedChatAction}
                         onClick={() => void handlePrepareShopeeChat(selectedRecord)}
                       >
-                        {preparingChatSendId === selectedRecord.id ? '[preparing-chat]' : '[prepare-shopee-chat]'}
+                        <span>{selectedChatActionLabel}</span>
+                        <small>{selectedChatActionDescription}</small>
                       </Button>
                     </div>
                   </div>
 
                 </div>
 
-                <div className="grid gap-2">
+                <div className="grid gap-3">
                   {selectedGroup ? (
-                    <>
-                      <div className="history-opencode__detail-subhead flex items-center justify-between gap-3">
-                        <p>[+] Riwayat resi</p>
-                        <p>{selectedGroup.records.length} record</p>
-                      </div>
-
-                      <div className="grid gap-2">
-                        {selectedGroup.records.map((record) => {
-                          const invalidRecord = isRepeatQcInvalidRecord(record)
-                          const isSelectedRecord = record.id === selectedRecord.id
-
-                          return (
-                            <HistoryRecordingCard
-                              key={record.id}
-                              record={record}
-                              isSelected={isSelectedRecord}
-                              invalidRecord={invalidRecord}
-                              chatSend={chatSendByRecordingId.get(record.id) ?? null}
-                              downloadingRecordId={downloadingRecordId}
-                              deletingRecordId={deletingRecordId}
-                              formatDateTime={formatDateTime}
-                              onPreview={setPreviewTarget}
-                              onCopyPath={(item) => void handleCopyText(item.filePath, 'Path file')}
-                              onDownload={handleDownloadRecord}
-                              onDelete={setDeleteTarget}
-                            />
-                          )
-                        })}
-                      </div>
-                    </>
+                    (() => {
+                      const qcRecords = selectedGroup.records.filter((r) => r.taskType === 'qc')
+                      const packingRecords = selectedGroup.records.filter((r) => r.taskType === 'packing')
+                      const activeRecords = detailHistoryTab === 'qc' ? qcRecords : packingRecords
+                      const previewRecord = activeRecords.find((r) => r.id === selectedRecord.id) ?? activeRecords[0] ?? null
+                      return (
+                        <>
+                          <Tabs value={detailHistoryTab} onValueChange={(value) => setDetailHistoryTab(value as 'qc' | 'packing')}>
+                            <TabsList variant="line" className="inline-flex gap-6 rounded-none border-0 bg-transparent p-0">
+                              <TabsTrigger
+                                value="qc"
+                                className="rounded-none !border-0 bg-transparent px-3 py-2 font-mono text-[11px] tracking-wide text-[#646262] shadow-none data-active:!bg-transparent data-active:!shadow-none data-[state=active]:bg-transparent data-[state=active]:font-bold data-[state=active]:text-[#201d1d] data-[state=active]:shadow-none"
+                              >
+                                [{`QC · ${qcRecords.length}`}]
+                              </TabsTrigger>
+                              <TabsTrigger
+                                value="packing"
+                                className="rounded-none !border-0 bg-transparent px-3 py-2 font-mono text-[11px] tracking-wide text-[#646262] shadow-none data-active:!bg-transparent data-active:!shadow-none data-[state=active]:bg-transparent data-[state=active]:font-bold data-[state=active]:text-[#201d1d] data-[state=active]:shadow-none"
+                              >
+                                [{`Packing · ${packingRecords.length}`}]
+                              </TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="qc" className="grid gap-2 pt-2">
+                              {qcRecords.length ? (
+                                qcRecords.map((record) => {
+                                  const invalidRecord = isRepeatQcInvalidRecord(record)
+                                  const isSelectedRecord = record.id === selectedRecord.id
+                                  return (
+                                    <HistoryRecordingCard
+                                      key={record.id}
+                                      record={record}
+                                      isSelected={isSelectedRecord}
+                                      invalidRecord={invalidRecord}
+                                      chatSend={chatSendByRecordingId.get(record.id) ?? null}
+                                      downloadingRecordId={downloadingRecordId}
+                                      deletingRecordId={deletingRecordId}
+                                      formatDateTime={formatDateTime}
+                                      onDownload={handleDownloadRecord}
+                                      onDelete={setDeleteTarget}
+                                    />
+                                  )
+                                })
+                              ) : (
+                                <p className="history-opencode__meta py-2 text-center">Belum ada rekaman QC.</p>
+                              )}
+                            </TabsContent>
+                            <TabsContent value="packing" className="grid gap-2 pt-2">
+                              {packingRecords.length ? (
+                                packingRecords.map((record) => {
+                                  const invalidRecord = isRepeatQcInvalidRecord(record)
+                                  const isSelectedRecord = record.id === selectedRecord.id
+                                  return (
+                                    <HistoryRecordingCard
+                                      key={record.id}
+                                      record={record}
+                                      isSelected={isSelectedRecord}
+                                      invalidRecord={invalidRecord}
+                                      chatSend={chatSendByRecordingId.get(record.id) ?? null}
+                                      downloadingRecordId={downloadingRecordId}
+                                      deletingRecordId={deletingRecordId}
+                                      formatDateTime={formatDateTime}
+                                      onDownload={handleDownloadRecord}
+                                      onDelete={setDeleteTarget}
+                                    />
+                                  )
+                                })
+                              ) : (
+                                <p className="history-opencode__meta py-2 text-center">Belum ada rekaman Packing.</p>
+                              )}
+                            </TabsContent>
+                          </Tabs>
+                          {activeRecords.length === 0 ? null : previewRecord?.status === 'completed' && previewRecord.filePath ? (
+                            <div className="overflow-hidden rounded border border-[rgba(15,0,0,0.12)] bg-black">
+                              <video
+                                src={buildServerFileUrl(previewRecord.filePath)}
+                                controls
+                                playsInline
+                                preload="metadata"
+                                className="block max-h-[42vh] w-full bg-black object-contain"
+                                crossOrigin="use-credentials"
+                              />
+                            </div>
+                          ) : (
+                            <div className="history-opencode__empty-detail text-sm">Preview belum tersedia untuk {detailHistoryTab.toUpperCase()}.</div>
+                          )}
+                        </>
+                      )
+                    })()
                   ) : (
-                    <div className="history-opencode__empty-detail">
-                      Pilih salah satu baris untuk melihat detail data.
-                    </div>
+                    <div className="history-opencode__empty-detail">Pilih salah satu baris untuk melihat detail data.</div>
                   )}
                 </div>
           </HistoryDetailDialog>
@@ -1225,7 +1322,7 @@ export function HistoryPage() {
                 </Button>
                 <Button type="button" variant="destructive" disabled={Boolean(deletingRecordId)} onClick={() => void handleConfirmDeleteRecord()}>
                   <Trash2 className="size-4" />
-                  {deletingRecordId ? 'Menghapus...' : 'Hapus recording'}
+                  {deletingRecordId ? '[Menghapus...]' : '[Hapus recording]'}
                 </Button>
               </div>
             </div>
@@ -1311,6 +1408,7 @@ function OperatorCell({ value }: { value: string }) {
   )
 }
 
+// @ts-ignore - kept for future use within design system
 function DateTimeCell({ value }: { value: string }) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) {
@@ -1329,6 +1427,7 @@ function DateTimeCell({ value }: { value: string }) {
   )
 }
 
+// @ts-ignore - kept for future use within design system
 function MobileTaskBlock({ label, record }: { label: string; record: LocalRecordingRecord | null }) {
   return (
     <div>
@@ -1409,6 +1508,34 @@ function DetailRow({
   )
 }
 
+function OrderDetailRow({ order }: { order: ShopeeOrder }) {
+  return (
+    <div className="history-opencode__detail-row history-opencode__order-detail-row grid min-w-0 gap-2">
+      <dt>No. Pesanan</dt>
+      <dd className="grid min-w-0 gap-2">
+        <div className="history-opencode__order-head">
+          <span className="truncate" title={order.orderNumber}>{order.orderNumber}</span>
+          <small className="truncate" title={order.buyerUsername || undefined}>Pembeli: {order.buyerUsername || '-'}</small>
+        </div>
+        <div className="history-opencode__order-product-list" aria-label="Daftar barang pesanan">
+          {order.items.length ? (
+            order.items.map((item, index) => (
+              <span key={item.id ?? `${item.productName}-${index}`} className="history-opencode__order-product" title={item.productName}>
+                <span className="history-opencode__order-product-name">{item.productName}</span>
+                {item.variationName ? <small>{item.variationName}</small> : null}
+                <strong>x{item.quantity}</strong>
+              </span>
+            ))
+          ) : (
+            <span className="history-opencode__order-empty">Barang belum tersedia.</span>
+          )}
+        </div>
+      </dd>
+    </div>
+  )
+}
+
+// @ts-ignore - kept for design system
 function TaskPill({ taskType }: { taskType: WorkTask }) {
   return (
     <span className="history-opencode__status">
@@ -1418,7 +1545,7 @@ function TaskPill({ taskType }: { taskType: WorkTask }) {
 }
 
 function Th({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <th className={`px-5 py-3 ${className}`}>{children}</th>
+  return <th className={`px-5 py-3 ${className}`}>[{children}]</th>
 }
 
 function Td({ children, className = '' }: { children: ReactNode; className?: string }) {
@@ -1596,6 +1723,14 @@ function sortRecordsByNewest(records: LocalRecordingRecord[]) {
 
 function formatDateForExport(date: Date) {
   return date.toISOString().slice(0, 10)
+}
+
+function formatDateInput(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
 }
 
 function buildRecordMetadataText(record: LocalRecordingRecord, group?: HistoryRecordingGroup | null) {

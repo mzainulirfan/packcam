@@ -10,8 +10,6 @@ type HistoryRecordingCardProps = {
   downloadingRecordId: string | null
   deletingRecordId: string | null
   formatDateTime: (value: string) => string
-  onPreview: (record: LocalRecordingRecord) => void
-  onCopyPath: (record: LocalRecordingRecord) => void
   onDownload: (record: LocalRecordingRecord) => void
   onDelete: (record: LocalRecordingRecord) => void
 }
@@ -24,69 +22,74 @@ export function HistoryRecordingCard({
   downloadingRecordId,
   deletingRecordId,
   formatDateTime,
-  onPreview,
-  onCopyPath,
   onDownload,
   onDelete,
 }: HistoryRecordingCardProps) {
+  const fileSizeLabel = record.fileSizeBytes ? `${Math.round(record.fileSizeBytes / 1024)} KB` : '-'
+
   return (
     <div className={isSelected ? 'history-opencode__record-card is-selected' : 'history-opencode__record-card'}>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="grid gap-1.5">
-          <div className="flex flex-wrap items-center gap-2">
+      <div className="history-opencode__record-card-inner">
+        <div className="history-opencode__record-card-main">
+          <div className="history-opencode__record-card-head">
             <TaskPill taskType={record.taskType} />
-            <StatusPill status={record.status} />
-            {invalidRecord ? (
-              <span className="history-opencode__badge">
-                [!] Tidak valid
-              </span>
-            ) : null}
-            {isSelected ? (
-              <span className="history-opencode__badge">
-                [x] Dipilih
-              </span>
-            ) : null}
-            {chatSend ? (
-              <span className="history-opencode__badge">
-                {chatSend.status === 'sent' ? '[✓] Terkirim ke pembeli' : chatSend.status === 'prepared' ? '[~] Siap kirim' : chatSend.status === 'pending' ? '[…] Antri kirim' : `[!] ${chatSend.status}`} {chatSend.buyerUsername ? `· ${chatSend.buyerUsername}` : ''}
-              </span>
-            ) : null}
+            <div className="history-opencode__record-card-badges">
+              <StatusPill status={record.status} />
+              {invalidRecord ? (
+                <span className="history-opencode__badge">
+                  [!] Tidak valid
+                </span>
+              ) : null}
+              {isSelected ? (
+                <span className="history-opencode__badge">
+                  [x] Dipilih
+                </span>
+              ) : null}
+            </div>
           </div>
-          <div className="history-opencode__record-meta grid gap-0.5">
-            <span className="truncate">File: {record.fileName}</span>
-            <span className="truncate">Path: {record.filePath}</span>
-            <span>{formatDateTime(record.startTime)}</span>
-            <span>{record.note ?? 'Tidak ada catatan tambahan.'}</span>
+
+          <div className="history-opencode__record-meta">
+            <span>
+              <small>Waktu</small>
+              <strong>{formatDateTime(record.startTime)}</strong>
+            </span>
+            <span>
+              <small>File</small>
+              <strong className="truncate" title={record.fileName}>{record.fileName}</strong>
+            </span>
+            <span>
+              <small>Ukuran</small>
+              <strong>{fileSizeLabel}</strong>
+            </span>
           </div>
+
+          {chatSend ? (
+            <div className="history-opencode__record-chat-status">
+              {chatSend.status === 'sent' ? '[✓] Terkirim ke pembeli' : chatSend.status === 'prepared' ? '[~] Siap kirim' : chatSend.status === 'pending' ? '[…] Antri kirim' : `[!] ${chatSend.status}`} {chatSend.buyerUsername ? `· ${chatSend.buyerUsername}` : ''}
+            </div>
+          ) : null}
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {record.status === 'completed' ? (
-            <Button type="button" size="sm" className="history-opencode__button" onClick={() => onPreview(record)}>
-              [preview]
-            </Button>
-          ) : null}
-          <Button type="button" variant="outline" size="sm" className="history-opencode__button" onClick={() => onCopyPath(record)}>
-            [copy-path]
+        <div className="history-opencode__record-actions">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="history-opencode__button history-opencode__record-action-button"
+            disabled={downloadingRecordId !== null}
+            onClick={() => onDownload(record)}
+          >
+            {downloadingRecordId === record.id ? '[Menyiapkan...]' : '[Unduh]'}
           </Button>
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className="history-opencode__button"
-            disabled={downloadingRecordId !== null}
-            onClick={() => onDownload(record)}
-          >
-            {downloadingRecordId === record.id ? '[preparing]' : record.shareFileReady ? '[download]' : '[preparing video]'}
-          </Button>
-          <Button
-            type="button"
-            variant="destructive"
-            size="sm"
+            className="history-opencode__button history-opencode__record-action-button is-danger"
             disabled={deletingRecordId !== null}
             onClick={() => onDelete(record)}
           >
-            {deletingRecordId === record.id ? '[deleting]' : '[delete]'}
+            {deletingRecordId === record.id ? '[Menghapus...]' : '[Hapus]'}
           </Button>
         </div>
       </div>
