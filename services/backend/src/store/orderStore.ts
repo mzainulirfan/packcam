@@ -304,3 +304,20 @@ export function listRecentShopeeOrders(limit = 50) {
 
   return rows.map((row) => mapOrder(row, getOrderItems(row.id)))
 }
+
+export function getShopeeOrderStats() {
+  const database = db()
+  const total = database.prepare(`SELECT COUNT(*) AS count FROM orders WHERE source = 'shopee'`).get() as { count: number }
+  const updatedToday = database
+    .prepare(`SELECT COUNT(*) AS count FROM orders WHERE source = 'shopee' AND date(updated_at, 'localtime') = date('now', 'localtime')`)
+    .get() as { count: number }
+  const latest = database
+    .prepare(`SELECT updated_at FROM orders WHERE source = 'shopee' ORDER BY updated_at DESC LIMIT 1`)
+    .get() as { updated_at: string } | undefined
+
+  return {
+    total: total.count ?? 0,
+    updatedToday: updatedToday.count ?? 0,
+    latestUpdatedAt: latest?.updated_at ?? null,
+  }
+}

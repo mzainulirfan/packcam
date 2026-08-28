@@ -61,3 +61,5 @@ Popup menampilkan mode tab aktif:
 Tombol `[auto-prepare-video]` dapat dipakai untuk memaksa backend mengecek recording `packing` hari ini dan membuat job video chat tanpa membuka detail rekaman satu per satu.
 
 Job `failed` atau `cancelled` bisa dipantau dan di-retry manual dari Admin Console Pakti. Job `sent` tidak akan di-reset oleh auto-prepare maupun retry otomatis.
+
+Saat tab Webchat terbuka, extension mengirim heartbeat ke backend agar Admin Console bisa menampilkan status worker terakhir. Di halaman order shipping, extension melakukan scan konservatif: membaca order yang terlihat, scroll ringan satu layar untuk menangkap kartu tambahan, lalu kembali ke posisi awal.

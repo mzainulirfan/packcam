@@ -219,6 +219,28 @@ export function readServerAdminStatusApi() {
       recordings: number
       scanLogs: number
     }
+    shopeeAutomation: {
+      orders: { total: number; updatedToday: number; latestUpdatedAt: string | null }
+      videoChat: {
+        counts: Record<RecordingChatSend['status'], number>
+        sentToday: number
+        failedOrCancelledToday: number
+        latestUpdatedAt: string | null
+      }
+      shippingChat: {
+        counts: Record<ShippingChatSend['status'], number>
+        sentToday: number
+        failedOrCancelledToday: number
+        latestUpdatedAt: string | null
+      }
+      extensionWorker: {
+        page: string
+        mode: string
+        pendingVideoCount: number | null
+        pendingShippingAvailable: boolean | null
+        updatedAt: string
+      } | null
+    }
     recentRecordings: ServerRecordingRow[]
     recentScanLogs: ServerScanLogRow[]
     lastError: { message: string; createdAt: string } | null

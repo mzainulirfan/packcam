@@ -8,7 +8,7 @@ import multer from 'multer'
 import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
 import type { AppSettings, ShopeeOrder } from '@pakti/types'
 
-import { clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deleteRecording, deleteSessionById, finalizeRecording, getBootstrapStatus, getHealthSnapshot, getNextPendingShippingChatSend, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPendingChatSends, listRecentChatSends, listRecentShippingChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, prepareReadyRecordingChatSendsForToday, prepareRecordingChatSend, prepareRecordingShareFile, prepareShippingChatSends, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, retryChatSend, retryShippingChatSend, saveSettings, saveSystemConfig, updateChatSendStatus, updateSessionTaskType, updateShippingChatSendStatus, upsertOperatorProfile } from './store'
+import { clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deleteRecording, deleteSessionById, finalizeRecording, getBootstrapStatus, getChatSendStats, getHealthSnapshot, getNextPendingShippingChatSend, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, getShopeeOrderStats, getShippingChatSendStats, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPendingChatSends, listRecentChatSends, listRecentShippingChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, prepareReadyRecordingChatSendsForToday, prepareRecordingChatSend, prepareRecordingShareFile, prepareShippingChatSends, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, retryChatSend, retryShippingChatSend, saveSettings, saveSystemConfig, updateChatSendStatus, updateSessionTaskType, updateShippingChatSendStatus, upsertOperatorProfile } from './store'
 import type { ShippingChatOrderInput } from './store/shippingChatSendStore'
 import { clearSessionCookie, getCookie, normalizeRole, readStringField, sendError, sendOk, setSessionCookie } from './http'
 import type { HttpSession } from './http'
@@ -46,6 +46,13 @@ const corsOrigins = (process.env.CORS_ORIGINS ?? '')
   .filter(Boolean)
   .concat(defaultCorsOrigins)
 const loginAttempts = new Map<string, { count: number; resetAt: number }>()
+let shopeeExtensionHeartbeat: null | {
+  page: string
+  mode: string
+  pendingVideoCount: number | null
+  pendingShippingAvailable: boolean | null
+  updatedAt: string
+} = null
 
 type AuthenticatedRequest = Request & {
   session?: HttpSession
@@ -418,6 +425,12 @@ app.get('/api/admin/status', (req, res) => {
       recordings: health.counts.recordings,
       scanLogs: health.counts.scanLogs,
     },
+    shopeeAutomation: {
+      orders: getShopeeOrderStats(),
+      videoChat: getChatSendStats(),
+      shippingChat: getShippingChatSendStats(),
+      extensionWorker: shopeeExtensionHeartbeat,
+    },
     recentRecordings: recordings.slice(0, 8),
     recentScanLogs: scanLogs.slice(0, 8),
     lastError: readLastError(),
@@ -547,6 +560,18 @@ app.post('/api/import/shopee/orders', requireOrderImportAccess, (req, res) => {
   } catch (error) {
     return sendError(res, 400, error instanceof Error ? error.message : 'Gagal import order Shopee.')
   }
+})
+
+app.post('/api/shopee/extension-heartbeat', requireSessionOrExtensionKey, (req, res) => {
+  shopeeExtensionHeartbeat = {
+    page: typeof req.body?.page === 'string' ? req.body.page.slice(0, 240) : '',
+    mode: typeof req.body?.mode === 'string' ? req.body.mode.slice(0, 60) : 'unknown',
+    pendingVideoCount: Number.isFinite(Number(req.body?.pendingVideoCount)) ? Number(req.body.pendingVideoCount) : null,
+    pendingShippingAvailable: typeof req.body?.pendingShippingAvailable === 'boolean' ? req.body.pendingShippingAvailable : null,
+    updatedAt: new Date().toISOString(),
+  }
+
+  return sendOk(res, shopeeExtensionHeartbeat)
 })
 
 app.post('/api/shopee/shipping-chat/prepare', requireSessionOrExtensionKey, (req, res) => {

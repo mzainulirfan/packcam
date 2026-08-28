@@ -159,6 +159,49 @@ function extractOrders() {
   })
 }
 
+function mergeOrdersByNumber(orderGroups) {
+  const byOrderNumber = new Map()
+  for (const order of orderGroups.flat()) {
+    if (!order?.orderNumber || byOrderNumber.has(order.orderNumber)) continue
+    byOrderNumber.set(order.orderNumber, order)
+  }
+
+  return [...byOrderNumber.values()]
+}
+
+function findScrollableOrderContainer() {
+  const candidates = [
+    ...document.querySelectorAll('[class*="order" i], [class*="list" i], [class*="scroll" i], main, section, div'),
+  ]
+
+  return candidates.find((element) => {
+    if (!(element instanceof HTMLElement) || element.offsetParent === null) return false
+    const style = window.getComputedStyle(element)
+    const canScroll = /(auto|scroll)/.test(`${style.overflowY} ${style.overflow}`)
+    return canScroll && element.scrollHeight > element.clientHeight + 120
+  }) || document.scrollingElement
+}
+
+async function extractOrdersWithLightScroll() {
+  if (!isShopeeShippingOrderPage()) return extractOrders()
+
+  const scrollTarget = findScrollableOrderContainer()
+  const beforeTop = scrollTarget?.scrollTop ?? window.scrollY
+  const first = extractOrders()
+
+  if (!scrollTarget || first.length >= 30) {
+    return first
+  }
+
+  const scrollBy = Math.max(360, Math.floor((scrollTarget.clientHeight || window.innerHeight) * 0.85))
+  scrollTarget.scrollTo({ top: beforeTop + scrollBy, behavior: 'instant' })
+  await new Promise((resolve) => setTimeout(resolve, 900))
+  const second = extractOrders()
+  scrollTarget.scrollTo({ top: beforeTop, behavior: 'instant' })
+
+  return mergeOrdersByNumber([first, second])
+}
+
 function isShopeeSellerHostname(hostname) {
   return hostname === 'seller.shopee.co.id' || hostname === 'seller.shopee.com'
 }
@@ -219,7 +262,7 @@ async function requestPaktiApi(path, config, init = {}) {
 async function prepareVisibleShippingChats() {
   if (!isShopeeShippingOrderPage()) return
 
-  const orders = extractOrders()
+  const orders = await extractOrdersWithLightScroll()
   const orderInputs = orders
     .filter((order) => order.orderNumber)
     .map((order) => ({
@@ -263,7 +306,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           throw new Error('Tab aktif harus halaman Pesanan Dikirim Shopee: /portal/sale/order?type=shipping')
         }
 
-        const orders = extractOrders()
+        const orders = await extractOrdersWithLightScroll()
         const orderInputs = orders
           .filter((order) => order.orderNumber)
           .map((order) => ({
@@ -707,6 +750,19 @@ if (isShopeeWebchatPage()) {
     }
   }
 
+  async function sendExtensionHeartbeat(config, details = {}) {
+    await requestPaktiApi('/api/shopee/extension-heartbeat', config, {
+      method: 'POST',
+      body: JSON.stringify({
+        page: location.href,
+        mode: 'webchat-worker',
+        ...details,
+      }),
+    }).catch((error) => {
+      if (isExtensionContextInvalidated(error)) throw error
+    })
+  }
+
   async function autoRunPending() {
     if (autoRunBusy) return
     autoRunBusy = true
@@ -722,6 +778,10 @@ if (isShopeeWebchatPage()) {
       const payload = await res.json().catch(() => null)
       const chatJob = payload?.ok && Array.isArray(payload.data) ? payload.data[0] : null
       const shippingJob = chatJob ? null : await requestPaktiApi('/api/shopee/shipping-chat/next', stored)
+      await sendExtensionHeartbeat(stored, {
+        pendingVideoCount: payload?.ok && Array.isArray(payload.data) ? payload.data.length : null,
+        pendingShippingAvailable: Boolean(shippingJob),
+      })
       if (!chatJob && !shippingJob) return
 
       if (!chatJob) {

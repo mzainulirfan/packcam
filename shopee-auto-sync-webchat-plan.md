@@ -81,6 +81,7 @@ Saran interval awal:
 - initial scan: 2,5 detik setelah page load
 - repeat scan: 15-30 detik
 - hanya sync kalau signature berubah
+- scan konservatif boleh scroll ringan satu layar untuk menangkap kartu tambahan, lalu kembali ke posisi awal
 
 ## Pipeline 2: Auto Prepare Video Chat
 
@@ -389,6 +390,8 @@ Mitigasi:
 - Admin/History sudah menampilkan status queue.
 - Popup menampilkan ringkasan auto prepare.
 - Admin bisa filter status dan retry manual job `failed`/`cancelled` untuk video chat dan shipping chat.
+- Admin menampilkan metrik automation: order sync, pending queue, sent/failed hari ini, dan heartbeat Webchat worker.
+- Extension mengirim heartbeat ke backend saat tab Webchat worker aktif.
 
 ## Acceptance Criteria
 

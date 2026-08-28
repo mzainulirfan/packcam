@@ -214,6 +214,28 @@ export function AdminPage() {
         </CardContent>
       </Card>
 
+      <Card className="admin-opencode__panel">
+        <CardHeader>
+          <CardTitle>Shopee automation</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-4">
+          {adminStatus ? (
+            <div className="admin-opencode__stats">
+              <Metric index="01" label="Orders synced" value={String(adminStatus.shopeeAutomation.orders.total)} />
+              <Metric index="02" label="Orders today" value={String(adminStatus.shopeeAutomation.orders.updatedToday)} />
+              <Metric index="03" label="Video pending" value={String(adminStatus.shopeeAutomation.videoChat.counts.pending)} />
+              <Metric index="04" label="Shipping pending" value={String(adminStatus.shopeeAutomation.shippingChat.counts.pending)} />
+              <Metric index="05" label="Sent today" value={String(adminStatus.shopeeAutomation.videoChat.sentToday + adminStatus.shopeeAutomation.shippingChat.sentToday)} />
+              <Metric index="06" label="Failed today" value={String(adminStatus.shopeeAutomation.videoChat.failedOrCancelledToday + adminStatus.shopeeAutomation.shippingChat.failedOrCancelledToday)} />
+              <Metric index="07" label="Last order sync" value={formatOptionalDateTime(adminStatus.shopeeAutomation.orders.latestUpdatedAt)} />
+              <Metric index="08" label="Worker heartbeat" value={formatWorkerHeartbeat(adminStatus.shopeeAutomation.extensionWorker?.updatedAt ?? null)} />
+            </div>
+          ) : (
+            <div className="admin-opencode__empty">[-] Metrik Shopee belum tersedia.</div>
+          )}
+        </CardContent>
+      </Card>
+
       <section className="grid gap-4 xl:grid-cols-2">
         <Card className="admin-opencode__panel">
           <CardHeader className="gap-3 sm:flex sm:flex-row sm:items-center sm:justify-between">
@@ -428,6 +450,25 @@ function ShippingChatTable({
 
 function StatusBadge({ status }: { status: ChatSendStatus }) {
   return <span className="admin-opencode__badge">[{status}]</span>
+}
+
+function formatOptionalDateTime(value: string | null) {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+
+  return new Intl.DateTimeFormat('id-ID', { dateStyle: 'short', timeStyle: 'short' }).format(date)
+}
+
+function formatWorkerHeartbeat(value: string | null) {
+  if (!value) return 'offline'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'unknown'
+  const ageSeconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000))
+  if (ageSeconds < 90) return `${ageSeconds}s ago`
+  const ageMinutes = Math.floor(ageSeconds / 60)
+
+  return `${ageMinutes}m ago`
 }
 
 function ActivityBlock({ title, emptyText, children }: { title: string; emptyText: string; children: React.ReactNode }) {

@@ -328,6 +328,37 @@ export function listChatSendsByRecordingIds(recordingIds: string[], apiBaseUrl =
   return rows.map((row) => mapChatSend(row, apiBaseUrl))
 }
 
+export function getChatSendStats() {
+  const rows = db()
+    .prepare(
+      `SELECT status, COUNT(*) AS count
+       FROM recording_chat_sends
+       GROUP BY status`,
+    )
+    .all() as Array<{ status: ChatSendStatus; count: number }>
+  const sentToday = db()
+    .prepare(`SELECT COUNT(*) AS count FROM recording_chat_sends WHERE status = 'sent' AND date(sent_at, 'localtime') = date('now', 'localtime')`)
+    .get() as { count: number }
+  const failedToday = db()
+    .prepare(`SELECT COUNT(*) AS count FROM recording_chat_sends WHERE status IN ('failed', 'cancelled') AND date(updated_at, 'localtime') = date('now', 'localtime')`)
+    .get() as { count: number }
+  const latest = db()
+    .prepare(`SELECT updated_at FROM recording_chat_sends ORDER BY updated_at DESC LIMIT 1`)
+    .get() as { updated_at: string } | undefined
+  const counts = { pending: 0, prepared: 0, sent: 0, failed: 0, cancelled: 0 } satisfies Record<ChatSendStatus, number>
+
+  for (const row of rows) {
+    counts[row.status] = row.count ?? 0
+  }
+
+  return {
+    counts,
+    sentToday: sentToday.count ?? 0,
+    failedOrCancelledToday: failedToday.count ?? 0,
+    latestUpdatedAt: latest?.updated_at ?? null,
+  }
+}
+
 export function updateChatSendStatus(id: string, status: Exclude<ChatSendStatus, 'pending'>, errorMessage?: string | null) {
   const row = getChatSendRow(id)
   if (!row) {
