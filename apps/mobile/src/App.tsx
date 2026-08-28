@@ -166,7 +166,8 @@ function App() {
   const [packingPreview, setPackingPreview] = useState<{ order: ShopeeOrder; pay: { amount: number; quantity: number; breakdown: unknown; rule: import('@pakti/types').PackingPayRule } } | null>(null)
   const [packingPreviewBusy, setPackingPreviewBusy] = useState(false)
   const [photoCaptureBusy, setPhotoCaptureBusy] = useState(false)
-  const [photoModalOpen, setPhotoModalOpen] = useState(false)
+  const [lastPhotoResi, setLastPhotoResi] = useState<string | null>(null)
+  const [lastPhotoId, setLastPhotoId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
     if (typeof window === 'undefined') {
       return 'scan'
@@ -1146,9 +1147,8 @@ function App() {
           showScanNotice({
             kind: 'success',
             title: 'Resi siap difoto',
-            message: `Resi ${resiNumber} siap untuk foto packing.`,
+            message: `Resi ${resiNumber} akan difoto otomatis...`,
           })
-          setPhotoModalOpen(true)
           return 'started'
         } catch (error) {
           setWatermarkResi((current) => (current === resiNumber ? null : current))
@@ -1350,9 +1350,10 @@ function App() {
     }
   }, [isPackingMode, activePackingSession, scanResi, recordingSession.state.mode])
 
-  async function handleCapturePhoto() {
-    if (!session || packingMediaType !== 'photo' || !canUsePackingFlow || photoCaptureBusy || !scanVideoElement || !scanResi.trim()) return
-    const resiNumber = scanResi.trim()
+  async function handleCapturePhoto(overrideResi?: string) {
+    const rawResi = (overrideResi ?? scanResi).trim()
+    if (!session || packingMediaType !== 'photo' || !canUsePackingFlow || photoCaptureBusy || !scanVideoElement || !rawResi) return
+    const resiNumber = rawResi
     if (session.taskType === 'packing') {
       const progress = await resolveLatestTaskProgress(resiNumber)
       if (progress?.qc?.status !== 'completed') {
@@ -1361,11 +1362,14 @@ function App() {
         return
       }
       const existing = await findRecordingByResi(resiNumber, 'packing')
-      if (existing) {
+      if (existing && !(lastPhotoId && existing.id === lastPhotoId)) {
         playScanFeedback('warning')
         const notice = getDuplicateScanNotice({ existing, taskType: 'packing', taskProgressQcStatus: progress?.qc?.status, formatTask })
         showScanNotice({ kind: 'warning', title: notice.title, message: notice.message })
         return
+      }
+      if (existing && lastPhotoId && existing.id === lastPhotoId) {
+        try { await deleteServerRecordingApi(existing.id) } catch { /* ignore */ }
       }
     }
     setPhotoCaptureBusy(true)
@@ -1396,9 +1400,10 @@ function App() {
       await finalizeServerRecordingApi(draft.id, { endTime: new Date().toISOString() })
       playScanFeedback('success')
       showScanNotice({ kind: 'success', title: 'Foto packing tersimpan', message: `Resi ${resiNumber} · ${packingPreview ? formatRupiah((packingPreview.pay as unknown as { amount: number }).amount) : formatRupiah(1500)}` })
+      setLastPhotoResi(resiNumber)
+      setLastPhotoId(draft.id)
       setScanResi('')
       setPackingPreview(null)
-      setPhotoModalOpen(false)
       if (activePackingSession) void readPackingSessionApi(activePackingSession.id).then(setActivePackingSession).catch(() => void refreshActivePackingSession())
       void refreshHistory()
     } catch (error) {
@@ -1407,6 +1412,18 @@ function App() {
       setPhotoCaptureBusy(false)
     }
   }
+
+  // Otomatis foto ketika scan berhasil di mode foto, tetap sediakan opsi manual & foto ulang
+  useEffect(() => {
+    if (!isPackingMode || packingMediaType !== 'photo' || !scanResi.trim() || photoCaptureBusy || scanBusy || !canUsePackingFlow || recordingSession.state.mode !== 'idle' || !scanVideoElement) return
+    const resi = scanResi.trim()
+    // cegah auto dobel jika baru saja foto untuk resi sama
+    if (lastPhotoResi === resi && lastPhotoId) return
+    const timer = window.setTimeout(() => {
+      void handleCapturePhoto(resi)
+    }, 450)
+    return () => window.clearTimeout(timer)
+  }, [scanResi, packingMediaType, isPackingMode, photoCaptureBusy, scanBusy, canUsePackingFlow, recordingSession.state.mode, scanVideoElement, lastPhotoId, lastPhotoResi])
 
   async function handleDeleteRecording(record: RecordingRow) {
     if (deletingRecordId) {
@@ -1722,6 +1739,19 @@ function App() {
                   <p className="text-[11px] text-[var(--op-mute)]">No. Pesanan {packingPreview.order.orderNumber} · Buyer {packingPreview.order.buyerUsername ?? '-'}</p>
                 </div>
               ) : scanResi.trim() ? <p className="text-[11px] text-amber-600">Order belum ditemukan atau butuh sync Shopee.</p> : null}
+              {isPackingMode && packingMediaType === 'photo' && lastPhotoResi ? (
+                <div className="mt-2 grid gap-2 rounded-[4px] border border-dashed border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-2">
+                  <p className="text-[11px] text-muted-foreground">Foto terakhir: <strong>{lastPhotoResi}</strong> tersimpan</p>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" size="sm" className="flex-1 rounded-[4px]" disabled={photoCaptureBusy || !scanVideoElement} onClick={() => void handleCapturePhoto(lastPhotoResi)}>
+                      {photoCaptureBusy ? '...' : 'Foto ulang'}
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" className="flex-1 rounded-[4px]" disabled={photoCaptureBusy || !scanResi.trim() || !scanVideoElement} onClick={() => void handleCapturePhoto()}>
+                      Foto manual
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </section>
           ) : null}
 
@@ -1866,48 +1896,6 @@ function App() {
           </div>
         </section>
       ) : null}
-
-      <Dialog open={photoModalOpen} onOpenChange={setPhotoModalOpen}>
-        <DialogContent className="max-w-sm rounded-[4px]" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-          <DialogHeader>
-            <DialogTitle className="text-[14px] font-bold">Resi siap difoto</DialogTitle>
-            <DialogDescription className="text-[12px] leading-relaxed text-muted-foreground">
-              Scan berhasil. Ambil foto packing sekarang atau batal jika resi salah.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-3 py-1">
-            <div className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-3">
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Nomor resi</p>
-              <p className="truncate text-[15px] font-bold">{scanResi || '-'}</p>
-              {packingPreview ? (
-                <div className="mt-2 grid gap-1 border-t border-[var(--op-hairline)] pt-2 text-[12px]">
-                  <div className="flex justify-between gap-2">
-                    <span className="text-muted-foreground">Jasa kirim</span>
-                    <strong>{packingPreview.order.shippingChannel ?? '-'}</strong>
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    <span className="text-muted-foreground">Upah</span>
-                    <strong>{formatRupiah((packingPreview.pay as unknown as { amount: number }).amount)}</strong>
-                  </div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {packingPreview.order.items.slice(0,2).map((it) => `${it.productName}${it.variationName ? ` · ${it.variationName}` : ''} x${it.quantity}`).join(', ')}
-                    {packingPreview.order.items.length > 2 ? ` +${packingPreview.order.items.length - 2} lain` : ''}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-            <div className="grid gap-2">
-              <Button type="button" className="h-12 w-full rounded-[4px] font-semibold" disabled={photoCaptureBusy} onClick={() => void handleCapturePhoto()}>
-                <HugeiconsIcon icon={Camera01Icon} size={16} />
-                {photoCaptureBusy ? 'Menyimpan foto...' : 'Ambil foto & simpan'}
-              </Button>
-              <Button type="button" variant="outline" className="rounded-[4px]" disabled={photoCaptureBusy} onClick={() => { setPhotoModalOpen(false); setScanResi('') }}>
-                Batal / Scan ulang
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* ——— HISTORY TAB ——— */}
       {activeTab === 'history' ? (
