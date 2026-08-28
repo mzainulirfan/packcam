@@ -9,6 +9,12 @@ type PreparedShareFile = {
   file: File
 }
 
+type ShareFileInfo = {
+  fileName: string
+  filePath: string
+  mimeType: string
+}
+
 type ScanNotice = {
   kind: 'success' | 'warning'
   title: string
@@ -41,6 +47,17 @@ export function useSharePreparation({
   const preparedShareFilesRef = useRef(new Map<string, PreparedShareFile>())
   const requestedShareFileIdsRef = useRef(new Set<string>())
 
+  const markShareFilePrepared = useCallback((recordId: string, shareFile: ShareFileInfo) => {
+    setRecordings((current) => current.map((row) => row.id === recordId ? {
+      ...row,
+      shareFileName: shareFile.fileName,
+      shareFilePath: shareFile.filePath,
+      shareFileMimeType: shareFile.mimeType,
+      shareFileReady: true,
+    } : row))
+    setPreparedShareFileIds((current) => new Set(current).add(recordId))
+  }, [setRecordings])
+
   useEffect(() => {
     if (!active) {
       return
@@ -65,10 +82,13 @@ export function useSharePreparation({
 
         requestedShareFileIdsRef.current.add(record.id)
         try {
-          await prepareServerRecordingShareFileApi(record.id)
+          const shareFile = await prepareServerRecordingShareFileApi(record.id)
+          markShareFilePrepared(record.id, shareFile)
           preparedAny = true
         } catch {
           // Manual prepare remains available from the detail sheet if background work fails.
+        } finally {
+          requestedShareFileIdsRef.current.delete(record.id)
         }
       }
 
@@ -82,7 +102,7 @@ export function useSharePreparation({
     return () => {
       cancelled = true
     }
-  }, [active, recordings, refreshHistory])
+  }, [active, markShareFilePrepared, recordings, refreshHistory])
 
   const handleShareRecording = useCallback(
     async (record: RecordingRow, target: 'native' | 'whatsapp') => {
@@ -126,13 +146,7 @@ export function useSharePreparation({
               mimeType: record.shareFileMimeType ?? 'video/mp4',
             }
           : await prepareServerRecordingShareFileApi(record.id)
-        setRecordings((current) => current.map((row) => row.id === record.id ? {
-          ...row,
-          shareFileName: shareFile.fileName,
-          shareFilePath: shareFile.filePath,
-          shareFileMimeType: shareFile.mimeType,
-          shareFileReady: true,
-        } : row))
+        markShareFilePrepared(record.id, shareFile)
         const videoUrl = buildServerFileUrl(shareFile.filePath)
         const response = await fetch(videoUrl, { credentials: 'include' })
         if (!response.ok) {
@@ -161,7 +175,7 @@ export function useSharePreparation({
         setSharingRecordId(null)
       }
     },
-    [formatTask, normalizeError, setBootError, setRecordings, showScanNotice],
+    [formatTask, markShareFilePrepared, normalizeError, setBootError, showScanNotice],
   )
 
   return {

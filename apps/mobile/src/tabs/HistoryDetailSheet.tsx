@@ -139,19 +139,19 @@ export function HistoryDetailSheet({
               <div className="grid grid-cols-2 gap-2">
                 {record.status === 'completed' && record.filePath ? (
                   <>
-                    <button
-                      type="button"
-                      className="flex h-10 items-center justify-center gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 text-sm font-medium hover:bg-[var(--op-surface-soft)] disabled:opacity-50"
-                      onClick={() => onShareRecording(record, 'native')}
-                      disabled={sharingRecordId === record.id || deletingRecordId !== null}
-                    >
-                      <HugeiconsIcon icon={Share08Icon} size={14} />
-                      {sharingRecordId === record.id
-                        ? 'Menyiapkan...'
-                        : preparedShareFileIds.has(record.id)
-                          ? 'Bagikan'
-                          : 'Siapkan share'}
-                    </button>
+                  <button
+                    type="button"
+                    className="flex h-10 items-center justify-center gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 text-sm font-medium hover:bg-[var(--op-surface-soft)] disabled:opacity-50"
+                    onClick={() => onShareRecording(record, 'native')}
+                    disabled={sharingRecordId === record.id || deletingRecordId !== null}
+                  >
+                    <HugeiconsIcon icon={Share08Icon} size={14} />
+                    {sharingRecordId === record.id
+                      ? 'Menyiapkan...'
+                      : record.shareFileReady || preparedShareFileIds.has(record.id)
+                        ? 'Bagikan'
+                        : 'Siapkan share'}
+                  </button>
                     <button
                       type="button"
                       className="flex h-10 items-center justify-center gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 text-sm font-medium hover:bg-[var(--op-surface-soft)] disabled:opacity-50"
