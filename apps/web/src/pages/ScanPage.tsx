@@ -213,24 +213,12 @@ export function ScanPage() {
         return
       }
       if (isPackingTask && packingMediaType === 'photo') {
-        // untuk foto, tidak auto-record; cukup validasi via recordingSession handleScan tapi skip recorder start
-        void recordingSession.handleScan(trimmed).then((outcome) => {
-          if (outcome.action === 'error' || outcome.action === 'already_processed') {
-            setScanAlert(mapScanOutcomeToAlert(outcome.action, outcome.message))
-            return
-          }
-          // untuk foto, treat started sebagai siap capture tanpa memulai MediaRecorder
-          if (outcome.action === 'started' || outcome.action === 'queued') {
-            setScanAlert({ kind: 'success', message: `Resi ${trimmed} siap difoto. Klik Capture Foto.` })
-            if (repeatQcResi && trimmed === repeatQcResi) {
-              clearRepeatQcResi()
-              setRepeatQcResi(null)
-            }
-            return
-          }
-          const alert = mapScanOutcomeToAlert(outcome.action, outcome.message)
-          setScanAlert(alert)
-        })
+        // foto: jangan mulai MediaRecorder, cukup siapkan resi untuk tombol Capture Foto
+        setScanAlert({ kind: 'success', message: `Resi ${trimmed} siap difoto. Klik Capture Foto.` })
+        if (repeatQcResi && trimmed === repeatQcResi) {
+          clearRepeatQcResi()
+          setRepeatQcResi(null)
+        }
         return
       }
       void recordingSession.handleScan(value).then((outcome) => {

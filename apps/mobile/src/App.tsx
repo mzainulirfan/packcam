@@ -1114,6 +1114,49 @@ function App() {
         return 'error'
       }
 
+      // Foto packing tidak memakai MediaRecorder - cukup siapkan resi untuk tombol Ambil foto & simpan
+      if (session.taskType === 'packing' && packingMediaType === 'photo') {
+        setScanBusy(true)
+        void primeScanFeedbackAudio()
+        try {
+          const existingPhoto = await findRecordingByResi(resiNumber, session.taskType)
+          if (existingPhoto) {
+            playScanFeedback('warning')
+            rejectResi(resiNumber)
+            const duplicateNotice = getDuplicateScanNotice({
+              existing: existingPhoto,
+              taskType: session.taskType,
+              taskProgressQcStatus: taskProgress?.qc?.status,
+              formatTask,
+            })
+            showScanNotice({
+              kind: 'warning',
+              title: duplicateNotice.title,
+              message: duplicateNotice.message,
+            })
+            setWatermarkResi((current) => (current === resiNumber ? null : current))
+            setScanResi('')
+            return 'duplicate'
+          }
+          clearRejectedResi()
+          setWatermarkResi(resiNumber)
+          setScanResi(resiNumber)
+          playScanFeedback('success')
+          showScanNotice({
+            kind: 'success',
+            title: 'Resi siap difoto',
+            message: `Resi ${resiNumber} siap untuk foto packing. Klik Ambil foto & simpan.`,
+          })
+          return 'started'
+        } catch (error) {
+          setWatermarkResi((current) => (current === resiNumber ? null : current))
+          setBootError(normalizeError(error))
+          return 'error'
+        } finally {
+          setScanBusy(false)
+        }
+      }
+
       setScanBusy(true)
       void primeScanFeedbackAudio()
 
@@ -1173,6 +1216,7 @@ function App() {
       primeScanFeedbackAudio,
       playScanFeedback,
       clearRejectedResi,
+      packingMediaType,
       recordingSession,
       rejectResi,
       resolveLatestTaskProgress,
