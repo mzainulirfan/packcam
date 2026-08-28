@@ -443,6 +443,30 @@ function findComposerInput() {
   )
 }
 
+function findConversationTarget(username) {
+  const normalizedUsername = username.trim().toLowerCase()
+  const candidates = [
+    ...document.querySelectorAll(
+      '#sidebar-minichat-list li, #sidebar-minichat-list [role="option"], #sidebar-minichat-list [role="listitem"], ' +
+        '#sidebar-minichat-list div, #sidebar-minichat-list a, ' +
+        '[data-testid*="conversation" i], [data-testid*="chat" i], [class*="conversation"], [class*="chat-item"], ' +
+        '[class*="user-item"], [class*="SW7LUhQFDH"], [class*="AxOomp7jNy"], [role="option"], [role="listitem"], li, a, button',
+    ),
+  ]
+
+  for (const candidate of candidates) {
+    if (!(candidate instanceof HTMLElement) || candidate.offsetParent === null) continue
+    const candidateText = textOf(candidate).toLowerCase()
+    if (!candidateText || candidateText.length > 160 || !candidateText.includes(normalizedUsername)) continue
+
+    const rect = candidate.getBoundingClientRect()
+    if (rect.width < 20 || rect.height < 20) continue
+    return candidate
+  }
+
+  return null
+}
+
 async function waitForCondition(check, timeoutMs = 8000, intervalMs = 250) {
   const deadline = Date.now() + timeoutMs
   let lastValue = null
@@ -488,67 +512,13 @@ async function fillWebchatSearchAndAttach(job) {
   input.dispatchEvent(new Event('input', { bubbles: true }))
   input.dispatchEvent(new Event('change', { bubbles: true }))
   input.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }))
-  await new Promise((r) => setTimeout(r, 1300))
-  const username = job.buyerUsername.trim().toLowerCase()
+  input.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'Enter' }))
+  const target = await waitForCondition(() => findConversationTarget(job.buyerUsername), 15000, 300)
   let clicked = false
-  const usernameTitles = [...document.querySelectorAll('[title]')]
-  for (const element of usernameTitles) {
-    if (element.getAttribute('title')?.trim().toLowerCase() !== username) continue
-    const row =
-      element.closest('li') ||
-      element.closest('[class*="chat-item"]') ||
-      element.closest('[class*="conversation"]') ||
-      element.closest('div[class*="AxOomp7jNy"]') ||
-      element.parentElement
-    const target = row || element
-    try {
-      target.click()
-      target.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-      clicked = true
-      break
-    } catch {}
-  }
-  const spans = [
-    ...document.querySelectorAll('#sidebar-minichat-list span'),
-    ...document.querySelectorAll('span.nFvbiqyLrq'),
-    ...document.querySelectorAll('[class*="username"], [class*="name"]'),
-  ]
-  for (const span of clicked ? [] : spans) {
-    if (textOf(span).toLowerCase() === username) {
-      const row =
-        span.closest('li') ||
-        span.closest('div.SW7LUhQFDH') ||
-        span.closest('div[class*="SW7LUhQFDH"]') ||
-        span.closest('div.uR4DA9zSmz')?.parentElement ||
-        span.parentElement?.closest('div')
-      const target = row || span
-      try {
-        target.click()
-        target.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-        clicked = true
-        break
-      } catch {}
-    }
-  }
-  if (!clicked) {
-    const candidates = [
-      ...document.querySelectorAll('#sidebar-minichat-list li, #sidebar-minichat-list div, [class*="conversation"], [class*="chat-item"], [class*="user-item"], [data-testid*="conversation"], li, a, div'),
-    ]
-    for (const el of candidates) {
-      const t = textOf(el)
-      if (!t) continue
-      if (t === username || t.toLowerCase() === username || t.includes(username)) {
-        if (t.length > 80) continue
-        const rect = el.getBoundingClientRect()
-        if (rect.width < 20 || rect.height < 20) continue
-        try {
-          el.click()
-          el.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-          clicked = true
-          break
-        } catch {}
-      }
-    }
+  if (target) {
+    target.click()
+    target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    clicked = true
   }
   if (!clicked) throw new Error(`Percakapan Shopee untuk ${job.buyerUsername} tidak ditemukan.`)
   if (clicked) {
@@ -611,7 +581,7 @@ async function fillWebchatSearchAndAttach(job) {
 
 // Jalankan otomatis di background pada semua halaman seller Shopee (via minichat sidebar atau webchat)
 if (/seller\.shopee\.(co\.id|com)/.test(location.href)) {
-  let lastAutoJobId = sessionStorage.getItem('pakti:autoChatJobId') || ''
+  let lastAutoJobId = ''
   let autoRunBusy = false
 
   function clearSearchInput() {
@@ -696,8 +666,6 @@ if (/seller\.shopee\.(co\.id|com)/.test(location.href)) {
       // Hanya skip jika input sedang di-focus (user sedang mengetik manual)
       if (input?.value?.trim() && document.activeElement === input) return
       
-      lastAutoJobId = job.id
-      sessionStorage.setItem('pakti:autoChatJobId', job.id)
       const message = job.messageTemplate || `Halo kak ${job.buyerUsername || ''}, berikut video dokumentasi paket untuk pesanan ${job.orderNumber || '-'} resi ${job.resiNumber}.`
       const sent = await fillWebchatSearchAndAttach({ ...job, message })
       if (!sent) {
@@ -719,6 +687,7 @@ if (/seller\.shopee\.(co\.id|com)/.test(location.href)) {
 
       // Bersihkan pencarian untuk job berikutnya
       clearSearchInput()
+      lastAutoJobId = job.id
     } catch (error) {
       console.warn('[Pakti] autoRunPending gagal', error)
     }
