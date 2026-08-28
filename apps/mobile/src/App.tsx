@@ -169,6 +169,7 @@ function App() {
   const [lastPhotoResi, setLastPhotoResi] = useState<string | null>(null)
   const [lastPhotoId, setLastPhotoId] = useState<string | null>(null)
   const [photoStaging, setPhotoStaging] = useState<{ resi: string; blob: Blob; previewUrl: string; startedAt: Date } | null>(null)
+  const [skipAutoPhoto, setSkipAutoPhoto] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
     if (typeof window === 'undefined') {
       return 'scan'
@@ -1448,6 +1449,7 @@ function App() {
 
   // Otomatis stage foto ketika scan berhasil di mode foto, tetap sediakan opsi manual & foto ulang
   useEffect(() => {
+    if (skipAutoPhoto) { setSkipAutoPhoto(false); return }
     if (!isPackingMode || packingMediaType !== 'photo' || !scanResi.trim() || photoCaptureBusy || scanBusy || !canUsePackingFlow || recordingSession.state.mode !== 'idle' || !scanVideoElement || photoStaging) return
     const resi = scanResi.trim()
     if (lastPhotoResi === resi && lastPhotoId) return
@@ -1455,7 +1457,7 @@ function App() {
       void stagePhotoCapture(resi)
     }, 450)
     return () => window.clearTimeout(timer)
-  }, [scanResi, packingMediaType, isPackingMode, photoCaptureBusy, scanBusy, canUsePackingFlow, recordingSession.state.mode, scanVideoElement, lastPhotoId, lastPhotoResi, photoStaging])
+  }, [scanResi, packingMediaType, isPackingMode, photoCaptureBusy, scanBusy, canUsePackingFlow, recordingSession.state.mode, scanVideoElement, lastPhotoId, lastPhotoResi, photoStaging, skipAutoPhoto])
 
   useEffect(() => () => { if (photoStaging?.previewUrl) URL.revokeObjectURL(photoStaging.previewUrl) }, [photoStaging])
 
@@ -1784,8 +1786,8 @@ function App() {
                     <Button type="button" size="sm" className="flex-1 rounded-[4px] bg-[var(--op-ink)] text-[var(--op-canvas)]" disabled={photoCaptureBusy} onClick={() => void confirmPhotoStaging()}>
                       {photoCaptureBusy ? 'Menyimpan...' : 'Gunakan foto ✓'}
                     </Button>
-                    <Button type="button" variant="outline" size="sm" className="flex-1 rounded-[4px]" disabled={photoCaptureBusy} onClick={() => clearPhotoStaging()}>
-                      Ulangi
+                    <Button type="button" variant="outline" size="sm" className="flex-1 rounded-[4px]" disabled={photoCaptureBusy} onClick={() => { setSkipAutoPhoto(true); clearPhotoStaging(); showScanNotice({ kind: 'success', title: 'Ulangi foto', message: 'Posisikan paket lalu klik Foto manual — tidak otomatis.' }) }}>
+                      Ulangi (manual)
                     </Button>
                   </div>
                   <Button type="button" variant="ghost" size="sm" className="rounded-[4px] text-[11px]" disabled={photoCaptureBusy} onClick={() => void stagePhotoCapture()}>
@@ -1797,7 +1799,7 @@ function App() {
                 <div className="mt-2 grid gap-2 rounded-[4px] border border-dashed border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-2">
                   <p className="text-[11px] text-muted-foreground">Foto terakhir: <strong>{lastPhotoResi}</strong> tersimpan</p>
                   <div className="flex gap-2">
-                    <Button type="button" variant="outline" size="sm" className="flex-1 rounded-[4px]" disabled={photoCaptureBusy} onClick={() => { clearPhotoStaging(); setScanResi(lastPhotoResi ?? ''); showScanNotice({ kind: 'success', title: 'Siap foto ulang', message: `Posisikan paket ${lastPhotoResi} lalu klik Foto manual.` }) }}>
+                    <Button type="button" variant="outline" size="sm" className="flex-1 rounded-[4px]" disabled={photoCaptureBusy} onClick={() => { setSkipAutoPhoto(true); clearPhotoStaging(); setScanResi(lastPhotoResi ?? ''); showScanNotice({ kind: 'success', title: 'Siap foto ulang', message: `Posisikan paket ${lastPhotoResi} lalu klik Foto manual.` }) }}>
                       {photoCaptureBusy ? '...' : 'Foto ulang (manual)'}
                     </Button>
                     <Button type="button" variant="outline" size="sm" className="flex-1 rounded-[4px]" disabled={photoCaptureBusy || !scanResi.trim() || !scanVideoElement} onClick={() => void stagePhotoCapture()}>

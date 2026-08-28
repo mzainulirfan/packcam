@@ -69,6 +69,7 @@ export function ScanPage() {
   const [lastPhotoResi, setLastPhotoResi] = useState<string | null>(null)
   const [lastPhotoId, setLastPhotoId] = useState<string | null>(null)
   const [photoStaging, setPhotoStaging] = useState<{ resi: string; blob: Blob; previewUrl: string; startedAt: Date } | null>(null)
+  const [skipAutoPhoto, setSkipAutoPhoto] = useState(false)
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null)
   const currentProcessingResiRef = useRef<string | null>(null)
   const cameraDevices = useCameraDevices(true)
@@ -503,13 +504,14 @@ export function ScanPage() {
 
   // Otomatis stage foto ketika scan berhasil di mode foto, tetap sediakan opsi manual & foto ulang
   useEffect(() => {
+    if (skipAutoPhoto) { setSkipAutoPhoto(false); return }
     if (!isPackingTask || packingMediaType !== 'photo' || !currentProcessingResi?.trim() || packingCaptureLoading || !activePackingSession || !cameraVideoRef.current || photoStaging || lastPhotoResi === currentProcessingResi.trim()) return
     const resi = currentProcessingResi.trim()
     const timer = window.setTimeout(() => {
       void stagePhotoCapture(resi)
     }, 450)
     return () => window.clearTimeout(timer)
-  }, [currentProcessingResi, isPackingTask, packingMediaType, packingCaptureLoading, activePackingSession, lastPhotoResi])
+  }, [currentProcessingResi, isPackingTask, packingMediaType, packingCaptureLoading, activePackingSession, lastPhotoResi, photoStaging, skipAutoPhoto])
 
   useEffect(() => {
     let active = true
@@ -768,8 +770,8 @@ export function ScanPage() {
                   <Button type="button" size="sm" className="flex-1 scan-opencode__button" disabled={packingCaptureLoading} onClick={() => void confirmPhotoStaging()}>
                     {packingCaptureLoading ? '[~] Menyimpan...' : '[Gunakan foto ✓]'}
                   </Button>
-                  <Button type="button" variant="outline" size="sm" className="flex-1 scan-opencode__button" disabled={packingCaptureLoading} onClick={() => clearPhotoStaging()}>
-                    [Ulangi]
+                  <Button type="button" variant="outline" size="sm" className="flex-1 scan-opencode__button" disabled={packingCaptureLoading} onClick={() => { setSkipAutoPhoto(true); clearPhotoStaging(); setScanAlert({ kind: 'info', message: 'Ulangi foto — posisikan paket lalu klik Foto manual, tidak otomatis.' }) }}>
+                    [Ulangi (manual)]
                   </Button>
                 </div>
                 <Button type="button" variant="ghost" size="sm" className="w-full text-xs" disabled={packingCaptureLoading} onClick={() => void stagePhotoCapture()}>
@@ -782,7 +784,7 @@ export function ScanPage() {
               <CardContent className="grid gap-2 p-4">
                 <p className="text-sm">Foto terakhir: <strong className="font-mono">{lastPhotoResi}</strong> tersimpan</p>
                 <div className="flex gap-2">
-                  <Button type="button" variant="outline" size="sm" className="flex-1 scan-opencode__button" disabled={packingCaptureLoading} onClick={() => { clearPhotoStaging(); barcodeScanner.setValue(lastPhotoResi ?? ''); setScanAlert({ kind: 'info', message: `Siap foto ulang ${lastPhotoResi} — posisikan paket lalu klik Foto manual.` }) }}>
+                  <Button type="button" variant="outline" size="sm" className="flex-1 scan-opencode__button" disabled={packingCaptureLoading} onClick={() => { setSkipAutoPhoto(true); clearPhotoStaging(); barcodeScanner.setValue(lastPhotoResi ?? ''); setScanAlert({ kind: 'info', message: `Siap foto ulang ${lastPhotoResi} — posisikan paket lalu klik Foto manual.` }) }}>
                     {packingCaptureLoading ? '[~] Proses...' : '[foto ulang (manual)]'}
                   </Button>
                   <Button type="button" variant="outline" size="sm" className="flex-1 scan-opencode__button" disabled={packingCaptureLoading || !currentProcessingResi} onClick={() => void stagePhotoCapture()}>
