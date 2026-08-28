@@ -35,6 +35,7 @@ export function HistoryRecordingCard({
             <TaskPill taskType={record.taskType} />
             <div className="history-opencode__record-card-badges">
               <StatusPill status={record.status} />
+              <MediaPill mediaType={(record as unknown as { mediaType?: string }).mediaType ?? 'video'} />
               {invalidRecord ? (
                 <span className="history-opencode__badge">
                   [!] Tidak valid
@@ -61,6 +62,18 @@ export function HistoryRecordingCard({
               <small>Ukuran</small>
               <strong>{fileSizeLabel}</strong>
             </span>
+            {(record as unknown as { packingPayAmount?: number | null }).packingPayAmount != null && record.taskType === 'packing' ? (
+              <span>
+                <small>Upah</small>
+                <strong>{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format((record as unknown as { packingPayAmount: number }).packingPayAmount)}</strong>
+              </span>
+            ) : null}
+            {(record as unknown as { packerOperatorName?: string | null }).packerOperatorName ? (
+              <span>
+                <small>Packer</small>
+                <strong className="truncate">{(record as unknown as { packerOperatorName: string }).packerOperatorName}</strong>
+              </span>
+            ) : null}
           </div>
 
           {chatSend ? (
@@ -124,4 +137,8 @@ function StatusPill({ status }: { status: LocalRecordingRecord['status'] }) {
       {marker} {label}
     </span>
   )
+}
+
+function MediaPill({ mediaType }: { mediaType: string }) {
+  return <span className="history-opencode__badge">[{mediaType === 'photo' ? 'foto' : 'video'}]</span>
 }

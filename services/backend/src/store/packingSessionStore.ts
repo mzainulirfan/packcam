@@ -104,6 +104,12 @@ export function getPackingSessionById(id: string) {
   return rows[0] ? mapPackingSession(rows[0]) : null
 }
 
+export function listPackingSessions(limit = 50) {
+  const safeLimit = Math.min(200, Math.max(1, Math.floor(limit)))
+  const rows = selectPackingSessions('', []).slice(0, safeLimit)
+  return rows.map(mapPackingSession)
+}
+
 export function createPackingSession(input: {
   packerOperatorName: string
   packerOperatorCode: string

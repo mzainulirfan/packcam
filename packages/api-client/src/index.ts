@@ -394,6 +394,10 @@ export function closePackingSessionApi(id: string, note?: string | null) {
   })
 }
 
+export function readPackingSessionsApi(limit = 50) {
+  return requestApi<PackingWorkSession[]>(`/api/packing-sessions?limit=${encodeURIComponent(String(limit))}`)
+}
+
 export function readPackingPayRulesApi() {
   return requestApi<PackingPayRule[]>('/api/packing-pay-rules')
 }

@@ -28,6 +28,7 @@ type RecordingForChatSend = {
   resi_number: string
   task_type: 'qc' | 'packing'
   status: 'recording' | 'completed' | 'error'
+  media_type: 'video' | 'photo'
 }
 
 type OrderForChatSend = {
@@ -104,7 +105,7 @@ function mapChatSend(row: ChatSendRow, apiBaseUrl = ''): RecordingChatSend {
 function getRecordingForChatSend(recordingId: string) {
   return db()
     .prepare(
-      `SELECT id, resi_number, task_type, status
+      `SELECT id, resi_number, task_type, status, media_type
        FROM recordings
        WHERE id = ?
        LIMIT 1`,
@@ -149,6 +150,10 @@ export function prepareRecordingChatSend(input: {
 
   if (recording.status !== 'completed') {
     throw new Error('Recording belum selesai.')
+  }
+
+  if (recording.media_type !== 'video') {
+    throw new Error('Hanya dokumentasi video yang bisa dikirim ke Shopee Chat.')
   }
 
   const videoFilePath = normalizeOptionalString(input.videoFilePath)
@@ -239,6 +244,7 @@ export async function prepareReadyRecordingChatSendsForToday(input: {
        WHERE r.status = 'completed'
          AND r.task_type = ?
          AND r.record_date = ?
+         AND r.media_type = 'video'
        ORDER BY r.updated_at ASC
        LIMIT ?`,
     )
