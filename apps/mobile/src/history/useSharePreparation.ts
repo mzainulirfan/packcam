@@ -43,6 +43,7 @@ export function useSharePreparation({
   normalizeError,
 }: UseSharePreparationParams) {
   const [sharingRecordId, setSharingRecordId] = useState<string | null>(null)
+  const [preparingShareFileIds, setPreparingShareFileIds] = useState<Set<string>>(() => new Set())
   const [preparedShareFileIds, setPreparedShareFileIds] = useState<Set<string>>(() => new Set())
   const preparedShareFilesRef = useRef(new Map<string, PreparedShareFile>())
   const requestedShareFileIdsRef = useRef(new Set<string>())
@@ -81,6 +82,7 @@ export function useSharePreparation({
         }
 
         requestedShareFileIdsRef.current.add(record.id)
+        setPreparingShareFileIds((current) => new Set(current).add(record.id))
         try {
           const shareFile = await prepareServerRecordingShareFileApi(record.id)
           markShareFilePrepared(record.id, shareFile)
@@ -89,6 +91,11 @@ export function useSharePreparation({
           // Manual prepare remains available from the detail sheet if background work fails.
         } finally {
           requestedShareFileIdsRef.current.delete(record.id)
+          setPreparingShareFileIds((current) => {
+            const next = new Set(current)
+            next.delete(record.id)
+            return next
+          })
         }
       }
 
@@ -113,6 +120,7 @@ export function useSharePreparation({
 
       const shareText = `Video ${formatTask(record.taskType)} resi ${record.resiNumber}`
       setSharingRecordId(record.id)
+      setPreparingShareFileIds((current) => new Set(current).add(record.id))
 
       const preparedShareFile = preparedShareFilesRef.current.get(record.id)
       try {
@@ -178,6 +186,11 @@ export function useSharePreparation({
         setBootError(normalizeError(error))
       } finally {
         setSharingRecordId(null)
+        setPreparingShareFileIds((current) => {
+          const next = new Set(current)
+          next.delete(record.id)
+          return next
+        })
       }
     },
     [formatTask, markShareFilePrepared, normalizeError, setBootError, showScanNotice],
@@ -185,6 +198,7 @@ export function useSharePreparation({
 
   return {
     sharingRecordId,
+    preparingShareFileIds,
     preparedShareFileIds,
     handleShareRecording,
   }

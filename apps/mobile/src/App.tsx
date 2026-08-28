@@ -927,6 +927,7 @@ function App() {
 
   const {
     sharingRecordId,
+    preparingShareFileIds,
     preparedShareFileIds,
     handleShareRecording,
   } = useSharePreparation({
@@ -1926,6 +1927,7 @@ function App() {
         sharingRecordId={sharingRecordId}
         preparingChatSendId={preparingChatSendId}
         deletingRecordId={deletingRecordId}
+        preparingShareFileIds={preparingShareFileIds}
         preparedShareFileIds={preparedShareFileIds}
         chatSendByRecordingId={visibleChatSendByRecordingId}
         formatDateTime={formatDateTime}

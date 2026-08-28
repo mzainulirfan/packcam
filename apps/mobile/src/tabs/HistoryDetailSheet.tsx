@@ -19,6 +19,7 @@ type HistoryDetailSheetProps = {
   sharingRecordId: string | null
   preparingChatSendId: string | null
   deletingRecordId: string | null
+  preparingShareFileIds: ReadonlySet<string>
   preparedShareFileIds: ReadonlySet<string>
   chatSendByRecordingId?: Map<string, import('@pakti/types').RecordingChatSend>
   formatDateTime: (value: string | null | undefined) => string
@@ -41,6 +42,7 @@ export function HistoryDetailSheet({
   sharingRecordId,
   preparingChatSendId,
   deletingRecordId,
+  preparingShareFileIds,
   preparedShareFileIds,
   chatSendByRecordingId,
   formatDateTime,
@@ -143,10 +145,10 @@ export function HistoryDetailSheet({
                     type="button"
                     className="flex h-10 items-center justify-center gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 text-sm font-medium hover:bg-[var(--op-surface-soft)] disabled:opacity-50"
                     onClick={() => onShareRecording(record, 'native')}
-                    disabled={sharingRecordId === record.id || deletingRecordId !== null}
+                    disabled={preparingShareFileIds.has(record.id) || deletingRecordId !== null}
                   >
                     <HugeiconsIcon icon={Share08Icon} size={14} />
-                    {sharingRecordId === record.id
+                    {preparingShareFileIds.has(record.id)
                       ? 'Menyiapkan...'
                       : record.shareFileReady || preparedShareFileIds.has(record.id)
                         ? 'Bagikan'
@@ -156,7 +158,7 @@ export function HistoryDetailSheet({
                       type="button"
                       className="flex h-10 items-center justify-center gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 text-sm font-medium hover:bg-[var(--op-surface-soft)] disabled:opacity-50"
                       onClick={() => onShareRecording(record, 'whatsapp')}
-                      disabled={sharingRecordId === record.id || deletingRecordId !== null}
+                      disabled={preparingShareFileIds.has(record.id) || deletingRecordId !== null}
                     >
                       <HugeiconsIcon icon={SentIcon} size={14} />
                       WhatsApp
