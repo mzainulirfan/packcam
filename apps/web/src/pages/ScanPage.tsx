@@ -8,6 +8,8 @@ import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Label } from '../components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
+import { ModalOverlay } from '../components/ui/ModalOverlay'
+import { DialogCloseButton, DialogHeader, DialogTitle } from '../components/ui/dialog'
 import { DEFAULT_APP_SETTINGS } from '@pakti/shared/defaults'
 import {
   appendServerRecordingChunkApi,
@@ -65,6 +67,7 @@ export function ScanPage() {
   const [packingPreview, setPackingPreview] = useState<{ order: ShopeeOrder; pay: { amount: number; quantity: number; breakdown: unknown } } | null>(null)
   const [packingPreviewLoading, setPackingPreviewLoading] = useState(false)
   const [packingCaptureLoading, setPackingCaptureLoading] = useState(false)
+  const [photoModalOpen, setPhotoModalOpen] = useState(false)
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null)
   const currentProcessingResiRef = useRef<string | null>(null)
   const cameraDevices = useCameraDevices(true)
@@ -214,7 +217,8 @@ export function ScanPage() {
       }
       if (isPackingTask && packingMediaType === 'photo') {
         // foto: jangan mulai MediaRecorder, cukup siapkan resi untuk tombol Capture Foto
-        setScanAlert({ kind: 'success', message: `Resi ${trimmed} siap difoto. Klik Capture Foto.` })
+        setScanAlert({ kind: 'success', message: `Resi ${trimmed} siap difoto.` })
+        setPhotoModalOpen(true)
         if (repeatQcResi && trimmed === repeatQcResi) {
           clearRepeatQcResi()
           setRepeatQcResi(null)
@@ -406,6 +410,9 @@ export function ScanPage() {
       setRecordingCacheTick((v) => v + 1)
       const payInfo = (finalized as unknown as { packingPayAmount?: number }).packingPayAmount
       setScanAlert({ kind: 'success', message: `Foto packing tersimpan untuk ${resi}${payInfo ? ` · Rp${new Intl.NumberFormat('id-ID').format(payInfo)}` : ''}.` })
+      setPhotoModalOpen(false)
+      barcodeScanner.setValue('')
+      barcodeScanner.resetResult()
       // reload active session totals
       void readActivePackingSessionApi().then((s) => setActivePackingSession(s as PackingWorkSession | null)).catch(() => undefined)
       // refresh preview
@@ -856,6 +863,49 @@ export function ScanPage() {
           </CardContent>
         </Card>
       </div>
+      {photoModalOpen ? (
+        <ModalOverlay onClose={() => setPhotoModalOpen(false)} contentClassName="max-w-md">
+          <div className="grid gap-4">
+            <DialogHeader className="flex items-start justify-between gap-4 text-left">
+              <div className="grid gap-1">
+                <DialogTitle className="text-base font-bold">Resi siap difoto</DialogTitle>
+                <p className="text-sm text-muted-foreground">Scan berhasil. Ambil foto packing sekarang.</p>
+              </div>
+              <DialogCloseButton onClick={() => setPhotoModalOpen(false)} />
+            </DialogHeader>
+            <div className="grid gap-3 rounded-[4px] border border-[rgba(15,0,0,0.12)] bg-muted/20 p-3">
+              <div className="flex justify-between gap-2 text-sm">
+                <span className="text-muted-foreground">Resi</span>
+                <strong className="truncate font-mono">{currentProcessingResi ?? barcodeScanner.value.trim() ?? '-'}</strong>
+              </div>
+              {packingPreview ? (
+                <div className="grid gap-1 border-t border-[rgba(15,0,0,0.12)] pt-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Jasa kirim</span>
+                    <strong>{packingPreview.order.shippingChannel ?? '-'}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Upah</span>
+                    <strong>Rp{new Intl.NumberFormat('id-ID').format(packingPreview.pay.amount)}</strong>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {packingPreview.order.items.slice(0,2).map((it) => `${it.productName}${it.variationName ? ` · ${it.variationName}` : ''} x${it.quantity}`).join(', ')}
+                    {packingPreview.order.items.length > 2 ? ` +${packingPreview.order.items.length - 2} lain` : ''}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+            <div className="grid gap-2">
+              <Button type="button" className="h-11 w-full font-semibold" disabled={packingCaptureLoading} onClick={() => void handleCapturePhoto()}>
+                {packingCaptureLoading ? '[~] Menyimpan...' : '[Ambil foto & simpan]'}
+              </Button>
+              <Button type="button" variant="outline" className="w-full" disabled={packingCaptureLoading} onClick={() => { setPhotoModalOpen(false); barcodeScanner.setValue(''); barcodeScanner.resetResult() }}>
+                Batal / Scan ulang
+              </Button>
+            </div>
+          </div>
+        </ModalOverlay>
+      ) : null}
     </div>
   )
 }
