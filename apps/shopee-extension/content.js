@@ -378,12 +378,7 @@ function clickSendButton() {
 async function sendComposerMessage(message) {
   let composer = null
   for (let attempt = 0; attempt < 10; attempt += 1) {
-    composer =
-      document.querySelector('textarea.E2MWg3w8y6') ||
-      document.querySelector('textarea[placeholder="Tulis pesan"]') ||
-      document.querySelector('div[contenteditable="true"]') ||
-      document.querySelector('textarea') ||
-      document.querySelector('div[role="textbox"]')
+    composer = findComposerInput()
     if (composer) break
     await new Promise((r) => setTimeout(r, 300))
   }
@@ -434,6 +429,52 @@ function findSearchInput() {
     document.querySelector('input[type="input"][placeholder*="Cari"]') ||
     document.querySelector('input[type="search"]')
   )
+}
+
+function findComposerInput() {
+  return (
+    document.querySelector('textarea.E2MWg3w8y6') ||
+    document.querySelector('textarea[placeholder*="Tulis" i]') ||
+    document.querySelector('textarea[placeholder*="pesan" i]') ||
+    document.querySelector('div[contenteditable="true"][role="textbox"]') ||
+    document.querySelector('div[contenteditable="true"][aria-label*="pesan" i]') ||
+    document.querySelector('div[role="textbox"][contenteditable="true"]') ||
+    document.querySelector('div[role="textbox"]')
+  )
+}
+
+async function waitForCondition(check, timeoutMs = 8000, intervalMs = 250) {
+  const deadline = Date.now() + timeoutMs
+  let lastValue = null
+
+  while (Date.now() < deadline) {
+    try {
+      const value = check()
+      if (value) {
+        return value
+      }
+      lastValue = value
+    } catch (error) {
+      lastValue = error
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+  }
+
+  if (lastValue instanceof Error) {
+    throw lastValue
+  }
+
+  return null
+}
+
+async function waitForComposerReady(timeoutMs = 8000) {
+  const composer = await waitForCondition(() => findComposerInput(), timeoutMs)
+  if (!composer) {
+    throw new Error('Composer pesan Shopee belum siap setelah memilih pembeli.')
+  }
+
+  return composer
 }
 
 async function fillWebchatSearchAndAttach(job) {
@@ -510,7 +551,10 @@ async function fillWebchatSearchAndAttach(job) {
     }
   }
   if (!clicked) throw new Error(`Percakapan Shopee untuk ${job.buyerUsername} tidak ditemukan.`)
-  if (clicked) await new Promise((r) => setTimeout(r, 900))
+  if (clicked) {
+    await new Promise((r) => setTimeout(r, 1500))
+  }
+  await waitForComposerReady(10000)
   if (job.videoUrl) {
     try {
       const stored = await new Promise((resolve) => chrome.storage.sync.get({ apiKey: '' }, resolve))
@@ -523,16 +567,26 @@ async function fillWebchatSearchAndAttach(job) {
       const blob = await response.blob()
       const fileName = `${(job.orderNumber || job.resiNumber || 'pakti-video').replace(/[^\w-]+/g, '_')}.mp4`
       const file = new File([blob], fileName, { type: blob.type || 'video/mp4' })
-      let fileInput = document.querySelector('input[accept*="video"]') || document.querySelector('input[type="file"]')
+      let fileInput = await waitForCondition(
+        () => document.querySelector('input[accept*="video"]') || document.querySelector('input[type="file"]'),
+        5000,
+        200,
+      )
       if (!fileInput) {
-        const attachBtn = document.querySelector('button[class*="attach"], [aria-label*="attach"], [aria-label*="Lampirkan"]')
+        const attachBtn = document.querySelector(
+          'button[class*="attach"], [aria-label*="attach" i], [aria-label*="lampir" i], [title*="attach" i], [title*="lampir" i], [data-testid*="attach" i]',
+        )
         if (!attachBtn) {
           throw new Error('Tombol lampirkan video Shopee tidak ditemukan.')
         }
 
         attachBtn.click()
-        await new Promise((r) => setTimeout(r, 600))
-        fileInput = document.querySelector('input[accept*="video"]') || document.querySelector('input[type="file"]')
+        await new Promise((r) => setTimeout(r, 1200))
+        fileInput = await waitForCondition(
+          () => document.querySelector('input[accept*="video"]') || document.querySelector('input[type="file"]'),
+          5000,
+          200,
+        )
       }
 
       if (!fileInput) {
@@ -552,7 +606,7 @@ async function fillWebchatSearchAndAttach(job) {
   if (job.message) {
     sent = await sendComposerMessage(job.message)
   }
-  return job.message ? sent : clicked
+  return Boolean(sent || clicked)
 }
 
 // Jalankan otomatis di background pada semua halaman seller Shopee (via minichat sidebar atau webchat)
