@@ -68,6 +68,7 @@ export function ScanPage() {
   const [packingCaptureLoading, setPackingCaptureLoading] = useState(false)
   const [lastPhotoResi, setLastPhotoResi] = useState<string | null>(null)
   const [lastPhotoId, setLastPhotoId] = useState<string | null>(null)
+  const [photoStaging, setPhotoStaging] = useState<{ resi: string; blob: Blob; previewUrl: string; startedAt: Date } | null>(null)
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null)
   const currentProcessingResiRef = useRef<string | null>(null)
   const cameraDevices = useCameraDevices(true)
@@ -365,7 +366,14 @@ export function ScanPage() {
     }
   }
 
-  async function handleCapturePhoto(overrideResi?: string) {
+  function clearPhotoStaging() {
+    setPhotoStaging((prev) => {
+      if (prev?.previewUrl) URL.revokeObjectURL(prev.previewUrl)
+      return null
+    })
+  }
+
+  async function stagePhotoCapture(overrideResi?: string) {
     const resi = (overrideResi ?? currentProcessingResiRef.current ?? barcodeScanner.value).trim()
     if (!resi) {
       setScanAlert({ kind: 'error', message: 'Scan resi dulu sebelum capture foto.' })
@@ -379,9 +387,6 @@ export function ScanPage() {
     if (progress?.packing?.status === 'completed' && lastPhotoId && progress.packing.id !== lastPhotoId && lastPhotoResi !== resi) {
       setScanAlert({ kind: 'error', message: 'Resi ini sudah dipacking. Gunakan Foto ulang jika ingin mengganti.' })
       return
-    }
-    if (progress?.packing?.status === 'completed' && lastPhotoId && progress.packing.id === lastPhotoId) {
-      try { await deleteServerRecordingApi(progress.packing.id); await refreshRecordingsFromServer(); setRecordingCacheTick((v) => v + 1) } catch { /* ignore */ }
     }
     const videoEl = cameraVideoRef.current
     if (!videoEl || videoEl.videoWidth === 0) {
@@ -398,7 +403,28 @@ export function ScanPage() {
       ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height)
       const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92))
       if (!blob) throw new Error('Gagal membuat foto.')
-      const startedAt = new Date()
+      const previewUrl = URL.createObjectURL(blob)
+      setPhotoStaging((prev) => {
+        if (prev?.previewUrl) URL.revokeObjectURL(prev.previewUrl)
+        return { resi, blob, previewUrl, startedAt: new Date() }
+      })
+      setScanAlert({ kind: 'success', message: `Preview foto siap untuk ${resi} — cek lalu Gunakan foto.` })
+    } catch (e) {
+      setScanAlert({ kind: 'error', message: e instanceof Error ? e.message : 'Gagal mengambil foto.' })
+    } finally {
+      setPackingCaptureLoading(false)
+    }
+  }
+
+  async function confirmPhotoStaging() {
+    if (!photoStaging || !activePackingSession) return
+    const { resi, blob, startedAt } = photoStaging
+    const progress = getRecordingTaskProgress(resi)
+    if (progress?.packing?.status === 'completed' && lastPhotoId && progress.packing.id === lastPhotoId) {
+      try { await deleteServerRecordingApi(progress.packing.id); await refreshRecordingsFromServer(); setRecordingCacheTick((v) => v + 1) } catch { /* ignore */ }
+    }
+    setPackingCaptureLoading(true)
+    try {
       const draft = await createServerRecordingDraftApi({
         resiNumber: resi,
         taskType: 'packing',
@@ -429,7 +455,12 @@ export function ScanPage() {
       setScanAlert({ kind: 'error', message: e instanceof Error ? e.message : 'Gagal menyimpan foto packing.' })
     } finally {
       setPackingCaptureLoading(false)
+      clearPhotoStaging()
     }
+  }
+
+  async function handleCapturePhoto(overrideResi?: string) {
+    return stagePhotoCapture(overrideResi)
   }
 
   function handleSubmitBarcode() {
@@ -468,12 +499,14 @@ export function ScanPage() {
       .finally(() => setPackingPreviewLoading(false))
   }, [currentProcessingResi, isPackingTask])
 
-  // Otomatis foto ketika scan berhasil di mode foto, tetap sediakan opsi manual & foto ulang
+  useEffect(() => () => { if (photoStaging?.previewUrl) URL.revokeObjectURL(photoStaging.previewUrl) }, [photoStaging])
+
+  // Otomatis stage foto ketika scan berhasil di mode foto, tetap sediakan opsi manual & foto ulang
   useEffect(() => {
-    if (!isPackingTask || packingMediaType !== 'photo' || !currentProcessingResi?.trim() || packingCaptureLoading || !activePackingSession || !cameraVideoRef.current || lastPhotoResi === currentProcessingResi.trim()) return
+    if (!isPackingTask || packingMediaType !== 'photo' || !currentProcessingResi?.trim() || packingCaptureLoading || !activePackingSession || !cameraVideoRef.current || photoStaging || lastPhotoResi === currentProcessingResi.trim()) return
     const resi = currentProcessingResi.trim()
     const timer = window.setTimeout(() => {
-      void handleCapturePhoto(resi)
+      void stagePhotoCapture(resi)
     }, 450)
     return () => window.clearTimeout(timer)
   }, [currentProcessingResi, isPackingTask, packingMediaType, packingCaptureLoading, activePackingSession, lastPhotoResi])
@@ -723,15 +756,36 @@ export function ScanPage() {
             message={isPackingTask && packingPreview ? `Estimasi upah: Rp${new Intl.NumberFormat('id-ID').format(packingPreview.pay.amount)} · ${packingPreview.pay.quantity} item` : shopeeOrderMessage}
             packingPreview={isPackingTask ? packingPreview : null}
           />
-          {isPackingTask && packingMediaType === 'photo' && lastPhotoResi ? (
+          {photoStaging ? (
+            <Card className="scan-opencode__panel border-amber-200 bg-amber-50">
+              <CardContent className="grid gap-2 p-4">
+                <p className="text-sm font-bold">Preview foto — cek sebelum simpan</p>
+                <div className="overflow-hidden rounded border bg-black">
+                  <img src={photoStaging.previewUrl} alt={`Preview ${photoStaging.resi}`} className="block max-h-[32vh] w-full object-contain" />
+                </div>
+                <p className="text-xs text-muted-foreground">Resi {photoStaging.resi} · {packingPreview ? `Rp${new Intl.NumberFormat('id-ID').format(packingPreview.pay.amount)}` : ''}</p>
+                <div className="flex gap-2">
+                  <Button type="button" size="sm" className="flex-1 scan-opencode__button" disabled={packingCaptureLoading} onClick={() => void confirmPhotoStaging()}>
+                    {packingCaptureLoading ? '[~] Menyimpan...' : '[Gunakan foto ✓]'}
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="flex-1 scan-opencode__button" disabled={packingCaptureLoading} onClick={() => clearPhotoStaging()}>
+                    [Ulangi]
+                  </Button>
+                </div>
+                <Button type="button" variant="ghost" size="sm" className="w-full text-xs" disabled={packingCaptureLoading} onClick={() => void stagePhotoCapture()}>
+                  [Foto manual lagi]
+                </Button>
+              </CardContent>
+            </Card>
+          ) : isPackingTask && packingMediaType === 'photo' && lastPhotoResi ? (
             <Card className="scan-opencode__panel">
               <CardContent className="grid gap-2 p-4">
                 <p className="text-sm">Foto terakhir: <strong className="font-mono">{lastPhotoResi}</strong> tersimpan</p>
                 <div className="flex gap-2">
-                  <Button type="button" variant="outline" size="sm" className="flex-1 scan-opencode__button" disabled={packingCaptureLoading} onClick={() => void handleCapturePhoto(lastPhotoResi)}>
+                  <Button type="button" variant="outline" size="sm" className="flex-1 scan-opencode__button" disabled={packingCaptureLoading} onClick={() => void stagePhotoCapture(lastPhotoResi)}>
                     {packingCaptureLoading ? '[~] Proses...' : '[foto ulang]'}
                   </Button>
-                  <Button type="button" variant="outline" size="sm" className="flex-1 scan-opencode__button" disabled={packingCaptureLoading || !currentProcessingResi} onClick={() => void handleCapturePhoto()}>
+                  <Button type="button" variant="outline" size="sm" className="flex-1 scan-opencode__button" disabled={packingCaptureLoading || !currentProcessingResi} onClick={() => void stagePhotoCapture()}>
                     [foto manual]
                   </Button>
                 </div>
@@ -741,7 +795,7 @@ export function ScanPage() {
             <Card className="scan-opencode__panel">
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground">Otomatis foto saat scan berhasil. Jika gagal, gunakan tombol di preview kamera atau [foto manual] di sini.</p>
-                <Button type="button" variant="outline" size="sm" className="mt-2 w-full scan-opencode__button" disabled={packingCaptureLoading || !currentProcessingResi} onClick={() => void handleCapturePhoto()}>
+                <Button type="button" variant="outline" size="sm" className="mt-2 w-full scan-opencode__button" disabled={packingCaptureLoading || !currentProcessingResi} onClick={() => void stagePhotoCapture()}>
                   {packingCaptureLoading ? '[~] Menyimpan...' : '[foto manual]'}
                 </Button>
               </CardContent>

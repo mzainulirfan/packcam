@@ -168,6 +168,7 @@ function App() {
   const [photoCaptureBusy, setPhotoCaptureBusy] = useState(false)
   const [lastPhotoResi, setLastPhotoResi] = useState<string | null>(null)
   const [lastPhotoId, setLastPhotoId] = useState<string | null>(null)
+  const [photoStaging, setPhotoStaging] = useState<{ resi: string; blob: Blob; previewUrl: string; startedAt: Date } | null>(null)
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
     if (typeof window === 'undefined') {
       return 'scan'
@@ -1350,7 +1351,14 @@ function App() {
     }
   }, [isPackingMode, activePackingSession, scanResi, recordingSession.state.mode])
 
-  async function handleCapturePhoto(overrideResi?: string) {
+  function clearPhotoStaging() {
+    setPhotoStaging((prev) => {
+      if (prev?.previewUrl) URL.revokeObjectURL(prev.previewUrl)
+      return null
+    })
+  }
+
+  async function stagePhotoCapture(overrideResi?: string) {
     const rawResi = (overrideResi ?? scanResi).trim()
     if (!session || packingMediaType !== 'photo' || !canUsePackingFlow || photoCaptureBusy || !scanVideoElement || !rawResi) return
     const resiNumber = rawResi
@@ -1368,9 +1376,6 @@ function App() {
         showScanNotice({ kind: 'warning', title: notice.title, message: notice.message })
         return
       }
-      if (existing && lastPhotoId && existing.id === lastPhotoId) {
-        try { await deleteServerRecordingApi(existing.id) } catch { /* ignore */ }
-      }
     }
     setPhotoCaptureBusy(true)
     try {
@@ -1383,7 +1388,29 @@ function App() {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
       const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92))
       if (!blob) throw new Error('Gagal mengambil foto.')
-      const startedAt = new Date()
+      const previewUrl = URL.createObjectURL(blob)
+      setPhotoStaging((prev) => {
+        if (prev?.previewUrl) URL.revokeObjectURL(prev.previewUrl)
+        return { resi: resiNumber, blob, previewUrl, startedAt: new Date() }
+      })
+      playScanFeedback('success')
+      showScanNotice({ kind: 'success', title: 'Preview foto siap', message: `Resi ${resiNumber} — cek preview lalu Gunakan foto.` })
+    } catch (error) {
+      showScanNotice({ kind: 'warning', title: 'Gagal ambil foto', message: normalizeError(error) })
+    } finally {
+      setPhotoCaptureBusy(false)
+    }
+  }
+
+  async function confirmPhotoStaging() {
+    if (!photoStaging || !session) return
+    const { resi: resiNumber, blob, startedAt } = photoStaging
+    setPhotoCaptureBusy(true)
+    try {
+      const existing = await findRecordingByResi(resiNumber, 'packing')
+      if (existing && lastPhotoId && existing.id === lastPhotoId) {
+        try { await deleteServerRecordingApi(existing.id) } catch { /* ignore */ }
+      }
       const fileName = `packing_${resiNumber.replace(/[^\w-]+/g, '_')}_${startedAt.toISOString().replace(/[:.]/g, '-')}.jpg`
       const draft = await createServerRecordingDraftApi({
         resiNumber,
@@ -1402,6 +1429,7 @@ function App() {
       showScanNotice({ kind: 'success', title: 'Foto packing tersimpan', message: `Resi ${resiNumber} · ${packingPreview ? formatRupiah((packingPreview.pay as unknown as { amount: number }).amount) : formatRupiah(1500)}` })
       setLastPhotoResi(resiNumber)
       setLastPhotoId(draft.id)
+      clearPhotoStaging()
       setScanResi('')
       setPackingPreview(null)
       if (activePackingSession) void readPackingSessionApi(activePackingSession.id).then(setActivePackingSession).catch(() => void refreshActivePackingSession())
@@ -1413,17 +1441,23 @@ function App() {
     }
   }
 
-  // Otomatis foto ketika scan berhasil di mode foto, tetap sediakan opsi manual & foto ulang
+  // keep legacy manual alias for retake button
+  async function handleCapturePhoto(overrideResi?: string) {
+    return stagePhotoCapture(overrideResi)
+  }
+
+  // Otomatis stage foto ketika scan berhasil di mode foto, tetap sediakan opsi manual & foto ulang
   useEffect(() => {
-    if (!isPackingMode || packingMediaType !== 'photo' || !scanResi.trim() || photoCaptureBusy || scanBusy || !canUsePackingFlow || recordingSession.state.mode !== 'idle' || !scanVideoElement) return
+    if (!isPackingMode || packingMediaType !== 'photo' || !scanResi.trim() || photoCaptureBusy || scanBusy || !canUsePackingFlow || recordingSession.state.mode !== 'idle' || !scanVideoElement || photoStaging) return
     const resi = scanResi.trim()
-    // cegah auto dobel jika baru saja foto untuk resi sama
     if (lastPhotoResi === resi && lastPhotoId) return
     const timer = window.setTimeout(() => {
-      void handleCapturePhoto(resi)
+      void stagePhotoCapture(resi)
     }, 450)
     return () => window.clearTimeout(timer)
-  }, [scanResi, packingMediaType, isPackingMode, photoCaptureBusy, scanBusy, canUsePackingFlow, recordingSession.state.mode, scanVideoElement, lastPhotoId, lastPhotoResi])
+  }, [scanResi, packingMediaType, isPackingMode, photoCaptureBusy, scanBusy, canUsePackingFlow, recordingSession.state.mode, scanVideoElement, lastPhotoId, lastPhotoResi, photoStaging])
+
+  useEffect(() => () => { if (photoStaging?.previewUrl) URL.revokeObjectURL(photoStaging.previewUrl) }, [photoStaging])
 
   async function handleDeleteRecording(record: RecordingRow) {
     if (deletingRecordId) {
@@ -1739,14 +1773,34 @@ function App() {
                   <p className="text-[11px] text-[var(--op-mute)]">No. Pesanan {packingPreview.order.orderNumber} · Buyer {packingPreview.order.buyerUsername ?? '-'}</p>
                 </div>
               ) : scanResi.trim() ? <p className="text-[11px] text-amber-600">Order belum ditemukan atau butuh sync Shopee.</p> : null}
+              {photoStaging ? (
+                <div className="mt-2 grid gap-2 rounded-[4px] border border-amber-200 bg-amber-50 p-2">
+                  <p className="text-[12px] font-bold">Preview foto — cek sebelum simpan</p>
+                  <div className="overflow-hidden rounded-[4px] border border-[var(--op-hairline)] bg-black">
+                    <img src={photoStaging.previewUrl} alt={`Preview ${photoStaging.resi}`} className="block max-h-[32vh] w-full object-contain" />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Resi {photoStaging.resi} · {packingPreview ? formatRupiah((packingPreview.pay as unknown as { amount: number }).amount) : ''}</p>
+                  <div className="flex gap-2">
+                    <Button type="button" size="sm" className="flex-1 rounded-[4px] bg-[var(--op-ink)] text-[var(--op-canvas)]" disabled={photoCaptureBusy} onClick={() => void confirmPhotoStaging()}>
+                      {photoCaptureBusy ? 'Menyimpan...' : 'Gunakan foto ✓'}
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" className="flex-1 rounded-[4px]" disabled={photoCaptureBusy} onClick={() => clearPhotoStaging()}>
+                      Ulangi
+                    </Button>
+                  </div>
+                  <Button type="button" variant="ghost" size="sm" className="rounded-[4px] text-[11px]" disabled={photoCaptureBusy} onClick={() => void stagePhotoCapture()}>
+                    Foto manual lagi
+                  </Button>
+                </div>
+              ) : null}
               {isPackingMode && packingMediaType === 'photo' && lastPhotoResi ? (
                 <div className="mt-2 grid gap-2 rounded-[4px] border border-dashed border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-2">
                   <p className="text-[11px] text-muted-foreground">Foto terakhir: <strong>{lastPhotoResi}</strong> tersimpan</p>
                   <div className="flex gap-2">
-                    <Button type="button" variant="outline" size="sm" className="flex-1 rounded-[4px]" disabled={photoCaptureBusy || !scanVideoElement} onClick={() => void handleCapturePhoto(lastPhotoResi)}>
+                    <Button type="button" variant="outline" size="sm" className="flex-1 rounded-[4px]" disabled={photoCaptureBusy || !scanVideoElement} onClick={() => void stagePhotoCapture(lastPhotoResi)}>
                       {photoCaptureBusy ? '...' : 'Foto ulang'}
                     </Button>
-                    <Button type="button" variant="outline" size="sm" className="flex-1 rounded-[4px]" disabled={photoCaptureBusy || !scanResi.trim() || !scanVideoElement} onClick={() => void handleCapturePhoto()}>
+                    <Button type="button" variant="outline" size="sm" className="flex-1 rounded-[4px]" disabled={photoCaptureBusy || !scanResi.trim() || !scanVideoElement} onClick={() => void stagePhotoCapture()}>
                       Foto manual
                     </Button>
                   </div>
