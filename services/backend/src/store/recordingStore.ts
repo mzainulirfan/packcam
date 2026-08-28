@@ -388,13 +388,11 @@ function getRecordingShareFileInfo(recording: RecordingRow): RecordingShareFileI
   const fileName = `${sanitizeFileSegment(recording.task_type)}_${sanitizeFileSegment(recording.resi_number)}_${sanitizeFileSegment(recording.id)}.mp4`
   const filePath = path.posix.join('share', fileName)
   const outputPath = path.join(getUploadsDir(), filePath)
-  const inputPath = getUploadedFilePath(recording)
 
   let isReady = false
-  if (recording.status === 'completed' && fs.existsSync(inputPath) && fs.existsSync(outputPath)) {
-    const sourceStats = fs.statSync(inputPath)
+  if (recording.status === 'completed' && fs.existsSync(outputPath)) {
     const outputStats = fs.statSync(outputPath)
-    isReady = outputStats.mtimeMs >= sourceStats.mtimeMs && outputStats.size <= SHOPEE_VIDEO_LIMIT_BYTES
+    isReady = outputStats.size > 0 && outputStats.size <= SHOPEE_VIDEO_LIMIT_BYTES
   }
 
   return {
@@ -428,12 +426,20 @@ export async function prepareRecordingShareFile(id: string) {
     throw new Error('Recording belum selesai.')
   }
 
+  const shareFile = getRecordingShareFileInfo(recording)
   const inputPath = getUploadedFilePath(recording)
+
   if (!fs.existsSync(inputPath)) {
+    if (fs.existsSync(shareFile.outputPath) && fs.statSync(shareFile.outputPath).size > 0) {
+      return {
+        fileName: shareFile.fileName,
+        filePath: shareFile.filePath,
+        mimeType: shareFile.mimeType,
+      }
+    }
+
     throw new Error('File recording tidak ditemukan.')
   }
-
-  const shareFile = getRecordingShareFileInfo(recording)
 
   if (!shareFile.isReady) {
     await runVideoFfmpegShareMp4Transcode(recording, inputPath, shareFile.outputPath)
