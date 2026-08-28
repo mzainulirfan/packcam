@@ -583,6 +583,19 @@ async function fillWebchatSearchAndAttach(job) {
 if (/seller\.shopee\.(co\.id|com)/.test(location.href)) {
   let lastAutoJobId = ''
   let autoRunBusy = false
+  let autoRunStartTimer = null
+  let autoRunInterval = null
+
+  function isExtensionContextInvalidated(error) {
+    return error instanceof Error && /extension context invalidated/i.test(error.message)
+  }
+
+  function stopAutoRunTimers() {
+    if (autoRunStartTimer) clearTimeout(autoRunStartTimer)
+    if (autoRunInterval) clearInterval(autoRunInterval)
+    autoRunStartTimer = null
+    autoRunInterval = null
+  }
 
   function clearSearchInput() {
     const input = findSearchInput()
@@ -695,6 +708,10 @@ if (/seller\.shopee\.(co\.id|com)/.test(location.href)) {
       clearSearchInput()
       lastAutoJobId = job.id
     } catch (error) {
+      if (isExtensionContextInvalidated(error)) {
+        stopAutoRunTimers()
+        return
+      }
       if (activeAutoJob) {
         // Jangan biarkan input sisa percobaan membuat retry berikutnya dianggap ketikan manual.
         clearSearchInput()
@@ -705,8 +722,8 @@ if (/seller\.shopee\.(co\.id|com)/.test(location.href)) {
       autoRunBusy = false
     }
   }
-  setTimeout(autoRunPending, 1800)
-  setInterval(autoRunPending, 5000)
+  autoRunStartTimer = setTimeout(autoRunPending, 1800)
+  autoRunInterval = setInterval(autoRunPending, 5000)
 }
 
 if (isShopeeShippingOrderPage()) {
