@@ -1797,8 +1797,8 @@ function App() {
                 <div className="mt-2 grid gap-2 rounded-[4px] border border-dashed border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-2">
                   <p className="text-[11px] text-muted-foreground">Foto terakhir: <strong>{lastPhotoResi}</strong> tersimpan</p>
                   <div className="flex gap-2">
-                    <Button type="button" variant="outline" size="sm" className="flex-1 rounded-[4px]" disabled={photoCaptureBusy || !scanVideoElement} onClick={() => void stagePhotoCapture(lastPhotoResi)}>
-                      {photoCaptureBusy ? '...' : 'Foto ulang'}
+                    <Button type="button" variant="outline" size="sm" className="flex-1 rounded-[4px]" disabled={photoCaptureBusy} onClick={() => { clearPhotoStaging(); setScanResi(lastPhotoResi ?? ''); showScanNotice({ kind: 'success', title: 'Siap foto ulang', message: `Posisikan paket ${lastPhotoResi} lalu klik Foto manual.` }) }}>
+                      {photoCaptureBusy ? '...' : 'Foto ulang (manual)'}
                     </Button>
                     <Button type="button" variant="outline" size="sm" className="flex-1 rounded-[4px]" disabled={photoCaptureBusy || !scanResi.trim() || !scanVideoElement} onClick={() => void stagePhotoCapture()}>
                       Foto manual

@@ -782,8 +782,8 @@ export function ScanPage() {
               <CardContent className="grid gap-2 p-4">
                 <p className="text-sm">Foto terakhir: <strong className="font-mono">{lastPhotoResi}</strong> tersimpan</p>
                 <div className="flex gap-2">
-                  <Button type="button" variant="outline" size="sm" className="flex-1 scan-opencode__button" disabled={packingCaptureLoading} onClick={() => void stagePhotoCapture(lastPhotoResi)}>
-                    {packingCaptureLoading ? '[~] Proses...' : '[foto ulang]'}
+                  <Button type="button" variant="outline" size="sm" className="flex-1 scan-opencode__button" disabled={packingCaptureLoading} onClick={() => { clearPhotoStaging(); barcodeScanner.setValue(lastPhotoResi ?? ''); setScanAlert({ kind: 'info', message: `Siap foto ulang ${lastPhotoResi} — posisikan paket lalu klik Foto manual.` }) }}>
+                    {packingCaptureLoading ? '[~] Proses...' : '[foto ulang (manual)]'}
                   </Button>
                   <Button type="button" variant="outline" size="sm" className="flex-1 scan-opencode__button" disabled={packingCaptureLoading || !currentProcessingResi} onClick={() => void stagePhotoCapture()}>
                     [foto manual]
