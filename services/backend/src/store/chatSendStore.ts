@@ -49,6 +49,8 @@ function makeId(prefix: string) {
   return `${prefix}_${randomUUID()}`
 }
 
+const MAX_FAILED_ATTEMPTS = 3
+
 function normalizeOptionalString(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : null
 }

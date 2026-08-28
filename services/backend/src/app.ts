@@ -26,10 +26,25 @@ const port = Number(process.env.PORT ?? 3001)
 const host = process.env.HOST ?? '0.0.0.0'
 const loginRateLimitWindowMs = Number(process.env.LOGIN_RATE_LIMIT_WINDOW_MS ?? 15 * 60 * 1000)
 const loginRateLimitMaxAttempts = Number(process.env.LOGIN_RATE_LIMIT_MAX_ATTEMPTS ?? 10)
+const defaultCorsOrigins = [
+  'https://pakti.zakado.id',
+  'https://pakti.vercel.app',
+  'https://pakti-mobile.vercel.app',
+  'https://mpakti.zakado.id',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:4173',
+  'http://127.0.0.1:4173',
+  'http://localhost:4175',
+  'http://127.0.0.1:4175',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+]
 const corsOrigins = (process.env.CORS_ORIGINS ?? '')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean)
+  .concat(defaultCorsOrigins)
 const loginAttempts = new Map<string, { count: number; resetAt: number }>()
 
 type AuthenticatedRequest = Request & {
