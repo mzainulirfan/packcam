@@ -638,6 +638,7 @@ if (/seller\.shopee\.(co\.id|com)/.test(location.href)) {
   async function autoRunPending() {
     if (autoRunBusy) return
     autoRunBusy = true
+    let activeAutoJob = null
     try {
       const stored = await readExtensionConfig()
       const base = stored.apiBaseUrl
@@ -664,8 +665,13 @@ if (/seller\.shopee\.(co\.id|com)/.test(location.href)) {
       if (!job || job.id === lastAutoJobId) return
       const input = findSearchInput()
       // Hanya skip jika input sedang di-focus (user sedang mengetik manual)
-      if (input?.value?.trim() && document.activeElement === input) return
+      if (input?.value?.trim() && document.activeElement === input) {
+        const isStaleAutoSearch = input.value.trim().toLowerCase() === job.buyerUsername?.trim().toLowerCase()
+        if (!isStaleAutoSearch) return
+        clearSearchInput()
+      }
       
+      activeAutoJob = job
       const message = job.messageTemplate || `Halo kak ${job.buyerUsername || ''}, berikut video dokumentasi paket untuk pesanan ${job.orderNumber || '-'} resi ${job.resiNumber}.`
       const sent = await fillWebchatSearchAndAttach({ ...job, message })
       if (!sent) {
@@ -689,6 +695,10 @@ if (/seller\.shopee\.(co\.id|com)/.test(location.href)) {
       clearSearchInput()
       lastAutoJobId = job.id
     } catch (error) {
+      if (activeAutoJob) {
+        // Jangan biarkan input sisa percobaan membuat retry berikutnya dianggap ketikan manual.
+        clearSearchInput()
+      }
       console.warn('[Pakti] autoRunPending gagal', error)
     }
     finally {
