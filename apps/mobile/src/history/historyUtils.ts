@@ -83,6 +83,30 @@ export function getGroupShareStatus(rows: RecordingRow[]) {
     : { label: 'Menyiapkan share', ready: false }
 }
 
+export function getMediaLabel(record: RecordingRow) {
+  return (record as unknown as { mediaType?: string }).mediaType === 'photo' ? 'foto' : 'video'
+}
+
+export function getPayLabel(record: RecordingRow) {
+  const pay = (record as unknown as { packingPayAmount?: number | null }).packingPayAmount
+  if (pay == null || record.taskType !== 'packing') return null
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(pay)
+}
+
+export function getPayStatusBadge(record: RecordingRow) {
+  const status = (record as unknown as { packingPayStatus?: string | null }).packingPayStatus
+  if (status === 'needs_review') return 'needs_review'
+  if (status === 'manual_override') return 'override'
+  return null
+}
+
+export function getPackerLabel(record: RecordingRow) {
+  const name = (record as unknown as { packerOperatorName?: string | null }).packerOperatorName
+  const code = (record as unknown as { packerOperatorCode?: string | null }).packerOperatorCode
+  if (!name && !code) return null
+  return `${name ?? ''}${code ? ` · ${code}` : ''}`.trim()
+}
+
 export function getShareStatusClassName(record: RecordingRow) {
   if (record.status !== 'completed' || !record.filePath) {
     return 'rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-2 py-0.5 text-[11px] text-[var(--op-mute)]'

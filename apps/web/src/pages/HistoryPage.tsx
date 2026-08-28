@@ -464,6 +464,14 @@ export function HistoryPage() {
 
     try {
       setDownloadingRecordId(record.id)
+      if ((record as unknown as { mediaType?: string }).mediaType === 'photo') {
+        const link = document.createElement('a')
+        link.href = buildServerFileUrl(record.filePath)
+        link.download = record.fileName
+        link.rel = 'noopener'
+        link.click()
+        return
+      }
       const shareFile = record.shareFileReady && record.shareFilePath && record.shareFileName
         ? { fileName: record.shareFileName, filePath: record.shareFilePath }
         : await prepareServerRecordingShareFileApi(record.id)
@@ -990,6 +998,27 @@ export function HistoryPage() {
                     <dl className="grid gap-2">
                       {selectedShopeeOrder ? (
                         <OrderDetailRow order={selectedShopeeOrder} />
+                      ) : (selectedRecord as unknown as { orderSnapshot?: { shippingChannel?: string; items?: Array<{ productName: string; variationName?: string | null; quantity: number }> } }).orderSnapshot ? (
+                        <DetailRow
+                          label="Snapshot order"
+                          value={(() => {
+                            const snap = (selectedRecord as unknown as { orderSnapshot: { shippingChannel?: string; items?: Array<{ productName: string; variationName?: string | null; quantity: number }> } }).orderSnapshot
+                            const items = (snap.items ?? []).map((it) => `${it.productName}${it.variationName ? ` (${it.variationName})` : ''} x${it.quantity}`).join(', ')
+                            return `${snap.shippingChannel ?? '-'} · ${items || '-'}`
+                          })()}
+                        />
+                      ) : null}
+                      {(selectedRecord as unknown as { packingSessionId?: string | null }).packingSessionId ? (
+                        <DetailRow label="Packing session" value={(selectedRecord as unknown as { packingSessionId: string }).packingSessionId} />
+                      ) : null}
+                      {(selectedRecord as unknown as { packerOperatorName?: string | null }).packerOperatorName ? (
+                        <DetailRow label="Packer" value={`${(selectedRecord as unknown as { packerOperatorName: string }).packerOperatorName} · ${(selectedRecord as unknown as { packerOperatorCode?: string | null }).packerOperatorCode ?? '-'}`} />
+                      ) : null}
+                      {(selectedRecord as unknown as { packingPayAmount?: number | null }).packingPayAmount != null ? (
+                        <DetailRow
+                          label="Upah"
+                          value={`${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format((selectedRecord as unknown as { packingPayAmount: number }).packingPayAmount)} · ${(selectedRecord as unknown as { packingPayStatus?: string | null }).packingPayStatus ?? '-'} · ${(() => { const b = (selectedRecord as unknown as { packingPayBreakdown?: { ruleName?: string; payType?: string; amount?: number; quantity?: number; total?: number } }).packingPayBreakdown; return b ? `${b.ruleName ?? '-'} ${b.payType ?? ''} Rp${b.amount ?? 0} x${b.quantity ?? 1}` : '-'; })()}`}
+                        />
                       ) : null}
                       <DetailRow
                         label="Waktu"
@@ -1343,12 +1372,16 @@ function normalizeHistoryRecord(record: RecordingRow): LocalRecordingRecord {
     blobKey: record.blobKey ?? record.id,
     mimeType: record.mimeType ?? null,
     mediaType: record.mediaType ?? 'video',
-    packingSessionId: record.packingSessionId ?? null,
-    packerOperatorName: record.packerOperatorName ?? null,
-    packerOperatorCode: record.packerOperatorCode ?? null,
-    packingPayAmount: record.packingPayAmount ?? null,
-    packingPayStatus: record.packingPayStatus ?? null,
-    packingPayBreakdown: record.packingPayBreakdown ?? null,
+    packingSessionId: (record as unknown as { packingSessionId?: string | null }).packingSessionId ?? null,
+    packerOperatorName: (record as unknown as { packerOperatorName?: string | null }).packerOperatorName ?? null,
+    packerOperatorCode: (record as unknown as { packerOperatorCode?: string | null }).packerOperatorCode ?? null,
+    packingPayAmount: (record as unknown as { packingPayAmount?: number | null }).packingPayAmount ?? null,
+    packingPayStatus: (record as unknown as { packingPayStatus?: string | null }).packingPayStatus as LocalRecordingRecord['packingPayStatus'] ?? null,
+    packingPayBreakdown: (record as unknown as { packingPayBreakdown?: unknown | null }).packingPayBreakdown ?? null,
+    ...( { orderSnapshot: (record as unknown as { orderSnapshot?: unknown | null }).orderSnapshot ?? null } as unknown as object ),
+    ...( { packingPayRuleId: (record as unknown as { packingPayRuleId?: string | null }).packingPayRuleId ?? null } as unknown as object ),
+    ...( { orderNumber: (record as unknown as { orderNumber?: string | null }).orderNumber ?? null } as unknown as object ),
+    ...( { shippingChannel: (record as unknown as { shippingChannel?: string | null }).shippingChannel ?? null } as unknown as object ),
     shareFileName: record.shareFileName ?? null,
     shareFilePath: record.shareFilePath ?? null,
     shareFileMimeType: record.shareFileMimeType ?? null,

@@ -9,10 +9,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Label } from '../components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { DEFAULT_APP_SETTINGS } from '@pakti/shared/defaults'
-import { readServerSettingsApi, readShopeeOrderByResiApi, saveServerSettingsApi } from '@pakti/api-client'
+import {
+  appendServerRecordingChunkApi,
+  closePackingSessionApi,
+  createPackingSessionApi,
+  createServerRecordingDraftApi,
+  finalizeServerRecordingApi,
+  readActivePackingSessionApi,
+  readPackingOperatorsApi,
+  readPackingPreviewByResiApi,
+  readServerSettingsApi,
+  readShopeeOrderByResiApi,
+  saveServerSettingsApi,
+} from '@pakti/api-client'
 import { getRecordingTaskProgress, refreshRecordingsFromServer } from '@pakti/shared/recordings'
 import { logScanEvent } from '@pakti/shared'
-import type { ShopeeOrder } from '@pakti/types'
+import type { PackingWorkSession, ShopeeOrder } from '@pakti/types'
 import { clearRepeatQcResi, readRepeatQcResi } from '../app/repeatQcState'
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner'
 import { useCameraDevices } from '../hooks/useCameraDevices'
@@ -45,7 +57,16 @@ export function ScanPage() {
   const [watermarkResi, setWatermarkResi] = useState<string | null>(null)
   const [clockText, setClockText] = useState(() => formatClock(new Date()))
   const [scanMode, setScanMode] = useState<ScanMode>(() => readScanMode())
+  const [packingMediaType, setPackingMediaType] = useState<'video' | 'photo'>('video')
+  const [packingOperators, setPackingOperators] = useState<Array<{ operatorName: string; operatorCode: string; fullName: string | null }>>([])
+  const [activePackingSession, setActivePackingSession] = useState<PackingWorkSession | null>(null)
+  const [packingSessionLoading, setPackingSessionLoading] = useState(false)
+  const [selectedPackerKey, setSelectedPackerKey] = useState<string>('')
+  const [packingPreview, setPackingPreview] = useState<{ order: ShopeeOrder; pay: { amount: number; quantity: number; breakdown: unknown } } | null>(null)
+  const [packingPreviewLoading, setPackingPreviewLoading] = useState(false)
+  const [packingCaptureLoading, setPackingCaptureLoading] = useState(false)
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null)
+  const currentProcessingResiRef = useRef<string | null>(null)
   const cameraDevices = useCameraDevices(true)
   const cameraState = useCameraStream(settings.cameraDeviceId, settings.videoResolution)
   const watermarkedStream = useWatermarkedStream({
@@ -63,12 +84,45 @@ export function ScanPage() {
     operatorCode: operatorSession?.operatorCode ?? '',
     taskType: activeTask,
     repeatQcResi,
+    packingSessionId: activePackingSession?.id ?? null,
+    mediaType: packingMediaType,
   })
   const isTaskSwitchLocked =
     recordingSession.state.mode === 'recording' ||
     recordingSession.state.mode === 'stopping' ||
     recordingSession.state.mode === 'saving' ||
     recordingSession.state.mode === 'ready_to_record_next'
+  const isPackingTask = activeTask === 'packing'
+  const packingSessionLabel = activePackingSession
+    ? `${activePackingSession.packerNameSnapshot} (${activePackingSession.packerCodeSnapshot}) · ${activePackingSession.completedPackingCount} paket · ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(activePackingSession.totalPayAmount)}`
+    : null
+
+  useEffect(() => {
+    if (!isPackingTask) return
+    let active = true
+    void (async () => {
+      try {
+        const [operators, session] = await Promise.all([
+          readPackingOperatorsApi().catch(() => []),
+          readActivePackingSessionApi().catch(() => null),
+        ])
+        if (!active) return
+        setPackingOperators(operators as unknown as typeof packingOperators)
+        setActivePackingSession(session as PackingWorkSession | null)
+        if (!session && operators.length > 0) {
+          const currentKey = `${operatorSession?.operatorName ?? ''}::${operatorSession?.operatorCode ?? ''}`
+          const matched = (operators as unknown as Array<{ operatorName: string; operatorCode: string }>).find((op) => `${op.operatorName}::${op.operatorCode}` === currentKey)
+          if (matched) setSelectedPackerKey(currentKey)
+          else setSelectedPackerKey(`${(operators[0] as { operatorName: string; operatorCode: string }).operatorName}::${(operators[0] as { operatorName: string; operatorCode: string }).operatorCode}`)
+        }
+      } catch {
+        // ignore
+      }
+    })()
+    return () => {
+      active = false
+    }
+  }, [isPackingTask, operatorSession?.operatorName, operatorSession?.operatorCode])
 
   useEffect(() => {
     let active = true
@@ -153,6 +207,32 @@ export function ScanPage() {
 
   const barcodeScanner = useBarcodeScanner({
     onValidScan: (value) => {
+      const trimmed = value.trim()
+      if (isPackingTask && !activePackingSession) {
+        setScanAlert({ kind: 'error', message: 'Mulai sesi packing dulu sebelum scan. Pilih petugas di panel sesi packing.' })
+        return
+      }
+      if (isPackingTask && packingMediaType === 'photo') {
+        // untuk foto, tidak auto-record; cukup validasi via recordingSession handleScan tapi skip recorder start
+        void recordingSession.handleScan(trimmed).then((outcome) => {
+          if (outcome.action === 'error' || outcome.action === 'already_processed') {
+            setScanAlert(mapScanOutcomeToAlert(outcome.action, outcome.message))
+            return
+          }
+          // untuk foto, treat started sebagai siap capture tanpa memulai MediaRecorder
+          if (outcome.action === 'started' || outcome.action === 'queued') {
+            setScanAlert({ kind: 'success', message: `Resi ${trimmed} siap difoto. Klik Capture Foto.` })
+            if (repeatQcResi && trimmed === repeatQcResi) {
+              clearRepeatQcResi()
+              setRepeatQcResi(null)
+            }
+            return
+          }
+          const alert = mapScanOutcomeToAlert(outcome.action, outcome.message)
+          setScanAlert(alert)
+        })
+        return
+      }
       void recordingSession.handleScan(value).then((outcome) => {
         const alert = mapScanOutcomeToAlert(outcome.action, outcome.message)
         setScanAlert(alert)
@@ -260,7 +340,100 @@ export function ScanPage() {
       })
   }
 
+  async function handleCreatePackingSession() {
+    if (!selectedPackerKey) {
+      setScanAlert({ kind: 'error', message: 'Pilih petugas packing dulu.' })
+      return
+    }
+    const [name, code] = selectedPackerKey.split('::')
+    setPackingSessionLoading(true)
+    try {
+      const session = await createPackingSessionApi({ packerOperatorName: name, packerOperatorCode: code })
+      setActivePackingSession(session)
+      setScanAlert({ kind: 'success', message: `Sesi packing dimulai untuk ${session.packerNameSnapshot}.` })
+      barcodeScanner.focusInput()
+    } catch (e) {
+      setScanAlert({ kind: 'error', message: e instanceof Error ? e.message : 'Gagal membuat sesi packing.' })
+    } finally {
+      setPackingSessionLoading(false)
+    }
+  }
+
+  async function handleClosePackingSession() {
+    if (!activePackingSession) return
+    setPackingSessionLoading(true)
+    try {
+      await closePackingSessionApi(activePackingSession.id)
+      setActivePackingSession(null)
+      setPackingPreview(null)
+      setScanAlert({ kind: 'info', message: 'Sesi packing diakhiri.' })
+    } catch (e) {
+      setScanAlert({ kind: 'error', message: e instanceof Error ? e.message : 'Gagal menutup sesi.' })
+    } finally {
+      setPackingSessionLoading(false)
+    }
+  }
+
+  async function handleCapturePhoto() {
+    const resi = currentProcessingResiRef.current?.trim() || barcodeScanner.value.trim()
+    if (!resi) {
+      setScanAlert({ kind: 'error', message: 'Scan resi dulu sebelum capture foto.' })
+      return
+    }
+    if (!activePackingSession) {
+      setScanAlert({ kind: 'error', message: 'Mulai sesi packing dulu.' })
+      return
+    }
+    const videoEl = cameraVideoRef.current
+    if (!videoEl || videoEl.videoWidth === 0) {
+      setScanAlert({ kind: 'error', message: 'Kamera belum siap untuk capture foto.' })
+      return
+    }
+    setPackingCaptureLoading(true)
+    try {
+      const canvas = document.createElement('canvas')
+      canvas.width = videoEl.videoWidth
+      canvas.height = videoEl.videoHeight
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('Canvas tidak didukung.')
+      ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height)
+      const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92))
+      if (!blob) throw new Error('Gagal membuat foto.')
+      const startedAt = new Date()
+      const draft = await createServerRecordingDraftApi({
+        resiNumber: resi,
+        taskType: 'packing',
+        operatorName: operatorSession?.operatorName ?? '',
+        operatorCode: operatorSession?.operatorCode ?? '',
+        startedAt: startedAt.toISOString(),
+        fileName: `packing_${resi}_${startedAt.getTime()}.jpg`,
+        filePath: `packing_${resi}_${startedAt.getTime()}.jpg`,
+        mediaType: 'photo',
+        mimeType: 'image/jpeg',
+        packingSessionId: activePackingSession.id,
+      })
+      await appendServerRecordingChunkApi(draft.id, blob)
+      const finalized = await finalizeServerRecordingApi(draft.id, { endTime: new Date().toISOString() })
+      await refreshRecordingsFromServer()
+      setRecordingCacheTick((v) => v + 1)
+      const payInfo = (finalized as unknown as { packingPayAmount?: number }).packingPayAmount
+      setScanAlert({ kind: 'success', message: `Foto packing tersimpan untuk ${resi}${payInfo ? ` · Rp${new Intl.NumberFormat('id-ID').format(payInfo)}` : ''}.` })
+      // reload active session totals
+      void readActivePackingSessionApi().then((s) => setActivePackingSession(s as PackingWorkSession | null)).catch(() => undefined)
+      // refresh preview
+      void readPackingPreviewByResiApi(resi).then((p) => setPackingPreview(p as unknown as typeof packingPreview)).catch(() => undefined)
+    } catch (e) {
+      setScanAlert({ kind: 'error', message: e instanceof Error ? e.message : 'Gagal menyimpan foto packing.' })
+    } finally {
+      setPackingCaptureLoading(false)
+    }
+  }
+
   function handleSubmitBarcode() {
+    if (isPackingTask && !activePackingSession) {
+      setScanAlert({ kind: 'error', message: 'Mulai sesi packing dulu sebelum scan.' })
+      return
+    }
     const result = barcodeScanner.submitBarcode(barcodeScanner.value)
 
     if (result.status === 'invalid') {
@@ -274,7 +447,23 @@ export function ScanPage() {
     (barcodeScanner.result?.status === 'valid'
       ? barcodeScanner.value.trim() || null
       : null)
+  useEffect(() => {
+    currentProcessingResiRef.current = currentProcessingResi
+  }, [currentProcessingResi])
   const taskProgress = recordingCacheTick >= 0 && currentProcessingResi ? getRecordingTaskProgress(currentProcessingResi) : null
+
+  useEffect(() => {
+    if (!isPackingTask || !currentProcessingResi?.trim()) {
+      setPackingPreview(null)
+      return
+    }
+    const resi = currentProcessingResi.trim()
+    setPackingPreviewLoading(true)
+    void readPackingPreviewByResiApi(resi)
+      .then((preview) => setPackingPreview(preview as unknown as typeof packingPreview))
+      .catch(() => setPackingPreview(null))
+      .finally(() => setPackingPreviewLoading(false))
+  }, [currentProcessingResi, isPackingTask])
 
   useEffect(() => {
     let active = true
@@ -454,7 +643,73 @@ export function ScanPage() {
             </Alert>
           ) : null}
 
-          <ShopeeOrderPanel order={shopeeOrder} loading={shopeeOrderLoading} message={shopeeOrderMessage} />
+          {isPackingTask ? (
+            <Card className="scan-opencode__panel">
+              <CardHeader className="space-y-2">
+                <CardTitle>Sesi Packing {activePackingSession ? '[aktif]' : '[perlu sesi]'}</CardTitle>
+                {activePackingSession ? (
+                  <p className="text-sm text-muted-foreground">{packingSessionLabel}</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Scan packing diblokir sampai sesi dimulai.</p>
+                )}
+              </CardHeader>
+              <CardContent className="grid gap-3 pt-0">
+                {activePackingSession ? (
+                  <div className="grid gap-2">
+                    <Button type="button" variant="outline" className="scan-opencode__button" disabled={packingSessionLoading} onClick={() => void handleClosePackingSession()}>
+                      {packingSessionLoading ? '[~] Proses...' : '[akhiri sesi]'}
+                    </Button>
+                    <div className="flex gap-2">
+                      <Button type="button" variant={packingMediaType === 'video' ? 'default' : 'outline'} className="flex-1 scan-opencode__button" onClick={() => setPackingMediaType('video')}>
+                        [video]
+                      </Button>
+                      <Button type="button" variant={packingMediaType === 'photo' ? 'default' : 'outline'} className="flex-1 scan-opencode__button" onClick={() => setPackingMediaType('photo')}>
+                        [foto]
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid gap-3">
+                    <Label>Petugas Packing</Label>
+                    <Select value={selectedPackerKey} onValueChange={setSelectedPackerKey}>
+                      <SelectTrigger className="scan-opencode__input w-full">
+                        <SelectValue placeholder="Pilih petugas packing" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {packingOperators.map((op) => {
+                          const key = `${op.operatorName}::${op.operatorCode}`
+                          const label = op.fullName ? `${op.fullName} (${op.operatorCode})` : `${op.operatorName} (${op.operatorCode})`
+                          return (
+                            <SelectItem key={key} value={key}>
+                              {label}
+                            </SelectItem>
+                          )
+                        })}
+                      </SelectContent>
+                    </Select>
+                    <Button type="button" className="scan-opencode__button" disabled={packingSessionLoading || !selectedPackerKey} onClick={() => void handleCreatePackingSession()}>
+                      {packingSessionLoading ? '[~] Membuat...' : '[mulai sesi packing]'}
+                    </Button>
+                    <div className="flex gap-2">
+                      <Button type="button" variant={packingMediaType === 'video' ? 'default' : 'outline'} className="flex-1 scan-opencode__button" onClick={() => setPackingMediaType('video')}>
+                        [video]
+                      </Button>
+                      <Button type="button" variant={packingMediaType === 'photo' ? 'default' : 'outline'} className="flex-1 scan-opencode__button" onClick={() => setPackingMediaType('photo')}>
+                        [foto]
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          <ShopeeOrderPanel
+            order={isPackingTask && packingPreview ? packingPreview.order : shopeeOrder}
+            loading={isPackingTask ? packingPreviewLoading : shopeeOrderLoading}
+            message={isPackingTask && packingPreview ? `Estimasi upah: Rp${new Intl.NumberFormat('id-ID').format(packingPreview.pay.amount)} · ${packingPreview.pay.quantity} item` : shopeeOrderMessage}
+            packingPreview={isPackingTask ? packingPreview : null}
+          />
         </section>
 
         <Card className="scan-opencode__camera-panel overflow-hidden xl:sticky xl:top-4">
@@ -578,7 +833,19 @@ export function ScanPage() {
                 ) : null
               }
               bottomSlot={
-                isRecordingActionVisible ? (
+                isPackingTask && packingMediaType === 'photo' && activePackingSession ? (
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      size="lg"
+                      className="scan-opencode__button px-5 py-6 text-base"
+                      onClick={() => void handleCapturePhoto()}
+                      disabled={packingCaptureLoading || !currentProcessingResi}
+                    >
+                      {packingCaptureLoading ? '[~] Menyimpan...' : '[capture foto]'}
+                    </Button>
+                  </div>
+                ) : isRecordingActionVisible ? (
                   <div className="flex justify-end">
                     <Button
                       type="button"
@@ -681,10 +948,12 @@ function ShopeeOrderPanel({
   order,
   loading,
   message,
+  packingPreview,
 }: {
   order: ShopeeOrder | null
   loading: boolean
   message: string
+  packingPreview?: { order: ShopeeOrder; pay: { amount: number; quantity: number; breakdown: unknown } } | null
 }) {
   return (
     <Card className="scan-opencode__panel">
@@ -708,12 +977,22 @@ function ShopeeOrderPanel({
             <div className="grid gap-2">
               <p className="font-semibold">Produk</p>
               {order.items.map((item) => (
-                <div key={item.id ?? `${item.productName}-${item.quantity}`} className="flex items-start justify-between gap-3 rounded-xl border border-[rgba(15,0,0,0.1)] bg-white/50 px-3 py-2">
-                  <span className="min-w-0 flex-1">{item.productName}</span>
-                  <strong className="shrink-0">x{item.quantity}</strong>
+                <div key={item.id ?? `${item.productName}-${item.variationName}-${item.sku}`} className="grid gap-1 rounded-xl border border-[rgba(15,0,0,0.1)] bg-white/50 px-3 py-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="min-w-0 flex-1">{item.productName}</span>
+                    <strong className="shrink-0">x{item.quantity}</strong>
+                  </div>
+                  {item.variationName ? <span className="text-xs text-muted-foreground">Variasi: {item.variationName}</span> : null}
+                  {item.sku ? <span className="text-xs text-muted-foreground">SKU: {item.sku}</span> : null}
                 </div>
               ))}
             </div>
+            {packingPreview ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
+                <span className="font-semibold">Estimasi upah: </span>
+                <span>Rp{new Intl.NumberFormat('id-ID').format(packingPreview.pay.amount)} · qty {packingPreview.pay.quantity} · {(packingPreview.pay.breakdown as unknown as { ruleName?: string })?.ruleName ?? '-'}</span>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </CardContent>

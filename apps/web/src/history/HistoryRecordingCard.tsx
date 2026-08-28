@@ -66,12 +66,37 @@ export function HistoryRecordingCard({
               <span>
                 <small>Upah</small>
                 <strong>{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format((record as unknown as { packingPayAmount: number }).packingPayAmount)}</strong>
+                {(record as unknown as { packingPayStatus?: string | null }).packingPayStatus === 'needs_review' ? (
+                  <span className="history-opencode__badge ml-1">[!] needs_review</span>
+                ) : null}
               </span>
             ) : null}
             {(record as unknown as { packerOperatorName?: string | null }).packerOperatorName ? (
               <span>
                 <small>Packer</small>
-                <strong className="truncate">{(record as unknown as { packerOperatorName: string }).packerOperatorName}</strong>
+                <strong className="truncate">{(record as unknown as { packerOperatorName: string }).packerOperatorName} {(record as unknown as { packerOperatorCode?: string | null }).packerOperatorCode ? `· ${(record as unknown as { packerOperatorCode: string }).packerOperatorCode}` : ''}</strong>
+              </span>
+            ) : null}
+            {(record as unknown as { packingPayBreakdown?: unknown | null }).packingPayBreakdown ? (
+              <span>
+                <small>Breakdown</small>
+                <strong className="truncate text-[11px]" title={JSON.stringify((record as unknown as { packingPayBreakdown: unknown }).packingPayBreakdown)}>
+                  {(() => {
+                    const b = (record as unknown as { packingPayBreakdown: { ruleName?: string; payType?: string; amount?: number; quantity?: number; total?: number } }).packingPayBreakdown
+                    return `${b.ruleName ?? '-'} · ${b.payType ?? '-'} · Rp${b.amount ?? 0} x${b.quantity ?? 1} = Rp${b.total ?? 0}`
+                  })()}
+                </strong>
+              </span>
+            ) : null}
+            {(record as unknown as { orderSnapshot?: unknown | null }).orderSnapshot ? (
+              <span>
+                <small>Shipping</small>
+                <strong className="truncate text-[11px]">{(() => { const s = (record as unknown as { orderSnapshot: { shippingChannel?: string } }).orderSnapshot; return s.shippingChannel || s.shippingChannel === '' ? String(s.shippingChannel) : '-'; })()}</strong>
+              </span>
+            ) : (record as unknown as { shippingChannel?: string | null }).shippingChannel ? (
+              <span>
+                <small>Shipping</small>
+                <strong className="truncate text-[11px]">{(record as unknown as { shippingChannel: string }).shippingChannel}</strong>
               </span>
             ) : null}
           </div>

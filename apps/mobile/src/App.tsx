@@ -2181,11 +2181,14 @@ function App() {
                               ) : null}
                               {packingRow ? (
                                 <div className="flex items-center justify-between gap-2">
-                                  <span className="text-[14px] font-semibold">Packing</span>
+                                  <span className="text-[14px] font-semibold">Packing {(packingRow as unknown as { mediaType?: string }).mediaType === 'photo' ? '[foto]' : '[video]'}</span>
                                   <span className={packingRow.status === 'completed' ? 'text-[13px]' : 'text-[13px] text-[var(--op-mute)]'}>
-                                    {packingRow.status === 'completed' ? '✓ Selesai' : packingRow.status === 'recording' ? '… Rekam' : '× Error'}
+                                    {packingRow.status === 'completed' ? '✓ Selesai' : packingRow.status === 'recording' ? '… Rekam' : '× Error'} {(packingRow as unknown as { packingPayAmount?: number | null }).packingPayAmount != null ? `· Rp${new Intl.NumberFormat('id-ID').format((packingRow as unknown as { packingPayAmount: number }).packingPayAmount)}` : ''} {(packingRow as unknown as { packingPayStatus?: string | null }).packingPayStatus === 'needs_review' ? ' [!]' : ''}
                                   </span>
                                 </div>
+                              ) : null}
+                              {packingRow && (packingRow as unknown as { packerOperatorName?: string | null }).packerOperatorName ? (
+                                <div className="text-[11px] text-[var(--op-mute)]">Packer: {(packingRow as unknown as { packerOperatorName: string }).packerOperatorName}{(packingRow as unknown as { packerOperatorCode?: string | null }).packerOperatorCode ? ` · ${(packingRow as unknown as { packerOperatorCode: string }).packerOperatorCode}` : ''}</div>
                               ) : null}
                               {!packingRow && !qcRow ? <span className="text-[13px] text-[var(--op-mute)]">{group.rows.length} dokumentasi</span> : null}
                               <div className="mt-auto flex min-w-0 flex-wrap items-center gap-1.5 pt-1">
@@ -2219,9 +2222,12 @@ function App() {
                             ) : null}
                             {group.rows.some((r: RecordingRow) => r.taskType === 'packing') ? (
                               <div className="flex items-center justify-between gap-2">
-                                <span className="text-[14px] font-semibold">Packing</span>
-                                <span className="text-[13px] text-[var(--op-mute)]">{formatStatus(packingRow?.status ?? 'error')}</span>
+                                <span className="text-[14px] font-semibold">Packing {(packingRow as unknown as { mediaType?: string })?.mediaType === 'photo' ? '[foto]' : '[video]'}</span>
+                                <span className="text-[13px] text-[var(--op-mute)]">{formatStatus(packingRow?.status ?? 'error')}{(packingRow as unknown as { packingPayAmount?: number | null })?.packingPayAmount != null ? ` · Rp${new Intl.NumberFormat('id-ID').format((packingRow as unknown as { packingPayAmount: number }).packingPayAmount)}` : ''}</span>
                               </div>
+                            ) : null}
+                            {packingRow && (packingRow as unknown as { packerOperatorName?: string | null }).packerOperatorName ? (
+                              <div className="text-[11px] text-[var(--op-mute)]">Packer: {(packingRow as unknown as { packerOperatorName: string }).packerOperatorName}</div>
                             ) : null}
                             <span className="text-[12px] text-[var(--op-mute)]">
                               {formatDateTime(latest?.updatedAt ?? '')} · oleh {latest?.operatorName || '-'}

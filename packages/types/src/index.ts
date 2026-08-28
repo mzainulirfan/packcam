@@ -61,9 +61,13 @@ export type RecordingRow = {
   packingSessionId?: string | null
   packerOperatorName?: string | null
   packerOperatorCode?: string | null
+  orderNumber?: string | null
+  shippingChannel?: string | null
+  orderSnapshot?: unknown | null
   packingPayAmount?: number | null
   packingPayStatus?: PackingPayStatus | null
   packingPayBreakdown?: unknown | null
+  packingPayRuleId?: string | null
   createdAt: string
   updatedAt: string
   blobKey?: string | null

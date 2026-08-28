@@ -921,6 +921,7 @@ app.post('/api/recordings', (req, res) => {
       status: typeof req.body?.status === 'string' && req.body.status === 'error' ? 'error' : 'recording',
       note: typeof req.body?.note === 'string' ? req.body.note.trim() : null,
       mediaType: req.body?.mediaType === 'photo' ? 'photo' : 'video',
+      mimeType: typeof req.body?.mimeType === 'string' ? req.body.mimeType.trim() : null,
       packingSessionId: typeof req.body?.packingSessionId === 'string' ? req.body.packingSessionId.trim() : null,
     })
 

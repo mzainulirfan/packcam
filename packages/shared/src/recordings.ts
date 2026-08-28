@@ -226,10 +226,11 @@ export function createRecordingDraft({
   mediaType = 'video',
   packingSessionId = null,
 }: RecordingDraftInput) {
+  const normalizedMediaType = mediaType === 'photo' ? 'photo' : 'video'
   const startTime = startedAt.toISOString()
   const recordDate = startTime.slice(0, 10)
-  const fileName = buildRecordingFileName(resiNumber, settings.videoFormat, taskType, startedAt)
-  const filePath = buildDailyVideoPath(settings, resiNumber, taskType, startedAt)
+  const fileName = buildRecordingFileName(resiNumber, settings.videoFormat, taskType, startedAt, normalizedMediaType)
+  const filePath = buildDailyVideoPath(settings, resiNumber, taskType, startedAt, normalizedMediaType)
   const timestamp = nowIso()
 
   const draft: LocalRecordingRecord = {
@@ -240,7 +241,7 @@ export function createRecordingDraft({
     operatorCode: operatorCode.trim() || null,
     fileName,
     filePath,
-    mediaType: mediaType ?? 'video',
+    mediaType: normalizedMediaType,
     fileSizeBytes: null,
     recordDate,
     startTime,

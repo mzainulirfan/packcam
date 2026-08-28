@@ -42,6 +42,7 @@ type ServerRecordingRow = {
   file_name: string
   file_path: string
   media_type?: RecordingMediaType | null
+  mime_type?: string | null
   file_size_bytes: number | null
   record_date: string
   start_time: string
@@ -52,13 +53,16 @@ type ServerRecordingRow = {
   packing_session_id?: string | null
   packer_operator_name?: string | null
   packer_operator_code?: string | null
+  order_number?: string | null
+  shipping_channel?: string | null
+  order_snapshot?: unknown | string | null
   packing_pay_amount?: number | null
   packing_pay_status?: PackingPayStatus | null
   packing_pay_breakdown?: unknown | string | null
+  packing_pay_rule_id?: string | null
   created_at: string
   updated_at: string
   blob_key?: string | null
-  mime_type?: string | null
   share_file_name?: string | null
   share_file_path?: string | null
   share_file_mime_type?: string | null
@@ -134,9 +138,13 @@ function normalizeRecordingRow(record: ServerRecordingRow): RecordingRow {
     packingSessionId: record.packing_session_id ?? null,
     packerOperatorName: record.packer_operator_name ?? null,
     packerOperatorCode: record.packer_operator_code ?? null,
+    orderNumber: record.order_number ?? null,
+    shippingChannel: record.shipping_channel ?? null,
+    orderSnapshot: parseMaybeJson(record.order_snapshot),
     packingPayAmount: record.packing_pay_amount ?? null,
     packingPayStatus: record.packing_pay_status ?? null,
     packingPayBreakdown: parseMaybeJson(record.packing_pay_breakdown),
+    packingPayRuleId: record.packing_pay_rule_id ?? null,
     createdAt: record.created_at,
     updatedAt: record.updated_at,
     blobKey: record.blob_key ?? record.id,
@@ -533,6 +541,7 @@ export function createServerRecordingDraftApi(payload: {
   status?: 'recording' | 'completed' | 'error'
   note?: string | null
   mediaType?: RecordingMediaType
+  mimeType?: string | null
   packingSessionId?: string | null
 }) {
   return requestApi<ServerRecordingRow>('/api/recordings', {

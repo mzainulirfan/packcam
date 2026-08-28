@@ -2,6 +2,7 @@ import { DEFAULT_APP_SETTINGS } from '@pakti/shared/defaults'
 import type { AppSettings } from '@pakti/types'
 
 const VIDEO_EXTENSIONS = new Set(['webm', 'mp4'])
+const PHOTO_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp'])
 
 function sanitizeSegment(segment: string) {
   return segment.trim().replace(/[\\/:*?"<>|]+/g, '_')
@@ -31,6 +32,15 @@ export function normalizeVideoFormat(value: string): AppSettings['videoFormat'] 
   return VIDEO_EXTENSIONS.has(value) ? (value as AppSettings['videoFormat']) : DEFAULT_APP_SETTINGS.videoFormat
 }
 
+export function normalizeMediaExtension(value: string, mediaType?: 'video' | 'photo'): string {
+  const ext = value.toLowerCase().trim()
+  if (mediaType === 'photo') {
+    if (PHOTO_EXTENSIONS.has(ext)) return ext === 'jpeg' ? 'jpg' : ext
+    return 'jpg'
+  }
+  return normalizeVideoFormat(ext)
+}
+
 export function getDefaultVideoRootPath() {
   if (typeof navigator === 'undefined') {
     return DEFAULT_APP_SETTINGS.videoRootPath
@@ -54,8 +64,9 @@ export function buildDailyVideoPath(
   resiNumber: string,
   taskType: 'qc' | 'packing',
   startedAt: Date,
+  mediaType: 'video' | 'photo' = 'video',
 ) {
-  const fileName = buildRecordingFileName(resiNumber, settings.videoFormat, taskType, startedAt)
+  const fileName = buildRecordingFileName(resiNumber, settings.videoFormat, taskType, startedAt, mediaType)
   const rootPath = settings.videoRootPath.trim() || DEFAULT_APP_SETTINGS.videoRootPath
 
   return `${rootPath}/${fileName}`
@@ -66,10 +77,14 @@ export function buildRecordingFileName(
   format: string,
   taskType: 'qc' | 'packing',
   startedAt: Date,
+  mediaType: 'video' | 'photo' = 'video',
 ) {
   const safeResi = sanitizeSegment(resiNumber)
-  const extension = normalizeVideoFormat(format)
   const prefix = normalizeTaskPrefix(taskType)
   const timestamp = formatRecordingTimestamp(startedAt)
+  if (mediaType === 'photo') {
+    return `${prefix}_${safeResi}_${timestamp}.jpg`
+  }
+  const extension = normalizeVideoFormat(format)
   return `${prefix}_${safeResi}_${timestamp}.${extension}`
 }

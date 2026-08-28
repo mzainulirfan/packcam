@@ -35,6 +35,8 @@ type RecordingSessionOptions = {
   operatorCode: string
   taskType: 'qc' | 'packing'
   repeatQcResi?: string | null
+  packingSessionId?: string | null
+  mediaType?: 'video' | 'photo'
 }
 
 type RecordingSessionRef = {
@@ -64,7 +66,7 @@ function pickRecorderMimeType() {
   return candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ?? ''
 }
 
-export function useRecordingSession({ stream, settings, operatorName, operatorCode, taskType, repeatQcResi }: RecordingSessionOptions) {
+export function useRecordingSession({ stream, settings, operatorName, operatorCode, taskType, repeatQcResi, packingSessionId, mediaType }: RecordingSessionOptions) {
   const operatorIdentity = useMemo(
     () => ({
       operatorName: operatorName.trim(),
@@ -351,6 +353,8 @@ export function useRecordingSession({ stream, settings, operatorName, operatorCo
       operatorName: operatorIdentity.operatorName,
       operatorCode: operatorIdentity.operatorCode,
       mimeType: mimeType || recorder.mimeType || 'video/webm',
+      mediaType: mediaType ?? 'video',
+      packingSessionId: packingSessionId ?? null,
     })
 
     try {
@@ -366,6 +370,8 @@ export function useRecordingSession({ stream, settings, operatorName, operatorCo
         fileSizeBytes: draft.fileSizeBytes,
         status: draft.status,
         note: draft.note,
+        mediaType: draft.mediaType,
+        packingSessionId: draft.packingSessionId,
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Gagal membuat draft recording.'
