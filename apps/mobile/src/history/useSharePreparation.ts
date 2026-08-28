@@ -1,4 +1,4 @@
-import { type Dispatch, type SetStateAction, useCallback, useEffect, useRef, useState } from 'react'
+import { type Dispatch, type SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { buildServerFileUrl, prepareServerRecordingShareFileApi } from '@pakti/api-client'
 import type { RecordingRow, WorkTask } from '@pakti/types'
 
@@ -66,9 +66,9 @@ export function useSharePreparation({
 
     const pendingRecords = recordings
       .filter((record) => record.status === 'completed' && Boolean(record.filePath) && !record.shareFileReady)
-      .slice(0, 3)
+    const activeRecords = pendingRecords.slice(0, 3)
 
-    if (pendingRecords.length === 0) {
+    if (activeRecords.length === 0) {
       return
     }
 
@@ -76,7 +76,7 @@ export function useSharePreparation({
 
     async function preparePendingShareFiles() {
       let preparedAny = false
-      for (const record of pendingRecords) {
+      for (const record of activeRecords) {
         if (cancelled || requestedShareFileIdsRef.current.has(record.id)) {
           continue
         }
@@ -110,6 +110,13 @@ export function useSharePreparation({
       cancelled = true
     }
   }, [active, markShareFilePrepared, recordings, refreshHistory])
+
+  const queuedShareFileIds = useMemo(() => new Set(
+    recordings
+      .filter((record) => record.status === 'completed' && Boolean(record.filePath) && !record.shareFileReady)
+      .slice(3)
+      .map((record) => record.id),
+  ), [recordings])
 
   const handleShareRecording = useCallback(
     async (record: RecordingRow, target: 'native' | 'whatsapp') => {
@@ -199,6 +206,7 @@ export function useSharePreparation({
   return {
     sharingRecordId,
     preparingShareFileIds,
+    queuedShareFileIds,
     preparedShareFileIds,
     handleShareRecording,
   }

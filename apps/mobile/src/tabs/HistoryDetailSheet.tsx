@@ -20,6 +20,7 @@ type HistoryDetailSheetProps = {
   preparingChatSendId: string | null
   deletingRecordId: string | null
   preparingShareFileIds: ReadonlySet<string>
+  queuedShareFileIds: ReadonlySet<string>
   preparedShareFileIds: ReadonlySet<string>
   chatSendByRecordingId?: Map<string, import('@pakti/types').RecordingChatSend>
   formatDateTime: (value: string | null | undefined) => string
@@ -43,6 +44,7 @@ export function HistoryDetailSheet({
   preparingChatSendId,
   deletingRecordId,
   preparingShareFileIds,
+  queuedShareFileIds,
   preparedShareFileIds,
   chatSendByRecordingId,
   formatDateTime,
@@ -64,6 +66,8 @@ export function HistoryDetailSheet({
   }
 
   const groupShareStatus = getGroupShareStatus(target.rows)
+  const groupSharePreparing = target.rows.some((record) => preparingShareFileIds.has(record.id))
+  const groupShareQueued = !groupSharePreparing && target.rows.some((record) => queuedShareFileIds.has(record.id))
 
   return (
     <Sheet open onOpenChange={onOpenChange}>
@@ -74,7 +78,13 @@ export function HistoryDetailSheet({
               <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--op-mute)]">Detail resi</p>
               <SheetTitle className="mt-1 truncate text-left text-[18px] leading-none">{target.resiNumber}</SheetTitle>
             </div>
-            <span className={getGroupShareStatusClassName(groupShareStatus.ready)}>{groupShareStatus.label}</span>
+            <span className={groupSharePreparing
+              ? 'rounded-[4px] border border-[var(--op-warning,#ff9f0a)] bg-[var(--op-warning,#ff9f0a)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--op-warning,#ff9f0a)] animate-pulse'
+              : groupShareQueued
+                ? 'rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-2 py-0.5 text-[11px] text-[var(--op-mute)]'
+                : getGroupShareStatusClassName(groupShareStatus.ready)}>
+              {groupSharePreparing ? 'Menyiapkan share' : groupShareQueued ? 'Antri share' : groupShareStatus.label}
+            </span>
           </div>
           <SheetDescription className="text-left text-[12px]">
             {target.rows.length} dokumentasi tersimpan untuk resi ini.
@@ -122,9 +132,25 @@ export function HistoryDetailSheet({
 
               <div className="grid gap-1 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-2">
                 <div className="flex items-center justify-between gap-2">
-                  <span className={getShareStatusClassName(record)}>{getShareStatusLabel(record)}</span>
+                  <span className={preparingShareFileIds.has(record.id)
+                    ? 'rounded-[4px] border border-[var(--op-warning,#ff9f0a)] bg-[var(--op-warning,#ff9f0a)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--op-warning,#ff9f0a)] animate-pulse'
+                    : queuedShareFileIds.has(record.id)
+                      ? 'rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-2 py-0.5 text-[11px] text-[var(--op-mute)]'
+                      : getShareStatusClassName(record)}>
+                    {preparingShareFileIds.has(record.id)
+                      ? 'Menyiapkan share'
+                      : queuedShareFileIds.has(record.id)
+                        ? 'Antri share'
+                        : getShareStatusLabel(record)}
+                  </span>
                 </div>
-                <span className="text-[12px] leading-relaxed text-[var(--op-mute)]">{getShareStatusDescription(record)}</span>
+                <span className="text-[12px] leading-relaxed text-[var(--op-mute)]">
+                  {preparingShareFileIds.has(record.id)
+                    ? 'Sedang membuat MP4 share di server.'
+                    : queuedShareFileIds.has(record.id)
+                      ? 'Menunggu proses recording sebelumnya selesai.'
+                      : getShareStatusDescription(record)}
+                </span>
                 {chatSendByRecordingId?.get(record.id) ? (
                   <span className="text-[11px] font-medium text-[var(--op-ink)]">
                     {(() => {

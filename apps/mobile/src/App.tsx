@@ -928,6 +928,7 @@ function App() {
   const {
     sharingRecordId,
     preparingShareFileIds,
+    queuedShareFileIds,
     preparedShareFileIds,
     handleShareRecording,
   } = useSharePreparation({
@@ -1762,6 +1763,8 @@ function App() {
                       const packingRow = group.rows.find((r: RecordingRow) => r.taskType === 'packing')
                       const latest = group.latestRow
                       const shareStatus = getGroupShareStatus(group.rows)
+                      const sharePreparing = group.rows.some((record) => preparingShareFileIds.has(record.id))
+                      const shareQueued = !sharePreparing && group.rows.some((record) => queuedShareFileIds.has(record.id))
                       const groupChatSend = group.rows.map((r) => visibleChatSendByRecordingId.get(r.id)).find(Boolean)
                       return (
                       <div
@@ -1840,7 +1843,13 @@ function App() {
                               ) : null}
                               {!packingRow && !qcRow ? <span className="text-[13px] text-[var(--op-mute)]">{group.rows.length} dokumentasi</span> : null}
                               <div className="mt-auto flex min-w-0 flex-wrap items-center gap-1.5 pt-1">
-                                <span className={getGroupShareStatusClassName(shareStatus.ready)}>{shareStatus.label}</span>
+                                <span className={sharePreparing
+                                  ? 'shrink-0 rounded-[4px] border border-[var(--op-warning,#ff9f0a)] bg-[var(--op-warning,#ff9f0a)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--op-warning,#ff9f0a)] animate-pulse'
+                                  : shareQueued
+                                    ? 'shrink-0 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-2 py-0.5 text-[11px] text-[var(--op-mute)]'
+                                    : getGroupShareStatusClassName(shareStatus.ready)}>
+                                  {sharePreparing ? 'Menyiapkan share' : shareQueued ? 'Antri share' : shareStatus.label}
+                                </span>
                                 {groupChatSend ? (
                                   <span className="rounded-[4px] bg-[var(--op-ink)] px-2 py-0.5 text-[11px] font-medium text-[var(--op-canvas)]">
                                     {groupChatSend.status === 'sent' ? `✓ Terkirim ke ${groupChatSend.buyerUsername}` : groupChatSend.status === 'prepared' ? `~ Siap kirim ke ${groupChatSend.buyerUsername}` : `… ${groupChatSend.status} ke ${groupChatSend.buyerUsername}`}
@@ -1928,6 +1937,7 @@ function App() {
         preparingChatSendId={preparingChatSendId}
         deletingRecordId={deletingRecordId}
         preparingShareFileIds={preparingShareFileIds}
+        queuedShareFileIds={queuedShareFileIds}
         preparedShareFileIds={preparedShareFileIds}
         chatSendByRecordingId={visibleChatSendByRecordingId}
         formatDateTime={formatDateTime}
