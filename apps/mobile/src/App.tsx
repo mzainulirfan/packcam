@@ -1874,12 +1874,19 @@ function App() {
                 </div>
               }
               centerSlot={
-                <div className="scan-guide-simple" aria-hidden="true">
-                  <div className="scan-guide-simple__frame" />
-                  <div className="scan-guide-simple__label">
-                    <span>Pusatkan barcode di kotak ini</span>
+                photoStaging ? (
+                  <div className="w-full max-w-[92%] overflow-hidden rounded-[8px] border border-white/20 bg-black/80 p-2 backdrop-blur">
+                    <img src={photoStaging.previewUrl} alt={`Preview ${photoStaging.resi}`} className="block max-h-[28vh] w-full rounded object-contain" />
+                    <p className="mt-1 truncate text-center text-xs font-mono text-white">{photoStaging.resi} · cek lalu Gunakan</p>
                   </div>
-                </div>
+                ) : (
+                  <div className="scan-guide-simple" aria-hidden="true">
+                    <div className="scan-guide-simple__frame" />
+                    <div className="scan-guide-simple__label">
+                      <span>{isPackingMode && packingMediaType==='photo' ? 'Posisikan paket & resi jelas' : 'Pusatkan barcode di kotak ini'}</span>
+                    </div>
+                  </div>
+                )
               }
               bottomSlot={
                   <div
@@ -1899,7 +1906,7 @@ function App() {
 
                   <div className="grid gap-2">
                     <Label htmlFor="mobile-scan-resi" className="text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                      Nomor resi
+                      Nomor resi {isPackingMode && packingMediaType==='photo' ? '(foto)' : ''}
                     </Label>
                     <div className="relative">
                       <HugeiconsIcon icon={ScanIcon} className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -1907,7 +1914,7 @@ function App() {
                         id="mobile-scan-resi"
                         value={scanResi}
                         onChange={(event) => setScanResi(event.target.value)}
-                        placeholder="Scan barcode atau ketik resi"
+                        placeholder={isPackingMode && packingMediaType==='photo' ? 'Scan resi → auto foto' : 'Scan barcode atau ketik resi'}
                         inputMode="text"
                         autoCapitalize="characters"
                         className="h-12 rounded-[4px] border-[var(--op-hairline)] bg-[var(--op-canvas)] pl-10 text-[0.95rem] shadow-none"
@@ -1917,16 +1924,33 @@ function App() {
                     <p className="text-[0.68rem] leading-snug text-muted-foreground">{scanStatusDescription}</p>
                   </div>
 
-                  {isPackingMode && packingMediaType==='photo' ? (
-                    <Button
-                      type="button"
-                      className="h-12 w-full rounded-[4px] text-[0.95rem] font-semibold"
-                      disabled={!canUsePackingFlow || photoCaptureBusy || !scanResi.trim() || scanBusy || recordingSession.state.mode==='recording'}
-                      onClick={() => void handleCapturePhoto()}
-                    >
-                      <HugeiconsIcon icon={Camera01Icon} size={16} />
-                      {photoCaptureBusy ? 'Menyimpan foto...' : 'Ambil foto & simpan'}
-                    </Button>
+                  {photoStaging ? (
+                    <div className="grid gap-2">
+                      <Button type="button" className="h-12 w-full rounded-[4px] bg-black text-[0.95rem] font-semibold text-white" disabled={photoCaptureBusy} onClick={() => void confirmPhotoStaging()}>
+                        <HugeiconsIcon icon={Camera01Icon} size={16} /> {photoCaptureBusy ? 'Menyimpan...' : 'Gunakan foto ✓'}
+                      </Button>
+                      <div className="flex gap-2">
+                        <Button type="button" variant="outline" className="flex-1 rounded-[4px]" disabled={photoCaptureBusy} onClick={() => { setSkipAutoPhoto(true); clearPhotoStaging() }}>
+                          Ulangi (manual)
+                        </Button>
+                        <Button type="button" variant="ghost" size="sm" className="flex-1 rounded-[4px] text-[11px]" disabled={photoCaptureBusy} onClick={() => void stagePhotoCapture()}>
+                          Foto manual
+                        </Button>
+                      </div>
+                    </div>
+                  ) : isPackingMode && packingMediaType==='photo' ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void stagePhotoCapture()}
+                        disabled={!canUsePackingFlow || photoCaptureBusy || !scanResi.trim() || !scanVideoElement}
+                        className="grid h-[68px] w-[68px] place-items-center rounded-full border-4 border-white bg-white/10 shadow-[0_0_0_4px_rgba(0,0,0,0.15)] backdrop-blur transition active:scale-95 disabled:opacity-40"
+                        aria-label="Ambil foto manual"
+                      >
+                        <span className="h-12 w-12 rounded-full bg-white shadow-inner" />
+                      </button>
+                      <span className="text-[11px] font-mono tracking-wide text-muted-foreground">tap shutter untuk foto manual</span>
+                    </div>
                   ) : (
                     <Button
                       type="button"

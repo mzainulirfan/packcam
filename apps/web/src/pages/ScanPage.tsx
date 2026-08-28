@@ -460,10 +460,6 @@ export function ScanPage() {
     }
   }
 
-  async function handleCapturePhoto(overrideResi?: string) {
-    return stagePhotoCapture(overrideResi)
-  }
-
   function handleSubmitBarcode() {
     if (isPackingTask && !activePackingSession) {
       setScanAlert({ kind: 'error', message: 'Mulai sesi packing dulu sebelum scan.' })
@@ -595,12 +591,13 @@ export function ScanPage() {
     <div className="scan-opencode mx-auto grid w-full max-w-[1520px] gap-5 px-0 py-1">
       <section className="scan-opencode__hero flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="grid gap-2">
-          <div className="scan-opencode__section-label">[+] Scan</div>
-          <h1 className="scan-opencode__title">Scan Resi</h1>
+          <div className="scan-opencode__section-label">{isPackingTask && packingMediaType === 'photo' ? '[◉] Foto Packing' : '[+] Scan'}</div>
+          <h1 className="scan-opencode__title">{isPackingTask && packingMediaType === 'photo' ? 'Scan Foto Packing' : 'Scan Resi'}</h1>
+          {isPackingTask && packingMediaType === 'photo' ? <p className="text-sm text-muted-foreground">Scan resi → auto foto 0.45s → cek preview → Gunakan / Ulangi (manual). Posisikan paket & resi jelas di kamera.</p> : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="scan-opencode__badge">
-            [x] {activeTask}
+            [x] {activeTask} {isPackingTask && packingMediaType === 'photo' ? '[foto]' : ''}
           </span>
           <span className="scan-opencode__badge">
             {operatorSession?.operatorName || operatorSession?.operatorCode || 'operator'}
@@ -608,6 +605,9 @@ export function ScanPage() {
           <RecordModePill mode={recordingSession.state.mode} />
         </div>
       </section>
+      {isPackingTask && packingMediaType === 'photo' && !activePackingSession ? (
+        <Alert variant="info"><p>Foto packing butuh sesi aktif. Pilih petugas di panel sesi packing.</p></Alert>
+      ) : null}
 
       <div className="grid gap-5 xl:grid-cols-[minmax(300px,0.42fr)_minmax(0,1.58fr)]">
         <section className="grid gap-4 self-start">
@@ -895,7 +895,12 @@ export function ScanPage() {
                 </div>
               }
               centerSlot={
-                isSavingFlowVisible ? (
+                photoStaging ? (
+                  <div className="w-full max-w-md overflow-hidden rounded-[8px] border border-white/20 bg-black/85 backdrop-blur p-2">
+                    <img src={photoStaging.previewUrl} alt={`Preview ${photoStaging.resi}`} className="block max-h-[38vh] w-full rounded object-contain" />
+                    <p className="mt-1 truncate text-center text-xs font-mono text-white">{photoStaging.resi} · cek lalu Gunakan</p>
+                  </div>
+                ) : isSavingFlowVisible ? (
                   <div className="scan-opencode__saving-card w-full max-w-md px-4 py-3">
                     {recordingSession.state.mode === 'ready_to_record_next' ? (
                       <div className="grid gap-1 text-center">
@@ -926,17 +931,27 @@ export function ScanPage() {
                 ) : null
               }
               bottomSlot={
-                isPackingTask && packingMediaType === 'photo' && activePackingSession ? (
-                  <div className="flex justify-end">
-                    <Button
-                      type="button"
-                      size="lg"
-                      className="scan-opencode__button px-5 py-6 text-base"
-                      onClick={() => void handleCapturePhoto()}
-                      disabled={packingCaptureLoading || !currentProcessingResi}
-                    >
-                      {packingCaptureLoading ? '[~] Menyimpan...' : '[capture foto]'}
+                photoStaging ? (
+                  <div className="flex justify-center gap-2">
+                    <Button type="button" size="lg" className="scan-opencode__button bg-white px-6 text-black hover:bg-white/90" onClick={() => void confirmPhotoStaging()} disabled={packingCaptureLoading}>
+                      {packingCaptureLoading ? '[~]' : '[✓ Gunakan]'}
                     </Button>
+                    <Button type="button" variant="outline" size="lg" className="scan-opencode__button border-white bg-black/40 px-6 text-white backdrop-blur hover:bg-black/60" onClick={() => { setSkipAutoPhoto(true); clearPhotoStaging() }} disabled={packingCaptureLoading}>
+                      [↻ Ulangi]
+                    </Button>
+                  </div>
+                ) : isPackingTask && packingMediaType === 'photo' && activePackingSession ? (
+                  <div className="flex flex-col items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => void stagePhotoCapture()}
+                      disabled={packingCaptureLoading || !currentProcessingResi || !cameraVideoRef.current}
+                      className="group grid h-[72px] w-[72px] place-items-center rounded-full border-4 border-white bg-white/10 shadow-[0_0_0_4px_rgba(0,0,0,0.2)] backdrop-blur transition hover:bg-white/20 disabled:opacity-40"
+                      aria-label="Ambil foto manual"
+                    >
+                      <span className="h-14 w-14 rounded-full bg-white shadow-inner transition group-active:scale-95" />
+                    </button>
+                    <span className="text-[11px] font-mono tracking-wide text-white drop-shadow">tap untuk foto manual</span>
                   </div>
                 ) : isRecordingActionVisible ? (
                   <div className="flex justify-end">
