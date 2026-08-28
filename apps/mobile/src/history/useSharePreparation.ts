@@ -112,58 +112,63 @@ export function useSharePreparation({
       }
 
       const shareText = `Video ${formatTask(record.taskType)} resi ${record.resiNumber}`
-
-      if (!navigator.share) {
-        setBootError('Browser ini belum mendukung share file ke aplikasi.')
-        return
-      }
+      setSharingRecordId(record.id)
 
       const preparedShareFile = preparedShareFilesRef.current.get(record.id)
-      if (preparedShareFile) {
-        const shareData: ShareData = {
-          title: shareText,
-          text: shareText,
-          files: [preparedShareFile.file],
+      try {
+        let preparedFile = preparedShareFile
+        if (!preparedFile) {
+          const shareFile = record.shareFileReady && record.shareFilePath && record.shareFileName
+            ? {
+                fileName: record.shareFileName,
+                filePath: record.shareFilePath,
+                mimeType: record.shareFileMimeType ?? 'video/mp4',
+              }
+            : await prepareServerRecordingShareFileApi(record.id)
+          markShareFilePrepared(record.id, shareFile)
+
+          const videoUrl = buildServerFileUrl(shareFile.filePath)
+          const response = await fetch(videoUrl, { credentials: 'include' })
+          if (!response.ok) {
+            throw new Error('Video belum bisa diambil untuk dibagikan.')
+          }
+
+          const blob = await response.blob()
+          const file = new File([blob], shareFile.fileName, {
+            type: shareFile.mimeType || blob.type || 'video/mp4',
+          })
+          preparedFile = {
+            fileName: shareFile.fileName,
+            filePath: shareFile.filePath,
+            mimeType: shareFile.mimeType || blob.type || 'video/mp4',
+            file,
+          }
+          preparedShareFilesRef.current.set(record.id, preparedFile)
+          setPreparedShareFileIds(new Set(preparedShareFilesRef.current.keys()))
         }
 
-        if (navigator.canShare?.(shareData)) {
-          await navigator.share(shareData)
+        if (!navigator.share) {
+          showScanNotice({
+            kind: 'warning',
+            title: 'File siap dibagikan',
+            message: 'Browser ini belum mendukung share file. File sudah disiapkan untuk dipakai lagi nanti.',
+          })
           return
         }
 
-        const targetName = target === 'whatsapp' ? 'WhatsApp' : 'aplikasi lain'
-        setBootError(`Browser ini belum mendukung share file video ke ${targetName}.`)
-        return
-      }
-
-      setSharingRecordId(record.id)
-
-      try {
-        const shareFile = record.shareFileReady && record.shareFilePath && record.shareFileName
-          ? {
-              fileName: record.shareFileName,
-              filePath: record.shareFilePath,
-              mimeType: record.shareFileMimeType ?? 'video/mp4',
-            }
-          : await prepareServerRecordingShareFileApi(record.id)
-        markShareFilePrepared(record.id, shareFile)
-        const videoUrl = buildServerFileUrl(shareFile.filePath)
-        const response = await fetch(videoUrl, { credentials: 'include' })
-        if (!response.ok) {
-          throw new Error('Video belum bisa diambil untuk dibagikan.')
+        const shareData: ShareData = {
+          title: shareText,
+          text: shareText,
+          files: [preparedFile.file],
         }
 
-        const blob = await response.blob()
-        const file = new File([blob], shareFile.fileName, {
-          type: shareFile.mimeType || blob.type || 'video/mp4',
-        })
-        preparedShareFilesRef.current.set(record.id, {
-          fileName: shareFile.fileName,
-          filePath: shareFile.filePath,
-          mimeType: shareFile.mimeType || blob.type || 'video/mp4',
-          file,
-        })
-        setPreparedShareFileIds(new Set(preparedShareFilesRef.current.keys()))
+        if (!navigator.canShare?.(shareData)) {
+          const targetName = target === 'whatsapp' ? 'WhatsApp' : 'aplikasi lain'
+          setBootError(`Browser ini belum mendukung share file video ke ${targetName}.`)
+          return
+        }
+
+        await navigator.share(shareData)
         showScanNotice({
           kind: 'success',
           title: 'Video siap dibagikan',
