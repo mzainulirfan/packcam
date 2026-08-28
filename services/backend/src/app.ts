@@ -140,6 +140,17 @@ function canSessionAccessRecording(session: HttpSession, record: ReturnType<type
   )
 }
 
+function canSessionActAsOperator(session: HttpSession, operatorName: string, operatorCode: string) {
+  if (session.role === 'admin') {
+    return true
+  }
+
+  return (
+    session.operatorName.trim().toLowerCase() === operatorName.trim().toLowerCase() &&
+    session.operatorCode.trim().toLowerCase() === operatorCode.trim().toLowerCase()
+  )
+}
+
 function isLoginRateLimited(key: string) {
   const now = Date.now()
   const attempt = loginAttempts.get(key)
@@ -172,7 +183,7 @@ app.set('trust proxy', 1)
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || corsOrigins.length === 0 || isAllowedCorsOrigin(origin)) {
+      if (!origin || (corsOrigins.length > 0 && isAllowedCorsOrigin(origin))) {
         callback(null, true)
         return
       }
@@ -723,13 +734,24 @@ app.get('/api/recordings/resi/:resiNumber', (req, res) => {
 })
 
 app.post('/api/recordings', (req, res) => {
+  const session = getRequestSession(req)
+  if (!session) {
+    return sendError(res, 401, 'Sesi login diperlukan.')
+  }
+
   try {
+    const operatorName = readStringField(req.body?.operatorName, 'operatorName')
+    const operatorCode = readStringField(req.body?.operatorCode, 'operatorCode')
+    if (!canSessionActAsOperator(session, operatorName, operatorCode)) {
+      return sendError(res, 403, 'Operator recording tidak sesuai dengan sesi login saat ini.')
+    }
+
     const draft = createRecordingDraft({
       id: typeof req.body?.id === 'string' ? req.body.id : undefined,
       resiNumber: readStringField(req.body?.resiNumber, 'resiNumber'),
       taskType: req.body?.taskType === 'packing' ? 'packing' : 'qc',
-      operatorName: readStringField(req.body?.operatorName, 'operatorName'),
-      operatorCode: readStringField(req.body?.operatorCode, 'operatorCode'),
+      operatorName,
+      operatorCode,
       startedAt: typeof req.body?.startedAt === 'string' ? req.body.startedAt : undefined,
       fileName: typeof req.body?.fileName === 'string' ? req.body.fileName.trim() : undefined,
       filePath: typeof req.body?.filePath === 'string' ? req.body.filePath.trim() : undefined,
@@ -745,10 +767,19 @@ app.post('/api/recordings', (req, res) => {
 })
 
 app.post('/api/recordings/:id/chunks', upload.single('chunk'), (req, res) => {
+  const session = getRequestSession(req)
+  if (!session) {
+    return sendError(res, 401, 'Sesi login diperlukan.')
+  }
+
   const params = req.params as Record<string, string | undefined>
   const recording = getRecordingById(params.id ?? '')
   if (!recording) {
     return sendError(res, 404, 'Recording tidak ditemukan.')
+  }
+
+  if (!canSessionAccessRecording(session, recording)) {
+    return sendError(res, 403, 'Recording ini tidak bisa diubah oleh sesi login saat ini.')
   }
 
   if (!req.file) {
@@ -772,8 +803,22 @@ app.post('/api/recordings/:id/chunks', upload.single('chunk'), (req, res) => {
 })
 
 app.post('/api/recordings/:id/finalize', (req, res) => {
+  const session = getRequestSession(req)
+  if (!session) {
+    return sendError(res, 401, 'Sesi login diperlukan.')
+  }
+
   try {
     const params = req.params as Record<string, string | undefined>
+    const recording = getRecordingById(params.id ?? '')
+    if (!recording) {
+      return sendError(res, 404, 'Recording tidak ditemukan.')
+    }
+
+    if (!canSessionAccessRecording(session, recording)) {
+      return sendError(res, 403, 'Recording ini tidak bisa difinalisasi oleh sesi login saat ini.')
+    }
+
     const finalized = finalizeRecording(params.id ?? '', {
       fileSizeBytes: typeof req.body?.fileSizeBytes === 'number' ? req.body.fileSizeBytes : null,
       endTime: typeof req.body?.endTime === 'string' ? req.body.endTime : undefined,
@@ -787,8 +832,22 @@ app.post('/api/recordings/:id/finalize', (req, res) => {
 })
 
 app.post('/api/recordings/:id/recover', (req, res) => {
+  const session = getRequestSession(req)
+  if (!session) {
+    return sendError(res, 401, 'Sesi login diperlukan.')
+  }
+
   try {
     const params = req.params as Record<string, string | undefined>
+    const recording = getRecordingById(params.id ?? '')
+    if (!recording) {
+      return sendError(res, 404, 'Recording tidak ditemukan.')
+    }
+
+    if (!canSessionAccessRecording(session, recording)) {
+      return sendError(res, 403, 'Recording ini tidak bisa dipulihkan oleh sesi login saat ini.')
+    }
+
     const recovered = recoverRecordingDraft(params.id ?? '')
 
     if (!recovered) {
@@ -908,8 +967,18 @@ app.post('/api/chat-sends/:id/failed', requireSessionOrExtensionKey, (req, res) 
 })
 
 app.post('/api/recordings/repeat-qc', (req, res) => {
+  const session = getRequestSession(req)
+  if (!session) {
+    return sendError(res, 401, 'Sesi login diperlukan.')
+  }
+
   try {
     const resiNumber = typeof req.body?.resiNumber === 'string' ? req.body.resiNumber.trim() : ''
+    const accessibleRecordings = listRecordingsByResi(resiNumber).filter((record) => canSessionAccessRecording(session, record))
+    if (accessibleRecordings.length === 0) {
+      return sendError(res, 403, 'Recording ini tidak bisa diulang oleh sesi login saat ini.')
+    }
+
     const updated = invalidateCompletedRecordingsForResi(resiNumber)
     return sendOk(res, updated)
   } catch (error) {

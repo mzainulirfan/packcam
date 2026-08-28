@@ -24,10 +24,35 @@ function normalizeBaseUrl(value) {
 function isShopeeShippingOrderUrl(value) {
   try {
     const url = new URL(value || '')
-    return url.hostname === 'seller.shopee.co.id' && url.pathname === '/portal/sale/order' && url.searchParams.get('type') === 'shipping'
+    return isShopeeSellerHostname(url.hostname) && url.pathname === '/portal/sale/order' && url.searchParams.get('type') === 'shipping'
   } catch {
     return false
   }
+}
+
+function isShopeeSellerHostname(hostname) {
+  return hostname === 'seller.shopee.co.id' || hostname === 'seller.shopee.com'
+}
+
+function isShopeeSellerUrl(value) {
+  try {
+    return isShopeeSellerHostname(new URL(value || '').hostname)
+  } catch {
+    return false
+  }
+}
+
+function getShopeeWebchatUrl(value) {
+  try {
+    const url = new URL(value || '')
+    if (isShopeeSellerHostname(url.hostname)) {
+      return `${url.protocol}//${url.host}/new-webchat/conversations`
+    }
+  } catch {
+    // ignore
+  }
+
+  return 'https://seller.shopee.co.id/new-webchat/conversations'
 }
 
 function toOperationalOrder(order) {
@@ -141,6 +166,7 @@ async function syncOrders() {
     setStatus(`Syncing ${orders.length} order(s)...`)
     const response = await fetch(`${config.apiBaseUrl}/api/import/shopee/orders`, {
       method: 'POST',
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         ...(config.apiKey ? { 'X-Pakti-Extension-Key': config.apiKey } : {}),
@@ -150,6 +176,13 @@ async function syncOrders() {
 
     const payload = await response.json().catch(() => null)
     if (!response.ok || !payload?.ok) {
+      if (response.status === 401) {
+        throw new Error(
+          config.apiKey
+            ? 'Autentikasi extension gagal. Periksa Extension API Key di popup dan samakan dengan SHOPEE_EXTENSION_API_KEY di backend.'
+            : 'Sesi Pakti tidak tersedia. Isi Extension API Key di popup extension dengan nilai SHOPEE_EXTENSION_API_KEY di backend.',
+        )
+      }
       throw new Error(payload?.error || `Sync failed: ${response.status}`)
     }
 
@@ -230,6 +263,7 @@ async function prepareShippingChats() {
 async function requestApi(path, config, init = {}) {
   const response = await fetch(`${config.apiBaseUrl}${path}`, {
     ...init,
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...(config.apiKey ? { 'X-Pakti-Extension-Key': config.apiKey } : {}),
@@ -239,6 +273,13 @@ async function requestApi(path, config, init = {}) {
   const payload = await response.json().catch(() => null)
 
   if (!response.ok || !payload?.ok) {
+    if (response.status === 401) {
+      throw new Error(
+        config.apiKey
+          ? 'Autentikasi extension gagal. Periksa Extension API Key di popup dan samakan dengan SHOPEE_EXTENSION_API_KEY di backend.'
+          : 'Sesi Pakti tidak tersedia. Isi Extension API Key di popup extension dengan nilai SHOPEE_EXTENSION_API_KEY di backend.',
+      )
+    }
     throw new Error(payload?.error || `Request failed: ${response.status}`)
   }
 
@@ -287,14 +328,19 @@ async function prepareShopeeChat() {
     }
 
     const tab = await getActiveTab()
-    if (!/^https:\/\/seller\.shopee\.co\.id\/new-webchat\/conversations/i.test(tab.url || '')) {
-      const existing = await chrome.tabs.query({ url: 'https://seller.shopee.co.id/new-webchat/conversations*' })
+    if (!isShopeeSellerUrl(tab.url)) {
+      const existing = await chrome.tabs.query({
+        url: [
+          'https://seller.shopee.co.id/new-webchat/conversations*',
+          'https://seller.shopee.com/new-webchat/conversations*',
+        ],
+      })
       if (existing[0]?.id) {
         await chrome.tabs.update(existing[0].id, { active: true })
         if (existing[0].windowId) await chrome.windows.update(existing[0].windowId, { focused: true })
         setStatus('Pakai tab Shopee Webchat yang sudah ada. Klik Prepare Shopee Chat lagi di tab tersebut.')
       } else {
-        await chrome.tabs.create({ url: 'https://seller.shopee.co.id/new-webchat/conversations' })
+        await chrome.tabs.create({ url: getShopeeWebchatUrl(tab.url) })
         setStatus('Shopee Webchat dibuka. Setelah halaman siap, klik Prepare Shopee Chat lagi.')
       }
       return
@@ -305,12 +351,12 @@ async function prepareShopeeChat() {
       type: 'PAKTI_PREPARE_SHOPEE_CHAT',
       job: { ...job, message },
     })
-    if (!response?.ok) {
+    if (!response?.ok || !response?.sent) {
       await requestApi(`/api/chat-sends/${encodeURIComponent(job.id)}/failed`, config, {
         method: 'POST',
-        body: JSON.stringify({ error: response?.error || 'Extension gagal menyiapkan Shopee Webchat.' }),
+        body: JSON.stringify({ error: response?.error || 'Extension gagal mengirim Shopee Webchat.' }),
       })
-      throw new Error(response?.error || 'Extension gagal menyiapkan Shopee Webchat.')
+      throw new Error(response?.error || 'Extension gagal mengirim Shopee Webchat.')
     }
 
     await requestApi(`/api/chat-sends/${encodeURIComponent(job.id)}/prepared`, config, { method: 'POST' })
@@ -326,7 +372,6 @@ async function prepareShopeeChat() {
       },
       next: 'Otomatis klik Send dan tandai terkirim...',
     })
-    await new Promise((r) => setTimeout(r, 2500))
     const sentJob = await requestApi(`/api/chat-sends/${encodeURIComponent(job.id)}/sent`, config, { method: 'POST' })
     renderChatJobs(pendingChatJobs.filter((current) => current.id !== job.id))
     setStatus({

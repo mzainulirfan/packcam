@@ -197,10 +197,11 @@ export function listPendingChatSends(apiBaseUrl = '') {
               status, attempts, message_template, error_message, prepared_at, sent_at, created_at, updated_at
        FROM recording_chat_sends
        WHERE status IN ('pending', 'failed')
+         AND attempts < ?
        ORDER BY updated_at ASC
        LIMIT 50`,
     )
-    .all() as ChatSendRow[]
+    .all(MAX_FAILED_ATTEMPTS) as ChatSendRow[]
 
   return rows.map((row) => mapChatSend(row, apiBaseUrl))
 }

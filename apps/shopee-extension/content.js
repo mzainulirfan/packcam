@@ -159,13 +159,58 @@ function extractOrders() {
   })
 }
 
+function isShopeeSellerHostname(hostname) {
+  return hostname === 'seller.shopee.co.id' || hostname === 'seller.shopee.com'
+}
+
 function isShopeeShippingOrderPage() {
   try {
     const url = new URL(location.href)
-    return url.hostname === 'seller.shopee.co.id' && url.pathname === '/portal/sale/order' && url.searchParams.get('type') === 'shipping'
+    return isShopeeSellerHostname(url.hostname) && url.pathname === '/portal/sale/order' && url.searchParams.get('type') === 'shipping'
   } catch {
     return false
   }
+}
+
+function isShopeeWebchatPage() {
+  try {
+    const url = new URL(location.href)
+    if (!isShopeeSellerHostname(url.hostname)) return false
+
+    return url.pathname.startsWith('/new-webchat/') || url.pathname.includes('/chat')
+  } catch {
+    return false
+  }
+}
+
+function isShopeeMiniChatOpen() {
+  return Boolean(document.querySelector('#shopee-chat-content-container') && findSearchInput())
+}
+
+function openShopeeMiniChat() {
+  if (isShopeeMiniChatOpen()) return true
+
+  const selectors = [
+    '[aria-label*="chat" i]',
+    '[title*="chat" i]',
+    '[data-testid*="chat" i]',
+  ]
+  const trigger = selectors
+    .flatMap((selector) => [...document.querySelectorAll(selector)])
+    .find((element) => element instanceof HTMLElement && element.offsetParent !== null)
+
+  const textTrigger = [...document.querySelectorAll('button, [role="button"], a, div')].find((element) => {
+    if (!(element instanceof HTMLElement) || element.offsetParent === null) return false
+    const text = textOf(element).trim()
+    return /^(chat|chat pembeli|webchat)$/i.test(text)
+  })
+
+  const target = trigger || textTrigger
+  if (!target) return false
+
+  target.click()
+  target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+  return true
 }
 
 async function readExtensionConfig() {
@@ -179,6 +224,7 @@ async function readExtensionConfig() {
 async function requestPaktiApi(path, config, init = {}) {
   const response = await fetch(`${config.apiBaseUrl}${path}`, {
     ...init,
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...(config.apiKey ? { 'X-Pakti-Extension-Key': config.apiKey } : {}),
@@ -187,6 +233,13 @@ async function requestPaktiApi(path, config, init = {}) {
   })
   const payload = await response.json().catch(() => null)
   if (!response.ok || !payload?.ok) {
+    if (response.status === 401) {
+      throw new Error(
+        config.apiKey
+          ? 'Autentikasi extension gagal. Periksa Extension API Key di popup dan samakan dengan SHOPEE_EXTENSION_API_KEY di backend.'
+          : 'Sesi Pakti tidak tersedia dari halaman Shopee. Isi Extension API Key di popup extension dengan nilai SHOPEE_EXTENSION_API_KEY di backend.',
+      )
+    }
     throw new Error(payload?.error || `Pakti API gagal: ${response.status}`)
   }
 
@@ -268,25 +321,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     ;(async () => {
       try {
         const job = message.job || {}
-        const input =
-          document.querySelector('input.shopee-react-input__input[placeholder="Cari Semua"]') ||
-          document.querySelector('input[placeholder="Cari Semua"]') ||
-          document.querySelector('input[type="input"][placeholder*="Cari"]') ||
-          document.querySelector('input[type="search"]')
-        if (!input) {
-          throw new Error('Field cari customer Shopee Webchat tidak ditemukan. Pastikan di halaman https://seller.shopee.co.id/new-webchat/conversations.')
-        }
-
-        input.focus()
-        const nativeSetter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), 'value')?.set
-        if (nativeSetter) {
-          nativeSetter.call(input, job.buyerUsername || '')
-        } else {
-          input.value = job.buyerUsername || ''
-        }
-        input.dispatchEvent(new Event('input', { bubbles: true }))
-        input.dispatchEvent(new Event('change', { bubbles: true }))
-        input.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }))
+        const messageText = job.message || ''
+        const sent = await fillWebchatSearchAndAttach({ ...job, message: messageText })
 
         navigator.clipboard?.writeText([
           `Pembeli: ${job.buyerUsername || '-'}`,
@@ -294,92 +330,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           `No. Resi: ${job.resiNumber || '-'}`,
           `Video: ${job.videoUrl || '-'}`,
           '',
-          job.message || '',
+          messageText,
         ].join('\n')).catch(() => undefined)
 
-        // Tunggu hasil pencarian muncul, lalu coba klik conversation yang cocok (tanpa interaksi manual)
-        await new Promise((resolve) => setTimeout(resolve, 1200))
-        const username = (job.buyerUsername || '').trim()
-        let clicked = false
-        if (username) {
-          const lower = username.toLowerCase()
-          // Prioritaskan selector spesifik dari webchat list: span.nFvbiqyLrq
-          const usernameSpans = [...document.querySelectorAll('span.nFvbiqyLrq')]
-          for (const span of usernameSpans) {
-            if (textOf(span).toLowerCase() === lower) {
-              const row = span.closest('div.SW7LUhQFDH') || span.closest('div[class*="SW7LUhQFDH"]') || span.closest('div.uR4DA9zSmz')?.parentElement || span.parentElement?.closest('div')
-              const target = row || span
-              try {
-                target.click()
-                target.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-                clicked = true
-                break
-              } catch {}
-            }
-          }
-          if (!clicked) {
-            const candidates = [
-              ...document.querySelectorAll('[class*="conversation"], [class*="chat-item"], [class*="user-item"], [data-testid*="conversation"], li, a, div'),
-            ]
-            for (const el of candidates) {
-              const t = textOf(el)
-              if (!t) continue
-              if (t === username || t.toLowerCase() === lower || t.includes(username)) {
-                if (t.length > 80) continue
-                const rect = el.getBoundingClientRect()
-                if (rect.width < 20 || rect.height < 20) continue
-                try {
-                  el.click()
-                  el.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-                  clicked = true
-                  break
-                } catch {}
-              }
-            }
-          }
-          if (clicked) {
-            await new Promise((resolve) => setTimeout(resolve, 900))
-          }
-        }
-
-        // Coba auto-attach video jika ada (best-effort, tidak gagalkan flow jika selector belum ketemu)
-        if (job.videoUrl) {
-          try {
-            const stored = await new Promise((resolve) => chrome.storage.sync.get({ apiKey: '' }, resolve))
-            const headers = stored.apiKey ? { 'X-Pakti-Extension-Key': stored.apiKey } : undefined
-            const response = await fetch(job.videoUrl, { credentials: 'include', headers })
-            if (response.ok) {
-              const blob = await response.blob()
-              const fileName = `${(job.orderNumber || job.resiNumber || 'pakti-video').replace(/[^\w-]+/g, '_')}.mp4`
-              const file = new File([blob], fileName, { type: blob.type || 'video/mp4' })
-              let fileInput = document.querySelector('input[accept*="video"]') || document.querySelector('input[type="file"]')
-              if (!fileInput) {
-                const attachBtn = document.querySelector('button[class*="attach"], [aria-label*="attach"], [aria-label*="Lampirkan"]')
-                if (attachBtn) {
-                  attachBtn.click()
-                  await new Promise((resolve) => setTimeout(resolve, 600))
-                  fileInput = document.querySelector('input[accept*="video"]') || document.querySelector('input[type="file"]')
-                }
-              }
-              if (fileInput) {
-                const dt = new DataTransfer()
-                dt.items.add(file)
-                fileInput.files = dt.files
-                fileInput.dispatchEvent(new Event('input', { bubbles: true }))
-                fileInput.dispatchEvent(new Event('change', { bubbles: true }))
-              }
-            } else {
-              console.warn('[Pakti] video fetch status', response.status)
-            }
-          } catch (e) {
-            console.warn('[Pakti] video fetch/attach gagal', e)
-          }
-        }
-        if (job.message) {
-          await sendComposerMessage(job.message)
-        }
-
-        sendResponse({ ok: true, autoClicked: clicked })
+        sendResponse({ ok: true, sent })
       } catch (error) {
         sendResponse({ ok: false, error: error instanceof Error ? error.message : 'Prepare Shopee Webchat gagal.' })
       }
@@ -401,7 +355,10 @@ function clickSendButton() {
     document.querySelector('div.XsR3zIeGOc') ||
     document.querySelector('i.kgP1yPCqxR')?.closest('div') ||
     document.querySelector('svg.chat-icon')?.closest('div') ||
-    document.querySelector('i.kgP1yPCqxR')?.parentElement
+    document.querySelector('i.kgP1yPCqxR')?.parentElement ||
+    document.querySelector('[data-testid*="send" i], [data-testid*="submit" i]') ||
+    document.querySelector('[aria-label*="send" i], [aria-label*="kirim" i], [title*="send" i], [title*="kirim" i]') ||
+    [...document.querySelectorAll('button, [role="button"]')].find((element) => /^(send|kirim|发送)$/i.test(textOf(element)))
   if (sendBtn) {
     sendBtn.click()
     sendBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
@@ -430,7 +387,7 @@ async function sendComposerMessage(message) {
     if (composer) break
     await new Promise((r) => setTimeout(r, 300))
   }
-  if (!composer) return false
+  if (!composer) throw new Error('Composer pesan Shopee Webchat tidak ditemukan.')
 
   composer.focus()
 
@@ -462,7 +419,8 @@ async function sendComposerMessage(message) {
   if (!textAfter) return true
 
   // Cara 2 (fallback): Klik tombol Send
-  return clickSendButton()
+  if (clickSendButton()) return true
+  throw new Error('Tombol kirim Shopee Webchat / Minichat tidak ditemukan.')
 }
 
 function findSearchInput() {
@@ -472,6 +430,7 @@ function findSearchInput() {
     document.querySelector('input.shopee-react-input__input[placeholder="Cari Semua"]') ||
     document.querySelector('input[placeholder="Cari Semua"]') ||
     document.querySelector('input[placeholder="Cari nama"]') ||
+    document.querySelector('input[placeholder*="Cari" i]') ||
     document.querySelector('input[type="input"][placeholder*="Cari"]') ||
     document.querySelector('input[type="search"]')
   )
@@ -479,7 +438,8 @@ function findSearchInput() {
 
 async function fillWebchatSearchAndAttach(job) {
   const input = findSearchInput()
-  if (!input || !job?.buyerUsername) return false
+  if (!input) throw new Error('Kolom pencarian percakapan Shopee Webchat tidak ditemukan.')
+  if (!job?.buyerUsername) throw new Error('Username pembeli tidak tersedia untuk mencari percakapan.')
   input.focus()
   const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), 'value')?.set
   if (setter) setter.call(input, job.buyerUsername)
@@ -490,12 +450,29 @@ async function fillWebchatSearchAndAttach(job) {
   await new Promise((r) => setTimeout(r, 1300))
   const username = job.buyerUsername.trim().toLowerCase()
   let clicked = false
+  const usernameTitles = [...document.querySelectorAll('[title]')]
+  for (const element of usernameTitles) {
+    if (element.getAttribute('title')?.trim().toLowerCase() !== username) continue
+    const row =
+      element.closest('li') ||
+      element.closest('[class*="chat-item"]') ||
+      element.closest('[class*="conversation"]') ||
+      element.closest('div[class*="AxOomp7jNy"]') ||
+      element.parentElement
+    const target = row || element
+    try {
+      target.click()
+      target.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      clicked = true
+      break
+    } catch {}
+  }
   const spans = [
     ...document.querySelectorAll('#sidebar-minichat-list span'),
     ...document.querySelectorAll('span.nFvbiqyLrq'),
     ...document.querySelectorAll('[class*="username"], [class*="name"]'),
   ]
-  for (const span of spans) {
+  for (const span of clicked ? [] : spans) {
     if (textOf(span).toLowerCase() === username) {
       const row =
         span.closest('li') ||
@@ -532,48 +509,54 @@ async function fillWebchatSearchAndAttach(job) {
       }
     }
   }
+  if (!clicked) throw new Error(`Percakapan Shopee untuk ${job.buyerUsername} tidak ditemukan.`)
   if (clicked) await new Promise((r) => setTimeout(r, 900))
   if (job.videoUrl) {
     try {
       const stored = await new Promise((resolve) => chrome.storage.sync.get({ apiKey: '' }, resolve))
       const headers = stored.apiKey ? { 'X-Pakti-Extension-Key': stored.apiKey } : undefined
       const response = await fetch(job.videoUrl, { credentials: 'include', headers })
-      if (response.ok) {
-        const blob = await response.blob()
-        const fileName = `${(job.orderNumber || job.resiNumber || 'pakti-video').replace(/[^\w-]+/g, '_')}.mp4`
-        const file = new File([blob], fileName, { type: blob.type || 'video/mp4' })
-        let fileInput = document.querySelector('input[accept*="video"]') || document.querySelector('input[type="file"]')
-        if (!fileInput) {
-          const attachBtn = document.querySelector('button[class*="attach"], [aria-label*="attach"], [aria-label*="Lampirkan"]')
-          if (attachBtn) {
-            attachBtn.click()
-            await new Promise((r) => setTimeout(r, 600))
-            fileInput = document.querySelector('input[accept*="video"]') || document.querySelector('input[type="file"]')
-          }
-        }
-        if (fileInput) {
-          const dt = new DataTransfer()
-          dt.items.add(file)
-          fileInput.files = dt.files
-          fileInput.dispatchEvent(new Event('input', { bubbles: true }))
-          fileInput.dispatchEvent(new Event('change', { bubbles: true }))
-        }
-      } else {
-        console.warn('[Pakti] video fetch status', response.status)
+      if (!response.ok) {
+        throw new Error(`Video Shopee gagal diunduh (${response.status}).`)
       }
+
+      const blob = await response.blob()
+      const fileName = `${(job.orderNumber || job.resiNumber || 'pakti-video').replace(/[^\w-]+/g, '_')}.mp4`
+      const file = new File([blob], fileName, { type: blob.type || 'video/mp4' })
+      let fileInput = document.querySelector('input[accept*="video"]') || document.querySelector('input[type="file"]')
+      if (!fileInput) {
+        const attachBtn = document.querySelector('button[class*="attach"], [aria-label*="attach"], [aria-label*="Lampirkan"]')
+        if (!attachBtn) {
+          throw new Error('Tombol lampirkan video Shopee tidak ditemukan.')
+        }
+
+        attachBtn.click()
+        await new Promise((r) => setTimeout(r, 600))
+        fileInput = document.querySelector('input[accept*="video"]') || document.querySelector('input[type="file"]')
+      }
+
+      if (!fileInput) {
+        throw new Error('Input file video Shopee tidak ditemukan.')
+      }
+
+      const dt = new DataTransfer()
+      dt.items.add(file)
+      fileInput.files = dt.files
+      fileInput.dispatchEvent(new Event('input', { bubbles: true }))
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }))
     } catch (e) {
-      console.warn('[Pakti] video fetch/attach gagal', e)
+      throw new Error(e instanceof Error ? e.message : 'Video Shopee gagal dipasang.')
     }
   }
   let sent = false
   if (job.message) {
     sent = await sendComposerMessage(job.message)
   }
-  return sent || clicked
+  return job.message ? sent : clicked
 }
 
 // Jalankan otomatis di background pada semua halaman seller Shopee (via minichat sidebar atau webchat)
-if (/seller\.shopee\.co\.id/.test(location.href)) {
+if (/seller\.shopee\.(co\.id|com)/.test(location.href)) {
   let lastAutoJobId = sessionStorage.getItem('pakti:autoChatJobId') || ''
   let autoRunBusy = false
 
@@ -608,13 +591,11 @@ if (/seller\.shopee\.co\.id/.test(location.href)) {
 
     try {
       const sent = await fillWebchatSearchAndAttach({ ...job, message: job.message })
-      await requestPaktiApi(`/api/shopee/shipping-chat/${encodeURIComponent(job.id)}/prepared`, config, { method: 'POST' })
-      await new Promise((r) => setTimeout(r, 2200))
       if (!sent) {
         throw new Error('Tombol kirim Shopee Webchat / Minichat tidak ditemukan.')
       }
+      await requestPaktiApi(`/api/shopee/shipping-chat/${encodeURIComponent(job.id)}/prepared`, config, { method: 'POST' })
       await requestPaktiApi(`/api/shopee/shipping-chat/${encodeURIComponent(job.id)}/sent`, config, { method: 'POST' })
-      await new Promise((r) => setTimeout(r, 9000))
       
       // Bersihkan pencarian untuk job berikutnya
       clearSearchInput()
@@ -637,14 +618,25 @@ if (/seller\.shopee\.co\.id/.test(location.href)) {
       const stored = await readExtensionConfig()
       const base = stored.apiBaseUrl
       const res = await fetch(`${base}/api/chat-sends/pending`, {
+        credentials: 'include',
         headers: stored.apiKey ? { 'X-Pakti-Extension-Key': stored.apiKey } : undefined,
       })
       const payload = await res.json().catch(() => null)
-      if (!payload?.ok || !Array.isArray(payload.data) || payload.data.length === 0) {
+      const chatJob = payload?.ok && Array.isArray(payload.data) ? payload.data[0] : null
+      const shippingJob = chatJob ? null : await requestPaktiApi('/api/shopee/shipping-chat/next', stored)
+      if (!chatJob && !shippingJob) return
+
+      // Only open the sidebar after confirming that a job is waiting.
+      if (!isShopeeWebchatPage() && !isShopeeMiniChatOpen()) {
+        openShopeeMiniChat()
+        return
+      }
+
+      if (!chatJob) {
         await autoRunShippingChat(stored)
         return
       }
-      const job = payload.data[0]
+      const job = chatJob
       if (!job || job.id === lastAutoJobId) return
       const input = findSearchInput()
       // Hanya skip jika input sedang di-focus (user sedang mengetik manual)
@@ -653,21 +645,29 @@ if (/seller\.shopee\.co\.id/.test(location.href)) {
       lastAutoJobId = job.id
       sessionStorage.setItem('pakti:autoChatJobId', job.id)
       const message = job.messageTemplate || `Halo kak ${job.buyerUsername || ''}, berikut video dokumentasi paket untuk pesanan ${job.orderNumber || '-'} resi ${job.resiNumber}.`
-      await fillWebchatSearchAndAttach({ ...job, message })
+      const sent = await fillWebchatSearchAndAttach({ ...job, message })
+      if (!sent) {
+        throw new Error('Tombol kirim Shopee Webchat / Minichat tidak ditemukan.')
+      }
       await fetch(`${base}/api/chat-sends/${encodeURIComponent(job.id)}/prepared`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json', ...(stored.apiKey ? { 'X-Pakti-Extension-Key': stored.apiKey } : {}) },
       }).catch(() => undefined)
-      // Tandai sent otomatis setelah auto-kirim, tidak perlu klik Mark manual
-      await new Promise((r) => setTimeout(r, 2200))
-      await fetch(`${base}/api/chat-sends/${encodeURIComponent(job.id)}/sent`, {
+      const sentResponse = await fetch(`${base}/api/chat-sends/${encodeURIComponent(job.id)}/sent`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json', ...(stored.apiKey ? { 'X-Pakti-Extension-Key': stored.apiKey } : {}) },
-      }).catch(() => undefined)
+      })
+      if (!sentResponse.ok) {
+        throw new Error(`Gagal menandai chat terkirim (${sentResponse.status}).`)
+      }
 
       // Bersihkan pencarian untuk job berikutnya
       clearSearchInput()
-    } catch {}
+    } catch (error) {
+      console.warn('[Pakti] autoRunPending gagal', error)
+    }
     finally {
       autoRunBusy = false
     }
@@ -677,7 +677,13 @@ if (/seller\.shopee\.co\.id/.test(location.href)) {
 }
 
 if (isShopeeShippingOrderPage()) {
-  setTimeout(() => prepareVisibleShippingChats().catch((error) => console.warn('[Pakti] shipping scan gagal', error)), 2500)
-  setInterval(() => prepareVisibleShippingChats().catch((error) => console.warn('[Pakti] shipping scan gagal', error)), 15000)
+  let lastShippingScanError = ''
+  const scanShippingChats = () => prepareVisibleShippingChats().catch((error) => {
+    const message = error instanceof Error ? error.message : 'Shipping scan gagal.'
+    if (message === lastShippingScanError) return
+    lastShippingScanError = message
+    console.warn('[Pakti] shipping scan gagal', error)
+  })
+  setTimeout(scanShippingChats, 2500)
+  setInterval(scanShippingChats, 15000)
 }
-
