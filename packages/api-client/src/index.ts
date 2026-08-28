@@ -515,6 +515,12 @@ export function markShopeeChatSendFailedApi(id: string, error: string, extension
   })
 }
 
+export function retryShopeeChatSendApi(id: string) {
+  return requestApi<RecordingChatSend>(`/api/chat-sends/${encodeURIComponent(id)}/retry`, {
+    method: 'POST',
+  })
+}
+
 export function deleteServerRecordingApi(recordingId: string) {
   return requestApi<{ deleted: boolean }>(`/api/recordings/${encodeURIComponent(recordingId)}`, {
     method: 'DELETE',

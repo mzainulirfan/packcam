@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
-import { readRecentShopeeChatSendsApi, readRecentShopeeOrdersApi, readServerAdminStatusApi, readRecentShippingChatSendsApi, retryShippingChatSendApi } from '@pakti/api-client'
+import { readRecentShopeeChatSendsApi, readRecentShopeeOrdersApi, readServerAdminStatusApi, readRecentShippingChatSendsApi, retryShopeeChatSendApi, retryShippingChatSendApi } from '@pakti/api-client'
 import type { ChatSendStatus, RecordingChatSend, ShopeeOrder, ShippingChatSend } from '@pakti/types'
 
 type AdminStatus = Awaited<ReturnType<typeof readServerAdminStatusApi>>
@@ -151,6 +151,21 @@ export function AdminPage() {
     }
   }
 
+  async function handleRetryVideoChat(id: string) {
+    if (retryingId) return
+    setRetryingId(id)
+    try {
+      await retryShopeeChatSendApi(id)
+      const sends = await readRecentShopeeChatSendsApi(50)
+      setRecentChatSends(sends)
+    } catch (err) {
+      console.error('Retry failed', err)
+      alert(err instanceof Error ? err.message : 'Gagal me-retry video chat.')
+    } finally {
+      setRetryingId(null)
+    }
+  }
+
   return (
     <div className="admin-opencode grid w-full gap-5 px-0 py-1">
       <section className="admin-opencode__summary flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -206,7 +221,7 @@ export function AdminPage() {
             <StatusFilter id="chat-send-status-filter" value={chatSendFilter} counts={chatSendCounts} total={recentChatSends.length} onChange={setChatSendFilter} />
           </CardHeader>
           <CardContent className="pt-4">
-            <ChatSendTable jobs={filteredChatSends} emptyText="[-] Tidak ada job video chat dengan kriteria ini." />
+            <ChatSendTable jobs={filteredChatSends} retryingId={retryingId} onRetry={handleRetryVideoChat} emptyText="[-] Tidak ada job video chat dengan kriteria ini." />
           </CardContent>
         </Card>
 
@@ -301,7 +316,17 @@ function StatusFilter({
   )
 }
 
-function ChatSendTable({ jobs, emptyText }: { jobs: RecordingChatSend[]; emptyText: string }) {
+function ChatSendTable({
+  jobs,
+  retryingId,
+  onRetry,
+  emptyText,
+}: {
+  jobs: RecordingChatSend[]
+  retryingId: string | null
+  onRetry: (id: string) => Promise<void>
+  emptyText: string
+}) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[760px] border-collapse text-left text-sm">
@@ -312,6 +337,7 @@ function ChatSendTable({ jobs, emptyText }: { jobs: RecordingChatSend[]; emptyTe
             <th className="px-3 py-2">Status</th>
             <th className="px-3 py-2">Attempts</th>
             <th className="px-3 py-2">Catatan</th>
+            <th className="px-3 py-2 text-right">Aksi</th>
           </tr>
         </thead>
         <tbody>
@@ -325,11 +351,18 @@ function ChatSendTable({ jobs, emptyText }: { jobs: RecordingChatSend[]; emptyTe
               <td className="px-3 py-3"><StatusBadge status={job.status} /></td>
               <td className="px-3 py-3">{job.attempts} / 3</td>
               <td className="px-3 py-3 text-muted-foreground">{job.errorMessage ?? job.videoFilePath}</td>
+              <td className="px-3 py-3 text-right">
+                {job.status === 'failed' || job.status === 'cancelled' ? (
+                  <Button type="button" variant="outline" size="sm" disabled={retryingId === job.id} onClick={() => void onRetry(job.id)}>
+                    {retryingId === job.id ? '[mengantre]' : '[retry]'}
+                  </Button>
+                ) : null}
+              </td>
             </tr>
           ))}
           {jobs.length === 0 ? (
             <tr>
-              <td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">{emptyText}</td>
+              <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">{emptyText}</td>
             </tr>
           ) : null}
         </tbody>

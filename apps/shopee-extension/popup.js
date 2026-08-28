@@ -5,10 +5,12 @@ const apiKeyInput = document.querySelector('#apiKey')
 const saveButton = document.querySelector('#saveButton')
 const syncButton = document.querySelector('#syncButton')
 const prepareShippingChatsButton = document.querySelector('#prepareShippingChatsButton')
+const autoPrepareButton = document.querySelector('#autoPrepareButton')
 const loadChatJobsButton = document.querySelector('#loadChatJobsButton')
 const chatJobSelect = document.querySelector('#chatJobSelect')
 const prepareChatButton = document.querySelector('#prepareChatButton')
 const markSentButton = document.querySelector('#markSentButton')
+const pageModeText = document.querySelector('#pageModeText')
 const statusText = document.querySelector('#statusText')
 let lastPreparedChatJob = null
 let pendingChatJobs = []
@@ -34,9 +36,10 @@ function isShopeeSellerHostname(hostname) {
   return hostname === 'seller.shopee.co.id' || hostname === 'seller.shopee.com'
 }
 
-function isShopeeSellerUrl(value) {
+function isShopeeWebchatUrl(value) {
   try {
-    return isShopeeSellerHostname(new URL(value || '').hostname)
+    const url = new URL(value || '')
+    return isShopeeSellerHostname(url.hostname) && url.pathname.startsWith('/new-webchat/')
   } catch {
     return false
   }
@@ -53,6 +56,18 @@ function getShopeeWebchatUrl(value) {
   }
 
   return 'https://seller.shopee.co.id/new-webchat/conversations'
+}
+
+function getPageMode(value) {
+  if (isShopeeWebchatUrl(value)) return '[x] webchat worker'
+  if (isShopeeShippingOrderUrl(value)) return '[x] order sync'
+  try {
+    const url = new URL(value || '')
+    if (isShopeeSellerHostname(url.hostname)) return '[~] seller page'
+  } catch {
+    // ignore
+  }
+  return '[!] unsupported'
 }
 
 function isMissingContentScriptError(error) {
@@ -256,9 +271,9 @@ async function prepareShippingChats() {
     }
 
     setStatus({
-      status: `Total ${activeOrders.length} pesanan aktif dalam antrean chat.`,
+      status: `Order tersync. Total ${activeOrders.length} pesanan aktif dalam antrean chat.`,
       pesanan: activeOrders,
-      next: 'Antrean akan diproses otomatis saat Shopee Webchat terbuka.',
+      next: 'Antrean video dan shipping chat akan diproses otomatis saat Shopee Webchat terbuka.',
     })
   } catch (error) {
     setStatus(error instanceof Error ? error.message : 'Gagal menyiapkan shipping chat.')
@@ -320,6 +335,33 @@ async function loadPendingChatJobs() {
   }
 }
 
+async function autoPrepareReadyVideoChats() {
+  autoPrepareButton.disabled = true
+  try {
+    const config = await saveConfig()
+    setStatus('Menyiapkan job video chat dari recording packing hari ini...')
+    const result = await requestApi('/api/chat-sends/auto-prepare-ready', config, {
+      method: 'POST',
+      body: JSON.stringify({ limit: 5, taskType: 'packing' }),
+    })
+    const jobs = await requestApi('/api/chat-sends/pending', config)
+    renderChatJobs(jobs)
+    setStatus({
+      autoPrepare: {
+        created: result?.created?.length || 0,
+        skipped: result?.skipped?.length || 0,
+        failed: result?.failed?.length || 0,
+      },
+      pendingCount: jobs.length,
+      next: 'Biarkan tab Shopee Webchat terbuka untuk mengirim antrean otomatis.',
+    })
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : 'Auto prepare video chat gagal.')
+  } finally {
+    autoPrepareButton.disabled = false
+  }
+}
+
 async function prepareShopeeChat() {
   prepareChatButton.disabled = true
   try {
@@ -335,7 +377,7 @@ async function prepareShopeeChat() {
     }
 
     const tab = await getActiveTab()
-    if (!isShopeeSellerUrl(tab.url)) {
+    if (!isShopeeWebchatUrl(tab.url)) {
       const existing = await chrome.tabs.query({
         url: [
           'https://seller.shopee.co.id/new-webchat/conversations*',
@@ -345,10 +387,10 @@ async function prepareShopeeChat() {
       if (existing[0]?.id) {
         await chrome.tabs.update(existing[0].id, { active: true })
         if (existing[0].windowId) await chrome.windows.update(existing[0].windowId, { focused: true })
-        setStatus('Pakai tab Shopee Webchat yang sudah ada. Klik Prepare Shopee Chat lagi di tab tersebut.')
+        setStatus('Pakai tab Shopee Webchat yang sudah ada. Klik Prepare Shopee Chat lagi dari tab Webchat tersebut.')
       } else {
         await chrome.tabs.create({ url: getShopeeWebchatUrl(tab.url) })
-        setStatus('Shopee Webchat dibuka. Setelah halaman siap, klik Prepare Shopee Chat lagi.')
+        setStatus('Shopee Webchat dibuka. Setelah halaman siap, klik Prepare Shopee Chat lagi dari tab Webchat. Sidebar/minichat tidak dipakai.')
       }
       return
     }
@@ -424,9 +466,16 @@ async function markLastChatSent() {
   }
 }
 
-readConfig().then((config) => {
+readConfig().then(async (config) => {
   apiBaseUrlInput.value = config.apiBaseUrl
   apiKeyInput.value = config.apiKey
+  getActiveTab()
+    .then((tab) => {
+      pageModeText.textContent = getPageMode(tab.url)
+    })
+    .catch(() => {
+      pageModeText.textContent = '[!] no active tab'
+    })
   // Auto-load pending jobs agar user tidak perlu klik Load lagi setelah dari Pakti web
   void loadPendingChatJobs().catch(() => undefined)
 })
@@ -434,6 +483,7 @@ readConfig().then((config) => {
 saveButton.addEventListener('click', saveConfig)
 syncButton.addEventListener('click', syncOrders)
 prepareShippingChatsButton.addEventListener('click', prepareShippingChats)
+autoPrepareButton.addEventListener('click', autoPrepareReadyVideoChats)
 loadChatJobsButton.addEventListener('click', loadPendingChatJobs)
 prepareChatButton.addEventListener('click', prepareShopeeChat)
 markSentButton.addEventListener('click', markLastChatSent)

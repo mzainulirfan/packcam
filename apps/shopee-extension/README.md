@@ -31,8 +31,33 @@ Extractor saat ini memakai heuristic DOM umum. Mapping final perlu disesuaikan s
 3. Klik extension lalu klik `Load Pending Chats`.
 4. Pilih job yang ingin diproses.
 5. Klik `Prepare Shopee Chat`.
-6. Extension akan mengisi field `Cari Semua` dengan username pembeli dan menyalin detail job ke clipboard.
-7. Operator tetap memilih chat yang benar, attach video dari URL, dan kirim manual.
-8. Setelah terkirim, klik `Mark Last Chat Sent`.
+6. Extension akan mencari pembeli di tab Webchat, melampirkan video jika tersedia, mengirim pesan, dan menandai job sebagai `sent`.
 
-Auto-attach dan auto-send belum diaktifkan sampai selector upload Webchat dan batas ukuran video Shopee tervalidasi.
+Pengiriman chat hanya berjalan di tab Shopee Webchat (`/new-webchat/conversations`). Sidebar/minichat Seller Center tidak dipakai.
+
+## Shipping Chat
+
+1. Buka halaman `https://seller.shopee.co.id/portal/sale/order?type=shipping`.
+2. Extension otomatis sync order yang terlihat dan menyiapkan antrean shipping chat saat halaman terbuka.
+3. Jika perlu menjalankan manual, klik extension lalu klik `Prepare Shipping Chats`.
+4. Buka `https://seller.shopee.co.id/new-webchat/conversations`.
+5. Biarkan tab Webchat terbuka. Extension akan memproses antrean shipping chat dari tab ini.
+
+## Auto Video Chat
+
+1. Pastikan order Shopee sudah tersync dari halaman shipping.
+2. Biarkan tab `https://seller.shopee.co.id/new-webchat/conversations` terbuka.
+3. Extension otomatis meminta backend menyiapkan job video untuk recording `packing` hari ini yang sudah selesai dan punya order Shopee.
+4. Extension mengirim video chat dari tab Webchat dan menandai job sebagai `sent`.
+5. Jika buyer tidak ditemukan di Webchat, job ditandai `cancelled` agar antrean lanjut.
+
+Popup menampilkan mode tab aktif:
+
+- `[x] order sync`: halaman order shipping, extension dapat sync order dan prepare shipping queue.
+- `[x] webchat worker`: halaman Webchat, extension dapat auto-prepare dan mengirim antrean chat.
+- `[~] seller page`: halaman Seller Center lain, bukan halaman utama automation.
+- `[!] unsupported`: tab bukan Shopee Seller.
+
+Tombol `[auto-prepare-video]` dapat dipakai untuk memaksa backend mengecek recording `packing` hari ini dan membuat job video chat tanpa membuka detail rekaman satu per satu.
+
+Job `failed` atau `cancelled` bisa dipantau dan di-retry manual dari Admin Console Pakti. Job `sent` tidak akan di-reset oleh auto-prepare maupun retry otomatis.

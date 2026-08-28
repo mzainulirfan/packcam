@@ -8,7 +8,7 @@ import multer from 'multer'
 import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
 import type { AppSettings, ShopeeOrder } from '@pakti/types'
 
-import { clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deleteRecording, deleteSessionById, finalizeRecording, getBootstrapStatus, getHealthSnapshot, getNextPendingShippingChatSend, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPendingChatSends, listRecentChatSends, listRecentShippingChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, prepareRecordingChatSend, prepareRecordingShareFile, prepareShippingChatSends, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, retryShippingChatSend, saveSettings, saveSystemConfig, updateChatSendStatus, updateSessionTaskType, updateShippingChatSendStatus, upsertOperatorProfile } from './store'
+import { clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deleteRecording, deleteSessionById, finalizeRecording, getBootstrapStatus, getHealthSnapshot, getNextPendingShippingChatSend, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPendingChatSends, listRecentChatSends, listRecentShippingChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, prepareReadyRecordingChatSendsForToday, prepareRecordingChatSend, prepareRecordingShareFile, prepareShippingChatSends, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, retryChatSend, retryShippingChatSend, saveSettings, saveSystemConfig, updateChatSendStatus, updateSessionTaskType, updateShippingChatSendStatus, upsertOperatorProfile } from './store'
 import type { ShippingChatOrderInput } from './store/shippingChatSendStore'
 import { clearSessionCookie, getCookie, normalizeRole, readStringField, sendError, sendOk, setSessionCookie } from './http'
 import type { HttpSession } from './http'
@@ -942,6 +942,27 @@ app.post('/api/recordings/:id/chat-send/prepare', async (req, res) => {
   }
 })
 
+app.post('/api/chat-sends/auto-prepare-ready', requireSessionOrExtensionKey, async (req, res) => {
+  try {
+    const rawLimit = Number(req.body?.limit ?? 5)
+    const result = await prepareReadyRecordingChatSendsForToday({
+      limit: Number.isFinite(rawLimit) ? rawLimit : 5,
+      taskType: req.body?.taskType === 'qc' ? 'qc' : 'packing',
+      prepareShareFile: prepareRecordingShareFile,
+    })
+
+    return sendOk(res, {
+      ...result,
+      created: result.created.map((job) => ({
+        ...job,
+        videoUrl: `${getPublicApiBaseUrl(req)}/files/${job.videoFilePath}`,
+      })),
+    })
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal menyiapkan chat video otomatis.')
+  }
+})
+
 app.get('/api/chat-sends/pending', requireSessionOrExtensionKey, (req, res) => {
   sendOk(res, listPendingChatSends(getPublicApiBaseUrl(req)))
 })
@@ -996,6 +1017,15 @@ app.post('/api/chat-sends/:id/cancelled', requireSessionOrExtensionKey, (req, re
     return sendOk(res, updateChatSendStatus(params.id ?? '', 'cancelled', typeof req.body?.error === 'string' ? req.body.error : null))
   } catch (error) {
     return sendError(res, 400, error instanceof Error ? error.message : 'Gagal melewati chat.')
+  }
+})
+
+app.post('/api/chat-sends/:id/retry', requireSession, (req, res) => {
+  try {
+    const params = req.params as Record<string, string | undefined>
+    return sendOk(res, retryChatSend(params.id ?? ''))
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal me-retry chat video.')
   }
 })
 

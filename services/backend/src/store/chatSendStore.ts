@@ -36,6 +36,21 @@ type OrderForChatSend = {
   buyer_username: string | null
 }
 
+type AutoPrepareRecordingCandidate = {
+  id: string
+  resi_number: string
+  task_type: 'qc' | 'packing'
+  order_id: string | null
+  buyer_username: string | null
+  chat_status: ChatSendStatus | null
+}
+
+export type AutoPrepareRecordingChatSendsResult = {
+  created: RecordingChatSend[]
+  skipped: Array<{ recordingId: string; resiNumber: string; reason: string }>
+  failed: Array<{ recordingId: string; resiNumber: string; error: string }>
+}
+
 function db() {
   ensureServerStorage()
   return getDb()
@@ -53,6 +68,14 @@ const MAX_FAILED_ATTEMPTS = 3
 
 function normalizeOptionalString(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+function getLocalTodayDateString() {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function mapChatSend(row: ChatSendRow, apiBaseUrl = ''): RecordingChatSend {
@@ -192,6 +215,70 @@ export function prepareRecordingChatSend(input: {
   return mapChatSend(row)
 }
 
+export async function prepareReadyRecordingChatSendsForToday(input: {
+  limit?: number
+  taskType?: 'qc' | 'packing'
+  prepareShareFile: (recordingId: string) => Promise<{ filePath: string }>
+}) {
+  const limit = Math.min(20, Math.max(1, Math.floor(input.limit ?? 5)))
+  const taskType = input.taskType === 'qc' ? 'qc' : 'packing'
+  const today = getLocalTodayDateString()
+  const scanLimit = limit * 5
+  const candidates = db()
+    .prepare(
+      `SELECT r.id, r.resi_number, r.task_type,
+              o.id AS order_id,
+              o.buyer_username,
+              cs.status AS chat_status
+       FROM recordings r
+       LEFT JOIN orders o
+         ON o.source = 'shopee'
+        AND lower(o.tracking_number) = lower(r.resi_number)
+       LEFT JOIN recording_chat_sends cs
+         ON cs.recording_id = r.id
+       WHERE r.status = 'completed'
+         AND r.task_type = ?
+         AND r.record_date = ?
+       ORDER BY r.updated_at ASC
+       LIMIT ?`,
+    )
+    .all(taskType, today, scanLimit) as AutoPrepareRecordingCandidate[]
+
+  const result: AutoPrepareRecordingChatSendsResult = { created: [], skipped: [], failed: [] }
+
+  for (const recording of candidates) {
+    if (result.created.length >= limit) break
+
+    if (!recording.order_id) {
+      result.skipped.push({ recordingId: recording.id, resiNumber: recording.resi_number, reason: 'Order Shopee untuk resi ini belum ada.' })
+      continue
+    }
+
+    if (!normalizeOptionalString(recording.buyer_username)) {
+      result.skipped.push({ recordingId: recording.id, resiNumber: recording.resi_number, reason: 'Order Shopee belum punya username pembeli.' })
+      continue
+    }
+
+    if (recording.chat_status) {
+      result.skipped.push({ recordingId: recording.id, resiNumber: recording.resi_number, reason: `Job chat sudah ${recording.chat_status}.` })
+      continue
+    }
+
+    try {
+      const shareFile = await input.prepareShareFile(recording.id)
+      result.created.push(prepareRecordingChatSend({ recordingId: recording.id, videoFilePath: shareFile.filePath }))
+    } catch (error) {
+      result.failed.push({
+        recordingId: recording.id,
+        resiNumber: recording.resi_number,
+        error: error instanceof Error ? error.message : 'Gagal menyiapkan chat video otomatis.',
+      })
+    }
+  }
+
+  return result
+}
+
 export function listPendingChatSends(apiBaseUrl = '') {
   const rows = db()
     .prepare(
@@ -269,6 +356,36 @@ export function updateChatSendStatus(id: string, status: Exclude<ChatSendStatus,
     timestamp,
     id,
   )
+
+  const updated = getChatSendRow(id)
+  if (!updated) {
+    throw new Error('Job kirim chat tidak ditemukan.')
+  }
+
+  broadcastBackendEvent('chat-sends-updated', { id: updated.id, status: updated.status })
+  return mapChatSend(updated)
+}
+
+export function retryChatSend(id: string) {
+  const row = getChatSendRow(id)
+  if (!row) {
+    throw new Error('Job kirim chat tidak ditemukan.')
+  }
+  if (row.status !== 'failed' && row.status !== 'cancelled') {
+    throw new Error('Hanya job chat failed/cancelled yang bisa di-retry.')
+  }
+
+  const timestamp = nowIso()
+  db().prepare(
+    `UPDATE recording_chat_sends
+     SET status = 'pending',
+         attempts = 0,
+         error_message = NULL,
+         prepared_at = NULL,
+         sent_at = NULL,
+         updated_at = ?
+     WHERE id = ?`,
+  ).run(timestamp, id)
 
   const updated = getChatSendRow(id)
   if (!updated) {

@@ -177,40 +177,10 @@ function isShopeeWebchatPage() {
     const url = new URL(location.href)
     if (!isShopeeSellerHostname(url.hostname)) return false
 
-    return url.pathname.startsWith('/new-webchat/') || url.pathname.includes('/chat')
+    return url.pathname.startsWith('/new-webchat/')
   } catch {
     return false
   }
-}
-
-function isShopeeMiniChatOpen() {
-  return Boolean(document.querySelector('#shopee-chat-content-container') && findSearchInput())
-}
-
-function openShopeeMiniChat() {
-  if (isShopeeMiniChatOpen()) return true
-
-  const selectors = [
-    '[aria-label*="chat" i]',
-    '[title*="chat" i]',
-    '[data-testid*="chat" i]',
-  ]
-  const trigger = selectors
-    .flatMap((selector) => [...document.querySelectorAll(selector)])
-    .find((element) => element instanceof HTMLElement && element.offsetParent !== null)
-
-  const textTrigger = [...document.querySelectorAll('button, [role="button"], a, div')].find((element) => {
-    if (!(element instanceof HTMLElement) || element.offsetParent === null) return false
-    const text = textOf(element).trim()
-    return /^(chat|chat pembeli|webchat)$/i.test(text)
-  })
-
-  const target = trigger || textTrigger
-  if (!target) return false
-
-  target.click()
-  target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
-  return true
 }
 
 async function readExtensionConfig() {
@@ -259,16 +229,20 @@ async function prepareVisibleShippingChats() {
     }))
   if (orderInputs.length === 0) return
 
-  const signature = orderInputs.map((o) => o.orderNumber).join('|')
+  const signature = orderInputs.map((o) => [o.orderNumber, o.trackingNumber || '', o.buyerUsername || ''].join(':')).join('|')
   if (sessionStorage.getItem('pakti:lastShippingScan') === signature) return
 
   const config = await readExtensionConfig()
+  await requestPaktiApi('/api/import/shopee/orders', config, {
+    method: 'POST',
+    body: JSON.stringify({ orders }),
+  })
   const result = await requestPaktiApi('/api/shopee/shipping-chat/prepare', config, {
     method: 'POST',
     body: JSON.stringify({ orders: orderInputs }),
   })
   sessionStorage.setItem('pakti:lastShippingScan', signature)
-  console.info('[Pakti] shipping chat queue prepared', result)
+  console.info('[Pakti] shipping orders synced and chat queue prepared', result)
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -303,11 +277,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         }
 
         const config = await readExtensionConfig()
+        await requestPaktiApi('/api/import/shopee/orders', config, {
+          method: 'POST',
+          body: JSON.stringify({ orders }),
+        })
         const result = await requestPaktiApi('/api/shopee/shipping-chat/prepare', config, {
           method: 'POST',
           body: JSON.stringify({ orders: orderInputs }),
         })
-        sessionStorage.setItem('pakti:lastShippingScan', orderInputs.map((o) => o.orderNumber).join('|'))
+        sessionStorage.setItem('pakti:lastShippingScan', orderInputs.map((o) => [o.orderNumber, o.trackingNumber || '', o.buyerUsername || ''].join(':')).join('|'))
         sendResponse({ ok: true, data: { ...result, visibleOrderCount: orderInputs.length } })
       } catch (error) {
         sendResponse({ ok: false, error: error instanceof Error ? error.message : 'Gagal menyiapkan shipping chat.' })
@@ -419,16 +397,15 @@ async function sendComposerMessage(message) {
     const textAfterClick = composer.isContentEditable ? composer.textContent?.trim() : composer.value?.trim()
     if (!textAfterClick) return true
   }
-  throw new Error('Tombol kirim Shopee Webchat / Minichat tidak ditemukan.')
+  throw new Error('Tombol kirim Shopee Webchat tidak ditemukan.')
 }
 
 function findSearchInput() {
+  if (!isShopeeWebchatPage()) return null
+
   return (
-    document.querySelector('#sidebar-minichat-list input[placeholder="Cari nama"]') ||
-    document.querySelector('#sidebar-minichat-list input.shopee-react-input__input') ||
     document.querySelector('input.shopee-react-input__input[placeholder="Cari Semua"]') ||
     document.querySelector('input[placeholder="Cari Semua"]') ||
-    document.querySelector('input[placeholder="Cari nama"]') ||
     document.querySelector('input[placeholder*="Cari" i]') ||
     document.querySelector('input[type="input"][placeholder*="Cari"]') ||
     document.querySelector('input[type="search"]')
@@ -436,6 +413,8 @@ function findSearchInput() {
 }
 
 function findComposerInput() {
+  if (!isShopeeWebchatPage()) return null
+
   return (
     document.querySelector('textarea.E2MWg3w8y6') ||
     document.querySelector('textarea[placeholder*="Tulis" i]') ||
@@ -447,13 +426,17 @@ function findComposerInput() {
   )
 }
 
+function normalizeText(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase()
+}
+
 function findConversationTarget(username) {
+  if (!isShopeeWebchatPage()) return null
+
   const normalizedUsername = username.trim().toLowerCase()
   const candidates = [
     ...document.querySelectorAll(
-      '#sidebar-minichat-list li, #sidebar-minichat-list [role="option"], #sidebar-minichat-list [role="listitem"], ' +
-        '#sidebar-minichat-list div, #sidebar-minichat-list a, ' +
-        '[data-testid*="conversation" i], [data-testid*="chat" i], [class*="conversation"], [class*="chat-item"], ' +
+      '[data-testid*="conversation" i], [data-testid*="chat" i], [class*="conversation"], [class*="chat-item"], ' +
         '[class*="user-item"], [class*="SW7LUhQFDH"], [class*="AxOomp7jNy"], [role="option"], [role="listitem"], li, a, button',
     ),
   ]
@@ -466,6 +449,27 @@ function findConversationTarget(username) {
     const rect = candidate.getBoundingClientRect()
     if (rect.width < 20 || rect.height < 20) continue
     return candidate
+  }
+
+  return null
+}
+
+function findActiveConversationHeader(username) {
+  if (!isShopeeWebchatPage()) return null
+
+  const normalizedUsername = normalizeText(username)
+  const candidates = [
+    ...document.querySelectorAll(
+      '[data-testid*="header" i], [class*="header"], [class*="conversation-title"], [class*="chat-title"], h1, h2, h3, [role="heading"]',
+    ),
+  ]
+
+  for (const candidate of candidates) {
+    if (!(candidate instanceof HTMLElement) || candidate.offsetParent === null) continue
+    const candidateText = normalizeText(candidate.textContent)
+    if (candidateText && candidateText.length <= 180 && candidateText.includes(normalizedUsername)) {
+      return candidate
+    }
   }
 
   return null
@@ -505,6 +509,15 @@ async function waitForComposerReady(timeoutMs = 8000) {
   return composer
 }
 
+async function waitForActiveConversation(username) {
+  const header = await waitForCondition(() => findActiveConversationHeader(username), 5000, 250)
+  if (!header) {
+    throw new Error(`Percakapan Shopee untuk ${username} belum aktif setelah dipilih.`)
+  }
+
+  return header
+}
+
 async function fillWebchatSearchAndAttach(job) {
   const input = findSearchInput()
   if (!input) throw new Error('Kolom pencarian percakapan Shopee Webchat tidak ditemukan.')
@@ -528,6 +541,7 @@ async function fillWebchatSearchAndAttach(job) {
   if (clicked) {
     await new Promise((r) => setTimeout(r, 1500))
   }
+  await waitForActiveConversation(job.buyerUsername)
   await waitForComposerReady(10000)
   if (job.videoUrl) {
     try {
@@ -572,6 +586,14 @@ async function fillWebchatSearchAndAttach(job) {
       fileInput.files = dt.files
       fileInput.dispatchEvent(new Event('input', { bubbles: true }))
       fileInput.dispatchEvent(new Event('change', { bubbles: true }))
+      const attached = await waitForCondition(
+        () => fileInput.files?.length > 0 && fileInput.files[0]?.name === fileName,
+        3000,
+        150,
+      )
+      if (!attached) {
+        throw new Error('Video Shopee belum terpasang ke input file.')
+      }
     } catch (e) {
       throw new Error(e instanceof Error ? e.message : 'Video Shopee gagal dipasang.')
     }
@@ -583,8 +605,8 @@ async function fillWebchatSearchAndAttach(job) {
   return Boolean(sent || clicked)
 }
 
-// Jalankan otomatis di background pada semua halaman seller Shopee (via minichat sidebar atau webchat)
-if (/seller\.shopee\.(co\.id|com)/.test(location.href)) {
+// Kirim chat otomatis hanya dari tab Shopee Webchat, bukan sidebar/minichat Seller Center.
+if (isShopeeWebchatPage()) {
   let lastAutoJobId = ''
   let autoRunBusy = false
   let autoRunStartTimer = null
@@ -642,7 +664,7 @@ if (/seller\.shopee\.(co\.id|com)/.test(location.href)) {
     try {
       const sent = await fillWebchatSearchAndAttach({ ...job, message: job.message })
       if (!sent) {
-        throw new Error('Tombol kirim Shopee Webchat / Minichat tidak ditemukan.')
+        throw new Error('Tombol kirim Shopee Webchat tidak ditemukan.')
       }
       await requestPaktiApi(`/api/shopee/shipping-chat/${encodeURIComponent(job.id)}/prepared`, config, { method: 'POST' })
       await requestPaktiApi(`/api/shopee/shipping-chat/${encodeURIComponent(job.id)}/sent`, config, { method: 'POST' })
@@ -667,12 +689,31 @@ if (/seller\.shopee\.(co\.id|com)/.test(location.href)) {
     }
   }
 
+  async function autoPrepareReadyVideoChats(config) {
+    const result = await requestPaktiApi('/api/chat-sends/auto-prepare-ready', config, {
+      method: 'POST',
+      body: JSON.stringify({ limit: 5, taskType: 'packing' }),
+    }).catch((error) => {
+      if (isExtensionContextInvalidated(error)) throw error
+      console.warn('[Pakti] auto prepare video chat gagal', error)
+      return null
+    })
+    if (result) {
+      console.info('[Pakti] auto prepare video chat', {
+        created: result.created?.length || 0,
+        skipped: result.skipped?.length || 0,
+        failed: result.failed?.length || 0,
+      })
+    }
+  }
+
   async function autoRunPending() {
     if (autoRunBusy) return
     autoRunBusy = true
     let activeAutoJob = null
     try {
       const stored = await readExtensionConfig()
+      await autoPrepareReadyVideoChats(stored)
       const base = stored.apiBaseUrl
       const res = await fetch(`${base}/api/chat-sends/pending`, {
         credentials: 'include',
@@ -682,12 +723,6 @@ if (/seller\.shopee\.(co\.id|com)/.test(location.href)) {
       const chatJob = payload?.ok && Array.isArray(payload.data) ? payload.data[0] : null
       const shippingJob = chatJob ? null : await requestPaktiApi('/api/shopee/shipping-chat/next', stored)
       if (!chatJob && !shippingJob) return
-
-      // Only open the sidebar after confirming that a job is waiting.
-      if (!isShopeeWebchatPage() && !isShopeeMiniChatOpen()) {
-        openShopeeMiniChat()
-        return
-      }
 
       if (!chatJob) {
         await autoRunShippingChat(stored)
@@ -707,7 +742,7 @@ if (/seller\.shopee\.(co\.id|com)/.test(location.href)) {
       const message = job.messageTemplate || `Halo kak ${job.buyerUsername || ''}, berikut video dokumentasi paket untuk pesanan ${job.orderNumber || '-'} resi ${job.resiNumber}.`
       const sent = await fillWebchatSearchAndAttach({ ...job, message })
       if (!sent) {
-        throw new Error('Tombol kirim Shopee Webchat / Minichat tidak ditemukan.')
+        throw new Error('Tombol kirim Shopee Webchat tidak ditemukan.')
       }
       await fetch(`${base}/api/chat-sends/${encodeURIComponent(job.id)}/prepared`, {
         method: 'POST',

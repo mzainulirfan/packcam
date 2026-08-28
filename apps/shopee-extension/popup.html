@@ -7,46 +7,77 @@
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
-    <main>
-      <header>
-        <p class="eyebrow">Pakti</p>
-        <h1>Shopee Sync</h1>
-        <p class="muted">Import order Shopee Seller ke Pakti berdasarkan nomor pesanan dan resi.</p>
+    <main class="popup-shell">
+      <header class="popup-header">
+        <div>
+          <p class="eyebrow">[+] Pakti Extension</p>
+          <h1>Shopee Webchat</h1>
+        </div>
+        <span class="badge">webchat only</span>
       </header>
 
-      <label>
-        API Base URL
-        <input id="apiBaseUrl" type="url" placeholder="https://api-pakti.zakado.id" />
-      </label>
+      <p class="muted">Sinkron order dan proses chat Shopee hanya melalui tab Webchat.</p>
 
-      <label>
-        Extension API Key
-        <input id="apiKey" type="password" placeholder="SHOPEE_EXTENSION_API_KEY" />
-      </label>
+      <section class="panel compact">
+        <div class="status-grid">
+          <span>Active tab</span>
+          <strong id="pageModeText">checking...</strong>
+        </div>
+      </section>
 
-      <div class="actions">
-        <button id="saveButton" type="button" class="secondary">Save</button>
-        <button id="syncButton" type="button">Extract & Sync</button>
-      </div>
-
-      <div class="actions single">
-        <button id="prepareShippingChatsButton" type="button" class="secondary">Prepare Shipping Chats</button>
-      </div>
-
-      <div class="actions single">
-        <button id="loadChatJobsButton" type="button" class="secondary">Load Pending Chats</button>
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Config</h2>
+          <span class="hint">required</span>
+        </div>
         <label>
-          Pending Chat Job
-          <select id="chatJobSelect" disabled>
-            <option value="">Belum ada job dimuat</option>
-          </select>
+          API Base URL
+          <input id="apiBaseUrl" type="url" placeholder="https://api-pakti.zakado.id" />
         </label>
-        <button id="prepareChatButton" type="button" class="secondary">Prepare Shopee Chat</button>
-        <button id="markSentButton" type="button" class="secondary" disabled>Mark Last Chat Sent</button>
-      </div>
 
-      <section class="preview" aria-live="polite">
-        <strong>Status</strong>
+        <label>
+          Extension API Key
+          <input id="apiKey" type="password" placeholder="SHOPEE_EXTENSION_API_KEY" />
+        </label>
+
+        <button id="saveButton" type="button" class="secondary">[save-config]</button>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Order tools</h2>
+          <span class="hint">seller page</span>
+        </div>
+        <div class="actions single">
+          <button id="syncButton" type="button">[extract-sync]</button>
+          <button id="prepareShippingChatsButton" type="button" class="secondary">[prepare-shipping]</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Webchat tools</h2>
+          <span class="hint">/new-webchat</span>
+        </div>
+        <div class="actions single">
+          <button id="autoPrepareButton" type="button" class="secondary">[auto-prepare-video]</button>
+          <button id="loadChatJobsButton" type="button" class="secondary">[load-pending]</button>
+          <label>
+            Pending Chat Job
+            <select id="chatJobSelect" disabled>
+              <option value="">Belum ada job dimuat</option>
+            </select>
+          </label>
+          <button id="prepareChatButton" type="button">[send-selected-chat]</button>
+          <button id="markSentButton" type="button" class="secondary" disabled>[mark-sent-manual]</button>
+        </div>
+      </section>
+
+      <section class="panel preview" aria-live="polite">
+        <div class="panel-head">
+          <h2>Status</h2>
+          <span class="hint">live log</span>
+        </div>
         <pre id="statusText">Ready.</pre>
       </section>
     </main>
