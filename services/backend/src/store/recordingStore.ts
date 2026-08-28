@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { DEFAULT_APP_SETTINGS } from '@pakti/shared/defaults'
-import type { RecordingStatus, WorkTask } from '@pakti/types'
+import type { PackingPayStatus, RecordingMediaType, RecordingStatus, WorkTask } from '@pakti/types'
 
 import { getDb, getDbPath, getPendingRecordingsDir, getUploadsDir, ensureServerStorage } from '../db'
 import { broadcastBackendEvent } from '../realtime'
@@ -18,6 +18,7 @@ import {
   runFfmpegShareMp4Transcode as runVideoFfmpegShareMp4Transcode,
   SHOPEE_VIDEO_LIMIT_BYTES,
 } from '../video/shareVideo'
+import { assertActivePackingSession, getDefaultPackingPayAmount, getDefaultPackingPayBreakdown } from './packingSessionStore'
 
 type RecordingRow = {
   id: string
@@ -27,6 +28,7 @@ type RecordingRow = {
   operator_code: string | null
   file_name: string
   file_path: string
+  media_type: RecordingMediaType
   file_size_bytes: number | null
   record_date: string
   start_time: string
@@ -34,6 +36,12 @@ type RecordingRow = {
   duration_seconds: number | null
   status: RecordingStatus
   note: string | null
+  packing_session_id: string | null
+  packer_operator_name: string | null
+  packer_operator_code: string | null
+  packing_pay_amount: number | null
+  packing_pay_status: PackingPayStatus | null
+  packing_pay_breakdown: string | null
   created_at: string
   updated_at: string
   share_file_name?: string
@@ -86,6 +94,8 @@ type RecordingDraftInput = {
   fileSizeBytes?: number | null
   status?: RecordingStatus
   note?: string | null
+  mediaType?: RecordingMediaType | null
+  packingSessionId?: string | null
 }
 
 const JSON_STATE_KEY = 'current'
@@ -102,6 +112,17 @@ function makeId(prefix: string) {
 
 function normalizeTaskType(value: WorkTask | string | undefined | null): WorkTask {
   return value === 'packing' ? 'packing' : 'qc'
+}
+
+function normalizeMediaType(value: RecordingMediaType | string | undefined | null): RecordingMediaType {
+  return value === 'photo' ? 'photo' : 'video'
+}
+
+function recordingSelectFields() {
+  return `id, resi_number, task_type, operator_name, operator_code, file_name, file_path, media_type,
+          file_size_bytes, record_date, start_time, end_time, duration_seconds, status, note,
+          packing_session_id, packer_operator_name, packer_operator_code, packing_pay_amount,
+          packing_pay_status, packing_pay_breakdown, created_at, updated_at`
 }
 
 function canStartPackingForResi(resiNumber: string) {
@@ -224,8 +245,7 @@ export function getHealthSnapshot() {
 export function listRecordings() {
   const rows = db()
     .prepare(
-      `SELECT id, resi_number, task_type, operator_name, operator_code, file_name, file_path, file_size_bytes,
-              record_date, start_time, end_time, duration_seconds, status, note, created_at, updated_at
+      `SELECT ${recordingSelectFields()}
        FROM recordings
        ORDER BY start_time DESC`,
     )
@@ -237,8 +257,7 @@ export function listRecordings() {
 export function getRecordingById(id: string) {
   const row = db()
     .prepare(
-      `SELECT id, resi_number, task_type, operator_name, operator_code, file_name, file_path, file_size_bytes,
-              record_date, start_time, end_time, duration_seconds, status, note, created_at, updated_at
+      `SELECT ${recordingSelectFields()}
        FROM recordings
        WHERE id = ?
        LIMIT 1`,
@@ -256,8 +275,7 @@ export function listRecordingsByResi(resiNumber: string) {
 
   const rows = db()
     .prepare(
-      `SELECT id, resi_number, task_type, operator_name, operator_code, file_name, file_path, file_size_bytes,
-              record_date, start_time, end_time, duration_seconds, status, note, created_at, updated_at
+      `SELECT ${recordingSelectFields()}
        FROM recordings
        WHERE resi_number = ?
          AND task_type IN ('qc', 'packing')
@@ -277,6 +295,10 @@ export function createRecordingDraft(input: RecordingDraftInput) {
   if (taskType === 'packing' && !canStartPackingForResi(input.resiNumber)) {
     throw new Error('Packing hanya bisa dimulai setelah QC selesai untuk resi ini.')
   }
+  const mediaType = normalizeMediaType(input.mediaType)
+  const packingSession = taskType === 'packing'
+    ? assertActivePackingSession(input.packingSessionId ?? '')
+    : null
   const fileName = input.fileName
     ? sanitizeFileName(input.fileName)
     : buildRecordingFileName(input.resiNumber, DEFAULT_APP_SETTINGS.videoFormat, taskType, startedAt)
@@ -292,6 +314,7 @@ export function createRecordingDraft(input: RecordingDraftInput) {
       operator_code,
       file_name,
       file_path,
+      media_type,
       file_size_bytes,
       record_date,
       start_time,
@@ -299,9 +322,15 @@ export function createRecordingDraft(input: RecordingDraftInput) {
       duration_seconds,
       status,
       note,
+      packing_session_id,
+      packer_operator_name,
+      packer_operator_code,
+      packing_pay_amount,
+      packing_pay_status,
+      packing_pay_breakdown,
       created_at,
       updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       resi_number = excluded.resi_number,
       task_type = excluded.task_type,
@@ -309,11 +338,15 @@ export function createRecordingDraft(input: RecordingDraftInput) {
       operator_code = excluded.operator_code,
       file_name = excluded.file_name,
       file_path = excluded.file_path,
+      media_type = excluded.media_type,
       file_size_bytes = excluded.file_size_bytes,
       record_date = excluded.record_date,
       start_time = excluded.start_time,
       status = excluded.status,
       note = excluded.note,
+      packing_session_id = excluded.packing_session_id,
+      packer_operator_name = excluded.packer_operator_name,
+      packer_operator_code = excluded.packer_operator_code,
       updated_at = excluded.updated_at`,
   ).run(
     id,
@@ -323,6 +356,7 @@ export function createRecordingDraft(input: RecordingDraftInput) {
     input.operatorCode.trim() || null,
     fileName,
     filePath,
+    mediaType,
     input.fileSizeBytes ?? null,
     recordDate,
     startTime,
@@ -330,6 +364,12 @@ export function createRecordingDraft(input: RecordingDraftInput) {
     null,
     input.status ?? 'recording',
     input.note ?? null,
+    packingSession?.id ?? null,
+    packingSession?.packerOperatorName ?? null,
+    packingSession?.packerOperatorCode ?? null,
+    null,
+    null,
+    null,
     timestamp,
     timestamp,
   )
@@ -358,11 +398,17 @@ export function finalizeRecording(
   const endTime = payload.endTime ?? nowIso()
   const durationSeconds = Math.max(1, Math.round((new Date(endTime).getTime() - new Date(recording.start_time).getTime()) / 1000))
 
+  const packingPayAmount = recording.task_type === 'packing' ? getDefaultPackingPayAmount() : null
+  const packingPayStatus = recording.task_type === 'packing' ? 'calculated' : null
+  const packingPayBreakdown = recording.task_type === 'packing' ? JSON.stringify(getDefaultPackingPayBreakdown()) : null
+
   db().prepare(
     `UPDATE recordings
-     SET end_time = ?, duration_seconds = ?, file_size_bytes = COALESCE(?, file_size_bytes), status = 'completed', note = COALESCE(?, note), updated_at = ?
+     SET end_time = ?, duration_seconds = ?, file_size_bytes = COALESCE(?, file_size_bytes), status = 'completed', note = COALESCE(?, note),
+         packing_pay_amount = COALESCE(?, packing_pay_amount), packing_pay_status = COALESCE(?, packing_pay_status),
+         packing_pay_breakdown = COALESCE(?, packing_pay_breakdown), updated_at = ?
      WHERE id = ?`,
-  ).run(endTime, durationSeconds, payload.fileSizeBytes ?? null, payload.note ?? null, nowIso(), id)
+  ).run(endTime, durationSeconds, payload.fileSizeBytes ?? null, payload.note ?? null, packingPayAmount, packingPayStatus, packingPayBreakdown, nowIso(), id)
 
   broadcastBackendEvent('recordings-updated', { recordingId: id, action: 'finalized', resiNumber: recording.resi_number })
   const finalized = getRecordingById(id)
@@ -530,8 +576,7 @@ export function invalidateCompletedRecordingsForResi(resiNumber: string) {
   broadcastBackendEvent('recordings-updated', { resiNumber: normalizedResi, action: 'repeat-qc' })
   const rows = db()
     .prepare(
-      `SELECT id, resi_number, task_type, operator_name, operator_code, file_name, file_path, file_size_bytes,
-              record_date, start_time, end_time, duration_seconds, status, note, created_at, updated_at
+      `SELECT ${recordingSelectFields()}
        FROM recordings
        WHERE resi_number = ?
          AND task_type IN ('qc', 'packing')
@@ -711,12 +756,17 @@ function finalizePendingRecording(
     const fileStats = fs.statSync(finalPath)
     const endTime = payload.endTime ?? nowIso()
     const durationSeconds = Math.max(1, Math.round((new Date(endTime).getTime() - new Date(recording.start_time).getTime()) / 1000))
+    const packingPayAmount = recording.task_type === 'packing' ? getDefaultPackingPayAmount() : null
+    const packingPayStatus = recording.task_type === 'packing' ? 'calculated' : null
+    const packingPayBreakdown = recording.task_type === 'packing' ? JSON.stringify(getDefaultPackingPayBreakdown()) : null
 
     db().prepare(
       `UPDATE recordings
-       SET end_time = ?, duration_seconds = ?, file_size_bytes = COALESCE(?, file_size_bytes), status = 'completed', note = COALESCE(?, note), updated_at = ?
+       SET end_time = ?, duration_seconds = ?, file_size_bytes = COALESCE(?, file_size_bytes), status = 'completed', note = COALESCE(?, note),
+           packing_pay_amount = COALESCE(?, packing_pay_amount), packing_pay_status = COALESCE(?, packing_pay_status),
+           packing_pay_breakdown = COALESCE(?, packing_pay_breakdown), updated_at = ?
        WHERE id = ?`,
-    ).run(endTime, durationSeconds, fileStats.size, payload.note ?? null, nowIso(), recording.id)
+    ).run(endTime, durationSeconds, fileStats.size, payload.note ?? null, packingPayAmount, packingPayStatus, packingPayBreakdown, nowIso(), recording.id)
 
     const finalized = getRecordingById(recording.id)
     scheduleRecordingWatermark(finalized)
@@ -728,12 +778,17 @@ function finalizePendingRecording(
   const fileStats = fs.statSync(finalPath)
   const endTime = payload.endTime ?? nowIso()
   const durationSeconds = Math.max(1, Math.round((new Date(endTime).getTime() - new Date(recording.start_time).getTime()) / 1000))
+  const packingPayAmount = recording.task_type === 'packing' ? getDefaultPackingPayAmount() : null
+  const packingPayStatus = recording.task_type === 'packing' ? 'calculated' : null
+  const packingPayBreakdown = recording.task_type === 'packing' ? JSON.stringify(getDefaultPackingPayBreakdown()) : null
 
   db().prepare(
     `UPDATE recordings
-     SET end_time = ?, duration_seconds = ?, file_size_bytes = COALESCE(?, file_size_bytes), status = 'completed', note = COALESCE(?, note), updated_at = ?
+     SET end_time = ?, duration_seconds = ?, file_size_bytes = COALESCE(?, file_size_bytes), status = 'completed', note = COALESCE(?, note),
+         packing_pay_amount = COALESCE(?, packing_pay_amount), packing_pay_status = COALESCE(?, packing_pay_status),
+         packing_pay_breakdown = COALESCE(?, packing_pay_breakdown), updated_at = ?
      WHERE id = ?`,
-  ).run(endTime, durationSeconds, fileStats.size, payload.note ?? null, nowIso(), recording.id)
+  ).run(endTime, durationSeconds, fileStats.size, payload.note ?? null, packingPayAmount, packingPayStatus, packingPayBreakdown, nowIso(), recording.id)
 
   broadcastBackendEvent('recordings-updated', { recordingId: recording.id, action: 'finalized', resiNumber: recording.resi_number })
   const finalized = getRecordingById(recording.id)

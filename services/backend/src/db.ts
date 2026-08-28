@@ -64,6 +64,18 @@ function ensureOrderColumns(database: SQLiteDatabase) {
   ensureColumn(database, 'orders', 'shipping_channel', 'TEXT')
 }
 
+function ensurePackingColumns(database: SQLiteDatabase) {
+  ensureColumn(database, 'recordings', 'media_type', "TEXT NOT NULL DEFAULT 'video'")
+  ensureColumn(database, 'recordings', 'packing_session_id', 'TEXT')
+  ensureColumn(database, 'recordings', 'packer_operator_name', 'TEXT')
+  ensureColumn(database, 'recordings', 'packer_operator_code', 'TEXT')
+  ensureColumn(database, 'recordings', 'packing_pay_amount', 'INTEGER')
+  ensureColumn(database, 'recordings', 'packing_pay_status', 'TEXT')
+  ensureColumn(database, 'recordings', 'packing_pay_breakdown', 'TEXT')
+
+  database.exec(`UPDATE recordings SET media_type = 'video' WHERE media_type IS NULL OR media_type = ''`)
+}
+
 export function getDb() {
   if (db) {
     return db
@@ -76,6 +88,7 @@ export function getDb() {
   applySchema(db)
   ensureTaskColumns(db)
   ensureOrderColumns(db)
+  ensurePackingColumns(db)
   return db
 }
 

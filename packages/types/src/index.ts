@@ -1,6 +1,8 @@
 export type VideoFormat = 'webm' | 'mp4'
 
 export type RecordingStatus = 'recording' | 'completed' | 'error'
+export type RecordingMediaType = 'video' | 'photo'
+export type PackingPayStatus = 'calculated' | 'needs_review' | 'manual_override'
 
 export type OperatorRole = 'admin' | 'operator'
 
@@ -48,6 +50,7 @@ export type RecordingRow = {
   operatorCode: string | null
   fileName: string
   filePath: string
+  mediaType: RecordingMediaType
   fileSizeBytes: number | null
   recordDate: string
   startTime: string
@@ -55,6 +58,12 @@ export type RecordingRow = {
   durationSeconds: number | null
   status: RecordingStatus
   note: string | null
+  packingSessionId?: string | null
+  packerOperatorName?: string | null
+  packerOperatorCode?: string | null
+  packingPayAmount?: number | null
+  packingPayStatus?: PackingPayStatus | null
+  packingPayBreakdown?: unknown | null
   createdAt: string
   updatedAt: string
   blobKey?: string | null
@@ -63,6 +72,25 @@ export type RecordingRow = {
   shareFilePath?: string | null
   shareFileMimeType?: string | null
   shareFileReady?: boolean
+}
+
+export type PackingWorkSessionStatus = 'active' | 'closed' | 'cancelled'
+
+export type PackingWorkSession = {
+  id: string
+  packerOperatorName: string
+  packerOperatorCode: string
+  packerNameSnapshot: string
+  packerCodeSnapshot: string
+  startedAt: string
+  endedAt: string | null
+  status: PackingWorkSessionStatus
+  note: string | null
+  completedPackingCount: number
+  totalPayAmount: number
+  createdBySessionId: string | null
+  createdAt: string
+  updatedAt: string
 }
 
 export type ScanLogRow = {

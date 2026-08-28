@@ -1,4 +1,4 @@
-import type { AppSettings, OperatorProfile, OperatorRole, OperatorSession, RecordingChatSend, RecordingRow, ScanLogRow, ShippingChatSend, ShopeeOrder, SystemConfig } from '@pakti/types'
+import type { AppSettings, OperatorProfile, OperatorRole, OperatorSession, PackingPayStatus, PackingWorkSession, RecordingChatSend, RecordingMediaType, RecordingRow, ScanLogRow, ShippingChatSend, ShopeeOrder, SystemConfig } from '@pakti/types'
 
 type ApiResponse<T> = {
   ok: boolean
@@ -41,6 +41,7 @@ type ServerRecordingRow = {
   operator_code: string | null
   file_name: string
   file_path: string
+  media_type?: RecordingMediaType | null
   file_size_bytes: number | null
   record_date: string
   start_time: string
@@ -48,6 +49,12 @@ type ServerRecordingRow = {
   duration_seconds: number | null
   status: RecordingRow['status']
   note: string | null
+  packing_session_id?: string | null
+  packer_operator_name?: string | null
+  packer_operator_code?: string | null
+  packing_pay_amount?: number | null
+  packing_pay_status?: PackingPayStatus | null
+  packing_pay_breakdown?: unknown | string | null
   created_at: string
   updated_at: string
   blob_key?: string | null
@@ -116,6 +123,7 @@ function normalizeRecordingRow(record: ServerRecordingRow): RecordingRow {
     operatorCode: record.operator_code,
     fileName: record.file_name,
     filePath: record.file_path,
+    mediaType: record.media_type === 'photo' ? 'photo' : 'video',
     fileSizeBytes: record.file_size_bytes,
     recordDate: record.record_date,
     startTime: record.start_time,
@@ -123,6 +131,12 @@ function normalizeRecordingRow(record: ServerRecordingRow): RecordingRow {
     durationSeconds: record.duration_seconds,
     status: record.status,
     note: record.note,
+    packingSessionId: record.packing_session_id ?? null,
+    packerOperatorName: record.packer_operator_name ?? null,
+    packerOperatorCode: record.packer_operator_code ?? null,
+    packingPayAmount: record.packing_pay_amount ?? null,
+    packingPayStatus: record.packing_pay_status ?? null,
+    packingPayBreakdown: parseMaybeJson(record.packing_pay_breakdown),
     createdAt: record.created_at,
     updatedAt: record.updated_at,
     blobKey: record.blob_key ?? record.id,
@@ -131,6 +145,15 @@ function normalizeRecordingRow(record: ServerRecordingRow): RecordingRow {
     shareFilePath: record.share_file_path ?? null,
     shareFileMimeType: record.share_file_mime_type ?? null,
     shareFileReady: Boolean(record.share_file_ready),
+  }
+}
+
+function parseMaybeJson(value: unknown) {
+  if (typeof value !== 'string') return value ?? null
+  try {
+    return JSON.parse(value)
+  } catch {
+    return value
   }
 }
 
@@ -345,6 +368,32 @@ export function updateServerSessionTaskApi(taskType: 'qc' | 'packing') {
   })
 }
 
+export function readPackingOperatorsApi() {
+  return requestApi<OperatorProfile[]>('/api/packing/operators')
+}
+
+export function readActivePackingSessionApi() {
+  return requestApi<PackingWorkSession | null>('/api/packing-sessions/active')
+}
+
+export function readPackingSessionApi(id: string) {
+  return requestApi<PackingWorkSession>(`/api/packing-sessions/${encodeURIComponent(id)}`)
+}
+
+export function createPackingSessionApi(payload: { packerOperatorName: string; packerOperatorCode: string; note?: string | null }) {
+  return requestApi<PackingWorkSession>('/api/packing-sessions', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function closePackingSessionApi(id: string, note?: string | null) {
+  return requestApi<PackingWorkSession>(`/api/packing-sessions/${encodeURIComponent(id)}/close`, {
+    method: 'POST',
+    body: JSON.stringify({ note }),
+  })
+}
+
 export function readServerRecordingsApi() {
   return requestApi<ServerRecordingRow[]>('/api/recordings')
     .then((records) => records.map(normalizeRecordingRow))
@@ -451,6 +500,8 @@ export function createServerRecordingDraftApi(payload: {
   fileSizeBytes?: number | null
   status?: 'recording' | 'completed' | 'error'
   note?: string | null
+  mediaType?: RecordingMediaType
+  packingSessionId?: string | null
 }) {
   return requestApi<ServerRecordingRow>('/api/recordings', {
     method: 'POST',

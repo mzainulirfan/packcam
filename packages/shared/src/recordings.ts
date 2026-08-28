@@ -1,4 +1,4 @@
-import type { AppSettings, RecordingStatus, RecordingRow, WorkTask } from '@pakti/types'
+import type { AppSettings, PackingPayStatus, RecordingMediaType, RecordingStatus, RecordingRow, WorkTask } from '@pakti/types'
 import { buildRecordingFileName, buildDailyVideoPath } from '@pakti/shared/videoPath'
 import {
   createServerRecordingDraftApi,
@@ -18,6 +18,7 @@ export type LocalRecordingRecord = {
   operatorCode: string | null
   fileName: string
   filePath: string
+  mediaType: RecordingMediaType
   fileSizeBytes: number | null
   recordDate: string
   startTime: string
@@ -25,6 +26,12 @@ export type LocalRecordingRecord = {
   durationSeconds: number | null
   status: RecordingStatus
   note: string | null
+  packingSessionId: string | null
+  packerOperatorName: string | null
+  packerOperatorCode: string | null
+  packingPayAmount: number | null
+  packingPayStatus: PackingPayStatus | null
+  packingPayBreakdown: unknown | null
   createdAt: string
   updatedAt: string
   blobKey: string | null
@@ -49,6 +56,8 @@ type RecordingDraftInput = {
   operatorName: string
   operatorCode: string
   mimeType?: string | null
+  mediaType?: RecordingMediaType | null
+  packingSessionId?: string | null
 }
 
 type RecordingUpdate = Partial<Omit<LocalRecordingRecord, 'id' | 'createdAt'>>
@@ -74,6 +83,7 @@ function normalizeServerRecord(record: RecordingRow): LocalRecordingRecord {
     operatorCode: record.operatorCode ?? null,
     fileName: record.fileName,
     filePath: record.filePath,
+    mediaType: record.mediaType ?? 'video',
     fileSizeBytes: record.fileSizeBytes ?? null,
     recordDate: record.recordDate,
     startTime: record.startTime,
@@ -81,6 +91,12 @@ function normalizeServerRecord(record: RecordingRow): LocalRecordingRecord {
     durationSeconds: record.durationSeconds ?? null,
     status: record.status,
     note: record.note ?? null,
+    packingSessionId: record.packingSessionId ?? null,
+    packerOperatorName: record.packerOperatorName ?? null,
+    packerOperatorCode: record.packerOperatorCode ?? null,
+    packingPayAmount: record.packingPayAmount ?? null,
+    packingPayStatus: record.packingPayStatus ?? null,
+    packingPayBreakdown: record.packingPayBreakdown ?? null,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
     blobKey: record.blobKey ?? record.id,
@@ -207,6 +223,8 @@ export function createRecordingDraft({
   operatorName,
   operatorCode,
   mimeType = null,
+  mediaType = 'video',
+  packingSessionId = null,
 }: RecordingDraftInput) {
   const startTime = startedAt.toISOString()
   const recordDate = startTime.slice(0, 10)
@@ -222,6 +240,7 @@ export function createRecordingDraft({
     operatorCode: operatorCode.trim() || null,
     fileName,
     filePath,
+    mediaType: mediaType ?? 'video',
     fileSizeBytes: null,
     recordDate,
     startTime,
@@ -229,6 +248,12 @@ export function createRecordingDraft({
     durationSeconds: null,
     status: 'recording',
     note: null,
+    packingSessionId,
+    packerOperatorName: null,
+    packerOperatorCode: null,
+    packingPayAmount: null,
+    packingPayStatus: null,
+    packingPayBreakdown: null,
     createdAt: timestamp,
     updatedAt: timestamp,
     blobKey: null,
@@ -282,6 +307,7 @@ export function setRecordingError(id: string, message: string) {
     fileSizeBytes: next.fileSizeBytes ?? null,
     status: 'error',
     note: message,
+    packingSessionId: next.packingSessionId,
   }).catch(() => undefined)
 
   return next

@@ -23,6 +23,7 @@ type RecordingSessionOptions = {
   operatorName: string
   operatorCode: string
   taskType: WorkTask
+  packingSessionId?: string | null
 }
 
 type RecordingSessionRef = {
@@ -45,14 +46,15 @@ function normalizeMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback
 }
 
-export function useMobileRecordingSession({ stream, settings, operatorName, operatorCode, taskType }: RecordingSessionOptions) {
+export function useMobileRecordingSession({ stream, settings, operatorName, operatorCode, taskType, packingSessionId = null }: RecordingSessionOptions) {
   const operatorIdentity = useMemo(
     () => ({
       operatorName: operatorName.trim(),
       operatorCode: operatorCode.trim(),
       taskType,
+      packingSessionId,
     }),
-    [operatorCode, operatorName, taskType],
+    [operatorCode, operatorName, packingSessionId, taskType],
   )
   const [state, setState] = useState<RecordingSessionState>({
     mode: 'idle',
@@ -225,6 +227,8 @@ export function useMobileRecordingSession({ stream, settings, operatorName, oper
       operatorName: operatorIdentity.operatorName,
       operatorCode: operatorIdentity.operatorCode,
       mimeType: mimeType || recorder.mimeType || 'video/webm',
+      mediaType: 'video',
+      packingSessionId: operatorIdentity.taskType === 'packing' ? operatorIdentity.packingSessionId : null,
     })
 
     try {
@@ -240,6 +244,8 @@ export function useMobileRecordingSession({ stream, settings, operatorName, oper
         fileSizeBytes: draft.fileSizeBytes,
         status: draft.status,
         note: draft.note,
+        mediaType: draft.mediaType,
+        packingSessionId: draft.packingSessionId,
       })
     } catch (error) {
       const message = normalizeMessage(error, 'Gagal membuat draft recording.')

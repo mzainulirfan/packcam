@@ -8,7 +8,7 @@ import multer from 'multer'
 import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
 import type { AppSettings, ShopeeOrder } from '@pakti/types'
 
-import { clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deleteRecording, deleteSessionById, finalizeRecording, getBootstrapStatus, getChatSendStats, getHealthSnapshot, getNextPendingShippingChatSend, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, getShopeeOrderStats, getShippingChatSendStats, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPendingChatSends, listRecentChatSends, listRecentShippingChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, prepareReadyRecordingChatSendsForToday, prepareRecordingChatSend, prepareRecordingShareFile, prepareShippingChatSends, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, retryChatSend, retryShippingChatSend, saveSettings, saveSystemConfig, updateChatSendStatus, updateSessionTaskType, updateShippingChatSendStatus, upsertOperatorProfile } from './store'
+import { clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, closePackingSession, createPackingSession, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deleteRecording, deleteSessionById, finalizeRecording, getActivePackingSession, getBootstrapStatus, getChatSendStats, getHealthSnapshot, getNextPendingShippingChatSend, getPackingSessionById, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, getShopeeOrderStats, getShippingChatSendStats, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPackingOperators, listPendingChatSends, listRecentChatSends, listRecentShippingChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, prepareReadyRecordingChatSendsForToday, prepareRecordingChatSend, prepareRecordingShareFile, prepareShippingChatSends, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, retryChatSend, retryShippingChatSend, saveSettings, saveSystemConfig, updateChatSendStatus, updateSessionTaskType, updateShippingChatSendStatus, upsertOperatorProfile } from './store'
 import type { ShippingChatOrderInput } from './store/shippingChatSendStore'
 import { clearSessionCookie, getCookie, normalizeRole, readStringField, sendError, sendOk, setSessionCookie } from './http'
 import type { HttpSession } from './http'
@@ -500,6 +500,54 @@ app.get('/api/operators', requireAdmin, (_req, res) => {
   sendOk(res, listOperatorProfiles())
 })
 
+app.get('/api/packing/operators', requireSession, (_req, res) => {
+  sendOk(res, listPackingOperators())
+})
+
+app.get('/api/packing-sessions/active', requireSession, (req, res) => {
+  const session = getRequestSession(req)
+  sendOk(res, getActivePackingSession(session))
+})
+
+app.get('/api/packing-sessions/:id', requireSession, (req, res) => {
+  const params = req.params as Record<string, string | undefined>
+  const packingSession = getPackingSessionById(params.id ?? '')
+  if (!packingSession) {
+    return sendError(res, 404, 'Sesi packing tidak ditemukan.')
+  }
+
+  return sendOk(res, packingSession)
+})
+
+app.post('/api/packing-sessions', requireSession, (req, res) => {
+  const session = getRequestSession(req)
+  if (!session) {
+    return sendError(res, 401, 'Sesi login diperlukan.')
+  }
+
+  try {
+    const packingSession = createPackingSession({
+      packerOperatorName: readStringField(req.body?.packerOperatorName, 'packerOperatorName'),
+      packerOperatorCode: readStringField(req.body?.packerOperatorCode, 'packerOperatorCode'),
+      createdBySessionId: session.sessionId,
+      note: typeof req.body?.note === 'string' ? req.body.note : null,
+    })
+    return sendOk(res, packingSession)
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal membuat sesi packing.')
+  }
+})
+
+app.post('/api/packing-sessions/:id/close', requireSession, (req, res) => {
+  try {
+    const params = req.params as Record<string, string | undefined>
+    const packingSession = closePackingSession(params.id ?? '', typeof req.body?.note === 'string' ? req.body.note : null)
+    return sendOk(res, packingSession)
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal menutup sesi packing.')
+  }
+})
+
 app.post('/api/operators', requireAdmin, (req, res) => {
   try {
     const profile = upsertOperatorProfile({
@@ -807,6 +855,8 @@ app.post('/api/recordings', (req, res) => {
       fileSizeBytes: typeof req.body?.fileSizeBytes === 'number' ? req.body.fileSizeBytes : null,
       status: typeof req.body?.status === 'string' && req.body.status === 'error' ? 'error' : 'recording',
       note: typeof req.body?.note === 'string' ? req.body.note.trim() : null,
+      mediaType: req.body?.mediaType === 'photo' ? 'photo' : 'video',
+      packingSessionId: typeof req.body?.packingSessionId === 'string' ? req.body.packingSessionId.trim() : null,
     })
 
     return sendOk(res, draft)

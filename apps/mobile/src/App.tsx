@@ -2,6 +2,7 @@ import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } fro
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Camera01Icon,
+  CheckmarkCircle01Icon,
   Copy01Icon,
   EyeIcon,
   EyeOffIcon,
@@ -14,6 +15,8 @@ import {
   Sun03Icon,
 } from '@hugeicons/core-free-icons'
 import {
+  closePackingSessionApi,
+  createPackingSessionApi,
   deleteServerRecordingApi,
   readRecentShopeeOrdersApi,
   readServerSettingsApi,
@@ -26,10 +29,13 @@ import {
   updateServerSessionTaskApi,
   buildApiUrl,
   prepareShopeeChatSendApi,
+  readActivePackingSessionApi,
+  readPackingOperatorsApi,
+  readPackingSessionApi,
   readShopeeChatSendsByRecordingIdsApi,
 } from '@pakti/api-client'
 import { DEFAULT_APP_SETTINGS } from '@pakti/shared/defaults'
-import type { AppSettings, OperatorSession, RecordingRow, ShopeeOrder, SystemConfig, WorkTask } from '@pakti/types'
+import type { AppSettings, OperatorProfile, OperatorSession, PackingWorkSession, RecordingRow, ShopeeOrder, SystemConfig, WorkTask } from '@pakti/types'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -99,6 +105,19 @@ type ScanProgressState = {
   message: string
 }
 
+function makePackerKey(operatorName: string, operatorCode: string) {
+  return `${operatorName}|||${operatorCode}`
+}
+
+function parsePackerKey(value: string) {
+  const [operatorName = '', operatorCode = ''] = value.split('|||')
+  return { operatorName, operatorCode }
+}
+
+function formatRupiah(value: number | null | undefined) {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value ?? 0)
+}
+
 const ACTIVE_TAB_STORAGE_KEY = 'pakti_mobile_active_tab'
 const THEME_STORAGE_KEY = 'pakti_mobile_theme'
 
@@ -135,6 +154,10 @@ function App() {
   const [systemConfig, setSystemConfig] = useState<SystemConfig | null>(null)
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS)
   const [session, setSession] = useState<OperatorSession | null>(null)
+  const [packingOperators, setPackingOperators] = useState<OperatorProfile[]>([])
+  const [activePackingSession, setActivePackingSession] = useState<PackingWorkSession | null>(null)
+  const [selectedPackerKey, setSelectedPackerKey] = useState('')
+  const [packingSessionBusy, setPackingSessionBusy] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
     if (typeof window === 'undefined') {
       return 'scan'
@@ -193,6 +216,7 @@ function App() {
   const isDarkTheme = theme === 'dark'
   const currentTaskType: WorkTask = session?.taskType ?? 'qc'
   const isPackingMode = String(currentTaskType) === 'packing'
+  const canUsePackingFlow = !isPackingMode || Boolean(activePackingSession)
   const cameraState = useCameraStream(settings.cameraDeviceId, Boolean(session) && activeTab === 'scan', 'environment', true)
   const historyCameraState = useCameraStream(settings.cameraDeviceId, historyScanOpen, 'environment')
   const watermarkOverlayTime = new Intl.DateTimeFormat('id-ID', {
@@ -208,6 +232,7 @@ function App() {
     operatorName: session?.operatorName ?? '',
     operatorCode: session?.operatorCode ?? '',
     taskType: session?.taskType ?? 'qc',
+    packingSessionId: activePackingSession?.id ?? null,
   })
   const activeRecordingResi =
     recordingSession.state.mode === 'recording'
@@ -234,7 +259,9 @@ function App() {
       : recordingSession.state.lastSavedResi
         ? 'File share akan disiapkan otomatis.'
         : isPackingMode
-          ? 'Packing hanya bisa dimulai setelah QC selesai.'
+          ? activePackingSession
+            ? 'Packing hanya bisa dimulai setelah QC selesai.'
+            : 'Mulai sesi packing terlebih dahulu.'
           : 'Scan barcode atau ketik resi untuk mulai rekaman QC.'
   const scanPrimaryActionLabel = scanBusy || recordingSession.state.mode === 'stopping' || recordingSession.state.mode === 'saving'
     ? 'Menyimpan video...'
@@ -250,7 +277,7 @@ function App() {
     rejectResi,
     clearRejectedResi,
   } = useScanQueue({
-    active: Boolean(session) && activeTab === 'scan',
+    active: Boolean(session) && activeTab === 'scan' && canUsePackingFlow,
     recordingState: recordingSession.state,
     stopRecording: recordingSession.stopRecording,
   })
@@ -642,6 +669,40 @@ function App() {
 
   useEffect(() => {
     if (!session) {
+      setPackingOperators([])
+      setActivePackingSession(null)
+      setSelectedPackerKey('')
+      return
+    }
+
+    let cancelled = false
+    void Promise.all([
+      readPackingOperatorsApi().catch(() => []),
+      readActivePackingSessionApi().catch(() => null),
+    ]).then(([operators, packingSession]) => {
+      if (cancelled) return
+      setPackingOperators(operators)
+      setActivePackingSession(packingSession)
+      const ownProfile = operators.find((operator) =>
+        operator.operatorName === session.operatorName && operator.operatorCode === session.operatorCode,
+      )
+      const selected = packingSession
+        ? makePackerKey(packingSession.packerOperatorName, packingSession.packerOperatorCode)
+        : ownProfile
+          ? makePackerKey(ownProfile.operatorName, ownProfile.operatorCode)
+          : operators[0]
+            ? makePackerKey(operators[0].operatorName, operators[0].operatorCode)
+            : ''
+      setSelectedPackerKey(selected)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [session])
+
+  useEffect(() => {
+    if (!session) {
       return
     }
 
@@ -760,6 +821,9 @@ function App() {
       // Logout should still clear the local session.
     } finally {
       setSession(null)
+      setActivePackingSession(null)
+      setPackingOperators([])
+      setSelectedPackerKey('')
       setRecordings([])
       setShopeeOrders([])
       setHistoryAllAccounts(false)
@@ -1012,6 +1076,16 @@ function App() {
         return 'error'
       }
 
+      if (session.taskType === 'packing' && !activePackingSession) {
+        playScanFeedback('warning')
+        showScanNotice({
+          kind: 'warning',
+          title: 'Sesi packing belum aktif',
+          message: 'Mulai sesi packing sebelum scan paket.',
+        })
+        return 'error'
+      }
+
       const resiNumber = resiInput.trim()
       if (!resiNumber) {
         if (source === 'manual') {
@@ -1087,6 +1161,7 @@ function App() {
     },
     [
       findRecordingByResi,
+      activePackingSession,
       primeScanFeedbackAudio,
       playScanFeedback,
       clearRejectedResi,
@@ -1112,13 +1187,16 @@ function App() {
 
     try {
       await recordingSession.stopRecording()
+      if (session.taskType === 'packing' && activePackingSession) {
+        void readPackingSessionApi(activePackingSession.id).then(setActivePackingSession).catch(() => void refreshActivePackingSession())
+      }
       void refreshHistory()
     } catch (error) {
       setBootError(normalizeError(error))
     } finally {
       setScanBusy(false)
     }
-  }, [primeScanFeedbackAudio, refreshHistory, scanBusy, session, recordingSession])
+  }, [activePackingSession, primeScanFeedbackAudio, refreshActivePackingSession, refreshHistory, scanBusy, session, recordingSession])
 
   async function handleCopyResi(resiNumber: string) {
     try {
@@ -1130,6 +1208,65 @@ function App() {
       })
     } catch {
       setBootError('Browser ini belum mengizinkan salin resi.')
+    }
+  }
+
+  async function refreshActivePackingSession() {
+    try {
+      const packingSession = await readActivePackingSessionApi()
+      setActivePackingSession(packingSession)
+      return packingSession
+    } catch {
+      setActivePackingSession(null)
+      return null
+    }
+  }
+
+  async function handleStartPackingSession() {
+    if (packingSessionBusy || !selectedPackerKey) return
+    const selected = parsePackerKey(selectedPackerKey)
+    setPackingSessionBusy(true)
+    try {
+      const packingSession = await createPackingSessionApi({
+        packerOperatorName: selected.operatorName,
+        packerOperatorCode: selected.operatorCode,
+      })
+      setActivePackingSession(packingSession)
+      showScanNotice({
+        kind: 'success',
+        title: 'Sesi packing aktif',
+        message: `${packingSession.packerNameSnapshot} mulai packing.`,
+      })
+    } catch (error) {
+      showScanNotice({
+        kind: 'warning',
+        title: 'Gagal mulai sesi',
+        message: normalizeError(error),
+      })
+    } finally {
+      setPackingSessionBusy(false)
+    }
+  }
+
+  async function handleClosePackingSession() {
+    if (packingSessionBusy || !activePackingSession) return
+    setPackingSessionBusy(true)
+    try {
+      const closed = await closePackingSessionApi(activePackingSession.id)
+      setActivePackingSession(null)
+      showScanNotice({
+        kind: 'success',
+        title: 'Sesi packing ditutup',
+        message: `${closed.completedPackingCount} paket · ${formatRupiah(closed.totalPayAmount)}.`,
+      })
+    } catch (error) {
+      showScanNotice({
+        kind: 'warning',
+        title: 'Gagal tutup sesi',
+        message: normalizeError(error),
+      })
+    } finally {
+      setPackingSessionBusy(false)
     }
   }
 
@@ -1362,6 +1499,64 @@ function App() {
       {/* ——— SCAN TAB ——— */}
       {activeTab === 'scan' ? (
         <section className="grid gap-3">
+          {isPackingMode ? (
+            <section className="grid gap-3 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-3" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="grid gap-1">
+                  <p className="text-[12px] font-bold tracking-wide">[ Sesi Packing ]</p>
+                  <h2 className="text-[15px] font-bold leading-none">
+                    {activePackingSession ? activePackingSession.packerNameSnapshot : 'Mulai sesi sebelum scan'}
+                  </h2>
+                  <p className="text-[12px] leading-snug text-[var(--op-mute)]">
+                    {activePackingSession
+                      ? `${activePackingSession.completedPackingCount} paket · ${formatRupiah(activePackingSession.totalPayAmount)}`
+                      : 'Pilih petugas packing dari user management.'}
+                  </p>
+                </div>
+                {activePackingSession ? (
+                  <span className="inline-flex items-center gap-1 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-2 py-1 text-[12px] font-semibold">
+                    <HugeiconsIcon icon={CheckmarkCircle01Icon} size={14} /> aktif
+                  </span>
+                ) : null}
+              </div>
+
+              {activePackingSession ? (
+                <div className="grid grid-cols-[1fr_auto] items-center gap-2 border-t border-[var(--op-hairline)] pt-3">
+                  <div className="min-w-0 text-[12px] text-[var(--op-mute)]">
+                    <span className="block truncate">Kode: {activePackingSession.packerCodeSnapshot}</span>
+                    <span className="block truncate">Mulai: {formatDateTime(activePackingSession.startedAt)}</span>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" className="rounded-[4px]" disabled={packingSessionBusy || recordingSession.state.mode !== 'idle'} onClick={() => void handleClosePackingSession()}>
+                    {packingSessionBusy ? 'Menutup...' : 'Akhiri'}
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid gap-2 border-t border-[var(--op-hairline)] pt-3">
+                  <Label htmlFor="mobile-packing-operator" className="text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    Petugas packing
+                  </Label>
+                  <select
+                    id="mobile-packing-operator"
+                    value={selectedPackerKey}
+                    onChange={(event) => setSelectedPackerKey(event.target.value)}
+                    className="h-11 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 text-[0.9rem] text-[var(--op-ink)] outline-none"
+                    disabled={packingSessionBusy || packingOperators.length === 0}
+                  >
+                    {packingOperators.length === 0 ? <option value="">Belum ada operator packing</option> : null}
+                    {packingOperators.map((operator) => (
+                      <option key={makePackerKey(operator.operatorName, operator.operatorCode)} value={makePackerKey(operator.operatorName, operator.operatorCode)}>
+                        {operator.fullName || operator.operatorName} ({operator.operatorCode})
+                      </option>
+                    ))}
+                  </select>
+                  <Button type="button" className="h-11 w-full rounded-[4px]" disabled={packingSessionBusy || !selectedPackerKey} onClick={() => void handleStartPackingSession()}>
+                    {packingSessionBusy ? 'Memulai sesi...' : 'Mulai Sesi Packing'}
+                  </Button>
+                </div>
+              )}
+            </section>
+          ) : null}
+
           <div className="relative">
             {scanNotice ? (
               <div
@@ -1462,6 +1657,7 @@ function App() {
                         inputMode="text"
                         autoCapitalize="characters"
                         className="h-12 rounded-[4px] border-[var(--op-hairline)] bg-[var(--op-canvas)] pl-10 text-[0.95rem] shadow-none"
+                        disabled={!canUsePackingFlow}
                       />
                     </div>
                     <p className="text-[0.68rem] leading-snug text-muted-foreground">{scanStatusDescription}</p>
@@ -1472,6 +1668,7 @@ function App() {
                     className="h-12 w-full rounded-[4px] text-[0.95rem] font-semibold"
                     disabled={
                       scanBusy ||
+                      !canUsePackingFlow ||
                       recordingSession.state.mode === 'stopping' ||
                       recordingSession.state.mode === 'saving' ||
                       (recordingSession.state.mode === 'idle' && !scanResi.trim())
