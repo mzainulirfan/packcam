@@ -14,6 +14,10 @@ const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const devHttpsBundle = ensureDevHttpsCertificate(lanIp)
 const mobilePort = await findAvailablePort(4173)
 const webPort = await findAvailablePort(4175)
+const localWebOrigins = [
+  'http://localhost:4175',
+  'http://127.0.0.1:4175',
+]
 
 function detectLanIp() {
   const interfaces = os.networkInterfaces()
@@ -166,6 +170,10 @@ const children = [
     env: {
       ...process.env,
       LAN_IP: lanIp ?? '',
+      CORS_ORIGINS: [
+        process.env.CORS_ORIGINS ?? '',
+        ...localWebOrigins,
+      ].filter(Boolean).join(','),
     },
   }),
   spawn(npmCmd, ['run', 'dev', '-w', '@pakti/mobile', '--', '--host', '--port', String(mobilePort)], {

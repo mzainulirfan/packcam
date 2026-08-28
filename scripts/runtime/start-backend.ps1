@@ -21,7 +21,7 @@ if ($null -ne $ExistingBackend) {
   exit 0
 }
 
-$env:CORS_ORIGINS = "https://pakti.vercel.app,https://pakti.zakado.id,https://pakti-mobile.vercel.app,https://mpakti.zakado.id"
+$env:CORS_ORIGINS = "https://pakti.vercel.app,https://pakti.zakado.id,https://pakti-mobile.vercel.app,https://mpakti.zakado.id,http://localhost:4175,http://127.0.0.1:4175"
 $env:COOKIE_SAMESITE = "none"
 $env:COOKIE_SECURE = "true"
 $env:SESSION_TTL_HOURS = "12"
