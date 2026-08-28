@@ -35,7 +35,7 @@ export function HistoryRecordingCard({
             <TaskPill taskType={record.taskType} />
             <div className="history-opencode__record-card-badges">
               <StatusPill status={record.status} />
-              <MediaPill mediaType={(record as unknown as { mediaType?: string }).mediaType ?? 'video'} />
+              <MediaPill mediaType={(record as unknown as { mediaType?: string }).mediaType ?? 'video'} fileName={record.fileName} filePath={record.filePath} />
               {invalidRecord ? (
                 <span className="history-opencode__badge">
                   [!] Tidak valid
@@ -164,6 +164,11 @@ function StatusPill({ status }: { status: LocalRecordingRecord['status'] }) {
   )
 }
 
-function MediaPill({ mediaType }: { mediaType: string }) {
-  return <span className="history-opencode__badge">[{mediaType === 'photo' ? 'foto' : 'video'}]</span>
+function isPhotoFileCard(name: string | null | undefined) {
+  const ext = (name ?? '').toLowerCase().split('.').pop() ?? ''
+  return ext === 'jpg' || ext === 'jpeg' || ext === 'png' || ext === 'webp'
+}
+function MediaPill({ mediaType, fileName, filePath }: { mediaType: string; fileName?: string | null; filePath?: string | null }) {
+  const isPhoto = mediaType === 'photo' || isPhotoFileCard(fileName) || isPhotoFileCard(filePath)
+  return <span className="history-opencode__badge">[{isPhoto ? 'foto' : 'video'}]</span>
 }

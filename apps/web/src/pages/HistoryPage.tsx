@@ -1150,7 +1150,11 @@ export function HistoryPage() {
                           </Tabs>
                           {activeRecords.length === 0 ? null : previewRecord?.status === 'completed' && previewRecord.filePath ? (
                             <div className="overflow-hidden rounded border border-[rgba(15,0,0,0.12)] bg-black">
-                              {previewRecord.mediaType === 'photo' ? (
+                              {(() => {
+                                const ext = (previewRecord.fileName ?? previewRecord.filePath ?? '').toLowerCase().split('.').pop() ?? ''
+                                const isPhoto = previewRecord.mediaType === 'photo' || ext === 'jpg' || ext === 'jpeg' || ext === 'png' || ext === 'webp'
+                                return isPhoto
+                              })() ? (
                                 <img src={buildServerFileUrl(previewRecord.filePath)} alt={previewRecord.fileName} className="block max-h-[42vh] w-full bg-black object-contain" crossOrigin="use-credentials" />
                               ) : (
                                 <video

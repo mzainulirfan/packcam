@@ -74,7 +74,12 @@ function normalizeTaskType(value: WorkTask | string | undefined | null): WorkTas
   return value === 'packing' ? 'packing' : 'qc'
 }
 
+function isPhotoFileNameShared(name: string | null | undefined) {
+  const ext = (name ?? '').toLowerCase().split('.').pop() ?? ''
+  return ext === 'jpg' || ext === 'jpeg' || ext === 'png' || ext === 'webp'
+}
 function normalizeServerRecord(record: RecordingRow): LocalRecordingRecord {
+  const inferredMediaType = (record.mediaType as string) === 'photo' || isPhotoFileNameShared(record.fileName) || isPhotoFileNameShared(record.filePath) ? 'photo' as const : 'video' as const
   return {
     id: record.id,
     resiNumber: record.resiNumber,
@@ -83,7 +88,7 @@ function normalizeServerRecord(record: RecordingRow): LocalRecordingRecord {
     operatorCode: record.operatorCode ?? null,
     fileName: record.fileName,
     filePath: record.filePath,
-    mediaType: record.mediaType ?? 'video',
+    mediaType: inferredMediaType,
     fileSizeBytes: record.fileSizeBytes ?? null,
     recordDate: record.recordDate,
     startTime: record.startTime,

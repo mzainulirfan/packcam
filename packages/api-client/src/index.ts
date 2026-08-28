@@ -118,6 +118,10 @@ export type PrepareShippingChatResult = {
   skipped: Array<{ orderNumber: string; reason: string }>
 }
 
+function isPhotoFileName(name: string | null | undefined) {
+  const ext = (name ?? '').toLowerCase().split('.').pop() ?? ''
+  return ext === 'jpg' || ext === 'jpeg' || ext === 'png' || ext === 'webp'
+}
 function normalizeRecordingRow(record: ServerRecordingRow): RecordingRow {
   return {
     id: record.id,
@@ -127,7 +131,7 @@ function normalizeRecordingRow(record: ServerRecordingRow): RecordingRow {
     operatorCode: record.operator_code,
     fileName: record.file_name,
     filePath: record.file_path,
-    mediaType: record.media_type === 'photo' ? 'photo' : 'video',
+    mediaType: record.media_type === 'photo' || isPhotoFileName(record.file_name) || isPhotoFileName(record.file_path) ? 'photo' : 'video',
     fileSizeBytes: record.file_size_bytes,
     recordDate: record.record_date,
     startTime: record.start_time,

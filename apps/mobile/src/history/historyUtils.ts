@@ -83,8 +83,15 @@ export function getGroupShareStatus(rows: RecordingRow[]) {
     : { label: 'Menyiapkan share', ready: false }
 }
 
+function isPhotoFile(name: string | null | undefined) {
+  const ext = (name ?? '').toLowerCase().split('.').pop() ?? ''
+  return ext === 'jpg' || ext === 'jpeg' || ext === 'png' || ext === 'webp'
+}
 export function getMediaLabel(record: RecordingRow) {
-  return (record as unknown as { mediaType?: string }).mediaType === 'photo' ? 'foto' : 'video'
+  const mt = (record as unknown as { mediaType?: string }).mediaType
+  if (mt === 'photo') return 'foto'
+  if (isPhotoFile((record as unknown as { fileName?: string }).fileName) || isPhotoFile((record as unknown as { filePath?: string }).filePath)) return 'foto'
+  return 'video'
 }
 
 export function getPayLabel(record: RecordingRow) {
