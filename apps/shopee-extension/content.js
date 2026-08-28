@@ -48,26 +48,41 @@ function parseOrderNumber(text) {
 }
 
 function extractShopeeItems(root) {
-  const itemElements = [...root.querySelectorAll('.order-item-infos .item-list .item, [data-testid="order-item-infos"] .item-list .item')]
+  const itemElements = [...root.querySelectorAll('.order-item-infos .item-list .item, [data-testid="order-item-infos"] .item-list .item, [class*="item" i][class*="product" i], .shopee-order-item, [data-testid*="item" i]')]
 
-  return itemElements
+  const shopeeItems = itemElements
     .map((element) => {
-      const productName = textOf(element.querySelector('.item-name'))
-      if (!productName) {
+      const productName = textOf(element.querySelector('.item-name, [class*="item-name" i], [class*="product-name" i], [data-testid*="product" i]'))
+      if (!productName || productName.length < 3) {
         return null
       }
 
-      const amountText = textOf(element.querySelector('.item-amount'))
+      const amountText = textOf(element.querySelector('.item-amount, [class*="amount" i], [class*="quantity" i], [class*="qty" i]'))
+      const variationText =
+        textOf(element.querySelector('.item-variation, [class*="variation" i], [class*="variant" i], [data-testid*="variation" i]')) ||
+        firstMatch(textOf(element), [/(?:variasi|variation|varian)\s*[:\-]\s*([^|\n]+)/i]) ||
+        null
+      const sku = textOf(element.querySelector('[class*="sku" i]')) || firstMatch(textOf(element), [/sku[:\s]+([^|,]+)/i]) || null
+      const image = element.querySelector('img')
+      const fallbackText = textOf(element)
 
       return {
-        sku: null,
-        productName,
-        variationName: null,
-        quantity: parseQuantity(amountText),
-        imageUrl: null,
+        sku: sku ? sku.slice(0, 80) : null,
+        productName: productName.slice(0, 220),
+        variationName: variationText ? variationText.slice(0, 160) : null,
+        quantity: parseQuantity(amountText || fallbackText),
+        imageUrl: image?.src || null,
       }
     })
     .filter(Boolean)
+
+  const seen = new Set()
+  return shopeeItems.filter((item) => {
+    const key = `${item.productName.toLowerCase()}|${(item.variationName || '').toLowerCase()}|${item.quantity}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 function extractItems(root) {
@@ -128,15 +143,20 @@ function extractOrderFromRoot(root) {
   }
 
   const items = extractItems(root)
+  const shippingChannel =
+    textOf(root.querySelector('.fulfilment-channel-name, [class*="shipping" i][class*="channel" i], [class*="logistic" i], [data-testid*="shipping" i]')) ||
+    findLabelValue(root, ['jasa kirim', 'kurir', 'shipping', 'logistics', 'ekspedisi']) ||
+    firstMatch(fullText, [/(?:jasa kirim|kurir|ekspedisi)\s*[:\-]\s*([A-Za-z0-9 ]{3,30})/i]) ||
+    null
 
   return {
     source: 'shopee',
     orderNumber,
     trackingNumber,
     buyerUsername: textOf(root.querySelector('.buyer-username')) || findLabelValue(root, ['username pembeli', 'buyer username', 'pembeli']) || null,
-    shippingChannel: textOf(root.querySelector('.fulfilment-channel-name')) || null,
-    orderStatus: null,
-    rawPayload: null,
+    shippingChannel,
+    orderStatus: firstMatch(fullText, [/(?:status)\s*[:\-]\s*([A-Za-z ]{3,30})/i]) || null,
+    rawPayload: { fullText: fullText.slice(0, 4000), orderSnText: orderSnText.slice(0, 200) },
     items: items.length > 0 ? items : [{ sku: null, productName: 'Unknown item', variationName: null, quantity: 1, imageUrl: null }],
   }
 }

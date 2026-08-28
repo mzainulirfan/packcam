@@ -93,6 +93,22 @@ export type PackingWorkSession = {
   updatedAt: string
 }
 
+export type PackingPayRuleMatchType = 'default' | 'product_contains' | 'variation_contains' | 'sku_contains' | 'shipping_channel'
+export type PackingPayType = 'per_package' | 'per_qty'
+
+export type PackingPayRule = {
+  id: string
+  name: string
+  matchType: PackingPayRuleMatchType
+  matchValue: string | null
+  payType: PackingPayType
+  amount: number
+  priority: number
+  active: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 export type ScanLogRow = {
   id: string
   resiNumber: string

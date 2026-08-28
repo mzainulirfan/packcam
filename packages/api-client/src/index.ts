@@ -1,4 +1,4 @@
-import type { AppSettings, OperatorProfile, OperatorRole, OperatorSession, PackingPayStatus, PackingWorkSession, RecordingChatSend, RecordingMediaType, RecordingRow, ScanLogRow, ShippingChatSend, ShopeeOrder, SystemConfig } from '@pakti/types'
+import type { AppSettings, OperatorProfile, OperatorRole, OperatorSession, PackingPayRule, PackingPayRuleMatchType, PackingPayType, PackingPayStatus, PackingWorkSession, RecordingChatSend, RecordingMediaType, RecordingRow, ScanLogRow, ShippingChatSend, ShopeeOrder, SystemConfig } from '@pakti/types'
 
 type ApiResponse<T> = {
   ok: boolean
@@ -394,6 +394,30 @@ export function closePackingSessionApi(id: string, note?: string | null) {
   })
 }
 
+export function readPackingPayRulesApi() {
+  return requestApi<PackingPayRule[]>('/api/packing-pay-rules')
+}
+
+export function createPackingPayRuleApi(payload: { name: string; matchType?: PackingPayRuleMatchType; matchValue?: string | null; payType?: PackingPayType; amount: number; priority?: number; active?: boolean }) {
+  return requestApi<PackingPayRule>('/api/packing-pay-rules', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function updatePackingPayRuleApi(id: string, payload: Partial<{ name: string; matchType: PackingPayRuleMatchType; matchValue: string | null; payType: PackingPayType; amount: number; priority: number; active: boolean }>) {
+  return requestApi<PackingPayRule>(`/api/packing-pay-rules/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deletePackingPayRuleApi(id: string) {
+  return requestApi<{ deleted: boolean }>(`/api/packing-pay-rules/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  })
+}
+
 export function readServerRecordingsApi() {
   return requestApi<ServerRecordingRow[]>('/api/recordings')
     .then((records) => records.map(normalizeRecordingRow))
@@ -440,6 +464,10 @@ export function readShopeeOrderByOrderNumberApi(orderNumber: string) {
 
 export function readRecentShopeeOrdersApi(limit = 50) {
   return requestApi<ShopeeOrder[]>(`/api/orders/recent?limit=${encodeURIComponent(String(limit))}`)
+}
+
+export function readPackingPreviewByResiApi(resiNumber: string) {
+  return requestApi<{ order: ShopeeOrder; pay: { amount: number; quantity: number; breakdown: unknown; rule: import('@pakti/types').PackingPayRule } }>(`/api/shopee/orders/by-resi/${encodeURIComponent(resiNumber)}/packing-preview`)
 }
 
 export function prepareShippingChatSendsApi(orderNumbers: string[], extensionApiKey?: string) {

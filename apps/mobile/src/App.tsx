@@ -17,6 +17,10 @@ import {
 import {
   closePackingSessionApi,
   createPackingSessionApi,
+  readPackingPreviewByResiApi,
+  createServerRecordingDraftApi,
+  appendServerRecordingChunkApi,
+  finalizeServerRecordingApi,
   deleteServerRecordingApi,
   readRecentShopeeOrdersApi,
   readServerSettingsApi,
@@ -158,6 +162,10 @@ function App() {
   const [activePackingSession, setActivePackingSession] = useState<PackingWorkSession | null>(null)
   const [selectedPackerKey, setSelectedPackerKey] = useState('')
   const [packingSessionBusy, setPackingSessionBusy] = useState(false)
+  const [packingMediaType, setPackingMediaType] = useState<'video' | 'photo'>('video')
+  const [packingPreview, setPackingPreview] = useState<{ order: ShopeeOrder; pay: { amount: number; quantity: number; breakdown: unknown; rule: import('@pakti/types').PackingPayRule } } | null>(null)
+  const [packingPreviewBusy, setPackingPreviewBusy] = useState(false)
+  const [photoCaptureBusy, setPhotoCaptureBusy] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
     if (typeof window === 'undefined') {
       return 'scan'
@@ -1270,6 +1278,89 @@ function App() {
     }
   }
 
+  useEffect(() => {
+    if (!isPackingMode || !activePackingSession || !scanResi.trim() || recordingSession.state.mode !== 'idle') {
+      setPackingPreview(null)
+      return
+    }
+    let cancelled = false
+    const resi = scanResi.trim()
+    const timer = window.setTimeout(() => {
+      setPackingPreviewBusy(true)
+      readPackingPreviewByResiApi(resi)
+        .then((data) => {
+          if (!cancelled) setPackingPreview(data)
+        })
+        .catch(() => {
+          if (!cancelled) setPackingPreview(null)
+        })
+        .finally(() => {
+          if (!cancelled) setPackingPreviewBusy(false)
+        })
+    }, 320)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [isPackingMode, activePackingSession, scanResi, recordingSession.state.mode])
+
+  async function handleCapturePhoto() {
+    if (!session || packingMediaType !== 'photo' || !canUsePackingFlow || photoCaptureBusy || !scanVideoElement || !scanResi.trim()) return
+    const resiNumber = scanResi.trim()
+    if (session.taskType === 'packing') {
+      const progress = await resolveLatestTaskProgress(resiNumber)
+      if (progress?.qc?.status !== 'completed') {
+        playScanFeedback('warning')
+        showScanNotice({ kind: 'warning', title: 'QC belum selesai', message: getPackingQcMessage(progress?.qc?.status) })
+        return
+      }
+      const existing = await findRecordingByResi(resiNumber, 'packing')
+      if (existing) {
+        playScanFeedback('warning')
+        const notice = getDuplicateScanNotice({ existing, taskType: 'packing', taskProgressQcStatus: progress?.qc?.status, formatTask })
+        showScanNotice({ kind: 'warning', title: notice.title, message: notice.message })
+        return
+      }
+    }
+    setPhotoCaptureBusy(true)
+    try {
+      const video = scanVideoElement
+      const canvas = document.createElement('canvas')
+      canvas.width = video.videoWidth || 1280
+      canvas.height = video.videoHeight || 720
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('Canvas tidak tersedia.')
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92))
+      if (!blob) throw new Error('Gagal mengambil foto.')
+      const startedAt = new Date()
+      const fileName = `packing_${resiNumber.replace(/[^\w-]+/g, '_')}_${startedAt.toISOString().replace(/[:.]/g, '-')}.jpg`
+      const draft = await createServerRecordingDraftApi({
+        resiNumber,
+        taskType: 'packing',
+        operatorName: session.operatorName,
+        operatorCode: session.operatorCode,
+        startedAt: startedAt.toISOString(),
+        fileName,
+        filePath: fileName,
+        mediaType: 'photo',
+        packingSessionId: activePackingSession?.id ?? null,
+      })
+      await appendServerRecordingChunkApi(draft.id, blob)
+      await finalizeServerRecordingApi(draft.id, { endTime: new Date().toISOString() })
+      playScanFeedback('success')
+      showScanNotice({ kind: 'success', title: 'Foto packing tersimpan', message: `Resi ${resiNumber} · ${packingPreview ? formatRupiah((packingPreview.pay as unknown as { amount: number }).amount) : formatRupiah(1500)}` })
+      setScanResi('')
+      setPackingPreview(null)
+      if (activePackingSession) void readPackingSessionApi(activePackingSession.id).then(setActivePackingSession).catch(() => void refreshActivePackingSession())
+      void refreshHistory()
+    } catch (error) {
+      showScanNotice({ kind: 'warning', title: 'Gagal simpan foto', message: normalizeError(error) })
+    } finally {
+      setPhotoCaptureBusy(false)
+    }
+  }
+
   async function handleDeleteRecording(record: RecordingRow) {
     if (deletingRecordId) {
       return
@@ -1555,6 +1646,36 @@ function App() {
                 </div>
               )}
             </section>
+            ) : null}
+          {isPackingMode && activePackingSession ? (
+            <section className="grid gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-3" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+              <div className="flex gap-2">
+                {(['video','photo'] as const).map((v) => (
+                  <Button key={v} type="button" variant={packingMediaType===v ? 'secondary' : 'outline'} size="sm" className="flex-1 rounded-[4px]" onClick={() => setPackingMediaType(v)} disabled={recordingSession.state.mode==='recording' || photoCaptureBusy}>
+                    {v==='video' ? 'Video' : 'Foto'}
+                  </Button>
+                ))}
+              </div>
+              {packingPreviewBusy ? <p className="text-[12px] text-[var(--op-mute)]">Memuat preview order...</p> : null}
+              {packingPreview ? (
+                <div className="grid gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[12px] font-bold">Jasa kirim: {packingPreview.order.shippingChannel ?? '-'}</span>
+                    <span className="rounded-[4px] bg-[var(--op-ink)] px-2 py-0.5 text-[11px] font-semibold text-[var(--op-canvas)]">{formatRupiah(packingPreview.pay.amount)}</span>
+                  </div>
+                  <div className="grid gap-1">
+                    {packingPreview.order.items.slice(0,4).map((it, idx) => (
+                      <div key={idx} className="flex justify-between gap-2 text-[12px]">
+                        <span className="min-w-0 truncate">{it.productName}{it.variationName ? ` · ${it.variationName}` : ''}</span>
+                        <span className="shrink-0">x{it.quantity}</span>
+                      </div>
+                    ))}
+                    {packingPreview.order.items.length > 4 ? <span className="text-[11px] text-[var(--op-mute)]">+{packingPreview.order.items.length - 4} item lain</span> : null}
+                  </div>
+                  <p className="text-[11px] text-[var(--op-mute)]">No. Pesanan {packingPreview.order.orderNumber} · Buyer {packingPreview.order.buyerUsername ?? '-'}</p>
+                </div>
+              ) : scanResi.trim() ? <p className="text-[11px] text-amber-600">Order belum ditemukan atau butuh sync Shopee.</p> : null}
+            </section>
           ) : null}
 
           <div className="relative">
@@ -1663,23 +1784,35 @@ function App() {
                     <p className="text-[0.68rem] leading-snug text-muted-foreground">{scanStatusDescription}</p>
                   </div>
 
-                  <Button
-                    type="button"
-                    className="h-12 w-full rounded-[4px] text-[0.95rem] font-semibold"
-                    disabled={
-                      scanBusy ||
-                      !canUsePackingFlow ||
-                      recordingSession.state.mode === 'stopping' ||
-                      recordingSession.state.mode === 'saving' ||
-                      (recordingSession.state.mode === 'idle' && !scanResi.trim())
-                    }
-                    onClick={() =>
-                      void (recordingSession.state.mode === 'recording' ? stopScanRecording() : startScanRecording(scanResi, 'manual'))
-                    }
-                  >
-                    <HugeiconsIcon icon={ScanIcon} size={16} />
-                    {scanPrimaryActionLabel}
-                  </Button>
+                  {isPackingMode && packingMediaType==='photo' ? (
+                    <Button
+                      type="button"
+                      className="h-12 w-full rounded-[4px] text-[0.95rem] font-semibold"
+                      disabled={!canUsePackingFlow || photoCaptureBusy || !scanResi.trim() || scanBusy || recordingSession.state.mode==='recording'}
+                      onClick={() => void handleCapturePhoto()}
+                    >
+                      <HugeiconsIcon icon={Camera01Icon} size={16} />
+                      {photoCaptureBusy ? 'Menyimpan foto...' : 'Ambil foto & simpan'}
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      className="h-12 w-full rounded-[4px] text-[0.95rem] font-semibold"
+                      disabled={
+                        scanBusy ||
+                        !canUsePackingFlow ||
+                        recordingSession.state.mode === 'stopping' ||
+                        recordingSession.state.mode === 'saving' ||
+                        (recordingSession.state.mode === 'idle' && !scanResi.trim())
+                      }
+                      onClick={() =>
+                        void (recordingSession.state.mode === 'recording' ? stopScanRecording() : startScanRecording(scanResi, 'manual'))
+                      }
+                    >
+                      <HugeiconsIcon icon={ScanIcon} size={16} />
+                      {scanPrimaryActionLabel}
+                    </Button>
+                  )}
                 </div>
               }
             />

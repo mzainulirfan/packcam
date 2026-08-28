@@ -8,7 +8,7 @@ import multer from 'multer'
 import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
 import type { AppSettings, ShopeeOrder } from '@pakti/types'
 
-import { clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, closePackingSession, createPackingSession, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deleteRecording, deleteSessionById, finalizeRecording, getActivePackingSession, getBootstrapStatus, getChatSendStats, getHealthSnapshot, getNextPendingShippingChatSend, getPackingSessionById, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, getShopeeOrderStats, getShippingChatSendStats, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPackingOperators, listPendingChatSends, listRecentChatSends, listRecentShippingChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, prepareReadyRecordingChatSendsForToday, prepareRecordingChatSend, prepareRecordingShareFile, prepareShippingChatSends, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, retryChatSend, retryShippingChatSend, saveSettings, saveSystemConfig, updateChatSendStatus, updateSessionTaskType, updateShippingChatSendStatus, upsertOperatorProfile } from './store'
+import { calculatePackingPayForOrder, clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, closePackingSession, createPackingPayRule, createPackingSession, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deletePackingPayRule, deleteRecording, deleteSessionById, finalizeRecording, getActivePackingSession, getBootstrapStatus, getChatSendStats, getHealthSnapshot, getNextPendingShippingChatSend, getPackingPayRuleById, getPackingSessionById, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, getShopeeOrderStats, getShippingChatSendStats, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPackingOperators, listPackingPayRules, listPendingChatSends, listRecentChatSends, listRecentShippingChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, prepareReadyRecordingChatSendsForToday, prepareRecordingChatSend, prepareRecordingShareFile, prepareShippingChatSends, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, retryChatSend, retryShippingChatSend, saveSettings, saveSystemConfig, updateChatSendStatus, updatePackingPayRule, updateSessionTaskType, updateShippingChatSendStatus, upsertOperatorProfile } from './store'
 import type { ShippingChatOrderInput } from './store/shippingChatSendStore'
 import { clearSessionCookie, getCookie, normalizeRole, readStringField, sendError, sendOk, setSessionCookie } from './http'
 import type { HttpSession } from './http'
@@ -548,6 +548,55 @@ app.post('/api/packing-sessions/:id/close', requireSession, (req, res) => {
   }
 })
 
+app.get('/api/packing-pay-rules', requireSession, (_req, res) => {
+  sendOk(res, listPackingPayRules())
+})
+
+app.post('/api/packing-pay-rules', requireAdmin, (req, res) => {
+  try {
+    const rule = createPackingPayRule({
+      name: readStringField(req.body?.name, 'name'),
+      matchType: req.body?.matchType,
+      matchValue: typeof req.body?.matchValue === 'string' ? req.body.matchValue : null,
+      payType: req.body?.payType,
+      amount: Number(req.body?.amount),
+      priority: Number(req.body?.priority),
+      active: req.body?.active !== false,
+    })
+    return sendOk(res, rule)
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal membuat pay rule.')
+  }
+})
+
+app.patch('/api/packing-pay-rules/:id', requireAdmin, (req, res) => {
+  try {
+    const params = req.params as Record<string, string | undefined>
+    const rule = updatePackingPayRule(params.id ?? '', {
+      name: typeof req.body?.name === 'string' ? req.body.name : undefined,
+      matchType: req.body?.matchType,
+      matchValue: typeof req.body?.matchValue === 'string' || req.body?.matchValue === null ? req.body.matchValue : undefined,
+      payType: req.body?.payType,
+      amount: req.body?.amount !== undefined ? Number(req.body.amount) : undefined,
+      priority: req.body?.priority !== undefined ? Number(req.body.priority) : undefined,
+      active: req.body?.active !== undefined ? Boolean(req.body.active) : undefined,
+    })
+    return sendOk(res, rule)
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal update pay rule.')
+  }
+})
+
+app.delete('/api/packing-pay-rules/:id', requireAdmin, (req, res) => {
+  try {
+    const params = req.params as Record<string, string | undefined>
+    deletePackingPayRule(params.id ?? '')
+    return sendOk(res, { deleted: true })
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal hapus pay rule.')
+  }
+})
+
 app.post('/api/operators', requireAdmin, (req, res) => {
   try {
     const profile = upsertOperatorProfile({
@@ -720,6 +769,16 @@ app.get('/api/orders/by-resi/:resi', requireSession, (req, res) => {
   }
 
   return sendOk(res, order)
+})
+
+app.get('/api/shopee/orders/by-resi/:resi/packing-preview', requireSession, (req, res) => {
+  const params = req.params as Record<string, string | undefined>
+  const resi = String(params.resi ?? '').trim()
+  if (!resi) return sendError(res, 400, 'Resi wajib diisi.')
+  const order = getShopeeOrderByResi(resi)
+  if (!order) return sendError(res, 404, 'Order tidak ditemukan untuk resi ini.')
+  const pay = calculatePackingPayForOrder(order)
+  return sendOk(res, { order, pay })
 })
 
 app.get('/api/orders/by-order/:orderNumber', requireSession, (req, res) => {

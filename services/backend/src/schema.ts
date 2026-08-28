@@ -69,6 +69,19 @@ export const SCHEMA_SQL = [
   )`,
   `CREATE INDEX IF NOT EXISTS idx_packing_work_sessions_status ON packing_work_sessions (status)`,
   `CREATE INDEX IF NOT EXISTS idx_packing_work_sessions_started_at ON packing_work_sessions (started_at DESC)`,
+  `CREATE TABLE IF NOT EXISTS packing_pay_rules (
+    id TEXT PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL,
+    match_type TEXT NOT NULL,
+    match_value TEXT,
+    pay_type TEXT NOT NULL,
+    amount INTEGER NOT NULL,
+    priority INTEGER NOT NULL,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_packing_pay_rules_priority ON packing_pay_rules (priority DESC)`,
   `CREATE TABLE IF NOT EXISTS scan_logs (
     id TEXT PRIMARY KEY NOT NULL,
     resi_number TEXT NOT NULL,

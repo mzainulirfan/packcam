@@ -18,7 +18,9 @@ import {
   runFfmpegShareMp4Transcode as runVideoFfmpegShareMp4Transcode,
   SHOPEE_VIDEO_LIMIT_BYTES,
 } from '../video/shareVideo'
-import { assertActivePackingSession, getDefaultPackingPayAmount, getDefaultPackingPayBreakdown } from './packingSessionStore'
+import { calculatePackingPayForOrder } from './packingPayRuleStore'
+import { assertActivePackingSession } from './packingSessionStore'
+import { getShopeeOrderByResi } from './orderStore'
 
 type RecordingRow = {
   id: string
@@ -125,6 +127,16 @@ function recordingSelectFields() {
           packing_pay_status, packing_pay_breakdown, created_at, updated_at`
 }
 
+function resolvePackingPay(resiNumber: string) {
+  try {
+    const order = getShopeeOrderByResi(resiNumber)
+    const result = calculatePackingPayForOrder(order)
+    return { amount: result.amount, status: 'calculated' as const, breakdown: JSON.stringify(result.breakdown) }
+  } catch {
+    return { amount: 1500, status: 'needs_review' as const, breakdown: JSON.stringify({ ruleName: 'Fallback', payType: 'per_package', amount: 1500, quantity: 1, total: 1500, error: 'pay calculation failed' }) }
+  }
+}
+
 function canStartPackingForResi(resiNumber: string) {
   const row = db()
     .prepare(
@@ -145,8 +157,10 @@ function sanitizeFileSegment(value: string) {
 
 function sanitizeFileName(value: string) {
   const parsed = path.posix.parse(value.trim().replace(/\\/g, '/'))
-  const extension = parsed.ext.toLowerCase() === '.mp4' ? '.mp4' : '.webm'
-  return `${sanitizeFileSegment(parsed.name)}${extension}`
+  const ext = parsed.ext.toLowerCase()
+  if (ext === '.mp4' || ext === '.webm' || ext === '.jpg' || ext === '.jpeg' || ext === '.png' || ext === '.webp') return `${sanitizeFileSegment(parsed.name)}${ext}`
+  if (ext === '.jpeg') return `${sanitizeFileSegment(parsed.name)}.jpg`
+  return `${sanitizeFileSegment(parsed.name)}.webm`
 }
 
 function assertSafeRelativeFilePath(value: string) {
@@ -192,10 +206,11 @@ function formatRecordingTimestamp(startedAt: Date) {
   return `${year}${month}${day}_${hours}${minutes}${seconds}_${milliseconds}`
 }
 
-function buildRecordingFileName(resiNumber: string, format: string, taskType: WorkTask, startedAt: Date) {
+function buildRecordingFileName(resiNumber: string, format: string, taskType: WorkTask, startedAt: Date, mediaType: RecordingMediaType = 'video') {
   const prefix = normalizeTaskType(taskType)
-  const extension = format.trim() === 'mp4' ? 'mp4' : 'webm'
   const timestamp = formatRecordingTimestamp(startedAt)
+  if (mediaType === 'photo') return `${prefix}_${sanitizeFileSegment(resiNumber)}_${timestamp}.jpg`
+  const extension = format.trim() === 'mp4' ? 'mp4' : 'webm'
   return `${prefix}_${sanitizeFileSegment(resiNumber)}_${timestamp}.${extension}`
 }
 
@@ -301,7 +316,7 @@ export function createRecordingDraft(input: RecordingDraftInput) {
     : null
   const fileName = input.fileName
     ? sanitizeFileName(input.fileName)
-    : buildRecordingFileName(input.resiNumber, DEFAULT_APP_SETTINGS.videoFormat, taskType, startedAt)
+    : buildRecordingFileName(input.resiNumber, DEFAULT_APP_SETTINGS.videoFormat, taskType, startedAt, mediaType)
   const filePath = assertSafeRelativeFilePath(input.filePath ?? path.posix.join(DEFAULT_APP_SETTINGS.videoRootPath, fileName))
   const timestamp = nowIso()
 
@@ -398,9 +413,10 @@ export function finalizeRecording(
   const endTime = payload.endTime ?? nowIso()
   const durationSeconds = Math.max(1, Math.round((new Date(endTime).getTime() - new Date(recording.start_time).getTime()) / 1000))
 
-  const packingPayAmount = recording.task_type === 'packing' ? getDefaultPackingPayAmount() : null
-  const packingPayStatus = recording.task_type === 'packing' ? 'calculated' : null
-  const packingPayBreakdown = recording.task_type === 'packing' ? JSON.stringify(getDefaultPackingPayBreakdown()) : null
+  const packingPay = recording.task_type === 'packing' ? resolvePackingPay(recording.resi_number) : null
+  const packingPayAmount = packingPay?.amount ?? null
+  const packingPayStatus = packingPay?.status ?? null
+  const packingPayBreakdown = packingPay?.breakdown ?? null
 
   db().prepare(
     `UPDATE recordings
@@ -756,9 +772,10 @@ function finalizePendingRecording(
     const fileStats = fs.statSync(finalPath)
     const endTime = payload.endTime ?? nowIso()
     const durationSeconds = Math.max(1, Math.round((new Date(endTime).getTime() - new Date(recording.start_time).getTime()) / 1000))
-    const packingPayAmount = recording.task_type === 'packing' ? getDefaultPackingPayAmount() : null
-    const packingPayStatus = recording.task_type === 'packing' ? 'calculated' : null
-    const packingPayBreakdown = recording.task_type === 'packing' ? JSON.stringify(getDefaultPackingPayBreakdown()) : null
+    const packingPay = recording.task_type === 'packing' ? resolvePackingPay(recording.resi_number) : null
+    const packingPayAmount = packingPay?.amount ?? null
+    const packingPayStatus = packingPay?.status ?? null
+    const packingPayBreakdown = packingPay?.breakdown ?? null
 
     db().prepare(
       `UPDATE recordings
@@ -778,9 +795,10 @@ function finalizePendingRecording(
   const fileStats = fs.statSync(finalPath)
   const endTime = payload.endTime ?? nowIso()
   const durationSeconds = Math.max(1, Math.round((new Date(endTime).getTime() - new Date(recording.start_time).getTime()) / 1000))
-  const packingPayAmount = recording.task_type === 'packing' ? getDefaultPackingPayAmount() : null
-  const packingPayStatus = recording.task_type === 'packing' ? 'calculated' : null
-  const packingPayBreakdown = recording.task_type === 'packing' ? JSON.stringify(getDefaultPackingPayBreakdown()) : null
+  const packingPay = recording.task_type === 'packing' ? resolvePackingPay(recording.resi_number) : null
+  const packingPayAmount = packingPay?.amount ?? null
+  const packingPayStatus = packingPay?.status ?? null
+  const packingPayBreakdown = packingPay?.breakdown ?? null
 
   db().prepare(
     `UPDATE recordings
