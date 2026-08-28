@@ -928,6 +928,8 @@ function App() {
   const {
     sharingRecordId,
     preparingShareFileIds,
+    shareProgressByRecordingId,
+    sharePreparationErrors,
     queuedShareFileIds,
     preparedShareFileIds,
     handleShareRecording,
@@ -962,6 +964,17 @@ function App() {
     }
 
     source.addEventListener('recordings-updated', scheduleRefresh)
+    source.addEventListener('share-file-progress', (event) => {
+      if (!(event instanceof MessageEvent)) {
+        return
+      }
+
+      try {
+        window.dispatchEvent(new CustomEvent('pakti:share-file-progress', { detail: JSON.parse(event.data) }))
+      } catch {
+        // Ignore malformed progress events and keep the share request running.
+      }
+    })
 
     return () => {
       if (refreshTimer !== null) {
@@ -1764,7 +1777,10 @@ function App() {
                       const latest = group.latestRow
                       const shareStatus = getGroupShareStatus(group.rows)
                       const sharePreparing = group.rows.some((record) => preparingShareFileIds.has(record.id))
-                      const shareQueued = !sharePreparing && group.rows.some((record) => queuedShareFileIds.has(record.id))
+                      const shareFailed = !sharePreparing && group.rows.some((record) => sharePreparationErrors.has(record.id))
+                      const shareQueued = !sharePreparing && !shareFailed && group.rows.some((record) => queuedShareFileIds.has(record.id))
+                      const activeShareRecord = group.rows.find((record) => preparingShareFileIds.has(record.id))
+                      const shareProgress = activeShareRecord ? shareProgressByRecordingId.get(activeShareRecord.id) ?? 0 : null
                       const groupChatSend = group.rows.map((r) => visibleChatSendByRecordingId.get(r.id)).find(Boolean)
                       return (
                       <div
@@ -1845,10 +1861,12 @@ function App() {
                               <div className="mt-auto flex min-w-0 flex-wrap items-center gap-1.5 pt-1">
                                 <span className={sharePreparing
                                   ? 'shrink-0 rounded-[4px] border border-[var(--op-warning,#ff9f0a)] bg-[var(--op-warning,#ff9f0a)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--op-warning,#ff9f0a)] animate-pulse'
+                                  : shareFailed
+                                    ? 'shrink-0 rounded-[4px] border border-destructive/50 px-2 py-0.5 text-[11px] text-destructive'
                                   : shareQueued
                                     ? 'shrink-0 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-2 py-0.5 text-[11px] text-[var(--op-mute)]'
                                     : getGroupShareStatusClassName(shareStatus.ready)}>
-                                  {sharePreparing ? 'Menyiapkan share' : shareQueued ? 'Antri share' : shareStatus.label}
+                                  {sharePreparing ? `Menyiapkan share ${shareProgress}%` : shareFailed ? 'Gagal menyiapkan' : shareQueued ? 'Antri share' : shareStatus.label}
                                 </span>
                                 {groupChatSend ? (
                                   <span className="rounded-[4px] bg-[var(--op-ink)] px-2 py-0.5 text-[11px] font-medium text-[var(--op-canvas)]">
@@ -1937,6 +1955,8 @@ function App() {
         preparingChatSendId={preparingChatSendId}
         deletingRecordId={deletingRecordId}
         preparingShareFileIds={preparingShareFileIds}
+        shareProgressByRecordingId={shareProgressByRecordingId}
+        sharePreparationErrors={sharePreparationErrors}
         queuedShareFileIds={queuedShareFileIds}
         preparedShareFileIds={preparedShareFileIds}
         chatSendByRecordingId={visibleChatSendByRecordingId}

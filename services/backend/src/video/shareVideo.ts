@@ -3,6 +3,7 @@ import path from 'node:path'
 
 import { runFfmpeg } from './ffmpeg'
 import type { VideoProcessingRecording } from './types'
+import { broadcastBackendEvent } from '../realtime'
 
 export const SHOPEE_VIDEO_LIMIT_BYTES = 25 * 1024 * 1024
 
@@ -26,14 +27,30 @@ function getShareEncodingProfile(recording: VideoProcessingRecording) {
 export async function runFfmpegShareMp4Transcode(recording: VideoProcessingRecording, inputPath: string, outputPath: string) {
   fs.mkdirSync(path.dirname(outputPath), { recursive: true })
   const { videoBitrate, audioBitrate } = getShareEncodingProfile(recording)
+  const durationSeconds = Math.max(1, Number(recording.duration_seconds ?? 60))
+  let lastProgress = -1
 
   await runFfmpeg([
     '-y', '-i', inputPath, '-map', '0:v:0', '-map', '0:a?',
     '-vf', 'scale=720:720:force_original_aspect_ratio=decrease:force_divisible_by=2,fps=15',
     '-c:v', 'libx264', '-preset', 'veryfast', '-b:v', String(videoBitrate),
     '-maxrate', String(videoBitrate), '-bufsize', String(videoBitrate * 2), '-pix_fmt', 'yuv420p',
-    '-c:a', 'aac', '-b:a', String(audioBitrate), '-movflags', '+faststart', outputPath,
-  ], 'ffmpeg share video gagal')
+    '-c:a', 'aac', '-b:a', String(audioBitrate), '-movflags', '+faststart',
+    '-progress', 'pipe:2', '-nostats', outputPath,
+  ], 'ffmpeg share video gagal', ({ elapsedSeconds }) => {
+    const progress = Math.min(99, Math.max(0, Math.floor((elapsedSeconds / durationSeconds) * 100)))
+    if (progress === lastProgress) {
+      return
+    }
+
+    lastProgress = progress
+    broadcastBackendEvent('share-file-progress', {
+      recordingId: recording.id,
+      resiNumber: recording.resi_number,
+      fileName: path.basename(outputPath),
+      progress,
+    })
+  })
 
   const outputSize = fs.statSync(outputPath).size
   if (outputSize > SHOPEE_VIDEO_LIMIT_BYTES) {

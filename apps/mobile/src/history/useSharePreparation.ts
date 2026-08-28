@@ -44,9 +44,33 @@ export function useSharePreparation({
 }: UseSharePreparationParams) {
   const [sharingRecordId, setSharingRecordId] = useState<string | null>(null)
   const [preparingShareFileIds, setPreparingShareFileIds] = useState<Set<string>>(() => new Set())
+  const [shareProgressByRecordingId, setShareProgressByRecordingId] = useState<Map<string, number>>(() => new Map())
+  const [sharePreparationErrors, setSharePreparationErrors] = useState<Map<string, string>>(() => new Map())
   const [preparedShareFileIds, setPreparedShareFileIds] = useState<Set<string>>(() => new Set())
   const preparedShareFilesRef = useRef(new Map<string, PreparedShareFile>())
   const requestedShareFileIdsRef = useRef(new Set<string>())
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const handleShareProgress = (event: Event) => {
+      const detail = (event as CustomEvent<{ recordingId?: string; progress?: number }>).detail
+      if (!detail?.recordingId || typeof detail.progress !== 'number') {
+        return
+      }
+
+      setShareProgressByRecordingId((current) => {
+        const next = new Map(current)
+        next.set(detail.recordingId!, Math.max(0, Math.min(99, Math.round(detail.progress!))))
+        return next
+      })
+    }
+
+    window.addEventListener('pakti:share-file-progress', handleShareProgress)
+    return () => window.removeEventListener('pakti:share-file-progress', handleShareProgress)
+  }, [])
 
   const markShareFilePrepared = useCallback((recordId: string, shareFile: ShareFileInfo) => {
     setRecordings((current) => current.map((row) => row.id === recordId ? {
@@ -83,16 +107,27 @@ export function useSharePreparation({
 
         requestedShareFileIdsRef.current.add(record.id)
         setPreparingShareFileIds((current) => new Set(current).add(record.id))
+        setShareProgressByRecordingId((current) => new Map(current).set(record.id, 0))
+        setSharePreparationErrors((current) => {
+          const next = new Map(current)
+          next.delete(record.id)
+          return next
+        })
         try {
           const shareFile = await prepareServerRecordingShareFileApi(record.id)
           markShareFilePrepared(record.id, shareFile)
           preparedAny = true
-        } catch {
-          // Manual prepare remains available from the detail sheet if background work fails.
+        } catch (error) {
+          setSharePreparationErrors((current) => new Map(current).set(record.id, normalizeError(error)))
         } finally {
           requestedShareFileIdsRef.current.delete(record.id)
           setPreparingShareFileIds((current) => {
             const next = new Set(current)
+            next.delete(record.id)
+            return next
+          })
+          setShareProgressByRecordingId((current) => {
+            const next = new Map(current)
             next.delete(record.id)
             return next
           })
@@ -109,7 +144,7 @@ export function useSharePreparation({
     return () => {
       cancelled = true
     }
-  }, [active, markShareFilePrepared, recordings, refreshHistory])
+  }, [active, markShareFilePrepared, normalizeError, recordings, refreshHistory])
 
   const queuedShareFileIds = useMemo(() => new Set(
     recordings
@@ -128,6 +163,12 @@ export function useSharePreparation({
       const shareText = `Video ${formatTask(record.taskType)} resi ${record.resiNumber}`
       setSharingRecordId(record.id)
       setPreparingShareFileIds((current) => new Set(current).add(record.id))
+      setShareProgressByRecordingId((current) => new Map(current).set(record.id, 0))
+      setSharePreparationErrors((current) => {
+        const next = new Map(current)
+        next.delete(record.id)
+        return next
+      })
 
       const preparedShareFile = preparedShareFilesRef.current.get(record.id)
       try {
@@ -190,11 +231,17 @@ export function useSharePreparation({
           message: 'Ketuk Bagikan lagi untuk memilih aplikasi.',
         })
       } catch (error) {
+        setSharePreparationErrors((current) => new Map(current).set(record.id, normalizeError(error)))
         setBootError(normalizeError(error))
       } finally {
         setSharingRecordId(null)
         setPreparingShareFileIds((current) => {
           const next = new Set(current)
+          next.delete(record.id)
+          return next
+        })
+        setShareProgressByRecordingId((current) => {
+          const next = new Map(current)
           next.delete(record.id)
           return next
         })
@@ -206,6 +253,8 @@ export function useSharePreparation({
   return {
     sharingRecordId,
     preparingShareFileIds,
+    shareProgressByRecordingId,
+    sharePreparationErrors,
     queuedShareFileIds,
     preparedShareFileIds,
     handleShareRecording,

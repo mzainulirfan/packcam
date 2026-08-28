@@ -20,6 +20,8 @@ type HistoryDetailSheetProps = {
   preparingChatSendId: string | null
   deletingRecordId: string | null
   preparingShareFileIds: ReadonlySet<string>
+  shareProgressByRecordingId: ReadonlyMap<string, number>
+  sharePreparationErrors: ReadonlyMap<string, string>
   queuedShareFileIds: ReadonlySet<string>
   preparedShareFileIds: ReadonlySet<string>
   chatSendByRecordingId?: Map<string, import('@pakti/types').RecordingChatSend>
@@ -44,6 +46,8 @@ export function HistoryDetailSheet({
   preparingChatSendId,
   deletingRecordId,
   preparingShareFileIds,
+  shareProgressByRecordingId,
+  sharePreparationErrors,
   queuedShareFileIds,
   preparedShareFileIds,
   chatSendByRecordingId,
@@ -67,7 +71,10 @@ export function HistoryDetailSheet({
 
   const groupShareStatus = getGroupShareStatus(target.rows)
   const groupSharePreparing = target.rows.some((record) => preparingShareFileIds.has(record.id))
-  const groupShareQueued = !groupSharePreparing && target.rows.some((record) => queuedShareFileIds.has(record.id))
+  const groupShareFailed = !groupSharePreparing && target.rows.some((record) => sharePreparationErrors.has(record.id))
+  const groupShareQueued = !groupSharePreparing && !groupShareFailed && target.rows.some((record) => queuedShareFileIds.has(record.id))
+  const groupShareActiveRecord = target.rows.find((record) => preparingShareFileIds.has(record.id))
+  const groupShareProgress = groupShareActiveRecord ? shareProgressByRecordingId.get(groupShareActiveRecord.id) ?? 0 : null
 
   return (
     <Sheet open onOpenChange={onOpenChange}>
@@ -80,10 +87,12 @@ export function HistoryDetailSheet({
             </div>
             <span className={groupSharePreparing
               ? 'rounded-[4px] border border-[var(--op-warning,#ff9f0a)] bg-[var(--op-warning,#ff9f0a)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--op-warning,#ff9f0a)] animate-pulse'
+              : groupShareFailed
+                ? 'rounded-[4px] border border-destructive/50 px-2 py-0.5 text-[11px] text-destructive'
               : groupShareQueued
                 ? 'rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-2 py-0.5 text-[11px] text-[var(--op-mute)]'
                 : getGroupShareStatusClassName(groupShareStatus.ready)}>
-              {groupSharePreparing ? 'Menyiapkan share' : groupShareQueued ? 'Antri share' : groupShareStatus.label}
+              {groupSharePreparing ? `Menyiapkan share ${groupShareProgress}%` : groupShareFailed ? 'Gagal menyiapkan' : groupShareQueued ? 'Antri share' : groupShareStatus.label}
             </span>
           </div>
           <SheetDescription className="text-left text-[12px]">
@@ -134,11 +143,15 @@ export function HistoryDetailSheet({
                 <div className="flex items-center justify-between gap-2">
                   <span className={preparingShareFileIds.has(record.id)
                     ? 'rounded-[4px] border border-[var(--op-warning,#ff9f0a)] bg-[var(--op-warning,#ff9f0a)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--op-warning,#ff9f0a)] animate-pulse'
+                    : sharePreparationErrors.has(record.id)
+                      ? 'rounded-[4px] border border-destructive/50 px-2 py-0.5 text-[11px] text-destructive'
                     : queuedShareFileIds.has(record.id)
                       ? 'rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-2 py-0.5 text-[11px] text-[var(--op-mute)]'
                       : getShareStatusClassName(record)}>
                     {preparingShareFileIds.has(record.id)
-                      ? 'Menyiapkan share'
+                      ? `Menyiapkan share ${shareProgressByRecordingId.get(record.id) ?? 0}%`
+                      : sharePreparationErrors.has(record.id)
+                        ? 'Gagal menyiapkan'
                       : queuedShareFileIds.has(record.id)
                         ? 'Antri share'
                         : getShareStatusLabel(record)}
@@ -146,7 +159,9 @@ export function HistoryDetailSheet({
                 </div>
                 <span className="text-[12px] leading-relaxed text-[var(--op-mute)]">
                   {preparingShareFileIds.has(record.id)
-                    ? 'Sedang membuat MP4 share di server.'
+                    ? `Sedang membuat MP4 share di server (${shareProgressByRecordingId.get(record.id) ?? 0}%).`
+                    : sharePreparationErrors.has(record.id)
+                      ? `Gagal: ${sharePreparationErrors.get(record.id)}`
                     : queuedShareFileIds.has(record.id)
                       ? 'Menunggu proses recording sebelumnya selesai.'
                       : getShareStatusDescription(record)}
@@ -176,6 +191,8 @@ export function HistoryDetailSheet({
                     <HugeiconsIcon icon={Share08Icon} size={14} />
                     {preparingShareFileIds.has(record.id)
                       ? 'Menyiapkan...'
+                      : sharePreparationErrors.has(record.id)
+                        ? 'Coba lagi'
                       : record.shareFileReady || preparedShareFileIds.has(record.id)
                         ? 'Bagikan'
                         : 'Siapkan share'}

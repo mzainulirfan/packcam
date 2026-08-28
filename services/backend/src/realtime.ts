@@ -2,6 +2,7 @@ import type { Request, Response } from 'express'
 
 type BackendRealtimeEventName =
   | 'recordings-updated'
+  | 'share-file-progress'
   | 'scan-logs-updated'
   | 'operators-updated'
   | 'settings-updated'

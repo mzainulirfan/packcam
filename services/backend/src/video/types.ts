@@ -1,4 +1,5 @@
 export type VideoProcessingRecording = {
+  id: string
   file_name: string
   file_path: string
   resi_number: string

@@ -466,7 +466,7 @@ async function prepareRecordingShareFileInternal(id: string): Promise<PreparedSh
   }
 
   if (!shareFile.isReady) {
-    const temporaryOutputPath = `${shareFile.outputPath}.tmp-${process.pid}`
+    const temporaryOutputPath = `${shareFile.outputPath}.tmp-${process.pid}.mp4`
     try {
       await runVideoFfmpegShareMp4Transcode(recording, inputPath, temporaryOutputPath)
       if (fs.existsSync(shareFile.outputPath)) {
