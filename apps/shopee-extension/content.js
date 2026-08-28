@@ -371,21 +371,50 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
  * Selector berdasarkan DOM:
  *   <div class="XsR3zIeGOc"><i class="... kgP1yPCqxR"><svg class="chat-icon">...</svg></i></div>
  */
-function clickSendButton() {
-  const sendBtn =
-    document.querySelector('div.XsR3zIeGOc') ||
-    document.querySelector('i.kgP1yPCqxR')?.closest('div') ||
-    document.querySelector('svg.chat-icon')?.closest('div') ||
-    document.querySelector('i.kgP1yPCqxR')?.parentElement ||
-    document.querySelector('[data-testid*="send" i], [data-testid*="submit" i]') ||
-    document.querySelector('[aria-label*="send" i], [aria-label*="kirim" i], [title*="send" i], [title*="kirim" i]') ||
-    [...document.querySelectorAll('button, [role="button"]')].find((element) => /^(send|kirim|发送)$/i.test(textOf(element)))
+function clickSendButton(composer) {
+  const root = findComposerRoot(composer) || document
+  const shopeeSendButton = root.querySelector('.XsR3zIeGOc') || root.querySelector('.kgP1yPCqxR')?.closest('.XsR3zIeGOc, button, [role="button"], div')
+  if (isSafeClickableButton(shopeeSendButton)) {
+    shopeeSendButton.click()
+    shopeeSendButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    return true
+  }
+
+  const labeledButton = [
+    ...root.querySelectorAll('button, [role="button"], [aria-label], [title], [data-testid]'),
+  ].find((element) => {
+    if (!(element instanceof HTMLElement) || element.offsetParent === null) return false
+    if (element.matches('input[type="checkbox"], input[type="radio"]')) return false
+    if (element.getAttribute('aria-checked') !== null) return false
+    const label = `${textOf(element)} ${element.getAttribute('aria-label') || ''} ${element.getAttribute('title') || ''} ${element.getAttribute('data-testid') || ''}`.trim()
+    return /(^|\b)(send|kirim|发送|submit)(\b|$)/i.test(label)
+  })
+  const iconButton =
+    root.querySelector('div.XsR3zIeGOc') ||
+    root.querySelector('i.kgP1yPCqxR')?.closest('button, [role="button"], div') ||
+    root.querySelector('svg.chat-icon')?.closest('button, [role="button"], div')
+  const sendBtn = labeledButton || (isSafeClickableButton(iconButton) ? iconButton : null)
   if (sendBtn) {
     sendBtn.click()
     sendBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
     return true
   }
   return false
+}
+
+function buildShippingInfoMessage(job) {
+  return [
+    `Halo kak ${job.buyerUsername || ''}, pesanan kakak ${job.orderNumber || '-'} dengan resi ${job.trackingNumber || job.resiNumber || '-'} sudah masuk proses pengiriman.`,
+    '',
+    'Silakan pantau update pengiriman melalui aplikasi Shopee ya kak. Terima kasih sudah berbelanja.',
+  ].join('\n')
+}
+
+function isSafeClickableButton(element) {
+  if (!(element instanceof HTMLElement) || element.offsetParent === null) return false
+  if (element.matches('input[type="checkbox"], input[type="radio"]')) return false
+  if (element.getAttribute('aria-checked') !== null) return false
+  return true
 }
 
 /**
@@ -397,6 +426,9 @@ function clickSendButton() {
  *  4. Tunggu 400ms, jika masih ada teks di composer, fallback klik tombol kirim
  */
 async function sendComposerMessage(message) {
+  const normalizedMessage = String(message || '').trim()
+  if (!normalizedMessage) throw new Error('Pesan Shopee kosong, chat tidak dikirim.')
+
   let composer = null
   for (let attempt = 0; attempt < 10; attempt += 1) {
     composer = findComposerInput()
@@ -405,42 +437,132 @@ async function sendComposerMessage(message) {
   }
   if (!composer) throw new Error('Composer pesan Shopee Webchat tidak ditemukan.')
 
-  composer.focus()
+  console.info('[Pakti] mengisi composer Shopee', {
+    tag: composer.tagName,
+    role: composer.getAttribute('role'),
+    contenteditable: composer.getAttribute('contenteditable'),
+    placeholder: composer.getAttribute('placeholder') || composer.getAttribute('aria-label') || '',
+    messagePreview: normalizedMessage.slice(0, 80),
+  })
 
-  // Masukkan teks
-  if (composer.isContentEditable) {
-    // contenteditable: gunakan execCommand agar React mendeteksi perubahan
-    composer.textContent = ''
-    document.execCommand('insertText', false, message)
-  } else {
-    const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(composer), 'value')?.set
-    if (setter) setter.call(composer, message)
-    else composer.value = message
-    composer.dispatchEvent(new Event('input', { bubbles: true }))
-    composer.dispatchEvent(new Event('change', { bubbles: true }))
-  }
+  composer.focus()
+  composer.click()
+
+  // Masukkan teks dan validasi sebelum mengirim agar tidak ada chat kosong.
+  await writeComposerText(composer, normalizedMessage)
 
   // Tunggu React memproses input
-  await new Promise((r) => setTimeout(r, 300))
+  const normalizedProbe = normalizedMessage.replace(/\s+/g, ' ').trim().slice(0, Math.min(24, normalizedMessage.length))
+  const insertedText = await waitForCondition(() => {
+    const value = getComposerText(composer)
+    return value.includes(normalizedProbe) ? value : null
+  }, 5000, 150)
+  if (!insertedText) {
+    throw new Error('Pesan Shopee tidak muncul di composer setelah diisi.')
+  }
 
-  // Cara 1: Kirim dengan keydown Enter (cara terbaik untuk Shopee)
-  composer.focus()
-  composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }))
-  composer.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }))
-  composer.dispatchEvent(new KeyboardEvent('keyup',   { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }))
+  pressEnterToSend(composer)
+  await new Promise((r) => setTimeout(r, 1200))
+  const textAfterEnter = getComposerText(composer)
+  if (!textAfterEnter) return true
 
-  // Tunggu dan cek apakah teks berhasil dikirim (composer kosong = sukses)
-  await new Promise((r) => setTimeout(r, 400))
-  const textAfter = composer.isContentEditable ? composer.textContent?.trim() : composer.value?.trim()
-  if (!textAfter) return true
-
-  // Cara 2 (fallback): Klik tombol Send, lalu pastikan composer benar-benar kosong.
-  if (clickSendButton()) {
-    await new Promise((r) => setTimeout(r, 800))
-    const textAfterClick = composer.isContentEditable ? composer.textContent?.trim() : composer.value?.trim()
+  // Fallback kalau Enter tidak diproses oleh Shopee Webchat.
+  if (clickSendButton(composer)) {
+    await new Promise((r) => setTimeout(r, 1200))
+    const textAfterClick = getComposerText(composer)
     if (!textAfterClick) return true
   }
   throw new Error('Tombol kirim Shopee Webchat tidak ditemukan.')
+}
+
+function pressEnterToSend(composer) {
+  composer.focus()
+  composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }))
+  composer.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }))
+  composer.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }))
+}
+
+function getComposerText(composer) {
+  return (composer.isContentEditable ? composer.textContent : composer.value)?.replace(/\s+/g, ' ').trim() || ''
+}
+
+function findComposerRoot(composer) {
+  if (!(composer instanceof HTMLElement)) return null
+  return (
+    composer.closest('.RtZKVef1GL') ||
+    composer.closest('.yKlwrqauc8') ||
+    composer.closest('[data-testid*="composer" i], [class*="composer" i], [class*="input" i], [class*="footer" i], form') ||
+    composer.parentElement?.parentElement?.parentElement ||
+    composer.parentElement
+  )
+}
+
+function selectEditableContents(element) {
+  const selection = window.getSelection()
+  const range = document.createRange()
+  range.selectNodeContents(element)
+  selection?.removeAllRanges()
+  selection?.addRange(range)
+}
+
+function dispatchTextEvents(element, text) {
+  element.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'insertText', data: text }))
+  element.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }))
+  element.dispatchEvent(new Event('change', { bubbles: true }))
+}
+
+async function writeComposerText(composer, text) {
+  if (composer.matches('textarea, input')) {
+    composer.focus()
+    composer.click()
+    if (typeof composer.setSelectionRange === 'function') {
+      composer.setSelectionRange(0, composer.value?.length || 0)
+    }
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set || Object.getOwnPropertyDescriptor(Object.getPrototypeOf(composer), 'value')?.set
+    if (setter) setter.call(composer, text)
+    else composer.value = text
+    if (composer._valueTracker) {
+      composer._valueTracker.setValue('')
+    }
+    dispatchTextEvents(composer, text)
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    if (getComposerText(composer)) return
+
+    document.execCommand('insertText', false, text)
+    dispatchTextEvents(composer, text)
+    return
+  }
+
+  composer.focus()
+  selectEditableContents(composer)
+  document.execCommand('delete', false)
+  const inserted = document.execCommand('insertText', false, text)
+  dispatchTextEvents(composer, text)
+  if (inserted && getComposerText(composer)) return
+
+  const dataTransfer = new DataTransfer()
+  dataTransfer.setData('text/plain', text)
+  composer.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dataTransfer }))
+  await new Promise((resolve) => setTimeout(resolve, 150))
+  if (getComposerText(composer)) return
+
+  composer.textContent = text
+  dispatchTextEvents(composer, text)
+}
+
+function isEditableElement(element) {
+  if (!(element instanceof HTMLElement) || element.offsetParent === null) return false
+  const rect = element.getBoundingClientRect()
+  if (rect.width < 120 || rect.height < 16 || rect.height > 260) return false
+  if (rect.bottom < window.innerHeight * 0.45) return false
+  if (element.closest('[role="listbox"], [role="option"]')) return false
+  if (element.matches('textarea, input')) {
+    const type = element.getAttribute('type') || ''
+    if (/checkbox|radio|file|hidden|search/i.test(type)) return false
+    return !element.disabled && !element.readOnly
+  }
+
+  return element.isContentEditable || element.getAttribute('contenteditable') === 'true' || element.getAttribute('contenteditable') === 'plaintext-only'
 }
 
 function findSearchInput() {
@@ -458,15 +580,37 @@ function findSearchInput() {
 function findComposerInput() {
   if (!isShopeeWebchatPage()) return null
 
-  return (
-    document.querySelector('textarea.E2MWg3w8y6') ||
-    document.querySelector('textarea[placeholder*="Tulis" i]') ||
-    document.querySelector('textarea[placeholder*="pesan" i]') ||
-    document.querySelector('div[contenteditable="true"][role="textbox"]') ||
-    document.querySelector('div[contenteditable="true"][aria-label*="pesan" i]') ||
-    document.querySelector('div[role="textbox"][contenteditable="true"]') ||
-    document.querySelector('div[role="textbox"]')
-  )
+  const shopeeTextarea = document.querySelector('.RtZKVef1GL textarea.E2MWg3w8y6[placeholder="Tulis pesan"], textarea.E2MWg3w8y6[placeholder="Tulis pesan"], textarea[placeholder="Tulis pesan"]')
+  if (shopeeTextarea instanceof HTMLTextAreaElement && shopeeTextarea.offsetParent !== null && !shopeeTextarea.disabled && !shopeeTextarea.readOnly) return shopeeTextarea
+
+  const selectors = [
+    'textarea.E2MWg3w8y6',
+    'textarea[placeholder*="Tulis" i]',
+    'textarea[placeholder*="pesan" i]',
+    'textarea[placeholder*="Ketik" i]',
+    'textarea[placeholder*="Type" i]',
+    '[contenteditable="true"][role="textbox"]',
+    '[contenteditable="plaintext-only"][role="textbox"]',
+    '[contenteditable="true"][aria-label*="pesan" i]',
+    '[contenteditable="plaintext-only"][aria-label*="pesan" i]',
+    '[contenteditable="true"][aria-label*="message" i]',
+    '[contenteditable="plaintext-only"][aria-label*="message" i]',
+    '[contenteditable="true"][placeholder*="pesan" i]',
+    '[contenteditable="plaintext-only"][placeholder*="pesan" i]',
+    '[contenteditable="true"][placeholder*="Ketik" i]',
+    '[contenteditable="plaintext-only"][placeholder*="Ketik" i]',
+    '[role="textbox"][contenteditable="true"]',
+    '[role="textbox"][contenteditable="plaintext-only"]',
+    '[contenteditable="true"]',
+    '[contenteditable="plaintext-only"]',
+  ]
+
+  for (const selector of selectors) {
+    const match = [...document.querySelectorAll(selector)].find(isEditableElement)
+    if (match) return match
+  }
+
+  return null
 }
 
 function normalizeText(value) {
@@ -486,6 +630,7 @@ function findConversationTarget(username) {
 
   for (const candidate of candidates) {
     if (!(candidate instanceof HTMLElement) || candidate.offsetParent === null) continue
+    if (candidate.matches('input[type="checkbox"], input[type="radio"], [role="checkbox"]')) continue
     const candidateText = textOf(candidate).toLowerCase()
     if (!candidateText || candidateText.length > 160 || !candidateText.includes(normalizedUsername)) continue
 
@@ -497,20 +642,42 @@ function findConversationTarget(username) {
   return null
 }
 
-function findActiveConversationHeader(username) {
+function clickConversationTarget(target) {
+  const rect = target.getBoundingClientRect()
+  const clientX = Math.min(rect.right - 12, rect.left + Math.max(30, rect.width * 0.65))
+  const clientY = rect.top + rect.height / 2
+  const clickTarget = document.elementFromPoint(clientX, clientY)
+  const safeTarget = clickTarget instanceof HTMLElement && !clickTarget.matches('input[type="checkbox"], input[type="radio"], [role="checkbox"]')
+    ? clickTarget
+    : target
+
+  safeTarget.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX, clientY }))
+  safeTarget.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, clientX, clientY }))
+  safeTarget.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX, clientY }))
+}
+
+function findActiveConversationHeader(username, composer = null) {
   if (!isShopeeWebchatPage()) return null
 
   const normalizedUsername = normalizeText(username)
+  const composerRect = composer instanceof HTMLElement ? composer.getBoundingClientRect() : null
   const candidates = [
     ...document.querySelectorAll(
-      '[data-testid*="header" i], [class*="header"], [class*="conversation-title"], [class*="chat-title"], h1, h2, h3, [role="heading"]',
+      '[data-testid*="header" i], [class*="header"], [class*="conversation-title"], [class*="chat-title"], h1, h2, h3, [role="heading"], span, div',
     ),
   ]
 
   for (const candidate of candidates) {
     if (!(candidate instanceof HTMLElement) || candidate.offsetParent === null) continue
+    if (candidate.closest('[role="listbox"], [role="option"], [class*="search" i], [class*="list" i]')) continue
+    if (candidate.closest('.RtZKVef1GL, .yKlwrqauc8')) continue
+    const rect = candidate.getBoundingClientRect()
+    if (composerRect) {
+      const inConversationPane = rect.left >= composerRect.left - 80 && rect.right <= composerRect.right + 80 && rect.bottom <= composerRect.top + 20
+      if (!inConversationPane) continue
+    }
     const candidateText = normalizeText(candidate.textContent)
-    if (candidateText && candidateText.length <= 180 && candidateText.includes(normalizedUsername)) {
+    if (candidateText && candidateText.length <= 240 && candidateText.includes(normalizedUsername)) {
       return candidate
     }
   }
@@ -544,7 +711,7 @@ async function waitForCondition(check, timeoutMs = 8000, intervalMs = 250) {
 }
 
 async function waitForComposerReady(timeoutMs = 8000) {
-  const composer = await waitForCondition(() => findComposerInput(), timeoutMs)
+  const composer = await waitForCondition(() => findComposerInput(), timeoutMs, 200)
   if (!composer) {
     throw new Error('Composer pesan Shopee belum siap setelah memilih pembeli.')
   }
@@ -552,10 +719,10 @@ async function waitForComposerReady(timeoutMs = 8000) {
   return composer
 }
 
-async function waitForActiveConversation(username) {
-  const header = await waitForCondition(() => findActiveConversationHeader(username), 5000, 250)
+async function waitForActiveConversation(username, composer = null) {
+  const header = await waitForCondition(() => findActiveConversationHeader(username, composer), 10000, 250)
   if (!header) {
-    throw new Error(`Percakapan Shopee untuk ${username} belum aktif setelah dipilih.`)
+    throw new Error(`Percakapan aktif belum terkonfirmasi untuk ${username}; pesan tidak dikirim agar tidak salah pembeli.`)
   }
 
   return header
@@ -576,16 +743,15 @@ async function fillWebchatSearchAndAttach(job) {
   const target = await waitForCondition(() => findConversationTarget(job.buyerUsername), 15000, 300)
   let clicked = false
   if (target) {
-    target.click()
-    target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    clickConversationTarget(target)
     clicked = true
   }
   if (!clicked) throw new Error(`Percakapan Shopee untuk ${job.buyerUsername} tidak ditemukan.`)
   if (clicked) {
     await new Promise((r) => setTimeout(r, 1500))
   }
-  await waitForActiveConversation(job.buyerUsername)
-  await waitForComposerReady(10000)
+  const composer = await waitForComposerReady(15000)
+  await waitForActiveConversation(job.buyerUsername, composer)
   if (job.videoUrl) {
     try {
       const stored = await new Promise((resolve) => chrome.storage.sync.get({ apiKey: '' }, resolve))
@@ -641,16 +807,17 @@ async function fillWebchatSearchAndAttach(job) {
       throw new Error(e instanceof Error ? e.message : 'Video Shopee gagal dipasang.')
     }
   }
-  let sent = false
-  if (job.message) {
-    sent = await sendComposerMessage(job.message)
+  if (!job.message) {
+    throw new Error('Pesan Shopee kosong, chat tidak dikirim.')
   }
-  return Boolean(sent || clicked)
+
+  return await sendComposerMessage(job.message)
 }
 
 // Kirim chat otomatis hanya dari tab Shopee Webchat, bukan sidebar/minichat Seller Center.
 if (isShopeeWebchatPage()) {
   let lastAutoJobId = ''
+  let lastShippingAutoJobId = ''
   let autoRunBusy = false
   let autoRunStartTimer = null
   let autoRunInterval = null
@@ -705,7 +872,7 @@ if (isShopeeWebchatPage()) {
     if (input?.value?.trim() && document.activeElement === input) return false
 
     try {
-      const sent = await fillWebchatSearchAndAttach({ ...job, message: job.message })
+      const sent = await fillWebchatSearchAndAttach({ ...job, message: job.message || buildShippingInfoMessage(job) })
       if (!sent) {
         throw new Error('Tombol kirim Shopee Webchat tidak ditemukan.')
       }
@@ -714,6 +881,7 @@ if (isShopeeWebchatPage()) {
       
       // Bersihkan pencarian untuk job berikutnya
       clearSearchInput()
+      lastShippingAutoJobId = job.id
       return true
     } catch (error) {
       if (isExtensionContextInvalidated(error)) {
@@ -728,6 +896,7 @@ if (isShopeeWebchatPage()) {
       }).catch(() => undefined)
       // Bersihkan pencarian jika gagal agar antrean tidak macet
       clearSearchInput()
+      lastShippingAutoJobId = job.id
       return false
     }
   }
@@ -785,6 +954,7 @@ if (isShopeeWebchatPage()) {
       if (!chatJob && !shippingJob) return
 
       if (!chatJob) {
+        if (shippingJob?.id && shippingJob.id === lastShippingAutoJobId) return
         await autoRunShippingChat(stored)
         return
       }
