@@ -7,13 +7,14 @@ import { readRecentShopeeChatSendsApi, readRecentShopeeOrdersApi, readServerAdmi
 import type { RecordingChatSend, ShopeeOrder, ShippingChatSend } from '@pakti/types'
 
 type AdminStatus = Awaited<ReturnType<typeof readServerAdminStatusApi>>
+type ShippingChatFilter = 'all' | 'pending' | 'prepared' | 'sent' | 'failed'
 
 export function AdminPage() {
   const [adminStatus, setAdminStatus] = useState<AdminStatus | null>(null)
   const [recentShopeeOrders, setRecentShopeeOrders] = useState<ShopeeOrder[]>([])
   const [recentChatSends, setRecentChatSends] = useState<RecordingChatSend[]>([])
   const [recentShippingChatSends, setRecentShippingChatSends] = useState<ShippingChatSend[]>([])
-  const [shippingChatFilter, setShippingChatFilter] = useState<'all' | 'pending' | 'prepared' | 'sent' | 'failed'>('all')
+  const [shippingChatFilter, setShippingChatFilter] = useState<ShippingChatFilter>('all')
   const [retryingId, setRetryingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -271,7 +272,7 @@ export function AdminPage() {
               <select
                 id="shipping-chat-status-filter"
                 value={shippingChatFilter}
-                onChange={(e) => setShippingChatFilter(e.target.value as any)}
+                onChange={(e) => setShippingChatFilter(e.target.value as ShippingChatFilter)}
                 className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm focus:border-indigo-500 focus:outline-none"
               >
                 <option value="all">Semua ({recentShippingChatSends.length})</option>

@@ -285,7 +285,9 @@ export function logoutOperator() {
     try {
       window.sessionStorage.removeItem(OPERATOR_STORE_KEY)
       window.localStorage.removeItem(OPERATOR_STORE_KEY)
-    } catch {}
+    } catch {
+      void 0
+    }
   }
   emitChange()
   void logoutServerOperatorApi().catch(() => undefined)

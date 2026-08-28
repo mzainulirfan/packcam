@@ -64,20 +64,6 @@ export function normalizeRole(value: unknown): 'admin' | 'operator' {
   return value === 'admin' ? 'admin' : 'operator'
 }
 
-function readCookieSameSite(): 'Lax' | 'Strict' | 'None' {
-  const value = (process.env.COOKIE_SAMESITE ?? '').trim().toLowerCase()
-
-  if (value === 'none') {
-    return 'None'
-  }
-
-  if (value === 'strict') {
-    return 'Strict'
-  }
-
-  return 'Lax'
-}
-
 function isCrossSiteRequest(req?: Request) {
   const origin = (req?.headers.origin ?? '').trim()
   if (!origin) return false

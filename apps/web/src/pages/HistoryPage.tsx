@@ -140,7 +140,6 @@ export function HistoryPage() {
 
   useEffect(() => {
     if (recordings.length === 0) {
-      setChatSendByRecordingId(new Map())
       return
     }
 
@@ -328,17 +327,11 @@ export function HistoryPage() {
   }, [filteredRecordings, selectedRecord])
 
   const [detailHistoryTab, setDetailHistoryTab] = useState<'qc' | 'packing'>('qc')
-
-  useEffect(() => {
-    if (selectedRecord) {
-      setDetailHistoryTab(selectedRecord.taskType === 'packing' ? 'packing' : 'qc')
-    }
-  }, [selectedRecord?.id])
-
-  // @ts-ignore - kept for future dual preview
-  const selectedPreviewMode = selectedGroup ? getGroupPreviewMode(selectedGroup) : 'none'
   const previewUrl = previewTarget ? buildServerFileUrl(previewTarget.filePath) : null
   const previewMessage = previewTarget ? `Preview siap untuk ${previewTarget.resiNumber}.` : 'Pilih rekaman untuk preview.'
+  const visibleChatSendByRecordingId = recordings.length === 0
+    ? new Map<string, RecordingChatSend>()
+    : chatSendByRecordingId
 
   const exportSummaryLabel = `${filteredRecordings.length} rekaman / ${groupedRecordings.length} resi`
   const historyMetrics = useMemo(() => {
@@ -349,7 +342,7 @@ export function HistoryPage() {
   }, [groupedRecordings])
   const hasActiveFilters = Boolean(searchText.trim() || taskFilter !== 'all' || operatorFilter !== 'all' || dateFrom || dateTo)
   const selectedShopeeOrder = selectedRecord ? shopeeOrderByResi.get(selectedRecord.resiNumber.trim().toLowerCase()) ?? null : null
-  const selectedChatSend = selectedRecord ? chatSendByRecordingId.get(selectedRecord.id) ?? null : null
+  const selectedChatSend = selectedRecord ? visibleChatSendByRecordingId.get(selectedRecord.id) ?? null : null
   const selectedChatActionLabel = preparingChatSendId === selectedRecord?.id
     ? '[Menyiapkan...]'
     : selectedChatSend?.status === 'sent'
@@ -564,6 +557,7 @@ export function HistoryPage() {
 
   function openDetail(record: LocalRecordingRecord) {
     setSelectedId(record.id)
+    setDetailHistoryTab(record.taskType === 'packing' ? 'packing' : 'qc')
     setIsDetailModalOpen(true)
   }
 
@@ -573,11 +567,6 @@ export function HistoryPage() {
 
   function closePreview() {
     setPreviewTarget(null)
-  }
-
-  // @ts-ignore - kept for future dual preview
-  function openDualPreview(group: HistoryRecordingGroup) {
-    setDualPreviewTarget(group)
   }
 
   function closeDualPreview() {
@@ -654,7 +643,7 @@ export function HistoryPage() {
                 {!isLoadingHistory && !historyError && pageItems.length ? (
                   pageItems.map((group) => {
                     const isSelected = group.latest.id === selectedRecord?.id
-                    const groupChatSend = group.records.map((r) => chatSendByRecordingId.get(r.id)).find(Boolean)
+                    const groupChatSend = group.records.map((r) => visibleChatSendByRecordingId.get(r.id)).find(Boolean)
                     return (
                       <article
                         key={group.resiNumber}
@@ -695,7 +684,7 @@ export function HistoryPage() {
                           </span>
                           <div className="flex gap-1">
                             {(() => {
-                              const latestChatSend = chatSendByRecordingId.get(group.latest.id)
+                              const latestChatSend = visibleChatSendByRecordingId.get(group.latest.id)
                               const label =
                                 preparingChatSendId === group.latest.id
                                   ? '[...]'
@@ -751,7 +740,7 @@ export function HistoryPage() {
                       {!isLoadingHistory && !historyError && pageItems.length ? (
                         pageItems.map((group) => {
                           const isSelected = group.latest.id === selectedRecord?.id
-                          const tableGroupChatSend = group.records.map((r) => chatSendByRecordingId.get(r.id)).find(Boolean)
+                          const tableGroupChatSend = group.records.map((r) => visibleChatSendByRecordingId.get(r.id)).find(Boolean)
                           return (
                             <tr
                               key={group.resiNumber}
@@ -808,7 +797,7 @@ export function HistoryPage() {
                               <Td>
                                 <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
                                   {(() => {
-                                    const latestChatSend = chatSendByRecordingId.get(group.latest.id)
+                                    const latestChatSend = visibleChatSendByRecordingId.get(group.latest.id)
                                     const label =
                                       preparingChatSendId === group.latest.id
                                         ? '[...]'
@@ -1081,7 +1070,7 @@ export function HistoryPage() {
                                       record={record}
                                       isSelected={isSelectedRecord}
                                       invalidRecord={invalidRecord}
-                                      chatSend={chatSendByRecordingId.get(record.id) ?? null}
+                                      chatSend={visibleChatSendByRecordingId.get(record.id) ?? null}
                                       downloadingRecordId={downloadingRecordId}
                                       deletingRecordId={deletingRecordId}
                                       formatDateTime={formatDateTime}
@@ -1105,7 +1094,7 @@ export function HistoryPage() {
                                       record={record}
                                       isSelected={isSelectedRecord}
                                       invalidRecord={invalidRecord}
-                                      chatSend={chatSendByRecordingId.get(record.id) ?? null}
+                                      chatSend={visibleChatSendByRecordingId.get(record.id) ?? null}
                                       downloadingRecordId={downloadingRecordId}
                                       deletingRecordId={deletingRecordId}
                                       formatDateTime={formatDateTime}
@@ -1408,55 +1397,6 @@ function OperatorCell({ value }: { value: string }) {
   )
 }
 
-// @ts-ignore - kept for future use within design system
-function DateTimeCell({ value }: { value: string }) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return <span>{value}</span>
-  }
-
-  return (
-    <div className="history-opencode__datetime">
-      <div>
-        {new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(date)}
-      </div>
-      <div>
-        {new Intl.DateTimeFormat('id-ID', { timeStyle: 'short' }).format(date)}
-      </div>
-    </div>
-  )
-}
-
-// @ts-ignore - kept for future use within design system
-function MobileTaskBlock({ label, record }: { label: string; record: LocalRecordingRecord | null }) {
-  return (
-    <div>
-      <div className="history-opencode__meta">{label}</div>
-      <div className="mt-1"><TaskStatusText record={record} compact /></div>
-    </div>
-  )
-}
-
-function TaskStatusText({ record, compact = false }: { record: LocalRecordingRecord | null; compact?: boolean }) {
-  if (!record) {
-    if (compact) return <span className="history-opencode__muted">[-] Belum ada</span>
-    return <span className="history-opencode__status">[-] Belum ada</span>
-  }
-
-  if (record.status === 'completed') {
-    if (compact) return <span>[x] Selesai</span>
-    return <span className="history-opencode__status">[x] Selesai</span>
-  }
-
-  if (record.status === 'recording') {
-    if (compact) return <span>[~] Recording</span>
-    return <span className="history-opencode__status">[~] Recording</span>
-  }
-
-  if (compact) return <span>[!] Error</span>
-  return <span className="history-opencode__status">[!] Error</span>
-}
-
 function StatusPill({ status }: { status: LocalRecordingRecord['status'] | 'idle' | 'partial' }) {
   const label =
     status === 'completed'
@@ -1532,15 +1472,6 @@ function OrderDetailRow({ order }: { order: ShopeeOrder }) {
         </div>
       </dd>
     </div>
-  )
-}
-
-// @ts-ignore - kept for design system
-function TaskPill({ taskType }: { taskType: WorkTask }) {
-  return (
-    <span className="history-opencode__status">
-      [+] {taskType}
-    </span>
   )
 }
 
@@ -1645,22 +1576,6 @@ function getGroupByResi(records: LocalRecordingRecord[], resiNumber: string) {
 
 function getLatestRecordForTask(group: HistoryRecordingGroup, taskType: WorkTask) {
   return group.records.find((record) => record.taskType === taskType) ?? null
-}
-
-function getGroupPreviewMode(group: HistoryRecordingGroup): 'single' | 'dual' | 'none' {
-  const qc = getLatestRecordForTask(group, 'qc')
-  const packing = getLatestRecordForTask(group, 'packing')
-  const completedRecords = [qc, packing].filter((record): record is LocalRecordingRecord => record?.status === 'completed')
-
-  if (completedRecords.length === 1) {
-    return 'single'
-  }
-
-  if (completedRecords.length === 2) {
-    return 'dual'
-  }
-
-  return 'none'
 }
 
 function getGroupStatus(group: HistoryRecordingGroup): LocalRecordingRecord['status'] | 'partial' | 'idle' {

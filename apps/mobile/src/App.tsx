@@ -1,7 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  AlertCircleIcon,
   Camera01Icon,
   Copy01Icon,
   EyeIcon,
@@ -9,12 +8,10 @@ import {
   HistoryIcon,
   Logout02Icon,
   Moon02Icon,
-  PlayCircleIcon,
   ScanIcon,
   SearchAreaIcon,
   ShieldAlertIcon,
   Sun03Icon,
-  UserIcon,
 } from '@hugeicons/core-free-icons'
 import {
   deleteServerRecordingApi,
@@ -35,11 +32,9 @@ import { DEFAULT_APP_SETTINGS } from '@pakti/shared/defaults'
 import type { AppSettings, OperatorSession, RecordingRow, ShopeeOrder, SystemConfig, WorkTask } from '@pakti/types'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Separator } from '@/components/ui/separator'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { CameraPreview } from './components/CameraPreview'
 import { BottomNav } from './components/BottomNav'
@@ -81,12 +76,6 @@ const initialLoginForm: LoginFormState = {
   operatorName: '',
   password: '',
 }
-
-const tabOptions: Array<{ key: TabKey; label: string; icon: typeof ScanIcon }> = [
-  { key: 'scan', label: 'Scan', icon: ScanIcon },
-  { key: 'history', label: 'History', icon: HistoryIcon },
-  { key: 'session', label: 'Session', icon: UserIcon },
-]
 
 function normalizeError(error: unknown) {
   if (error instanceof Error) {
@@ -189,7 +178,7 @@ function App() {
   const [chatSendByRecordingId, setChatSendByRecordingId] = useState<Map<string, import('@pakti/types').RecordingChatSend>>(new Map())
   const [watermarkResi, setWatermarkResi] = useState<string | null>(null)
   const [scanClockTick, setScanClockTick] = useState(() => Date.now())
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [, setMenuOpen] = useState(false)
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
   const [theme, setTheme] = useState<ThemeMode>(getInitialTheme)
   const [scanVideoElement, setScanVideoElement] = useState<HTMLVideoElement | null>(null)
@@ -497,22 +486,21 @@ function App() {
     }
   }, [historyHighlightedResi])
 
-  const historyDetailResiNumber = historyDetailTarget?.resiNumber ?? null
-
-  useEffect(() => {
-    if (!historyDetailResiNumber) {
-      return
+  const resolvedHistoryDetailTarget = useMemo(() => {
+    if (!historyDetailTarget) {
+      return null
     }
 
-    const rows = recordings.filter((record) => record.resiNumber.trim() === historyDetailResiNumber)
+    const rows = recordings.filter((record) => record.resiNumber.trim() === historyDetailTarget.resiNumber)
     if (rows.length === 0) {
-      return
+      return historyDetailTarget
     }
 
-    setHistoryDetailTarget((current) => current && current.resiNumber === historyDetailResiNumber
-      ? { ...current, rows }
-      : current)
-  }, [historyDetailResiNumber, recordings])
+    return {
+      ...historyDetailTarget,
+      rows,
+    }
+  }, [historyDetailTarget, recordings])
 
   const scanProgressState = useMemo<ScanProgressState | null>(() => {
     const resiNumber = scanResi.trim()
@@ -607,6 +595,9 @@ function App() {
       message: isPackingMode ? 'Packing menunggu QC selesai.' : 'Scan resi untuk mulai rekaman QC.',
     }
   }, [isPackingMode, recordings, scanResi])
+  const visibleChatSendByRecordingId = recordings.length === 0
+    ? new Map<string, import('@pakti/types').RecordingChatSend>()
+    : chatSendByRecordingId
 
   useEffect(() => {
     let cancelled = false
@@ -698,7 +689,6 @@ function App() {
 
   useEffect(() => {
     if (recordings.length === 0) {
-      setChatSendByRecordingId(new Map())
       return
     }
 
@@ -1771,7 +1761,7 @@ function App() {
                       const packingRow = group.rows.find((r: RecordingRow) => r.taskType === 'packing')
                       const latest = group.latestRow
                       const shareStatus = getGroupShareStatus(group.rows)
-                      const groupChatSend = group.rows.map((r) => chatSendByRecordingId.get(r.id)).find(Boolean)
+                      const groupChatSend = group.rows.map((r) => visibleChatSendByRecordingId.get(r.id)).find(Boolean)
                       return (
                       <div
                         key={group.resiNumber}
@@ -1932,12 +1922,12 @@ function App() {
       ) : null}
 
       <HistoryDetailSheet
-        target={historyDetailTarget}
+        target={resolvedHistoryDetailTarget}
         sharingRecordId={sharingRecordId}
         preparingChatSendId={preparingChatSendId}
         deletingRecordId={deletingRecordId}
         preparedShareFileIds={preparedShareFileIds}
-        chatSendByRecordingId={chatSendByRecordingId}
+        chatSendByRecordingId={visibleChatSendByRecordingId}
         formatDateTime={formatDateTime}
         formatTask={formatTask}
         formatStatus={formatStatus}

@@ -1,4 +1,4 @@
-import { type Dispatch, type SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type Dispatch, type SetStateAction, useCallback, useEffect, useRef, useState } from 'react'
 import { buildServerFileUrl, prepareServerRecordingShareFileApi } from '@pakti/api-client'
 import type { RecordingRow, WorkTask } from '@pakti/types'
 
@@ -37,6 +37,7 @@ export function useSharePreparation({
   normalizeError,
 }: UseSharePreparationParams) {
   const [sharingRecordId, setSharingRecordId] = useState<string | null>(null)
+  const [preparedShareFileIds, setPreparedShareFileIds] = useState<Set<string>>(() => new Set())
   const preparedShareFilesRef = useRef(new Map<string, PreparedShareFile>())
   const requestedShareFileIdsRef = useRef(new Set<string>())
 
@@ -82,8 +83,6 @@ export function useSharePreparation({
       cancelled = true
     }
   }, [active, recordings, refreshHistory])
-
-  const preparedShareFileIds = useMemo(() => new Set(preparedShareFilesRef.current.keys()), [sharingRecordId, recordings])
 
   const handleShareRecording = useCallback(
     async (record: RecordingRow, target: 'native' | 'whatsapp') => {
@@ -150,6 +149,7 @@ export function useSharePreparation({
           mimeType: shareFile.mimeType || blob.type || 'video/mp4',
           file,
         })
+        setPreparedShareFileIds(new Set(preparedShareFilesRef.current.keys()))
         showScanNotice({
           kind: 'success',
           title: 'Video siap dibagikan',
