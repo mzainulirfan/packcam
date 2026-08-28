@@ -199,7 +199,21 @@ function requireFileAccess(req: AuthenticatedRequest, res: Response, next: NextF
   return requireSession(req, res, next)
 }
 
-app.use('/files', requireFileAccess, express.static(getUploadsDir()))
+app.use('/files', requireFileAccess, (req, res, next) => {
+  const legacyPrefix = '/services/backend/server-data/uploads/'
+  const uploadsPrefix = '/uploads/'
+  const legacyPath = req.path.startsWith(legacyPrefix)
+    ? req.path.slice(legacyPrefix.length)
+    : req.path.startsWith(uploadsPrefix)
+      ? req.path.slice(uploadsPrefix.length)
+      : null
+
+  if (legacyPath) {
+    return res.redirect(307, `/files/${legacyPath}`)
+  }
+
+  return next()
+}, express.static(getUploadsDir()))
 
 app.get('/api/health', (_req, res) => {
   sendOk(res, {

@@ -50,6 +50,14 @@ type RecordingShareFileInfo = {
   isReady: boolean
 }
 
+type PreparedShareFile = {
+  fileName: string
+  filePath: string
+  mimeType: string
+}
+
+const shareFilePreparationLocks = new Map<string, Promise<PreparedShareFile>>()
+
 type ScanLogRow = {
   id: string
   resi_number: string
@@ -121,7 +129,16 @@ function sanitizeFileName(value: string) {
 }
 
 function assertSafeRelativeFilePath(value: string) {
-  const normalized = value.trim().replace(/\\/g, '/').replace(/\/+/g, '/').replace(/^\.\/+/, '')
+  let normalized = value.trim().replace(/\\/g, '/').replace(/\/+/g, '/').replace(/^\.\/+/, '')
+
+  // Older records stored the server storage prefix in file_path. Keep the
+  // database compatible while exposing paths relative to the uploads root.
+  for (const prefix of ['services/backend/server-data/uploads/', 'uploads/']) {
+    if (normalized.startsWith(prefix)) {
+      normalized = normalized.slice(prefix.length)
+      break
+    }
+  }
 
   if (!normalized) {
     throw new Error('Path file recording wajib diisi.')
@@ -406,9 +423,11 @@ function getRecordingShareFileInfo(recording: RecordingRow): RecordingShareFileI
 
 function withRecordingShareFileInfo(recording: RecordingRow): RecordingRow {
   const shareFile = getRecordingShareFileInfo(recording)
+  const filePath = assertSafeRelativeFilePath(recording.file_path)
 
   return {
     ...recording,
+    file_path: filePath,
     share_file_name: shareFile.fileName,
     share_file_path: shareFile.filePath,
     share_file_mime_type: shareFile.mimeType,
@@ -416,7 +435,7 @@ function withRecordingShareFileInfo(recording: RecordingRow): RecordingRow {
   }
 }
 
-export async function prepareRecordingShareFile(id: string) {
+async function prepareRecordingShareFileInternal(id: string): Promise<PreparedShareFile> {
   const recording = getRecordingById(id)
   if (!recording) {
     throw new Error('Recording tidak ditemukan.')
@@ -430,7 +449,12 @@ export async function prepareRecordingShareFile(id: string) {
   const inputPath = getUploadedFilePath(recording)
 
   if (!fs.existsSync(inputPath)) {
-    if (fs.existsSync(shareFile.outputPath) && fs.statSync(shareFile.outputPath).size > 0) {
+    if (fs.existsSync(shareFile.outputPath)) {
+      const outputSize = fs.statSync(shareFile.outputPath).size
+      if (outputSize <= 0 || outputSize > SHOPEE_VIDEO_LIMIT_BYTES) {
+        throw new Error('File share tidak valid atau masih lebih dari 25MB.')
+      }
+
       return {
         fileName: shareFile.fileName,
         filePath: shareFile.filePath,
@@ -442,7 +466,18 @@ export async function prepareRecordingShareFile(id: string) {
   }
 
   if (!shareFile.isReady) {
-    await runVideoFfmpegShareMp4Transcode(recording, inputPath, shareFile.outputPath)
+    const temporaryOutputPath = `${shareFile.outputPath}.tmp-${process.pid}`
+    try {
+      await runVideoFfmpegShareMp4Transcode(recording, inputPath, temporaryOutputPath)
+      if (fs.existsSync(shareFile.outputPath)) {
+        fs.rmSync(shareFile.outputPath, { force: true })
+      }
+      fs.renameSync(temporaryOutputPath, shareFile.outputPath)
+    } finally {
+      if (fs.existsSync(temporaryOutputPath)) {
+        fs.rmSync(temporaryOutputPath, { force: true })
+      }
+    }
     broadcastBackendEvent('recordings-updated', { recordingId: recording.id, action: 'share-file-ready', resiNumber: recording.resi_number })
   }
 
@@ -451,6 +486,21 @@ export async function prepareRecordingShareFile(id: string) {
     filePath: shareFile.filePath,
     mimeType: shareFile.mimeType,
   }
+}
+
+export function prepareRecordingShareFile(id: string) {
+  const activePreparation = shareFilePreparationLocks.get(id)
+  if (activePreparation) {
+    return activePreparation
+  }
+
+  const preparation = prepareRecordingShareFileInternal(id).finally(() => {
+    if (shareFilePreparationLocks.get(id) === preparation) {
+      shareFilePreparationLocks.delete(id)
+    }
+  })
+  shareFilePreparationLocks.set(id, preparation)
+  return preparation
 }
 
 export function invalidateCompletedRecordingsForResi(resiNumber: string) {
