@@ -140,26 +140,37 @@ export function HistoryPage() {
 
   useEffect(() => {
     if (recordings.length === 0) {
+      setChatSendByRecordingId(new Map())
       return
     }
 
     let cancelled = false
-    const ids = recordings.map((record) => record.id)
-    void readShopeeChatSendsByRecordingIdsApi(ids)
-      .then((sends) => {
-        if (cancelled) return
-        const map = new Map<string, RecordingChatSend>()
-        for (const send of sends) {
-          map.set(send.recordingId, send)
-        }
-        setChatSendByRecordingId(map)
-      })
-      .catch(() => {
-        if (!cancelled) setChatSendByRecordingId(new Map())
-      })
+
+    function refreshChatSends() {
+      const ids = recordings.map((record) => record.id)
+      void readShopeeChatSendsByRecordingIdsApi(ids)
+        .then((sends) => {
+          if (cancelled) return
+          const map = new Map<string, RecordingChatSend>()
+          for (const send of sends) {
+            map.set(send.recordingId, send)
+          }
+          setChatSendByRecordingId(map)
+        })
+        .catch(() => {
+          if (!cancelled) setChatSendByRecordingId(new Map())
+        })
+    }
+
+    refreshChatSends()
+
+    const fallbackRefreshTimer = window.setTimeout(refreshChatSends, 3000)
+    window.addEventListener('pakti:chat-sends-updated', refreshChatSends)
 
     return () => {
       cancelled = true
+      window.clearTimeout(fallbackRefreshTimer)
+      window.removeEventListener('pakti:chat-sends-updated', refreshChatSends)
     }
   }, [recordings])
 

@@ -253,7 +253,7 @@ export function updateChatSendStatus(id: string, status: Exclude<ChatSendStatus,
     `UPDATE recording_chat_sends
      SET status = ?,
          attempts = ?,
-         error_message = ?,
+          error_message = ?,
          prepared_at = CASE WHEN ? = 'prepared' THEN ? ELSE prepared_at END,
          sent_at = CASE WHEN ? = 'sent' THEN ? ELSE sent_at END,
          updated_at = ?
@@ -261,7 +261,7 @@ export function updateChatSendStatus(id: string, status: Exclude<ChatSendStatus,
   ).run(
     status,
     nextAttempts,
-    status === 'failed' ? normalizeOptionalString(errorMessage) ?? 'Extension gagal menyiapkan chat.' : null,
+    status === 'failed' || status === 'cancelled' ? normalizeOptionalString(errorMessage) ?? 'Extension gagal menyiapkan chat.' : null,
     status,
     timestamp,
     status,

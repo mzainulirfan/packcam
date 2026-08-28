@@ -55,6 +55,14 @@ function getShopeeWebchatUrl(value) {
   return 'https://seller.shopee.co.id/new-webchat/conversations'
 }
 
+function isMissingContentScriptError(error) {
+  return error instanceof Error && error.message.toLowerCase().includes('receiving end does not exist')
+}
+
+function isBuyerNotFoundMessage(value) {
+  return /percakapan shopee untuk .+ tidak ditemukan/i.test(String(value || ''))
+}
+
 function toOperationalOrder(order) {
   return {
     nomorPesanan: order.orderNumber,
@@ -212,8 +220,7 @@ async function prepareShippingChats() {
     try {
       response = await chrome.tabs.sendMessage(tab.id, { type: 'PAKTI_PREPARE_VISIBLE_SHIPPING_CHATS' })
     } catch (msgError) {
-      const isConnectionError = msgError instanceof Error && msgError.message.toLowerCase().includes('receiving end does not exist')
-      if (isConnectionError) {
+      if (isMissingContentScriptError(msgError)) {
         setStatus('Tab Shopee perlu di-reload terlebih dulu. Tekan F5 di tab Pesanan Dikirim, lalu coba lagi.')
         return
       }
@@ -347,12 +354,22 @@ async function prepareShopeeChat() {
     }
 
     const message = buildChatMessage(job)
-    const response = await chrome.tabs.sendMessage(tab.id, {
-      type: 'PAKTI_PREPARE_SHOPEE_CHAT',
-      job: { ...job, message },
-    })
+    let response
+    try {
+      response = await chrome.tabs.sendMessage(tab.id, {
+        type: 'PAKTI_PREPARE_SHOPEE_CHAT',
+        job: { ...job, message },
+      })
+    } catch (msgError) {
+      if (isMissingContentScriptError(msgError)) {
+        setStatus('Tab Shopee Webchat perlu di-reload terlebih dulu. Tekan F5 di tab Webchat, tunggu halaman siap, lalu coba Prepare Shopee Chat lagi.')
+        return
+      }
+      throw msgError
+    }
     if (!response?.ok || !response?.sent) {
-      await requestApi(`/api/chat-sends/${encodeURIComponent(job.id)}/failed`, config, {
+      const nextStatus = isBuyerNotFoundMessage(response?.error) ? 'cancelled' : 'failed'
+      await requestApi(`/api/chat-sends/${encodeURIComponent(job.id)}/${nextStatus}`, config, {
         method: 'POST',
         body: JSON.stringify({ error: response?.error || 'Extension gagal mengirim Shopee Webchat.' }),
       })
@@ -360,18 +377,6 @@ async function prepareShopeeChat() {
     }
 
     await requestApi(`/api/chat-sends/${encodeURIComponent(job.id)}/prepared`, config, { method: 'POST' })
-    lastPreparedChatJob = job
-    renderChatJobs(pendingChatJobs.map((current) => current.id === job.id ? { ...current, status: 'prepared' } : current))
-    setStatus({
-      prepared: {
-        pembeli: job.buyerUsername,
-        nomorPesanan: job.orderNumber,
-        nomorResi: job.resiNumber,
-        videoUrl: job.videoUrl,
-        message,
-      },
-      next: 'Otomatis klik Send dan tandai terkirim...',
-    })
     const sentJob = await requestApi(`/api/chat-sends/${encodeURIComponent(job.id)}/sent`, config, { method: 'POST' })
     renderChatJobs(pendingChatJobs.filter((current) => current.id !== job.id))
     setStatus({

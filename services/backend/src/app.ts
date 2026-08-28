@@ -621,6 +621,15 @@ app.post('/api/shopee/shipping-chat/:id/failed', requireSessionOrExtensionKey, (
   }
 })
 
+app.post('/api/shopee/shipping-chat/:id/cancelled', requireSessionOrExtensionKey, (req, res) => {
+  try {
+    const params = req.params as Record<string, string | undefined>
+    return sendOk(res, updateShippingChatSendStatus(params.id ?? '', 'cancelled', typeof req.body?.error === 'string' ? req.body.error : null))
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal melewati shipping chat.')
+  }
+})
+
 app.post('/api/shopee/shipping-chat/:id/retry', requireSession, (req, res) => {
   try {
     const params = req.params as Record<string, string | undefined>
@@ -978,6 +987,15 @@ app.post('/api/chat-sends/:id/failed', requireSessionOrExtensionKey, (req, res) 
     return sendOk(res, updateChatSendStatus(params.id ?? '', 'failed', typeof req.body?.error === 'string' ? req.body.error : null))
   } catch (error) {
     return sendError(res, 400, error instanceof Error ? error.message : 'Gagal memperbarui status chat.')
+  }
+})
+
+app.post('/api/chat-sends/:id/cancelled', requireSessionOrExtensionKey, (req, res) => {
+  try {
+    const params = req.params as Record<string, string | undefined>
+    return sendOk(res, updateChatSendStatus(params.id ?? '', 'cancelled', typeof req.body?.error === 'string' ? req.body.error : null))
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal melewati chat.')
   }
 })
 

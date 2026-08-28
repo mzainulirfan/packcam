@@ -1,44 +1,65 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { readRecentShopeeChatSendsApi, readRecentShopeeOrdersApi, readServerAdminStatusApi, readRecentShippingChatSendsApi, retryShippingChatSendApi } from '@pakti/api-client'
-import type { RecordingChatSend, ShopeeOrder, ShippingChatSend } from '@pakti/types'
+import type { ChatSendStatus, RecordingChatSend, ShopeeOrder, ShippingChatSend } from '@pakti/types'
 
 type AdminStatus = Awaited<ReturnType<typeof readServerAdminStatusApi>>
-type ShippingChatFilter = 'all' | 'pending' | 'prepared' | 'sent' | 'failed'
+type ChatSendFilter = 'all' | ChatSendStatus
+
+const CHAT_SEND_STATUSES: ChatSendStatus[] = ['pending', 'prepared', 'sent', 'failed', 'cancelled']
 
 export function AdminPage() {
   const [adminStatus, setAdminStatus] = useState<AdminStatus | null>(null)
   const [recentShopeeOrders, setRecentShopeeOrders] = useState<ShopeeOrder[]>([])
   const [recentChatSends, setRecentChatSends] = useState<RecordingChatSend[]>([])
   const [recentShippingChatSends, setRecentShippingChatSends] = useState<ShippingChatSend[]>([])
-  const [shippingChatFilter, setShippingChatFilter] = useState<ShippingChatFilter>('all')
+  const [chatSendFilter, setChatSendFilter] = useState<ChatSendFilter>('all')
+  const [shippingChatFilter, setShippingChatFilter] = useState<ChatSendFilter>('all')
   const [retryingId, setRetryingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState('Memuat status server...')
 
+  const chatSendCounts = useMemo(() => countByStatus(recentChatSends), [recentChatSends])
+  const shippingChatCounts = useMemo(() => countByStatus(recentShippingChatSends), [recentShippingChatSends])
+  const filteredChatSends = useMemo(
+    () => recentChatSends.filter((job) => chatSendFilter === 'all' || job.status === chatSendFilter),
+    [chatSendFilter, recentChatSends],
+  )
+  const filteredShippingChatSends = useMemo(
+    () => recentShippingChatSends.filter((job) => shippingChatFilter === 'all' || job.status === shippingChatFilter),
+    [recentShippingChatSends, shippingChatFilter],
+  )
+
+  async function loadCoreAdminData() {
+    const [status, orders, chatSends] = await Promise.all([
+      readServerAdminStatusApi(),
+      readRecentShopeeOrdersApi(10),
+      readRecentShopeeChatSendsApi(50),
+    ])
+
+    setAdminStatus(status)
+    setRecentShopeeOrders(orders)
+    setRecentChatSends(chatSends)
+    setError(null)
+    setMessage('Status server dimuat.')
+  }
+
+  async function loadShippingChatSends() {
+    setRecentShippingChatSends(await readRecentShippingChatSendsApi(50))
+  }
+
   useEffect(() => {
     let active = true
 
-    // Fetch admin status, orders, dan recording chat sends — bagian utama yang memerlukan sesi admin
-    void Promise.all([
-      readServerAdminStatusApi(),
-      readRecentShopeeOrdersApi(10),
-      readRecentShopeeChatSendsApi(10),
-    ])
-      .then(([status, orders, chatSends]) => {
+    void loadCoreAdminData()
+      .then(() => {
         if (!active) {
           return
         }
-
-        setAdminStatus(status)
-        setRecentShopeeOrders(orders)
-        setRecentChatSends(chatSends)
-        setError(null)
-        setMessage('Status server dimuat.')
       })
       .catch(() => {
         if (!active) {
@@ -57,10 +78,9 @@ export function AdminPage() {
         }
       })
 
-    // Fetch shipping chat sends secara terpisah — kegagalan tidak memengaruhi tampilan admin status
-    void readRecentShippingChatSendsApi(50)
-      .then((sends) => {
-        if (active) setRecentShippingChatSends(sends)
+    void loadShippingChatSends()
+      .then(() => {
+        if (!active) return
       })
       .catch(() => {
         if (active) setRecentShippingChatSends([])
@@ -72,6 +92,14 @@ export function AdminPage() {
   }, [])
 
   useEffect(() => {
+    function handleChatSendsUpdated() {
+      void readRecentShopeeChatSendsApi(50)
+        .then((sends) => {
+          setRecentChatSends(sends)
+        })
+        .catch(() => {})
+    }
+
     function handleShippingChatSendsUpdated() {
       void readRecentShippingChatSendsApi(50)
         .then((sends) => {
@@ -80,8 +108,10 @@ export function AdminPage() {
         .catch(() => {})
     }
 
+    window.addEventListener('pakti:chat-sends-updated', handleChatSendsUpdated)
     window.addEventListener('pakti:shipping-chat-sends-updated', handleShippingChatSendsUpdated)
     return () => {
+      window.removeEventListener('pakti:chat-sends-updated', handleChatSendsUpdated)
       window.removeEventListener('pakti:shipping-chat-sends-updated', handleShippingChatSendsUpdated)
     }
   }, [])
@@ -91,15 +121,7 @@ export function AdminPage() {
     setError(null)
 
     try {
-      const [status, orders, chatSends] = await Promise.all([
-        readServerAdminStatusApi(),
-        readRecentShopeeOrdersApi(10),
-        readRecentShopeeChatSendsApi(10),
-      ])
-      setAdminStatus(status)
-      setRecentShopeeOrders(orders)
-      setRecentChatSends(chatSends)
-      setMessage('Status server dimuat.')
+      await loadCoreAdminData()
     } catch {
       setAdminStatus(null)
       setRecentShopeeOrders([])
@@ -110,9 +132,7 @@ export function AdminPage() {
       setLoading(false)
     }
 
-    // Refresh shipping chat secara terpisah
-    void readRecentShippingChatSendsApi(50)
-      .then(setRecentShippingChatSends)
+    void loadShippingChatSends()
       .catch(() => {})
   }
 
@@ -132,243 +152,267 @@ export function AdminPage() {
   }
 
   return (
-    <div className="admin-opencode mx-auto grid w-full max-w-[1520px] gap-5 px-0 py-1">
+    <div className="admin-opencode grid w-full gap-5 px-0 py-1">
       <section className="admin-opencode__summary flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="grid gap-2">
-            <div className="admin-opencode__section-label">[+] Admin</div>
-            <h1 className="admin-opencode__title">Admin</h1>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <span className="admin-opencode__badge">{loading ? '[~] loading' : error ? '[!] error' : '[x] ready'}</span>
-            <span className="admin-opencode__badge">server only</span>
-          </div>
-        </section>
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Card className="admin-opencode__panel">
-            <CardHeader className="space-y-2">
-              <CardTitle>Status server</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-4">
-              {loading ? (
-                <div className="admin-opencode__empty">
-                  [~] Memuat status server...
-                </div>
-              ) : error ? (
-                <Alert variant="destructive">
-                  <div className="admin-opencode__alert grid gap-1">
-                    <p>[!] Status server belum tersedia</p>
-                    <p>{error}</p>
-                  </div>
-                </Alert>
-              ) : adminStatus ? (
-                <div className="grid gap-2">
-                  <InfoLine label="Bootstrap" value={adminStatus.bootstrap.needsSetup ? 'Needed' : 'Ready'} />
-                  <InfoLine label="Operators" value={String(adminStatus.bootstrap.operatorCount)} />
-                  <InfoLine label="Admins" value={String(adminStatus.bootstrap.adminCount)} />
-                  <InfoLine label="Recordings" value={String(adminStatus.counts.recordings)} />
-                  <InfoLine label="Scan logs" value={String(adminStatus.counts.scanLogs)} />
-                  <InfoLine label="Sessions" value={String(adminStatus.counts.sessions)} />
-                  <InfoLine label="Last error" value={adminStatus.lastError ? 'Ada' : 'Tidak ada'} />
-                </div>
-              ) : null}
-
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <Button type="button" onClick={() => void handleRefresh()}>
-                  [refresh]
-                </Button>
-              </div>
-
-              <Alert variant={error ? 'destructive' : 'info'}>
-                <div className="admin-opencode__alert grid gap-1">
-                  <p>{error ? '[!]' : '[+]'} Pesan</p>
-                  <p>{message}</p>
-                </div>
-              </Alert>
-            </CardContent>
-          </Card>
-
-          <Card className="admin-opencode__panel">
-            <CardHeader className="space-y-2">
-              <CardTitle>Recent data</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 pt-4">
-              <div className="admin-opencode__list-block">
-                <p>[+] Recent recordings</p>
-                <div className="mt-3 grid gap-2">
-                  {adminStatus?.recentRecordings.slice(0, 5).map((recording) => (
-                    <div key={recording.id} className="admin-opencode__list-row">
-                      <span>{recording.resiNumber}</span>
-                      <span>[{recording.status}]</span>
-                    </div>
-                  ))}
-                  {adminStatus?.recentRecordings.length === 0 ? (
-                    <p>[-] Belum ada recording di server.</p>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="admin-opencode__list-block">
-                <p>[+] Recent scan logs</p>
-                <div className="mt-3 grid gap-2">
-                  {adminStatus?.recentScanLogs.slice(0, 5).map((log) => (
-                    <div key={log.id} className="admin-opencode__list-row">
-                      <span>{log.resiNumber}</span>
-                      <span>[{log.action}]</span>
-                    </div>
-                  ))}
-                  {adminStatus?.recentScanLogs.length === 0 ? (
-                    <p>[-] Belum ada scan log di server.</p>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="admin-opencode__list-block">
-                <p>[+] Recent Shopee orders</p>
-                <div className="mt-3 grid gap-2">
-                  {recentShopeeOrders.slice(0, 10).map((order) => (
-                    <div key={order.id ?? order.orderNumber} className="admin-opencode__list-row items-start gap-3">
-                      <span className="min-w-0">
-                        <strong>{order.orderNumber}</strong>
-                        <small className="block">{order.trackingNumber ?? '-'} · {order.buyerUsername ?? '-'}</small>
-                        <small className="block">{order.items.map((item) => `${item.productName} x${item.quantity}`).join(', ') || '-'}</small>
-                      </span>
-                      <span>[{order.shippingChannel ?? '-'}]</span>
-                    </div>
-                  ))}
-                  {recentShopeeOrders.length === 0 ? (
-                    <p>[-] Belum ada order Shopee di server.</p>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="admin-opencode__list-block">
-                <p>[+] Recent Shopee chat sends</p>
-                <div className="mt-3 grid gap-2">
-                  {recentChatSends.slice(0, 10).map((job) => (
-                    <div key={job.id} className="admin-opencode__list-row items-start gap-3">
-                      <span className="min-w-0">
-                        <strong>{job.buyerUsername}</strong>
-                        <small className="block">{job.orderNumber ?? '-'} · {job.resiNumber}</small>
-                        <small className="block">{job.errorMessage ?? job.videoFilePath}</small>
-                      </span>
-                      <span>[{job.status}]</span>
-                    </div>
-                  ))}
-                  {recentChatSends.length === 0 ? (
-                    <p>[-] Belum ada job Shopee Chat.</p>
-                  ) : null}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid gap-2">
+          <div className="admin-opencode__section-label">[+] Admin</div>
+          <h1 className="admin-opencode__title">Admin Console</h1>
+          <p className="admin-opencode__lede">Pantau server, integrasi Shopee, dan antrean chat dari satu halaman.</p>
         </div>
+        <div className="flex flex-wrap gap-2">
+          <span className="admin-opencode__badge">{loading ? '[~] loading' : error ? '[!] error' : '[x] ready'}</span>
+          <span className="admin-opencode__badge">server only</span>
+          <Button type="button" variant="outline" onClick={() => void handleRefresh()}>
+            [refresh]
+          </Button>
+        </div>
+      </section>
 
-        <Card className="admin-opencode__panel w-full">
-          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 space-y-0 pb-4 border-b border-slate-100">
-            <CardTitle className="text-lg font-bold text-slate-900">[+] Antrean Chat Pengiriman Shopee</CardTitle>
-            <div className="flex items-center gap-2">
-              <label htmlFor="shipping-chat-status-filter" className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Filter Status:</label>
-              <select
-                id="shipping-chat-status-filter"
-                value={shippingChatFilter}
-                onChange={(e) => setShippingChatFilter(e.target.value as ShippingChatFilter)}
-                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm focus:border-indigo-500 focus:outline-none"
-              >
-                <option value="all">Semua ({recentShippingChatSends.length})</option>
-                <option value="pending">Pending ({recentShippingChatSends.filter(s => s.status === 'pending').length})</option>
-                <option value="prepared">Prepared ({recentShippingChatSends.filter(s => s.status === 'prepared').length})</option>
-                <option value="sent">Sent ({recentShippingChatSends.filter(s => s.status === 'sent').length})</option>
-                <option value="failed">Failed ({recentShippingChatSends.filter(s => s.status === 'failed').length})</option>
-              </select>
+      <Alert variant={error ? 'destructive' : 'info'}>
+        <div className="admin-opencode__alert grid gap-1">
+          <p>{error ? '[!]' : '[+]'} Status</p>
+          <p>{message}</p>
+        </div>
+      </Alert>
+
+      <Card className="admin-opencode__panel">
+        <CardHeader>
+          <CardTitle>System overview</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-4">
+          {loading ? (
+            <div className="admin-opencode__empty">[~] Memuat status server...</div>
+          ) : error ? (
+            <div className="admin-opencode__empty">[!] Status server belum tersedia.</div>
+          ) : adminStatus ? (
+            <div className="admin-opencode__stats">
+              <Metric index="01" label="Bootstrap" value={adminStatus.bootstrap.needsSetup ? 'needed' : 'ready'} />
+              <Metric index="02" label="Operators" value={String(adminStatus.bootstrap.operatorCount)} />
+              <Metric index="03" label="Admins" value={String(adminStatus.bootstrap.adminCount)} />
+              <Metric index="04" label="Recordings" value={String(adminStatus.counts.recordings)} />
+              <Metric index="05" label="Scan logs" value={String(adminStatus.counts.scanLogs)} />
+              <Metric index="06" label="Sessions" value={String(adminStatus.counts.sessions)} />
+              <Metric index="07" label="Last error" value={adminStatus.lastError ? 'ada' : 'clear'} />
+              <Metric index="08" label="Shopee jobs" value={String(recentChatSends.length + recentShippingChatSends.length)} />
             </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <section className="grid gap-4 xl:grid-cols-2">
+        <Card className="admin-opencode__panel">
+          <CardHeader className="gap-3 sm:flex sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle>Shopee video chat</CardTitle>
+            <StatusFilter id="chat-send-status-filter" value={chatSendFilter} counts={chatSendCounts} total={recentChatSends.length} onChange={setChatSendFilter} />
           </CardHeader>
-          <CardContent className="pt-4 px-0 sm:px-6">
-            <div className="overflow-x-auto rounded-lg border border-slate-100 bg-white">
-              <table className="w-full min-w-[800px] border-collapse text-left text-sm text-slate-600">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    <th className="px-4 py-3">Pembeli / Pesanan</th>
-                    <th className="px-4 py-3">Pesan</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Percobaan</th>
-                    <th className="px-4 py-3">Catatan / Error</th>
-                    <th className="px-4 py-3 text-right">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {recentShippingChatSends
-                    .filter((job) => shippingChatFilter === 'all' || job.status === shippingChatFilter)
-                    .map((job) => {
-                      const statusStyles = {
-                        pending: 'bg-blue-50 text-blue-700 border-blue-200',
-                        prepared: 'bg-amber-50 text-amber-700 border-amber-200',
-                        sent: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-                        failed: 'bg-rose-50 text-rose-700 border-rose-200',
-                        cancelled: 'bg-slate-50 text-slate-700 border-slate-200',
-                      }[job.status] || 'bg-slate-50 text-slate-700'
-
-                      return (
-                        <tr key={job.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-4 py-3">
-                            <div className="font-semibold text-slate-900">{job.buyerUsername}</div>
-                            <div className="text-xs text-slate-500 font-mono mt-0.5">{job.orderNumber}</div>
-                            {job.trackingNumber && (
-                              <div className="text-xs text-slate-400 mt-0.5">Resi: {job.trackingNumber}</div>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 max-w-[280px]">
-                            <span title={job.message} className="cursor-help text-xs text-slate-500 block truncate leading-relaxed">
-                              {job.message}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold capitalize ${statusStyles}`}>
-                              {job.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-slate-500 font-medium">
-                            {job.attempts} / 3
-                          </td>
-                          <td className="px-4 py-3 text-xs max-w-[200px] break-words text-rose-600 font-medium">
-                            {job.errorMessage || '-'}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            {(job.status === 'failed' || job.status === 'cancelled') && (
-                              <button
-                                type="button"
-                                disabled={retryingId === job.id}
-                                onClick={() => void handleRetryShippingChat(job.id)}
-                                className="inline-flex items-center rounded bg-slate-100 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:text-indigo-700 transition shadow-sm disabled:opacity-50"
-                              >
-                                {retryingId === job.id ? 'Mengantre...' : '[retry]'}
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  {recentShippingChatSends.filter((job) => shippingChatFilter === 'all' || job.status === shippingChatFilter).length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
-                        [-] Tidak ada antrean chat pengiriman dengan kriteria ini.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+          <CardContent className="pt-4">
+            <ChatSendTable jobs={filteredChatSends} emptyText="[-] Tidak ada job video chat dengan kriteria ini." />
           </CardContent>
         </Card>
+
+        <Card className="admin-opencode__panel">
+          <CardHeader className="gap-3 sm:flex sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle>Shipping chat</CardTitle>
+            <StatusFilter id="shipping-chat-status-filter" value={shippingChatFilter} counts={shippingChatCounts} total={recentShippingChatSends.length} onChange={setShippingChatFilter} />
+          </CardHeader>
+          <CardContent className="pt-4">
+            <ShippingChatTable jobs={filteredShippingChatSends} retryingId={retryingId} onRetry={handleRetryShippingChat} />
+          </CardContent>
+        </Card>
+      </section>
+
+      <Card className="admin-opencode__panel">
+        <CardHeader>
+          <CardTitle>Recent activity</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 pt-4 lg:grid-cols-3">
+          <ActivityBlock title="Recent recordings" emptyText="[-] Belum ada recording di server.">
+            {adminStatus?.recentRecordings.slice(0, 5).map((recording) => (
+              <div key={recording.id} className="admin-opencode__list-row">
+                <span>{recording.resiNumber}</span>
+                <span>[{recording.status}]</span>
+              </div>
+            ))}
+          </ActivityBlock>
+
+          <ActivityBlock title="Recent scan logs" emptyText="[-] Belum ada scan log di server.">
+            {adminStatus?.recentScanLogs.slice(0, 5).map((log) => (
+              <div key={log.id} className="admin-opencode__list-row">
+                <span>{log.resiNumber}</span>
+                <span>[{log.action}]</span>
+              </div>
+            ))}
+          </ActivityBlock>
+
+          <ActivityBlock title="Recent Shopee orders" emptyText="[-] Belum ada order Shopee di server.">
+            {recentShopeeOrders.slice(0, 5).map((order) => (
+              <div key={order.id ?? order.orderNumber} className="admin-opencode__list-row items-start gap-3">
+                <span className="min-w-0">
+                  <strong>{order.orderNumber}</strong>
+                  <small className="block">{order.trackingNumber ?? '-'} · {order.buyerUsername ?? '-'}</small>
+                </span>
+                <span>[{order.shippingChannel ?? '-'}]</span>
+              </div>
+            ))}
+          </ActivityBlock>
+        </CardContent>
+      </Card>
     </div>
   )
 }
 
-function InfoLine({ label, value }: { label: string; value: string }) {
+function Metric({ index, label, value }: { index: string; label: string; value: string }) {
   return (
-    <div className="admin-opencode__list-row">
-      <span>{label}</span>
-      <strong>{value}</strong>
+    <div className="admin-opencode__stat">
+      <span>{index}</span>
+      <p>{label}<br /><strong>{value}</strong></p>
     </div>
   )
+}
+
+function StatusFilter({
+  id,
+  value,
+  counts,
+  total,
+  onChange,
+}: {
+  id: string
+  value: ChatSendFilter
+  counts: Record<ChatSendStatus, number>
+  total: number
+  onChange: (value: ChatSendFilter) => void
+}) {
+  return (
+    <label htmlFor={id} className="grid gap-1 text-sm text-muted-foreground">
+      Filter status
+      <select
+        id={id}
+        value={value}
+        onChange={(event) => onChange(event.target.value as ChatSendFilter)}
+        className="h-8 rounded-[4px] border border-border bg-background px-2 text-sm text-foreground outline-none focus:border-foreground"
+      >
+        <option value="all">all ({total})</option>
+        {CHAT_SEND_STATUSES.map((status) => (
+          <option key={status} value={status}>{status} ({counts[status]})</option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
+function ChatSendTable({ jobs, emptyText }: { jobs: RecordingChatSend[]; emptyText: string }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+        <thead>
+          <tr className="border-b border-border text-xs uppercase text-muted-foreground">
+            <th className="px-3 py-2">Pembeli</th>
+            <th className="px-3 py-2">Pesanan</th>
+            <th className="px-3 py-2">Status</th>
+            <th className="px-3 py-2">Attempts</th>
+            <th className="px-3 py-2">Catatan</th>
+          </tr>
+        </thead>
+        <tbody>
+          {jobs.map((job) => (
+            <tr key={job.id} className="border-b border-border/70">
+              <td className="px-3 py-3 font-medium">{job.buyerUsername}</td>
+              <td className="px-3 py-3">
+                <span className="block">{job.orderNumber ?? '-'}</span>
+                <span className="block text-muted-foreground">{job.resiNumber}</span>
+              </td>
+              <td className="px-3 py-3"><StatusBadge status={job.status} /></td>
+              <td className="px-3 py-3">{job.attempts} / 3</td>
+              <td className="px-3 py-3 text-muted-foreground">{job.errorMessage ?? job.videoFilePath}</td>
+            </tr>
+          ))}
+          {jobs.length === 0 ? (
+            <tr>
+              <td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">{emptyText}</td>
+            </tr>
+          ) : null}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function ShippingChatTable({
+  jobs,
+  retryingId,
+  onRetry,
+}: {
+  jobs: ShippingChatSend[]
+  retryingId: string | null
+  onRetry: (id: string) => Promise<void>
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[860px] border-collapse text-left text-sm">
+        <thead>
+          <tr className="border-b border-border text-xs uppercase text-muted-foreground">
+            <th className="px-3 py-2">Pembeli</th>
+            <th className="px-3 py-2">Pesanan</th>
+            <th className="px-3 py-2">Pesan</th>
+            <th className="px-3 py-2">Status</th>
+            <th className="px-3 py-2">Attempts</th>
+            <th className="px-3 py-2">Catatan</th>
+            <th className="px-3 py-2 text-right">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {jobs.map((job) => (
+            <tr key={job.id} className="border-b border-border/70">
+              <td className="px-3 py-3 font-medium">{job.buyerUsername}</td>
+              <td className="px-3 py-3">
+                <span className="block">{job.orderNumber}</span>
+                <span className="block text-muted-foreground">{job.trackingNumber ?? '-'}</span>
+              </td>
+              <td className="max-w-[260px] px-3 py-3 text-muted-foreground"><span className="block truncate" title={job.message}>{job.message}</span></td>
+              <td className="px-3 py-3"><StatusBadge status={job.status} /></td>
+              <td className="px-3 py-3">{job.attempts} / 3</td>
+              <td className="max-w-[220px] px-3 py-3 text-muted-foreground">{job.errorMessage || '-'}</td>
+              <td className="px-3 py-3 text-right">
+                {job.status === 'failed' || job.status === 'cancelled' ? (
+                  <Button type="button" variant="outline" size="sm" disabled={retryingId === job.id} onClick={() => void onRetry(job.id)}>
+                    {retryingId === job.id ? '[mengantre]' : '[retry]'}
+                  </Button>
+                ) : null}
+              </td>
+            </tr>
+          ))}
+          {jobs.length === 0 ? (
+            <tr>
+              <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">[-] Tidak ada antrean chat pengiriman dengan kriteria ini.</td>
+            </tr>
+          ) : null}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function StatusBadge({ status }: { status: ChatSendStatus }) {
+  return <span className="admin-opencode__badge">[{status}]</span>
+}
+
+function ActivityBlock({ title, emptyText, children }: { title: string; emptyText: string; children: React.ReactNode }) {
+  const hasChildren = Array.isArray(children) ? children.length > 0 : Boolean(children)
+
+  return (
+    <div className="admin-opencode__list-block">
+      <p>[+] {title}</p>
+      <div className="mt-3 grid gap-2">
+        {hasChildren ? children : <p>{emptyText}</p>}
+      </div>
+    </div>
+  )
+}
+
+function countByStatus(items: Array<{ status: ChatSendStatus }>) {
+  return CHAT_SEND_STATUSES.reduce<Record<ChatSendStatus, number>>((counts, status) => {
+    counts[status] = items.filter((item) => item.status === status).length
+    return counts
+  }, { pending: 0, prepared: 0, sent: 0, failed: 0, cancelled: 0 })
 }

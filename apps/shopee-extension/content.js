@@ -413,8 +413,12 @@ async function sendComposerMessage(message) {
   const textAfter = composer.isContentEditable ? composer.textContent?.trim() : composer.value?.trim()
   if (!textAfter) return true
 
-  // Cara 2 (fallback): Klik tombol Send
-  if (clickSendButton()) return true
+  // Cara 2 (fallback): Klik tombol Send, lalu pastikan composer benar-benar kosong.
+  if (clickSendButton()) {
+    await new Promise((r) => setTimeout(r, 800))
+    const textAfterClick = composer.isContentEditable ? composer.textContent?.trim() : composer.value?.trim()
+    if (!textAfterClick) return true
+  }
   throw new Error('Tombol kirim Shopee Webchat / Minichat tidak ditemukan.')
 }
 
@@ -586,8 +590,17 @@ if (/seller\.shopee\.(co\.id|com)/.test(location.href)) {
   let autoRunStartTimer = null
   let autoRunInterval = null
 
+  function getErrorText(error) {
+    if (error instanceof Error) return `${error.name} ${error.message} ${error.stack || ''}`
+    return String(error || '')
+  }
+
   function isExtensionContextInvalidated(error) {
-    return error instanceof Error && /extension context invalidated/i.test(error.message)
+    return /extension context invalidated|context invalidated/i.test(getErrorText(error))
+  }
+
+  function isBuyerNotFoundError(error) {
+    return /percakapan shopee untuk .+ tidak ditemukan/i.test(getErrorText(error))
   }
 
   function stopAutoRunTimers() {
@@ -638,7 +651,13 @@ if (/seller\.shopee\.(co\.id|com)/.test(location.href)) {
       clearSearchInput()
       return true
     } catch (error) {
-      await requestPaktiApi(`/api/shopee/shipping-chat/${encodeURIComponent(job.id)}/failed`, config, {
+      if (isExtensionContextInvalidated(error)) {
+        stopAutoRunTimers()
+        return false
+      }
+
+      const nextStatus = isBuyerNotFoundError(error) ? 'cancelled' : 'failed'
+      await requestPaktiApi(`/api/shopee/shipping-chat/${encodeURIComponent(job.id)}/${nextStatus}`, config, {
         method: 'POST',
         body: JSON.stringify({ error: error instanceof Error ? error.message : 'Extension gagal mengirim shipping chat.' }),
       }).catch(() => undefined)
@@ -715,6 +734,16 @@ if (/seller\.shopee\.(co\.id|com)/.test(location.href)) {
       if (activeAutoJob) {
         // Jangan biarkan input sisa percobaan membuat retry berikutnya dianggap ketikan manual.
         clearSearchInput()
+        if (isBuyerNotFoundError(error)) {
+          const stored = await readExtensionConfig().catch(() => null)
+          if (stored) {
+            await requestPaktiApi(`/api/chat-sends/${encodeURIComponent(activeAutoJob.id)}/cancelled`, stored, {
+              method: 'POST',
+              body: JSON.stringify({ error: error instanceof Error ? error.message : 'Percakapan Shopee tidak ditemukan.' }),
+            }).catch(() => undefined)
+          }
+          return
+        }
       }
       console.warn('[Pakti] autoRunPending gagal', error)
     }

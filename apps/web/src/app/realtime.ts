@@ -8,6 +8,7 @@ type BackendRealtimeEventName =
   | 'system-config-updated'
   | 'sessions-updated'
   | 'last-error-updated'
+  | 'chat-sends-updated'
   | 'shipping-chat-sends-updated'
 
 type BrowserRealtimeEventName =
@@ -18,6 +19,7 @@ type BrowserRealtimeEventName =
   | 'pakti:system-config-change'
   | 'pakti:sessions-updated'
   | 'pakti:last-error-updated'
+  | 'pakti:chat-sends-updated'
   | 'pakti:shipping-chat-sends-updated'
 
 type BackendRealtimeEnvelope = {
@@ -33,6 +35,7 @@ const EVENT_MAP: Record<BackendRealtimeEventName, BrowserRealtimeEventName> = {
   'system-config-updated': 'pakti:system-config-change',
   'sessions-updated': 'pakti:sessions-updated',
   'last-error-updated': 'pakti:last-error-updated',
+  'chat-sends-updated': 'pakti:chat-sends-updated',
   'shipping-chat-sends-updated': 'pakti:shipping-chat-sends-updated',
 }
 
