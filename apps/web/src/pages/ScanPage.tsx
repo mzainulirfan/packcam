@@ -368,6 +368,33 @@ export function ScanPage() {
     }
   }
 
+  async function handleSwitchPackingSession() {
+    if (!activePackingSession || !selectedPackerKey) {
+      setScanAlert({ kind: 'error', message: 'Pilih petugas baru dulu.' })
+      return
+    }
+    const [name, code] = selectedPackerKey.split('::')
+    if (!name || !code) {
+      setScanAlert({ kind: 'error', message: 'Pilih petugas valid.' })
+      return
+    }
+    if (name === activePackingSession.packerOperatorName && code === activePackingSession.packerOperatorCode) {
+      setScanAlert({ kind: 'warning', message: 'Pilih petugas lain untuk ganti sesi.' })
+      return
+    }
+    setPackingSessionLoading(true)
+    try {
+      await closePackingSessionApi(activePackingSession.id)
+      const next = await createPackingSessionApi({ packerOperatorName: name, packerOperatorCode: code })
+      setActivePackingSession(next)
+      setScanAlert({ kind: 'success', message: `Sesi diganti ke ${next.packerNameSnapshot} (${next.packerCodeSnapshot}) — tanpa akhiri manual 2 langkah.` })
+    } catch (e) {
+      setScanAlert({ kind: 'error', message: e instanceof Error ? e.message : 'Gagal ganti sesi.' })
+    } finally {
+      setPackingSessionLoading(false)
+    }
+  }
+
   function clearPhotoStaging() {
     setPhotoStaging((prev) => {
       if (prev?.previewUrl) URL.revokeObjectURL(prev.previewUrl)
@@ -704,17 +731,44 @@ export function ScanPage() {
               </CardHeader>
               <CardContent className="grid gap-3 pt-0">
                 {activePackingSession ? (
-                  <div className="grid gap-2">
-                    <Button type="button" variant="outline" className="scan-opencode__button" disabled={packingSessionLoading} onClick={() => void handleClosePackingSession()}>
-                      {packingSessionLoading ? '[~] Proses...' : '[akhiri sesi]'}
-                    </Button>
-                    <div className="flex gap-2">
-                      <Button type="button" variant={packingMediaType === 'video' ? 'default' : 'outline'} className="flex-1 scan-opencode__button" onClick={() => setPackingMediaType('video')}>
-                        [video]
+                  <div className="grid gap-3">
+                    <div className="grid gap-2">
+                      <Button type="button" variant="outline" className="scan-opencode__button" disabled={packingSessionLoading} onClick={() => void handleClosePackingSession()}>
+                        {packingSessionLoading ? '[~] Proses...' : '[akhiri sesi]'}
                       </Button>
-                      <Button type="button" variant={packingMediaType === 'photo' ? 'default' : 'outline'} className="flex-1 scan-opencode__button" onClick={() => setPackingMediaType('photo')}>
-                        [foto]
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button type="button" variant={packingMediaType === 'video' ? 'default' : 'outline'} className="flex-1 scan-opencode__button" onClick={() => setPackingMediaType('video')}>
+                          [video]
+                        </Button>
+                        <Button type="button" variant={packingMediaType === 'photo' ? 'default' : 'outline'} className="flex-1 scan-opencode__button" onClick={() => setPackingMediaType('photo')}>
+                          [foto]
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="grid gap-2 border-t border-dashed border-[rgba(15,0,0,0.12)] pt-3">
+                      <Label>Ganti sesi (otomatis tutup lama)</Label>
+                      <div className="flex gap-2">
+                        <Select value={selectedPackerKey} onValueChange={setSelectedPackerKey}>
+                          <SelectTrigger className="scan-opencode__input flex-1">
+                            <SelectValue placeholder="Pilih petugas baru" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {packingOperators.map((op) => {
+                              const key = `${op.operatorName}::${op.operatorCode}`
+                              const label = op.fullName ? `${op.fullName} (${op.operatorCode})` : `${op.operatorName} (${op.operatorCode})`
+                              return (
+                                <SelectItem key={key} value={key}>
+                                  {label}
+                                </SelectItem>
+                              )
+                            })}
+                          </SelectContent>
+                        </Select>
+                        <Button type="button" variant="secondary" size="sm" className="scan-opencode__button px-4" disabled={packingSessionLoading || !selectedPackerKey} onClick={() => void handleSwitchPackingSession()}>
+                          [Ganti]
+                        </Button>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">Pindah petugas tanpa akhiri 2 langkah — sesi lama otomatis ditutup.</p>
                     </div>
                   </div>
                 ) : (

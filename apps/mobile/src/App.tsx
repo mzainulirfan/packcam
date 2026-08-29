@@ -1326,6 +1326,32 @@ function App() {
     }
   }
 
+  async function handleSwitchPackingSession() {
+    if (packingSessionBusy || !activePackingSession || !selectedPackerKey) return
+    const selected = parsePackerKey(selectedPackerKey)
+    if (!selected.operatorName || !selected.operatorCode) {
+      showScanNotice({ kind: 'warning', title: 'Pilih petugas', message: 'Pilih petugas packing baru dulu.' })
+      return
+    }
+    if (selected.operatorName === activePackingSession.packerOperatorName && selected.operatorCode === activePackingSession.packerOperatorCode) {
+      showScanNotice({ kind: 'warning', title: 'Petugas sama', message: 'Pilih petugas lain untuk ganti sesi.' })
+      return
+    }
+    setPackingSessionBusy(true)
+    try {
+      await closePackingSessionApi(activePackingSession.id)
+      const next = await createPackingSessionApi({ packerOperatorName: selected.operatorName, packerOperatorCode: selected.operatorCode })
+      setActivePackingSession(next)
+      showScanNotice({ kind: 'success', title: 'Sesi diganti', message: `Sekarang ${next.packerNameSnapshot} (${next.packerCodeSnapshot}) · tanpa akhiri manual 2 langkah.` })
+      void refreshHistory()
+    } catch (error) {
+      showScanNotice({ kind: 'warning', title: 'Gagal ganti sesi', message: normalizeError(error) })
+      void refreshActivePackingSession()
+    } finally {
+      setPackingSessionBusy(false)
+    }
+  }
+
   useEffect(() => {
     if (!isPackingMode || !activePackingSession || !scanResi.trim() || recordingSession.state.mode !== 'idle') {
       setPackingPreview(null)
@@ -1712,15 +1738,41 @@ function App() {
               </div>
 
               {activePackingSession ? (
-                <div className="grid grid-cols-[1fr_auto] items-center gap-2 border-t border-[var(--op-hairline)] pt-3">
-                  <div className="min-w-0 text-[12px] text-[var(--op-mute)]">
-                    <span className="block truncate">Kode: {activePackingSession.packerCodeSnapshot}</span>
-                    <span className="block truncate">Mulai: {formatDateTime(activePackingSession.startedAt)}</span>
+                <>
+                  <div className="grid grid-cols-[1fr_auto] items-center gap-2 border-t border-[var(--op-hairline)] pt-3">
+                    <div className="min-w-0 text-[12px] text-[var(--op-mute)]">
+                      <span className="block truncate">Kode: {activePackingSession.packerCodeSnapshot}</span>
+                      <span className="block truncate">Mulai: {formatDateTime(activePackingSession.startedAt)}</span>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" className="rounded-[4px]" disabled={packingSessionBusy || recordingSession.state.mode !== 'idle'} onClick={() => void handleClosePackingSession()}>
+                      {packingSessionBusy ? 'Menutup...' : 'Akhiri'}
+                    </Button>
                   </div>
-                  <Button type="button" variant="outline" size="sm" className="rounded-[4px]" disabled={packingSessionBusy || recordingSession.state.mode !== 'idle'} onClick={() => void handleClosePackingSession()}>
-                    {packingSessionBusy ? 'Menutup...' : 'Akhiri'}
-                  </Button>
-                </div>
+                  <div className="grid gap-2 border-t border-dashed border-[var(--op-hairline)] pt-3">
+                    <Label htmlFor="mobile-packing-switch" className="text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                      Ganti sesi (otomatis tutup lama)
+                    </Label>
+                    <div className="flex gap-2">
+                      <select
+                        id="mobile-packing-switch"
+                        value={selectedPackerKey}
+                        onChange={(event) => setSelectedPackerKey(event.target.value)}
+                        className="h-10 flex-1 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 text-[0.85rem] text-[var(--op-ink)] outline-none"
+                        disabled={packingSessionBusy || packingOperators.length === 0}
+                      >
+                        {packingOperators.map((op) => (
+                          <option key={makePackerKey(op.operatorName, op.operatorCode)} value={makePackerKey(op.operatorName, op.operatorCode)}>
+                            {op.fullName || op.operatorName} ({op.operatorCode})
+                          </option>
+                        ))}
+                      </select>
+                      <Button type="button" variant="secondary" size="sm" className="rounded-[4px] px-4" disabled={packingSessionBusy || !selectedPackerKey || recordingSession.state.mode !== 'idle'} onClick={() => void handleSwitchPackingSession()}>
+                        {packingSessionBusy ? '...' : 'Ganti'}
+                      </Button>
+                    </div>
+                    <p className="text-[11px] leading-snug text-muted-foreground">Pindah petugas tanpa akhiri manual 2 langkah — sesi lama otomatis ditutup.</p>
+                  </div>
+                </>
               ) : (
                 <div className="grid gap-2 border-t border-[var(--op-hairline)] pt-3">
                   <Label htmlFor="mobile-packing-operator" className="text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">
