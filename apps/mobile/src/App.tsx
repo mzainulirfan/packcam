@@ -1729,60 +1729,7 @@ function App() {
       {/* ——— SCAN TAB ——— */}
       {activeTab === 'scan' ? (
         <section className="grid gap-3">
-          {isPackingMode ? (
-            <section className="grid gap-3 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-3" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-              <div className="flex items-start justify-between gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (activePackingSession) setShowSwitchDialog(true)
-                  }}
-                  disabled={!activePackingSession}
-                  className="grid gap-1 text-left flex-1 disabled:opacity-100"
-                >
-                  <p className="text-[12px] font-bold tracking-wide">[ Sesi Packing ]{activePackingSession ? ' — tap untuk ganti' : ''}</p>
-                  <h2 className="text-[15px] font-bold leading-none underline decoration-dashed underline-offset-4">
-                    {activePackingSession ? activePackingSession.packerNameSnapshot : 'Mulai sesi sebelum scan'}
-                  </h2>
-                  <p className="text-[12px] leading-snug text-[var(--op-mute)]">
-                    {activePackingSession
-                      ? `${activePackingSession.completedPackingCount} paket · ${formatRupiah(activePackingSession.totalPayAmount)}`
-                      : 'Pilih petugas packing dari user management.'}
-                  </p>
-                </button>
-                {activePackingSession ? (
-                  <Button type="button" variant="outline" size="sm" className="rounded-[4px] shrink-0" disabled={packingSessionBusy || recordingSession.state.mode !== 'idle'} onClick={() => void handleClosePackingSession()}>
-                    {packingSessionBusy ? 'Menutup...' : 'Akhiri sesi'}
-                  </Button>
-                ) : null}
-              </div>
 
-              {activePackingSession ? null : (
-                <div className="grid gap-2 border-t border-[var(--op-hairline)] pt-3">
-                  <Label htmlFor="mobile-packing-operator" className="text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                    Petugas packing
-                  </Label>
-                  <select
-                    id="mobile-packing-operator"
-                    value={selectedPackerKey}
-                    onChange={(event) => setSelectedPackerKey(event.target.value)}
-                    className="h-11 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 text-[0.9rem] text-[var(--op-ink)] outline-none"
-                    disabled={packingSessionBusy || packingOperators.length === 0}
-                  >
-                    {packingOperators.length === 0 ? <option value="">Belum ada operator packing</option> : null}
-                    {packingOperators.map((operator) => (
-                      <option key={makePackerKey(operator.operatorName, operator.operatorCode)} value={makePackerKey(operator.operatorName, operator.operatorCode)}>
-                        {operator.fullName || operator.operatorName} ({operator.operatorCode})
-                      </option>
-                    ))}
-                  </select>
-                  <Button type="button" className="h-11 w-full rounded-[4px]" disabled={packingSessionBusy || !selectedPackerKey} onClick={() => void handleStartPackingSession()}>
-                    {packingSessionBusy ? 'Memulai sesi...' : 'Mulai Sesi Packing'}
-                  </Button>
-                </div>
-              )}
-            </section>
-            ) : null}
             <Dialog open={showSwitchDialog} onOpenChange={setShowSwitchDialog}>
               <DialogContent className="max-w-sm rounded-[4px]" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
                 <DialogHeader>
