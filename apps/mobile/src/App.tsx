@@ -170,6 +170,7 @@ function App() {
   const [lastPhotoId, setLastPhotoId] = useState<string | null>(null)
   const [photoStaging, setPhotoStaging] = useState<{ resi: string; blob: Blob; previewUrl: string; startedAt: Date } | null>(null)
   const [skipAutoPhoto, setSkipAutoPhoto] = useState(false)
+  const switchSelectRef = useRef<HTMLSelectElement>(null)
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
     if (typeof window === 'undefined') {
       return 'scan'
@@ -1719,9 +1720,16 @@ function App() {
           {isPackingMode ? (
             <section className="grid gap-3 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-3" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
               <div className="flex items-start justify-between gap-3">
-                <div className="grid gap-1">
-                  <p className="text-[12px] font-bold tracking-wide">[ Sesi Packing ]</p>
-                  <h2 className="text-[15px] font-bold leading-none">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (activePackingSession) switchSelectRef.current?.focus()
+                  }}
+                  disabled={!activePackingSession}
+                  className="grid gap-1 text-left flex-1 disabled:opacity-100"
+                >
+                  <p className="text-[12px] font-bold tracking-wide">[ Sesi Packing ]{activePackingSession ? ' — tap untuk ganti' : ''}</p>
+                  <h2 className="text-[15px] font-bold leading-none underline decoration-dashed underline-offset-4">
                     {activePackingSession ? activePackingSession.packerNameSnapshot : 'Mulai sesi sebelum scan'}
                   </h2>
                   <p className="text-[12px] leading-snug text-[var(--op-mute)]">
@@ -1729,31 +1737,22 @@ function App() {
                       ? `${activePackingSession.completedPackingCount} paket · ${formatRupiah(activePackingSession.totalPayAmount)}`
                       : 'Pilih petugas packing dari user management.'}
                   </p>
-                </div>
+                </button>
                 {activePackingSession ? (
-                  <span className="inline-flex items-center gap-1 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-2 py-1 text-[12px] font-semibold">
-                    <HugeiconsIcon icon={CheckmarkCircle01Icon} size={14} /> aktif
-                  </span>
+                  <Button type="button" variant="outline" size="sm" className="rounded-[4px] shrink-0" disabled={packingSessionBusy || recordingSession.state.mode !== 'idle'} onClick={() => void handleClosePackingSession()}>
+                    {packingSessionBusy ? 'Menutup...' : 'Akhiri sesi'}
+                  </Button>
                 ) : null}
               </div>
 
               {activePackingSession ? (
-                <>
-                  <div className="grid grid-cols-[1fr_auto] items-center gap-2 border-t border-[var(--op-hairline)] pt-3">
-                    <div className="min-w-0 text-[12px] text-[var(--op-mute)]">
-                      <span className="block truncate">Kode: {activePackingSession.packerCodeSnapshot}</span>
-                      <span className="block truncate">Mulai: {formatDateTime(activePackingSession.startedAt)}</span>
-                    </div>
-                    <Button type="button" variant="outline" size="sm" className="rounded-[4px]" disabled={packingSessionBusy || recordingSession.state.mode !== 'idle'} onClick={() => void handleClosePackingSession()}>
-                      {packingSessionBusy ? 'Menutup...' : 'Akhiri'}
-                    </Button>
-                  </div>
-                  <div className="grid gap-2 border-t border-dashed border-[var(--op-hairline)] pt-3">
+                <div className="grid gap-2 border-t border-dashed border-[var(--op-hairline)] pt-3">
                     <Label htmlFor="mobile-packing-switch" className="text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                       Ganti sesi (otomatis tutup lama)
                     </Label>
                     <div className="flex gap-2">
                       <select
+                        ref={switchSelectRef}
                         id="mobile-packing-switch"
                         value={selectedPackerKey}
                         onChange={(event) => setSelectedPackerKey(event.target.value)}
@@ -1772,7 +1771,6 @@ function App() {
                     </div>
                     <p className="text-[11px] leading-snug text-muted-foreground">Pindah petugas tanpa akhiri manual 2 langkah — sesi lama otomatis ditutup.</p>
                   </div>
-                </>
               ) : (
                 <div className="grid gap-2 border-t border-[var(--op-hairline)] pt-3">
                   <Label htmlFor="mobile-packing-operator" className="text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">
