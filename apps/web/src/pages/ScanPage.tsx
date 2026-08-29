@@ -805,9 +805,7 @@ export function ScanPage() {
                           [foto]
                         </Button>
                       </div>
-                    ) : (
-                      <p className="text-[11px] text-muted-foreground">Mode Foto/Video di atas kamera — tap pill di preview.</p>
-                    )}
+                    ) : null}
                   </div>
                 )}
               </CardContent>

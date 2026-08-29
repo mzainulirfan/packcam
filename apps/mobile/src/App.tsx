@@ -1822,7 +1822,6 @@ function App() {
             </Dialog>
           {isPackingMode && activePackingSession ? (
             <section className="grid gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-3" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-              <p className="text-[11px] font-medium text-muted-foreground">Mode di kamera atas — tap Foto/Video di preview</p>
               {packingPreviewBusy ? <p className="text-[12px] text-[var(--op-mute)]">Memuat preview order...</p> : null}
               {packingPreview ? (
                 <div className="grid gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-2">
