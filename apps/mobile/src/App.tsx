@@ -171,6 +171,7 @@ function App() {
   const [photoStaging, setPhotoStaging] = useState<{ resi: string; blob: Blob; previewUrl: string; startedAt: Date } | null>(null)
   const [skipAutoPhoto, setSkipAutoPhoto] = useState(false)
   const switchSelectRef = useRef<HTMLSelectElement>(null)
+  const [showSwitchDialog, setShowSwitchDialog] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
     if (typeof window === 'undefined') {
       return 'scan'
@@ -1723,7 +1724,7 @@ function App() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (activePackingSession) switchSelectRef.current?.focus()
+                    if (activePackingSession) setShowSwitchDialog(true)
                   }}
                   disabled={!activePackingSession}
                   className="grid gap-1 text-left flex-1 disabled:opacity-100"
@@ -1797,6 +1798,40 @@ function App() {
               )}
             </section>
             ) : null}
+            <Dialog open={showSwitchDialog} onOpenChange={setShowSwitchDialog}>
+              <DialogContent className="max-w-sm rounded-[4px]" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                <DialogHeader>
+                  <DialogTitle>Ganti sesi packing</DialogTitle>
+                  <DialogDescription>Pilih petugas baru — sesi lama otomatis ditutup tanpa akhiri manual.</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-3">
+                  <Label htmlFor="mobile-packing-switch-dialog" className="text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    Petugas baru
+                  </Label>
+                  <select
+                    id="mobile-packing-switch-dialog"
+                    value={selectedPackerKey}
+                    onChange={(event) => setSelectedPackerKey(event.target.value)}
+                    className="h-11 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 text-[0.9rem] text-[var(--op-ink)] outline-none"
+                    disabled={packingSessionBusy || packingOperators.length === 0}
+                  >
+                    {packingOperators.map((op) => (
+                      <option key={makePackerKey(op.operatorName, op.operatorCode)} value={makePackerKey(op.operatorName, op.operatorCode)}>
+                        {op.fullName || op.operatorName} ({op.operatorCode})
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" className="flex-1 rounded-[4px]" onClick={() => setShowSwitchDialog(false)} disabled={packingSessionBusy}>
+                      Batal
+                    </Button>
+                    <Button type="button" className="flex-1 rounded-[4px]" disabled={packingSessionBusy || !selectedPackerKey} onClick={() => { setShowSwitchDialog(false); void handleSwitchPackingSession() }}>
+                      {packingSessionBusy ? 'Mengganti...' : 'Ganti sesi'}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           {isPackingMode && activePackingSession ? (
             <section className="grid gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-3" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
               <div className="flex gap-2">
