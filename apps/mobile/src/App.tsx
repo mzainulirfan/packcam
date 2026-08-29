@@ -288,6 +288,11 @@ function App() {
     : recordingSession.state.mode === 'recording'
       ? 'Stop & simpan'
       : 'Mulai rekam'
+  const packingPreviewSummary = packingPreview
+    ? `${packingPreview.order.orderNumber || 'Order'} · ${packingPreview.order.shippingChannel || 'Kurir'} · ${formatRupiah(packingPreview.pay.amount)}`
+    : packingPreviewBusy
+      ? 'Mengecek order dan estimasi upah...'
+      : 'Scan resi untuk cek order dan upah.'
 
   const {
     enqueueCameraScan,
@@ -1802,17 +1807,24 @@ function App() {
               topSlot={
                 <div className="flex w-full max-w-full flex-col gap-2">
                   {isPackingMode ? (
-                    <div className="flex items-center justify-between gap-2 rounded-[4px] bg-black/60 backdrop-blur px-2.5 py-1.5">
-                      <button type="button" onClick={() => { if (activePackingSession) setShowSwitchDialog(true) }} disabled={!activePackingSession} className="grid gap-0.5 text-left flex-1">
-                        <span className="text-[11px] font-bold tracking-wide text-white">[ Sesi Packing ]{activePackingSession ? ' — tap untuk ganti' : ''}</span>
-                        <span className="text-[13px] font-bold text-white">{activePackingSession ? activePackingSession.packerNameSnapshot : 'Mulai sesi'}</span>
-                        <span className="text-[11px] text-white/80">{activePackingSession ? `${activePackingSession.completedPackingCount} paket · ${formatRupiah(activePackingSession.totalPayAmount)}` : 'Tap untuk mulai sesi'}</span>
-                      </button>
-                      {activePackingSession ? (
-                        <Button type="button" variant="outline" size="xs" className="h-7 shrink-0 rounded-[4px] border-white bg-black/40 px-2.5 text-xs font-medium text-white backdrop-blur" disabled={packingSessionBusy} onClick={() => void handleClosePackingSession()}>
-                          Akhiri
-                        </Button>
-                      ) : null}
+                    <div className="grid gap-1.5 rounded-[4px] bg-black/65 px-2.5 py-2 text-white backdrop-blur">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-bold tracking-wide">[ Sesi Packing ]</span>
+                        <span className="rounded-[4px] border border-white/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+                          {activePackingSession ? 'aktif' : 'perlu sesi'}
+                        </span>
+                      </div>
+                      <div className="flex items-end justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-bold leading-tight">{activePackingSession ? activePackingSession.packerNameSnapshot : 'Pilih petugas'}</p>
+                          <p className="truncate text-[11px] text-white/75">{activePackingSession ? `${activePackingSession.completedPackingCount} paket · ${formatRupiah(activePackingSession.totalPayAmount)}` : 'Mulai sesi sebelum scan'}</p>
+                        </div>
+                        {activePackingSession ? (
+                          <button type="button" className="shrink-0 rounded-[4px] border border-white/40 px-2 py-1 text-[10px] font-bold text-white" onClick={() => setShowSwitchDialog(true)}>
+                            Ganti
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                   ) : null}
                   <div className="flex items-center gap-2">
@@ -1927,6 +1939,12 @@ function App() {
                       />
                     </div>
                     <p className="text-[0.68rem] leading-snug text-muted-foreground">{scanStatusDescription}</p>
+                    {isPackingMode && activePackingSession ? (
+                      <div className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-3 py-2">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Order / upah</p>
+                        <p className="mt-0.5 truncate text-[12px] font-semibold text-[var(--op-ink)]">{packingPreviewSummary}</p>
+                      </div>
+                    ) : null}
                   </div>
 
                   {photoStaging ? (
@@ -1981,13 +1999,25 @@ function App() {
           </div>
 
           {isPackingMode && activePackingSession ? (
-            <div className="grid gap-2 rounded-[8px] border border-[var(--op-hairline)] bg-[var(--op-surface-card)] p-3" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-              <div className="grid gap-1">
-                <p className="text-[12px] font-bold tracking-wide">[ Ganti sesi / petugas ]</p>
-                <p className="text-[11px] text-muted-foreground">Pilih petugas lain. Sesi lama otomatis ditutup.</p>
+            <div className="grid gap-3 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-card)] p-3" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[12px] font-bold tracking-wide">[ Sesi & petugas ]</p>
+                  <p className="mt-1 truncate text-[13px] font-bold text-[var(--op-ink)]">{activePackingSession.packerNameSnapshot}</p>
+                  <p className="text-[11px] text-muted-foreground">{activePackingSession.completedPackingCount} paket · {formatRupiah(activePackingSession.totalPayAmount)}</p>
+                </div>
+                <Button type="button" variant="outline" size="sm" className="h-9 shrink-0 rounded-[4px] border-[var(--op-hairline)]" disabled={packingSessionBusy} onClick={() => void handleClosePackingSession()}>
+                  Akhiri
+                </Button>
               </div>
-              <div className="flex gap-2">
+              <div className="h-px w-full bg-[var(--op-hairline)]" aria-hidden="true" />
+              <div className="grid gap-2">
+                <Label htmlFor="mobile-packing-switch-inline" className="text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                  Ganti petugas
+                </Label>
+                <div className="flex gap-2">
                 <select
+                  id="mobile-packing-switch-inline"
                   value={selectedPackerKey}
                   onChange={(event) => setSelectedPackerKey(event.target.value)}
                   className="h-11 min-w-0 flex-1 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 text-[0.86rem] text-[var(--op-ink)] outline-none"
@@ -2003,6 +2033,8 @@ function App() {
                 <Button type="button" variant="secondary" className="h-11 shrink-0 rounded-[4px] px-4" disabled={packingSessionBusy || !selectedPackerKey || switchablePackingOperators.length === 0} onClick={() => void handleSwitchPackingSession()}>
                   {packingSessionBusy ? '...' : 'Ganti'}
                 </Button>
+                </div>
+                <p className="text-[11px] text-muted-foreground">Sesi aktif ditutup otomatis saat petugas diganti.</p>
               </div>
             </div>
           ) : null}
