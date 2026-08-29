@@ -10,6 +10,7 @@ import { getBootstrapStatusApi } from '@pakti/api-client'
 import { getSystemConfigCssVars, useSystemConfig } from '@pakti/shared/systemConfig'
 import { AdminPage } from './pages/AdminPage'
 import { HistoryPage } from './pages/HistoryPage'
+import { PackingSessionsPage } from './pages/PackingSessionsPage'
 import { HealthPage } from './pages/HealthPage'
 import { OperatorLoginPage } from './pages/OperatorLoginPage'
 import { WelcomePage } from './pages/WelcomePage'
@@ -25,6 +26,7 @@ import './App.css'
 const PAGE_COMPONENTS: Record<PageId, ReactElement> = {
   scan: <ScanPage />,
   history: <HistoryPage />,
+  'packing-sessions': <PackingSessionsPage />,
   shopee: <ShopeePage />,
   settings: <SettingsPage />,
   users: <UsersPage />,
@@ -56,7 +58,7 @@ function App() {
   )
   const sidebarSections = useMemo(() => {
     const sectionOrder: Array<{ id: NavGroupId | 'system'; label: string; items: PageId[] }> = [
-      { id: 'operasional', label: 'Operasional', items: ['scan', 'history'] },
+      { id: 'operasional', label: 'Operasional', items: ['scan', 'history', 'packing-sessions'] },
       { id: 'administrasi', label: 'Administrasi', items: ['shopee', 'users', 'settings'] },
       { id: 'system', label: 'System', items: ['health', 'admin'] },
     ]

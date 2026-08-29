@@ -4,6 +4,7 @@ import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Input } from '../components/ui/input'
+import { navigateTo } from '../app/uiState'
 import {
   closePackingSessionApi,
   readPackingPayRulesApi,
@@ -251,8 +252,11 @@ export function AdminPage() {
       <Card className="admin-opencode__panel">
         <CardHeader>
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <CardTitle>Packing sessions (payroll)</CardTitle>
+            <CardTitle>Packing sessions (payroll) — ringkasan</CardTitle>
             <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" className="history-opencode__button" onClick={() => navigateTo('packing-sessions')}>
+                [buka halaman sesi →]
+              </Button>
               <Input placeholder="Filter packer..." value={sessionFilterText} onChange={(e) => setSessionFilterText(e.target.value)} className="history-opencode__input h-9 w-[180px]" />
               <Button type="button" variant="outline" size="sm" className="history-opencode__button" onClick={() => handleExportPayroll(null, 'all')}>
                 [export payroll csv]

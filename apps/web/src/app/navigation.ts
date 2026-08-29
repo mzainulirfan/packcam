@@ -1,4 +1,4 @@
-export type PageId = 'scan' | 'history' | 'shopee' | 'settings' | 'users' | 'health' | 'admin'
+export type PageId = 'scan' | 'history' | 'packing-sessions' | 'shopee' | 'settings' | 'users' | 'health' | 'admin'
 export type NavGroupId = 'operasional' | 'administrasi'
 
 export const NAV_ITEMS: Array<{
@@ -19,6 +19,13 @@ export const NAV_ITEMS: Array<{
     id: 'history',
     label: 'History',
     hint: 'Riwayat dokumentasi',
+    icon: 'history',
+    group: 'operasional',
+  },
+  {
+    id: 'packing-sessions',
+    label: 'Sesi Packing',
+    hint: 'Riwayat sesi & payroll',
     icon: 'history',
     group: 'operasional',
   },
