@@ -1946,7 +1946,28 @@ function App() {
                 </div>
               }
               centerSlot={
-                photoStaging ? (
+                isPackingMode && !activePackingSession ? (
+                  <div className="w-full max-w-[92%] rounded-[8px] bg-white p-4 shadow-xl grid gap-3" style={{ fontFamily: '"JetBrains Mono", monospace' }}>
+                    <p className="text-[12px] font-bold tracking-wide">[ Sesi Packing ]</p>
+                    <p className="text-[13px] font-bold">Pilih petugas packing</p>
+                    <select
+                      value={selectedPackerKey}
+                      onChange={(event) => setSelectedPackerKey(event.target.value)}
+                      className="h-11 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 text-[0.9rem] text-[var(--op-ink)] outline-none"
+                      disabled={packingSessionBusy || packingOperators.length === 0}
+                    >
+                      {packingOperators.length === 0 ? <option value="">Belum ada operator packing</option> : null}
+                      {packingOperators.map((op) => (
+                        <option key={makePackerKey(op.operatorName, op.operatorCode)} value={makePackerKey(op.operatorName, op.operatorCode)}>
+                          {op.fullName || op.operatorName} ({op.operatorCode})
+                        </option>
+                      ))}
+                    </select>
+                    <button type="button" className="h-11 w-full rounded-[4px] bg-[var(--op-ink)] text-sm font-bold text-[var(--op-canvas)] disabled:opacity-40" disabled={packingSessionBusy || !selectedPackerKey} onClick={() => void handleStartPackingSession()}>
+                      {packingSessionBusy ? 'Memulai sesi...' : 'Mulai Sesi Packing'}
+                    </button>
+                  </div>
+                ) : photoStaging ? (
                   <div className="w-full max-w-[92%] overflow-hidden rounded-[8px] border border-white/20 bg-black/80 p-2 backdrop-blur">
                     <img src={photoStaging.previewUrl} alt={`Preview ${photoStaging.resi}`} className="block max-h-[28vh] w-full rounded object-contain" />
                     <p className="mt-1 truncate text-center text-xs font-mono text-white">{photoStaging.resi} · cek lalu Gunakan</p>
