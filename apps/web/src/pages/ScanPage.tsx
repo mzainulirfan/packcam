@@ -753,22 +753,24 @@ export function ScanPage() {
                             <SelectValue placeholder="Pilih petugas baru" />
                           </SelectTrigger>
                           <SelectContent>
-                            {packingOperators.map((op) => {
-                              const key = `${op.operatorName}::${op.operatorCode}`
-                              const label = op.fullName ? `${op.fullName} (${op.operatorCode})` : `${op.operatorName} (${op.operatorCode})`
-                              return (
-                                <SelectItem key={key} value={key}>
-                                  {label}
-                                </SelectItem>
-                              )
-                            })}
+                            {packingOperators
+                              .filter((op) => !(activePackingSession && op.operatorName === activePackingSession.packerOperatorName && op.operatorCode === activePackingSession.packerOperatorCode))
+                              .map((op) => {
+                                const key = `${op.operatorName}::${op.operatorCode}`
+                                const label = op.fullName ? `${op.fullName} (${op.operatorCode})` : `${op.operatorName} (${op.operatorCode})`
+                                return (
+                                  <SelectItem key={key} value={key}>
+                                    {label}
+                                  </SelectItem>
+                                )
+                              })}
                           </SelectContent>
                         </Select>
                         <Button type="button" variant="secondary" size="sm" className="scan-opencode__button px-4" disabled={packingSessionLoading || !selectedPackerKey} onClick={() => void handleSwitchPackingSession()}>
                           [Ganti]
                         </Button>
                       </div>
-                      <p className="text-[11px] text-muted-foreground">Pindah petugas tanpa akhiri 2 langkah — sesi lama otomatis ditutup.</p>
+                      <p className="text-[11px] text-muted-foreground">Pilih petugas lain (bukan sesi aktif) — sesi lama otomatis ditutup.</p>
                     </div>
                   </div>
                 ) : (

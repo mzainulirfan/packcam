@@ -1355,6 +1355,17 @@ function App() {
   }
 
   useEffect(() => {
+    if (!showSwitchDialog || !activePackingSession) return
+    const other = packingOperators.filter((op) => !(op.operatorName === activePackingSession.packerOperatorName && op.operatorCode === activePackingSession.packerOperatorCode))
+    if (other.length === 0) return
+    const activeKey = makePackerKey(activePackingSession.packerOperatorName, activePackingSession.packerOperatorCode)
+    if (selectedPackerKey === activeKey || !selectedPackerKey) {
+      const first = other[0]
+      if (first) setSelectedPackerKey(makePackerKey(first.operatorName, first.operatorCode))
+    }
+  }, [showSwitchDialog, activePackingSession, packingOperators, selectedPackerKey])
+
+  useEffect(() => {
     if (!isPackingMode || !activePackingSession || !scanResi.trim() || recordingSession.state.mode !== 'idle') {
       setPackingPreview(null)
       return
@@ -1746,33 +1757,7 @@ function App() {
                 ) : null}
               </div>
 
-              {activePackingSession ? (
-                <div className="grid gap-2 border-t border-dashed border-[var(--op-hairline)] pt-3">
-                    <Label htmlFor="mobile-packing-switch" className="text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                      Ganti sesi (otomatis tutup lama)
-                    </Label>
-                    <div className="flex gap-2">
-                      <select
-                        ref={switchSelectRef}
-                        id="mobile-packing-switch"
-                        value={selectedPackerKey}
-                        onChange={(event) => setSelectedPackerKey(event.target.value)}
-                        className="h-10 flex-1 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 text-[0.85rem] text-[var(--op-ink)] outline-none"
-                        disabled={packingSessionBusy || packingOperators.length === 0}
-                      >
-                        {packingOperators.map((op) => (
-                          <option key={makePackerKey(op.operatorName, op.operatorCode)} value={makePackerKey(op.operatorName, op.operatorCode)}>
-                            {op.fullName || op.operatorName} ({op.operatorCode})
-                          </option>
-                        ))}
-                      </select>
-                      <Button type="button" variant="secondary" size="sm" className="rounded-[4px] px-4" disabled={packingSessionBusy || !selectedPackerKey || recordingSession.state.mode !== 'idle'} onClick={() => void handleSwitchPackingSession()}>
-                        {packingSessionBusy ? '...' : 'Ganti'}
-                      </Button>
-                    </div>
-                    <p className="text-[11px] leading-snug text-muted-foreground">Pindah petugas tanpa akhiri manual 2 langkah — sesi lama otomatis ditutup.</p>
-                  </div>
-              ) : (
+              {activePackingSession ? null : (
                 <div className="grid gap-2 border-t border-[var(--op-hairline)] pt-3">
                   <Label htmlFor="mobile-packing-operator" className="text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                     Petugas packing
@@ -1809,17 +1794,20 @@ function App() {
                     Petugas baru
                   </Label>
                   <select
+                    ref={switchSelectRef}
                     id="mobile-packing-switch-dialog"
                     value={selectedPackerKey}
                     onChange={(event) => setSelectedPackerKey(event.target.value)}
                     className="h-11 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 text-[0.9rem] text-[var(--op-ink)] outline-none"
                     disabled={packingSessionBusy || packingOperators.length === 0}
                   >
-                    {packingOperators.map((op) => (
-                      <option key={makePackerKey(op.operatorName, op.operatorCode)} value={makePackerKey(op.operatorName, op.operatorCode)}>
-                        {op.fullName || op.operatorName} ({op.operatorCode})
-                      </option>
-                    ))}
+                    {packingOperators
+                      .filter((op) => !(activePackingSession && op.operatorName === activePackingSession.packerOperatorName && op.operatorCode === activePackingSession.packerOperatorCode))
+                      .map((op) => (
+                        <option key={makePackerKey(op.operatorName, op.operatorCode)} value={makePackerKey(op.operatorName, op.operatorCode)}>
+                          {op.fullName || op.operatorName} ({op.operatorCode})
+                        </option>
+                      ))}
                   </select>
                   <div className="flex gap-2">
                     <Button type="button" variant="outline" className="flex-1 rounded-[4px]" onClick={() => setShowSwitchDialog(false)} disabled={packingSessionBusy}>
