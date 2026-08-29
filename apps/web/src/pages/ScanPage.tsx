@@ -98,6 +98,7 @@ export function ScanPage() {
     recordingSession.state.mode === 'saving' ||
     recordingSession.state.mode === 'ready_to_record_next'
   const isPackingTask = activeTask === 'packing'
+  const isPhotoPackingMode = isPackingTask && packingMediaType === 'photo'
   const packingSessionLabel = activePackingSession
     ? `${activePackingSession.packerNameSnapshot} (${activePackingSession.packerCodeSnapshot}) · ${activePackingSession.completedPackingCount} paket · ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(activePackingSession.totalPayAmount)}`
     : null
@@ -609,8 +610,8 @@ export function ScanPage() {
         <Alert variant="info"><p>Foto packing butuh sesi aktif. Pilih petugas di panel sesi packing.</p></Alert>
       ) : null}
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(300px,0.42fr)_minmax(0,1.58fr)]">
-        <section className="grid gap-4 self-start">
+      <div className={isPhotoPackingMode ? "grid gap-6 xl:grid-cols-[360px_1fr]" : "grid gap-5 xl:grid-cols-[minmax(300px,0.42fr)_minmax(0,1.58fr)]"}>
+        <section className={isPhotoPackingMode ? "grid gap-3 self-start" : "grid gap-4 self-start"}>
           <Card className="scan-opencode__panel">
             <CardContent className="space-y-4 p-5">
               <BarcodeInput
@@ -758,7 +759,7 @@ export function ScanPage() {
             message={isPackingTask && packingPreview ? `Estimasi upah: Rp${new Intl.NumberFormat('id-ID').format(packingPreview.pay.amount)} · ${packingPreview.pay.quantity} item` : shopeeOrderMessage}
             packingPreview={isPackingTask ? packingPreview : null}
           />
-          {photoStaging ? (
+          {photoStaging && !isPhotoPackingMode ? (
             <Card className="scan-opencode__panel border-amber-200 bg-amber-50">
               <CardContent className="grid gap-2 p-4">
                 <p className="text-sm font-bold">Preview foto — cek sebelum simpan</p>
@@ -805,7 +806,7 @@ export function ScanPage() {
           ) : null}
         </section>
 
-        <Card className="scan-opencode__camera-panel overflow-hidden xl:sticky xl:top-4">
+        <Card className={isPhotoPackingMode ? "scan-opencode__camera-panel overflow-hidden xl:sticky xl:top-4 xl:h-[68vh] flex flex-col" : "scan-opencode__camera-panel overflow-hidden xl:sticky xl:top-4"}>
           <CardHeader className="scan-opencode__camera-header px-5 py-4">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="grid gap-1">

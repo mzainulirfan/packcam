@@ -1775,7 +1775,7 @@ function App() {
                   <p className="text-[11px] text-[var(--op-mute)]">No. Pesanan {packingPreview.order.orderNumber} · Buyer {packingPreview.order.buyerUsername ?? '-'}</p>
                 </div>
               ) : scanResi.trim() ? <p className="text-[11px] text-amber-600">Order belum ditemukan atau butuh sync Shopee.</p> : null}
-              {photoStaging ? (
+              {photoStaging && !isPackingMode ? (
                 <div className="mt-2 grid gap-2 rounded-[4px] border border-amber-200 bg-amber-50 p-2">
                   <p className="text-[12px] font-bold">Preview foto — cek sebelum simpan</p>
                   <div className="overflow-hidden rounded-[4px] border border-[var(--op-hairline)] bg-black">
