@@ -1684,6 +1684,18 @@ function App() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {activeTab === 'scan' && isPackingMode && isAdmin ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="packing-task-switch"
+              onClick={() => void handleTaskChange(session.taskType === 'qc' ? 'packing' : 'qc')}
+              disabled={taskBusy}
+            >
+              {session.taskType === 'qc' ? 'QC' : 'PKG'}
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant="ghost"

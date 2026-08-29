@@ -293,6 +293,7 @@ button {
   --packing-text: #f3f1ea;
   --packing-text-2: #9a9ca6;
   --packing-text-3: #6b6d77;
+  width: min(380px, 100vw);
   max-width: 380px;
   min-height: 100dvh;
   padding: 0 0 4.3rem;
@@ -300,6 +301,18 @@ button {
   background: var(--packing-ink);
   color: var(--packing-text);
   font-family: 'Inter', sans-serif;
+  overflow: hidden;
+}
+
+@media (min-width: 420px) {
+  .mobile-app--packing-redesign {
+    min-height: 800px;
+    margin-top: 32px;
+    margin-bottom: 32px;
+    border: 1px solid #000;
+    border-radius: 28px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
 }
 
 .mobile-app--packing-redesign > header {
@@ -342,6 +355,15 @@ button {
   border-radius: 8px !important;
   background: transparent !important;
   color: var(--packing-text-2) !important;
+}
+
+.mobile-app--packing-redesign header .packing-task-switch {
+  width: auto;
+  min-width: 44px;
+  padding: 0 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .packing-redesign-screen {
@@ -690,8 +712,22 @@ button {
 }
 
 .mobile-app--packing-redesign nav {
+  left: 50% !important;
+  right: auto !important;
+  width: min(380px, 100vw) !important;
+  transform: translateX(-50%);
   border-color: var(--packing-border) !important;
   background: var(--packing-ink) !important;
+}
+
+@media (min-width: 420px) {
+  .mobile-app--packing-redesign nav {
+    bottom: 32px !important;
+    border-right: 1px solid var(--packing-border);
+    border-left: 1px solid var(--packing-border);
+    border-radius: 0 0 28px 28px;
+    overflow: hidden;
+  }
 }
 
 .mobile-app--packing-redesign nav > div {
