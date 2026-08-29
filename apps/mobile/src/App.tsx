@@ -1820,62 +1820,6 @@ function App() {
                 </div>
               </DialogContent>
             </Dialog>
-          {isPackingMode && activePackingSession ? (
-            <section className="grid gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-3" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-              {packingPreviewBusy ? <p className="text-[12px] text-[var(--op-mute)]">Memuat preview order...</p> : null}
-              {packingPreview ? (
-                <div className="grid gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[12px] font-bold">Jasa kirim: {packingPreview.order.shippingChannel ?? '-'}</span>
-                    <span className="rounded-[4px] bg-[var(--op-ink)] px-2 py-0.5 text-[11px] font-semibold text-[var(--op-canvas)]">{formatRupiah(packingPreview.pay.amount)}</span>
-                  </div>
-                  <div className="grid gap-1">
-                    {packingPreview.order.items.slice(0,4).map((it, idx) => (
-                      <div key={idx} className="flex justify-between gap-2 text-[12px]">
-                        <span className="min-w-0 truncate">{it.productName}{it.variationName ? ` · ${it.variationName}` : ''}</span>
-                        <span className="shrink-0">x{it.quantity}</span>
-                      </div>
-                    ))}
-                    {packingPreview.order.items.length > 4 ? <span className="text-[11px] text-[var(--op-mute)]">+{packingPreview.order.items.length - 4} item lain</span> : null}
-                  </div>
-                  <p className="text-[11px] text-[var(--op-mute)]">No. Pesanan {packingPreview.order.orderNumber} · Buyer {packingPreview.order.buyerUsername ?? '-'}</p>
-                </div>
-              ) : scanResi.trim() ? <p className="text-[11px] text-amber-600">Order belum ditemukan atau butuh sync Shopee.</p> : null}
-              {photoStaging && !isPackingMode ? (
-                <div className="mt-2 grid gap-2 rounded-[4px] border border-amber-200 bg-amber-50 p-2">
-                  <p className="text-[12px] font-bold">Preview foto — cek sebelum simpan</p>
-                  <div className="overflow-hidden rounded-[4px] border border-[var(--op-hairline)] bg-black">
-                    <img src={photoStaging.previewUrl} alt={`Preview ${photoStaging.resi}`} className="block max-h-[32vh] w-full object-contain" />
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">Resi {photoStaging.resi} · {packingPreview ? formatRupiah((packingPreview.pay as unknown as { amount: number }).amount) : ''}</p>
-                  <div className="flex gap-2">
-                    <Button type="button" size="sm" className="flex-1 rounded-[4px] bg-[var(--op-ink)] text-[var(--op-canvas)]" disabled={photoCaptureBusy} onClick={() => void confirmPhotoStaging()}>
-                      {photoCaptureBusy ? 'Menyimpan...' : 'Gunakan foto ✓'}
-                    </Button>
-                    <Button type="button" variant="outline" size="sm" className="flex-1 rounded-[4px]" disabled={photoCaptureBusy} onClick={() => { setSkipAutoPhoto(true); clearPhotoStaging(); showScanNotice({ kind: 'success', title: 'Ulangi foto', message: 'Posisikan paket lalu klik Foto manual — tidak otomatis.' }) }}>
-                      Ulangi (manual)
-                    </Button>
-                  </div>
-                  <Button type="button" variant="ghost" size="sm" className="rounded-[4px] text-[11px]" disabled={photoCaptureBusy} onClick={() => void stagePhotoCapture()}>
-                    Foto manual lagi
-                  </Button>
-                </div>
-              ) : null}
-              {isPackingMode && packingMediaType === 'photo' && lastPhotoResi ? (
-                <div className="mt-2 grid gap-2 rounded-[4px] border border-dashed border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-2">
-                  <p className="text-[11px] text-muted-foreground">Foto terakhir: <strong>{lastPhotoResi}</strong> tersimpan</p>
-                  <div className="flex gap-2">
-                    <Button type="button" variant="outline" size="sm" className="flex-1 rounded-[4px]" disabled={photoCaptureBusy} onClick={() => { setSkipAutoPhoto(true); clearPhotoStaging(); setScanResi(lastPhotoResi ?? ''); showScanNotice({ kind: 'success', title: 'Siap foto ulang', message: `Posisikan paket ${lastPhotoResi} lalu klik Foto manual.` }) }}>
-                      {photoCaptureBusy ? '...' : 'Foto ulang (manual)'}
-                    </Button>
-                    <Button type="button" variant="outline" size="sm" className="flex-1 rounded-[4px]" disabled={photoCaptureBusy || !scanResi.trim() || !scanVideoElement} onClick={() => void stagePhotoCapture()}>
-                      Foto manual
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-            </section>
-          ) : null}
 
           <div className="relative">
             {scanNotice ? (
