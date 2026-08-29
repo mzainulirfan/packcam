@@ -1808,14 +1808,14 @@ function App() {
                         <p className="truncate text-[10px] text-white/75">{activePackingSession ? `${activePackingSession.completedPackingCount} paket · ${formatRupiah(activePackingSession.totalPayAmount)}` : 'Mulai sesi dulu'}</p>
                       </div>
                       {activePackingSession ? (
-                        <>
-                          <button type="button" className="shrink-0 rounded-[4px] border border-white/40 px-2 py-1 text-[10px] font-bold text-white" onClick={() => setShowSwitchDialog(true)}>
-                            Ganti
+                        <div className="ml-auto flex shrink-0 items-center gap-1">
+                          <button type="button" className="grid h-7 w-7 place-items-center rounded-[4px] border border-white/40 text-white" onClick={() => setShowSwitchDialog(true)} aria-label="Ganti petugas packing">
+                            <HugeiconsIcon icon={Copy01Icon} size={14} />
                           </button>
-                          <button type="button" className="shrink-0 rounded-[4px] border border-white/40 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-50" disabled={packingSessionBusy} onClick={() => void handleClosePackingSession()}>
-                            Akhiri
+                          <button type="button" className="grid h-7 w-7 place-items-center rounded-[4px] border border-white/40 text-white disabled:opacity-50" disabled={packingSessionBusy} onClick={() => void handleClosePackingSession()} aria-label="Akhiri sesi packing">
+                            <HugeiconsIcon icon={Logout02Icon} size={14} />
                           </button>
-                        </>
+                        </div>
                       ) : null}
                     </div>
                   ) : null}
