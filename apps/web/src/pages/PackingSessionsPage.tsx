@@ -9,8 +9,6 @@ import { closePackingSessionApi, readPackingSessionsApi, readServerHistoryRecord
 import type { PackingWorkSession } from '@pakti/types'
 import { downloadTextFile } from '@pakti/shared'
 import { recordsToCsv } from '@pakti/shared/exporters'
-import { ModalOverlay } from '../components/ui/ModalOverlay'
-import { DialogCloseButton, DialogHeader, DialogTitle } from '../components/ui/dialog'
 
 export function PackingSessionsPage() {
   const [sessions, setSessions] = useState<PackingWorkSession[]>([])
@@ -91,6 +89,78 @@ export function PackingSessionsPage() {
     }
     const csv = recordsToCsv(records)
     downloadTextFile(`packing-session-${selected.packerCodeSnapshot}-${selected.id.slice(0, 8)}.csv`, csv, 'text/csv;charset=utf-8')
+  }
+
+  if (selected) {
+    return (
+      <div className="admin-opencode grid w-full gap-5 px-0 py-1">
+        <section className="admin-opencode__summary flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="grid gap-2">
+            <div className="admin-opencode__section-label">[←] Sesi Packing / Detail</div>
+            <h1 className="admin-opencode__title">{selected.packerNameSnapshot} ({selected.packerCodeSnapshot})</h1>
+            <p className="admin-opencode__lede">
+              [{selected.status}] · {new Date(selected.startedAt).toLocaleString('id-ID')} → {selected.endedAt ? new Date(selected.endedAt).toLocaleString('id-ID') : 'masih aktif'} · {selected.completedPackingCount} paket · {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(selected.totalPayAmount)}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={() => setSelected(null)}>
+              [← kembali ke daftar]
+            </Button>
+            <Button type="button" variant="outline" onClick={handleExportDetail}>
+              [export csv sesi]
+            </Button>
+            {selected.status === 'active' ? (
+              <Button type="button" variant="outline" onClick={() => void handleClose(selected.id)}>
+                [tutup sesi]
+              </Button>
+            ) : null}
+          </div>
+        </section>
+
+        <Card className="admin-opencode__panel">
+          <CardHeader>
+            <CardTitle>Detail paket sesi</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4">
+            {detailLoading ? (
+              <div className="text-sm">[~] Memuat detail sesi...</div>
+            ) : records.length === 0 ? (
+              <div className="text-sm">[-] Belum ada paket completed di sesi ini.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="history-opencode__table w-full min-w-[720px] border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="px-3 py-2">Resi</th>
+                      <th className="px-3 py-2">Order</th>
+                      <th className="px-3 py-2">Media</th>
+                      <th className="px-3 py-2">Upah</th>
+                      <th className="px-3 py-2">Waktu</th>
+                      <th className="px-3 py-2">Breakdown</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {records.map((rec) => {
+                      const r = rec as unknown as { resiNumber: string; orderNumber?: string | null; mediaType?: string; packingPayAmount?: number | null; packingPayBreakdown?: { ruleName?: string; payType?: string; amount?: number; quantity?: number; total?: number } | null; orderSnapshot?: { items?: Array<{ productName: string; variationName?: string | null; quantity: number }> } | null; startTime?: string }
+                      return (
+                        <tr key={r.resiNumber + rec.id} className="history-opencode__row">
+                          <td className="px-3 py-2 font-mono text-xs">{r.resiNumber}</td>
+                          <td className="px-3 py-2 text-xs">{r.orderNumber ?? '-'} {r.orderSnapshot?.items ? `· ${r.orderSnapshot.items.map((it) => `${it.productName}${it.variationName ? ` · ${it.variationName}` : ''} x${it.quantity}`).join(', ')}` : ''}</td>
+                          <td className="px-3 py-2">[{r.mediaType ?? 'video'}]</td>
+                          <td className="px-3 py-2">{r.packingPayAmount != null ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(r.packingPayAmount) : '-'}</td>
+                          <td className="px-3 py-2 text-xs">{r.startTime ? new Date(r.startTime).toLocaleString('id-ID') : '-'}</td>
+                          <td className="px-3 py-2 text-xs">{r.packingPayBreakdown ? `${r.packingPayBreakdown.ruleName ?? '-'} · ${r.packingPayBreakdown.payType ?? '-'} · Rp${r.packingPayBreakdown.amount ?? 0} x${r.packingPayBreakdown.quantity ?? 1} = Rp${r.packingPayBreakdown.total ?? 0}` : '-'}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -215,64 +285,6 @@ export function PackingSessionsPage() {
           )}
         </CardContent>
       </Card>
-
-      {selected ? (
-        <ModalOverlay onClose={() => setSelected(null)} contentClassName="max-w-3xl">
-          <div className="grid gap-4">
-            <DialogHeader className="flex items-start justify-between gap-4 text-left">
-              <div className="grid gap-1">
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Detail sesi packing</p>
-                <DialogTitle className="text-lg">{selected.packerNameSnapshot} ({selected.packerCodeSnapshot}) · [{selected.status}]</DialogTitle>
-                <p className="text-sm text-slate-500">{new Date(selected.startedAt).toLocaleString('id-ID')} → {selected.endedAt ? new Date(selected.endedAt).toLocaleString('id-ID') : 'masih aktif'} · {selected.completedPackingCount} paket · {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(selected.totalPayAmount)}</p>
-              </div>
-              <DialogCloseButton onClick={() => setSelected(null)} />
-            </DialogHeader>
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" size="sm" className="history-opencode__button" onClick={handleExportDetail}>
-                [export csv sesi]
-              </Button>
-              {selected.status === 'active' ? (
-                <Button type="button" variant="outline" size="sm" className="history-opencode__button" onClick={() => void handleClose(selected.id)}>
-                  [tutup sesi]
-                </Button>
-              ) : null}
-            </div>
-            {detailLoading ? (
-              <div className="text-sm">[~] Memuat detail sesi...</div>
-            ) : records.length === 0 ? (
-              <div className="text-sm">[-] Belum ada paket completed di sesi ini.</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="history-opencode__table w-full min-w-[640px] border-collapse">
-                  <thead>
-                    <tr>
-                      <th className="px-3 py-2">Resi</th>
-                      <th className="px-3 py-2">Order</th>
-                      <th className="px-3 py-2">Media</th>
-                      <th className="px-3 py-2">Upah</th>
-                      <th className="px-3 py-2">Breakdown</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {records.map((rec) => {
-                      const r = rec as unknown as { resiNumber: string; orderNumber?: string | null; mediaType?: string; packingPayAmount?: number | null; packingPayBreakdown?: { ruleName?: string; payType?: string; amount?: number; quantity?: number; total?: number } | null; orderSnapshot?: { items?: Array<{ productName: string; variationName?: string | null; quantity: number }> } | null }
-                      return (
-                        <tr key={r.resiNumber + rec.id} className="history-opencode__row">
-                          <td className="px-3 py-2 font-mono text-xs">{r.resiNumber}</td>
-                          <td className="px-3 py-2 text-xs">{r.orderNumber ?? '-'} {r.orderSnapshot?.items ? `· ${r.orderSnapshot.items.map((it) => `${it.productName} x${it.quantity}`).join(', ')}` : ''}</td>
-                          <td className="px-3 py-2">[{r.mediaType ?? 'video'}]</td>
-                          <td className="px-3 py-2">{r.packingPayAmount != null ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(r.packingPayAmount) : '-'}</td>
-                          <td className="px-3 py-2 text-xs">{r.packingPayBreakdown ? `${r.packingPayBreakdown.ruleName ?? '-'} · ${r.packingPayBreakdown.payType ?? '-'} · Rp${r.packingPayBreakdown.amount ?? 0} x${r.packingPayBreakdown.quantity ?? 1}` : '-'}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </ModalOverlay>
-      ) : null}
     </div>
   )
 }

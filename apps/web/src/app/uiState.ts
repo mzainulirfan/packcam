@@ -10,7 +10,7 @@ function readStoredPage(): PageId {
   }
 
   const stored = window.sessionStorage.getItem(ACTIVE_PAGE_KEY)
-  if (stored === 'scan' || stored === 'history' || stored === 'settings' || stored === 'users' || stored === 'health' || stored === 'admin') {
+  if (stored === 'scan' || stored === 'history' || stored === 'packing-sessions' || stored === 'settings' || stored === 'users' || stored === 'health' || stored === 'admin') {
     return stored
   }
 
