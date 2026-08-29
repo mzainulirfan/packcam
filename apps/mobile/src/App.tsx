@@ -1822,13 +1822,7 @@ function App() {
             </Dialog>
           {isPackingMode && activePackingSession ? (
             <section className="grid gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-3" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-              <div className="flex gap-2">
-                {(['video','photo'] as const).map((v) => (
-                  <Button key={v} type="button" variant={packingMediaType===v ? 'secondary' : 'outline'} size="sm" className="flex-1 rounded-[4px]" onClick={() => setPackingMediaType(v)} disabled={recordingSession.state.mode==='recording' || photoCaptureBusy}>
-                    {v==='video' ? 'Video' : 'Foto'}
-                  </Button>
-                ))}
-              </div>
+              <p className="text-[11px] font-medium text-muted-foreground">Mode di kamera atas — tap Foto/Video di preview</p>
               {packingPreviewBusy ? <p className="text-[12px] text-[var(--op-mute)]">Memuat preview order...</p> : null}
               {packingPreview ? (
                 <div className="grid gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-2">
@@ -1934,6 +1928,12 @@ function App() {
                       </span>
                     )}
                   </div>
+                  {isPackingMode && activePackingSession ? (
+                    <div className="flex gap-1 self-start rounded-full bg-black/40 p-1 backdrop-blur">
+                      <button type="button" onClick={() => setPackingMediaType('video')} className={packingMediaType === 'video' ? 'rounded-full bg-white px-3 py-1 text-xs font-bold text-black' : 'px-3 py-1 text-xs text-white'}>Video</button>
+                      <button type="button" onClick={() => setPackingMediaType('photo')} className={packingMediaType === 'photo' ? 'rounded-full bg-white px-3 py-1 text-xs font-bold text-black' : 'px-3 py-1 text-xs text-white'}>Foto</button>
+                    </div>
+                  ) : null}
                   {currentRecordingResi ? (
                     <div className="w-fit rounded-[4px] border border-[rgba(253,252,252,0.36)] bg-[#201d1d] px-3 py-2">
                       <strong className="block text-[0.68rem] font-bold tracking-wide text-white">

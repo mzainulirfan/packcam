@@ -637,8 +637,9 @@ export function ScanPage() {
         <Alert variant="info"><p>Foto packing butuh sesi aktif. Pilih petugas di panel sesi packing.</p></Alert>
       ) : null}
 
-      <div className={isPhotoPackingMode ? "grid gap-6 xl:grid-cols-[360px_1fr]" : "grid gap-5 xl:grid-cols-[minmax(300px,0.42fr)_minmax(0,1.58fr)]"}>
-        <section className={isPhotoPackingMode ? "grid gap-3 self-start" : "grid gap-4 self-start"}>
+      <div className={isPhotoPackingMode ? "flex flex-col overflow-hidden rounded-[8px] border border-[rgba(15,0,0,0.12)] bg-black h-[calc(100vh-180px)]" : "grid gap-5 xl:grid-cols-[minmax(300px,0.42fr)_minmax(0,1.58fr)]"}>
+        {!isPhotoPackingMode ? (
+          <section className="grid gap-4 self-start">
           <Card className="scan-opencode__panel">
             <CardContent className="space-y-4 p-5">
               <BarcodeInput
@@ -795,14 +796,18 @@ export function ScanPage() {
                     <Button type="button" className="scan-opencode__button" disabled={packingSessionLoading || !selectedPackerKey} onClick={() => void handleCreatePackingSession()}>
                       {packingSessionLoading ? '[~] Membuat...' : '[mulai sesi packing]'}
                     </Button>
-                    <div className="flex gap-2">
-                      <Button type="button" variant={packingMediaType === 'video' ? 'default' : 'outline'} className="flex-1 scan-opencode__button" onClick={() => setPackingMediaType('video')}>
-                        [video]
-                      </Button>
-                      <Button type="button" variant={packingMediaType === 'photo' ? 'default' : 'outline'} className="flex-1 scan-opencode__button" onClick={() => setPackingMediaType('photo')}>
-                        [foto]
-                      </Button>
-                    </div>
+                    {!isPhotoPackingMode ? (
+                      <div className="flex gap-2">
+                        <Button type="button" variant="default" className="flex-1 scan-opencode__button" onClick={() => setPackingMediaType('video')}>
+                          [video]
+                        </Button>
+                        <Button type="button" variant="outline" className="flex-1 scan-opencode__button" onClick={() => setPackingMediaType('photo')}>
+                          [foto]
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground">Mode Foto/Video di atas kamera — tap pill di preview.</p>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -860,7 +865,7 @@ export function ScanPage() {
               </CardContent>
             </Card>
           ) : null}
-        </section>
+        </section> ) : null}
 
         <Card className={isPhotoPackingMode ? "scan-opencode__camera-panel overflow-hidden xl:sticky xl:top-4 xl:h-[68vh] flex flex-col" : "scan-opencode__camera-panel overflow-hidden xl:sticky xl:top-4"}>
           <CardHeader className="scan-opencode__camera-header px-5 py-4">
@@ -948,6 +953,12 @@ export function ScanPage() {
                     <span>
                       Operator: <strong>{operatorSession?.operatorName || operatorSession?.operatorCode || '-'}</strong>
                     </span>
+                    {isPhotoPackingMode && activePackingSession ? (
+                      <div className="ml-auto flex gap-1 rounded-full bg-black/40 p-1 backdrop-blur">
+                        <button type="button" onClick={() => setPackingMediaType('video')} className="px-3 py-1 text-xs text-white">Video</button>
+                        <button type="button" onClick={() => setPackingMediaType('photo')} className="rounded-full bg-white px-3 py-1 text-xs font-bold text-black">Foto</button>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               }
@@ -998,17 +1009,39 @@ export function ScanPage() {
                     </Button>
                   </div>
                 ) : isPackingTask && packingMediaType === 'photo' && activePackingSession ? (
-                  <div className="flex flex-col items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => void stagePhotoCapture()}
-                      disabled={packingCaptureLoading || !currentProcessingResi || !cameraVideoRef.current}
-                      className="group grid h-[72px] w-[72px] place-items-center rounded-full border-4 border-white bg-white/10 shadow-[0_0_0_4px_rgba(0,0,0,0.2)] backdrop-blur transition hover:bg-white/20 disabled:opacity-40"
-                      aria-label="Ambil foto manual"
-                    >
-                      <span className="h-14 w-14 rounded-full bg-white shadow-inner transition group-active:scale-95" />
-                    </button>
-                    <span className="text-[11px] font-mono tracking-wide text-white drop-shadow">tap untuk foto manual</span>
+                  <div className="grid gap-2 rounded-t-[8px] bg-black/60 backdrop-blur p-3">
+                    <BarcodeInput
+                      inputRef={barcodeScanner.inputRef}
+                      value={barcodeScanner.value}
+                      onValueChange={barcodeScanner.setValue}
+                      onKeyDown={barcodeScanner.handleKeyDown}
+                      onSubmit={handleSubmitBarcode}
+                      onClear={() => {
+                        barcodeScanner.resetResult()
+                        barcodeScanner.setValue('')
+                        setScanAlert({ kind: 'info', message: 'Input dibersihkan.' })
+                        barcodeScanner.focusInput()
+                      }}
+                    />
+                    {packingPreview ? (
+                      <div className="grid gap-1 rounded bg-white/10 p-2 text-xs text-white">
+                        <div className="flex justify-between gap-2"><span className="opacity-80">Jasa kirim</span><strong>{packingPreview.order.shippingChannel ?? '-'}</strong></div>
+                        <div className="truncate opacity-90">{packingPreview.order.items.slice(0,2).map((it) => `${it.productName}${it.variationName ? ` · ${it.variationName}` : ''} x${it.quantity}`).join(', ')}{packingPreview.order.items.length>2 ? ` +${packingPreview.order.items.length-2} lain` : ''}</div>
+                        <div className="flex justify-between"><span className="opacity-80">Upah</span><strong>Rp{new Intl.NumberFormat('id-ID').format(packingPreview.pay.amount)}</strong></div>
+                      </div>
+                    ) : null}
+                    <div className="flex flex-col items-center gap-1 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => void stagePhotoCapture()}
+                        disabled={packingCaptureLoading || !currentProcessingResi || !cameraVideoRef.current}
+                        className="group grid h-[72px] w-[72px] place-items-center rounded-full border-4 border-white bg-white/10 shadow-[0_0_0_4px_rgba(0,0,0,0.2)] backdrop-blur transition hover:bg-white/20 disabled:opacity-40"
+                        aria-label="Ambil foto manual"
+                      >
+                        <span className="h-14 w-14 rounded-full bg-white shadow-inner transition group-active:scale-95" />
+                      </button>
+                      <span className="text-[11px] font-mono tracking-wide text-white drop-shadow">tap shutter — auto 0.45s</span>
+                    </div>
                   </div>
                 ) : isRecordingActionVisible ? (
                   <div className="flex justify-end">
