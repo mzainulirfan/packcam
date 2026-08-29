@@ -231,6 +231,12 @@ function App() {
   const currentTaskType: WorkTask = session?.taskType ?? 'qc'
   const isPackingMode = String(currentTaskType) === 'packing'
   const canUsePackingFlow = !isPackingMode || Boolean(activePackingSession)
+  const switchablePackingOperators = useMemo(
+    () => activePackingSession
+      ? packingOperators.filter((op) => !(op.operatorName === activePackingSession.packerOperatorName && op.operatorCode === activePackingSession.packerOperatorCode))
+      : packingOperators,
+    [activePackingSession, packingOperators],
+  )
   const cameraState = useCameraStream(settings.cameraDeviceId, Boolean(session) && activeTab === 'scan', 'environment', true)
   const historyCameraState = useCameraStream(settings.cameraDeviceId, historyScanOpen, 'environment')
   const watermarkOverlayTime = new Intl.DateTimeFormat('id-ID', {
@@ -1355,15 +1361,18 @@ function App() {
   }
 
   useEffect(() => {
-    if (!showSwitchDialog || !activePackingSession) return
-    const other = packingOperators.filter((op) => !(op.operatorName === activePackingSession.packerOperatorName && op.operatorCode === activePackingSession.packerOperatorCode))
-    if (other.length === 0) return
+    if (!activePackingSession) return
+    const other = switchablePackingOperators
+    if (other.length === 0) {
+      if (selectedPackerKey) setSelectedPackerKey('')
+      return
+    }
     const activeKey = makePackerKey(activePackingSession.packerOperatorName, activePackingSession.packerOperatorCode)
     if (selectedPackerKey === activeKey || !selectedPackerKey) {
       const first = other[0]
       if (first) setSelectedPackerKey(makePackerKey(first.operatorName, first.operatorCode))
     }
-  }, [showSwitchDialog, activePackingSession, packingOperators, selectedPackerKey])
+  }, [activePackingSession, selectedPackerKey, switchablePackingOperators])
 
   useEffect(() => {
     if (!isPackingMode || !activePackingSession || !scanResi.trim() || recordingSession.state.mode !== 'idle') {
@@ -1748,9 +1757,7 @@ function App() {
                     className="h-11 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 text-[0.9rem] text-[var(--op-ink)] outline-none"
                     disabled={packingSessionBusy || packingOperators.length === 0}
                   >
-                    {packingOperators
-                      .filter((op) => !(activePackingSession && op.operatorName === activePackingSession.packerOperatorName && op.operatorCode === activePackingSession.packerOperatorCode))
-                      .map((op) => (
+                    {switchablePackingOperators.map((op) => (
                         <option key={makePackerKey(op.operatorName, op.operatorCode)} value={makePackerKey(op.operatorName, op.operatorCode)}>
                           {op.fullName || op.operatorName} ({op.operatorCode})
                         </option>
@@ -1794,6 +1801,20 @@ function App() {
               emptyMessage="Arahkan kamera ke area kerja."
               topSlot={
                 <div className="flex w-full max-w-full flex-col gap-2">
+                  {isPackingMode ? (
+                    <div className="flex items-center justify-between gap-2 rounded-[4px] bg-black/60 backdrop-blur px-2.5 py-1.5">
+                      <button type="button" onClick={() => { if (activePackingSession) setShowSwitchDialog(true) }} disabled={!activePackingSession} className="grid gap-0.5 text-left flex-1">
+                        <span className="text-[11px] font-bold tracking-wide text-white">[ Sesi Packing ]{activePackingSession ? ' — tap untuk ganti' : ''}</span>
+                        <span className="text-[13px] font-bold text-white">{activePackingSession ? activePackingSession.packerNameSnapshot : 'Mulai sesi'}</span>
+                        <span className="text-[11px] text-white/80">{activePackingSession ? `${activePackingSession.completedPackingCount} paket · ${formatRupiah(activePackingSession.totalPayAmount)}` : 'Tap untuk mulai sesi'}</span>
+                      </button>
+                      {activePackingSession ? (
+                        <Button type="button" variant="outline" size="xs" className="h-7 shrink-0 rounded-[4px] border-white bg-black/40 px-2.5 text-xs font-medium text-white backdrop-blur" disabled={packingSessionBusy} onClick={() => void handleClosePackingSession()}>
+                          Akhiri
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <div className="flex items-center gap-2">
                     <span className="flex min-w-0 flex-1 items-center gap-2 truncate rounded-[4px] border border-[rgba(253,252,252,0.36)] bg-[#201d1d] px-2.5 py-1 text-[0.7rem] font-semibold text-[#fdfcfc]">
                       <HugeiconsIcon icon={Camera01Icon} size={14} className="shrink-0" />
@@ -1958,6 +1979,33 @@ function App() {
               }
             />
           </div>
+
+          {isPackingMode && activePackingSession ? (
+            <div className="grid gap-2 rounded-[8px] border border-[var(--op-hairline)] bg-[var(--op-surface-card)] p-3" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+              <div className="grid gap-1">
+                <p className="text-[12px] font-bold tracking-wide">[ Ganti sesi / petugas ]</p>
+                <p className="text-[11px] text-muted-foreground">Pilih petugas lain. Sesi lama otomatis ditutup.</p>
+              </div>
+              <div className="flex gap-2">
+                <select
+                  value={selectedPackerKey}
+                  onChange={(event) => setSelectedPackerKey(event.target.value)}
+                  className="h-11 min-w-0 flex-1 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 text-[0.86rem] text-[var(--op-ink)] outline-none"
+                  disabled={packingSessionBusy || switchablePackingOperators.length === 0}
+                >
+                  {switchablePackingOperators.length === 0 ? <option value="">Tidak ada petugas lain</option> : null}
+                  {switchablePackingOperators.map((op) => (
+                    <option key={makePackerKey(op.operatorName, op.operatorCode)} value={makePackerKey(op.operatorName, op.operatorCode)}>
+                      {op.fullName || op.operatorName} ({op.operatorCode})
+                    </option>
+                  ))}
+                </select>
+                <Button type="button" variant="secondary" className="h-11 shrink-0 rounded-[4px] px-4" disabled={packingSessionBusy || !selectedPackerKey || switchablePackingOperators.length === 0} onClick={() => void handleSwitchPackingSession()}>
+                  {packingSessionBusy ? '...' : 'Ganti'}
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </section>
       ) : null}
 
