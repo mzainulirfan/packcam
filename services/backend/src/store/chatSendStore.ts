@@ -13,6 +13,7 @@ type ChatSendRow = {
   buyer_username: string
   task_type: 'qc' | 'packing'
   video_file_path: string
+  attachment_file_paths: string | null
   status: ChatSendStatus
   attempts: number
   message_template: string | null
@@ -29,6 +30,12 @@ type RecordingForChatSend = {
   task_type: 'qc' | 'packing'
   status: 'recording' | 'completed' | 'error'
   media_type: 'video' | 'photo'
+}
+
+type ChatSendAttachment = {
+  fileName: string
+  filePath: string
+  mimeType: string
 }
 
 type OrderForChatSend = {
@@ -71,6 +78,63 @@ function normalizeOptionalString(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : null
 }
 
+function fileNameFromPath(filePath: string) {
+  const normalized = filePath.replace(/\\/g, '/')
+  return normalized.split('/').pop() || 'pakti-attachment'
+}
+
+function mimeTypeFromPath(filePath: string) {
+  const lower = filePath.toLowerCase()
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg'
+  if (lower.endsWith('.png')) return 'image/png'
+  if (lower.endsWith('.webp')) return 'image/webp'
+  return 'video/mp4'
+}
+
+function normalizeAttachment(input: Partial<ChatSendAttachment> & { filePath: string }): ChatSendAttachment {
+  return {
+    fileName: normalizeOptionalString(input.fileName) ?? fileNameFromPath(input.filePath),
+    filePath: input.filePath,
+    mimeType: normalizeOptionalString(input.mimeType) ?? mimeTypeFromPath(input.filePath),
+  }
+}
+
+function parseAttachments(value: string | null, fallbackFilePath: string) {
+  const fallback = [normalizeAttachment({ filePath: fallbackFilePath })]
+  if (!value) return fallback
+
+  try {
+    const parsed = JSON.parse(value) as unknown
+    if (!Array.isArray(parsed)) return fallback
+    const attachments = parsed
+      .map((item) => {
+        if (!item || typeof item !== 'object') return null
+        const filePath = normalizeOptionalString((item as { filePath?: unknown }).filePath)
+        if (!filePath) return null
+        return normalizeAttachment({
+          fileName: normalizeOptionalString((item as { fileName?: unknown }).fileName) ?? undefined,
+          filePath,
+          mimeType: normalizeOptionalString((item as { mimeType?: unknown }).mimeType) ?? undefined,
+        })
+      })
+      .filter((item): item is ChatSendAttachment => Boolean(item))
+    return attachments.length > 0 ? attachments : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function withAttachmentUrls(attachments: ChatSendAttachment[], apiBaseUrl: string) {
+  const base = apiBaseUrl.replace(/\/+$/, '')
+  return attachments.map((attachment) => {
+    const normalizedFilePath = attachment.filePath.startsWith('/') ? attachment.filePath : `/${attachment.filePath}`
+    return {
+      ...attachment,
+      fileUrl: apiBaseUrl ? `${base}/files${normalizedFilePath}` : undefined,
+    }
+  })
+}
+
 function getLocalTodayDateString() {
   const now = new Date()
   const year = now.getFullYear()
@@ -81,6 +145,7 @@ function getLocalTodayDateString() {
 
 function mapChatSend(row: ChatSendRow, apiBaseUrl = ''): RecordingChatSend {
   const normalizedFilePath = row.video_file_path.startsWith('/') ? row.video_file_path : `/${row.video_file_path}`
+  const attachments = parseAttachments(row.attachment_file_paths, row.video_file_path)
 
   return {
     id: row.id,
@@ -91,6 +156,7 @@ function mapChatSend(row: ChatSendRow, apiBaseUrl = ''): RecordingChatSend {
     taskType: row.task_type,
     videoFilePath: row.video_file_path,
     videoUrl: apiBaseUrl ? `${apiBaseUrl.replace(/\/+$/, '')}/files${normalizedFilePath}` : undefined,
+    attachments: withAttachmentUrls(attachments, apiBaseUrl),
     status: row.status,
     attempts: row.attempts,
     messageTemplate: row.message_template,
@@ -130,7 +196,7 @@ function getChatSendRow(id: string) {
   return db()
     .prepare(
       `SELECT id, recording_id, order_id, resi_number, order_number, buyer_username, task_type, video_file_path,
-              status, attempts, message_template, error_message, prepared_at, sent_at, created_at, updated_at
+              attachment_file_paths, status, attempts, message_template, error_message, prepared_at, sent_at, created_at, updated_at
        FROM recording_chat_sends
        WHERE id = ?
        LIMIT 1`,
@@ -141,6 +207,9 @@ function getChatSendRow(id: string) {
 export function prepareRecordingChatSend(input: {
   recordingId: string
   videoFilePath: string
+  attachments?: ChatSendAttachment[]
+  fallbackBuyerUsername?: string | null
+  fallbackOrderNumber?: string | null
   messageTemplate?: string | null
 }) {
   const recording = getRecordingForChatSend(input.recordingId)
@@ -153,7 +222,7 @@ export function prepareRecordingChatSend(input: {
   }
 
   if (recording.media_type !== 'video') {
-    throw new Error('Hanya dokumentasi video yang bisa dikirim ke Shopee Chat.')
+    throw new Error('Hanya dokumentasi video QC yang bisa jadi file utama Shopee Chat.')
   }
 
   const videoFilePath = normalizeOptionalString(input.videoFilePath)
@@ -162,31 +231,34 @@ export function prepareRecordingChatSend(input: {
   }
 
   const order = getOrderForResi(recording.resi_number)
-  if (!order) {
-    throw new Error('Order Shopee untuk resi ini belum ada di Pakti.')
-  }
-
-  const buyerUsername = normalizeOptionalString(order.buyer_username)
+  const buyerUsername = normalizeOptionalString(order?.buyer_username) ?? normalizeOptionalString(input.fallbackBuyerUsername)
   if (!buyerUsername) {
-    throw new Error('Order Shopee belum punya username pembeli.')
+    if (!order) {
+      throw new Error('Order Shopee untuk resi ini belum ada di Pakti. Isi username pembeli Shopee untuk kirim tanpa sync order.')
+    }
+    throw new Error('Order Shopee belum punya username pembeli. Isi username pembeli Shopee untuk kirim manual.')
   }
+  const orderNumber = normalizeOptionalString(order?.order_number) ?? normalizeOptionalString(input.fallbackOrderNumber)
 
   const timestamp = nowIso()
   const id = makeId('chatsend')
+  const attachments = (input.attachments?.length ? input.attachments : [{ filePath: videoFilePath, fileName: fileNameFromPath(videoFilePath), mimeType: 'video/mp4' }])
+    .map((attachment) => normalizeAttachment(attachment))
   const messageTemplate =
     normalizeOptionalString(input.messageTemplate) ??
-    `Halo kak ${buyerUsername}, berikut video dokumentasi paket untuk pesanan ${order.order_number} resi ${recording.resi_number}.`
+    `Halo kak ${buyerUsername}, berikut video dokumentasi paket untuk pesanan ${orderNumber ?? '-'} resi ${recording.resi_number}.`
   db().prepare(
     `INSERT INTO recording_chat_sends (
-       id, recording_id, order_id, resi_number, order_number, buyer_username, task_type, video_file_path,
+       id, recording_id, order_id, resi_number, order_number, buyer_username, task_type, video_file_path, attachment_file_paths,
        status, attempts, message_template, error_message, prepared_at, sent_at, created_at, updated_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, ?, NULL, NULL, NULL, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, ?, NULL, NULL, NULL, ?, ?)
      ON CONFLICT(recording_id, buyer_username) DO UPDATE SET
        order_id = excluded.order_id,
        resi_number = excluded.resi_number,
        order_number = excluded.order_number,
-       task_type = excluded.task_type,
-       video_file_path = excluded.video_file_path,
+        task_type = excluded.task_type,
+        video_file_path = excluded.video_file_path,
+        attachment_file_paths = excluded.attachment_file_paths,
        status = CASE WHEN recording_chat_sends.status = 'sent' THEN recording_chat_sends.status ELSE 'pending' END,
        message_template = excluded.message_template,
        error_message = NULL,
@@ -195,12 +267,13 @@ export function prepareRecordingChatSend(input: {
   ).run(
     id,
     recording.id,
-    order.id,
+    order?.id ?? null,
     recording.resi_number,
-    order.order_number,
+    orderNumber,
     buyerUsername,
     recording.task_type,
     videoFilePath,
+    JSON.stringify(attachments),
     messageTemplate,
     timestamp,
     timestamp,
@@ -209,7 +282,7 @@ export function prepareRecordingChatSend(input: {
   const row = db()
     .prepare(
       `SELECT id, recording_id, order_id, resi_number, order_number, buyer_username, task_type, video_file_path,
-              status, attempts, message_template, error_message, prepared_at, sent_at, created_at, updated_at
+              attachment_file_paths, status, attempts, message_template, error_message, prepared_at, sent_at, created_at, updated_at
        FROM recording_chat_sends
        WHERE recording_id = ? AND buyer_username = ?
        LIMIT 1`,
@@ -218,6 +291,68 @@ export function prepareRecordingChatSend(input: {
 
   broadcastBackendEvent('chat-sends-updated', { id: row.id, status: row.status })
   return mapChatSend(row)
+}
+
+function findCompletedRecordingForResi(resiNumber: string, taskType: 'qc' | 'packing', mediaType: 'video' | 'photo') {
+  return db()
+    .prepare(
+      `SELECT id, resi_number, task_type, status, media_type
+       FROM recordings
+       WHERE lower(resi_number) = lower(?)
+         AND task_type = ?
+         AND media_type = ?
+         AND status = 'completed'
+       ORDER BY updated_at DESC
+       LIMIT 1`,
+    )
+    .get(resiNumber.trim(), taskType, mediaType) as RecordingForChatSend | undefined
+}
+
+export async function prepareBundledRecordingChatSend(input: {
+  recordingId: string
+  messageTemplate?: string | null
+  fallbackBuyerUsername?: string | null
+  fallbackOrderNumber?: string | null
+  prepareShareFile: (recordingId: string) => Promise<ChatSendAttachment>
+}) {
+  const source = getRecordingForChatSend(input.recordingId)
+  if (!source) {
+    throw new Error('Recording tidak ditemukan.')
+  }
+  if (source.status !== 'completed') {
+    throw new Error('Recording belum selesai.')
+  }
+
+  let qcVideo: RecordingForChatSend | undefined
+  let packingPhoto: RecordingForChatSend | undefined
+  if (source.task_type === 'qc' && source.media_type === 'video') {
+    qcVideo = source
+    packingPhoto = findCompletedRecordingForResi(source.resi_number, 'packing', 'photo')
+  } else if (source.task_type === 'packing' && source.media_type === 'photo') {
+    qcVideo = findCompletedRecordingForResi(source.resi_number, 'qc', 'video')
+    packingPhoto = source
+  } else {
+    throw new Error('Shopee Chat hanya mendukung video QC, dengan foto packing sebagai lampiran tambahan bila ada.')
+  }
+
+  if (!qcVideo) {
+    throw new Error('Video QC untuk resi ini belum ada.')
+  }
+
+  const qcVideoFile = normalizeAttachment(await input.prepareShareFile(qcVideo.id))
+  const attachments = [qcVideoFile]
+  if (packingPhoto) {
+    attachments.push(normalizeAttachment(await input.prepareShareFile(packingPhoto.id)))
+  }
+
+  return prepareRecordingChatSend({
+    recordingId: qcVideo.id,
+    videoFilePath: qcVideoFile.filePath,
+    attachments,
+    messageTemplate: input.messageTemplate,
+    fallbackBuyerUsername: input.fallbackBuyerUsername,
+    fallbackOrderNumber: input.fallbackOrderNumber,
+  })
 }
 
 export async function prepareReadyRecordingChatSendsForToday(input: {
@@ -240,13 +375,14 @@ export async function prepareReadyRecordingChatSendsForToday(input: {
          ON o.source = 'shopee'
         AND lower(o.tracking_number) = lower(r.resi_number)
        LEFT JOIN recording_chat_sends cs
-         ON cs.recording_id = r.id
-       WHERE r.status = 'completed'
-         AND r.task_type = ?
-         AND r.record_date = ?
-         AND r.media_type = 'video'
-       ORDER BY r.updated_at ASC
-       LIMIT ?`,
+          ON lower(cs.resi_number) = lower(r.resi_number)
+         AND cs.buyer_username = o.buyer_username
+        WHERE r.status = 'completed'
+          AND r.task_type = ?
+          AND r.record_date = ?
+          AND r.media_type IN ('video', 'photo')
+        ORDER BY r.updated_at ASC
+        LIMIT ?`,
     )
     .all(taskType, today, scanLimit) as AutoPrepareRecordingCandidate[]
 
@@ -271,8 +407,7 @@ export async function prepareReadyRecordingChatSendsForToday(input: {
     }
 
     try {
-      const shareFile = await input.prepareShareFile(recording.id)
-      result.created.push(prepareRecordingChatSend({ recordingId: recording.id, videoFilePath: shareFile.filePath }))
+      result.created.push(await prepareBundledRecordingChatSend({ recordingId: recording.id, prepareShareFile: input.prepareShareFile }))
     } catch (error) {
       result.failed.push({
         recordingId: recording.id,
@@ -289,7 +424,7 @@ export function listPendingChatSends(apiBaseUrl = '') {
   const rows = db()
     .prepare(
       `SELECT id, recording_id, order_id, resi_number, order_number, buyer_username, task_type, video_file_path,
-              status, attempts, message_template, error_message, prepared_at, sent_at, created_at, updated_at
+              attachment_file_paths, status, attempts, message_template, error_message, prepared_at, sent_at, created_at, updated_at
        FROM recording_chat_sends
        WHERE status IN ('pending', 'failed')
          AND attempts < ?
@@ -306,7 +441,7 @@ export function listRecentChatSends(limit = 20, apiBaseUrl = '') {
   const rows = db()
     .prepare(
       `SELECT id, recording_id, order_id, resi_number, order_number, buyer_username, task_type, video_file_path,
-              status, attempts, message_template, error_message, prepared_at, sent_at, created_at, updated_at
+              attachment_file_paths, status, attempts, message_template, error_message, prepared_at, sent_at, created_at, updated_at
        FROM recording_chat_sends
        ORDER BY updated_at DESC
        LIMIT ?`,
@@ -317,19 +452,25 @@ export function listRecentChatSends(limit = 20, apiBaseUrl = '') {
 }
 
 export function listChatSendsByRecordingIds(recordingIds: string[], apiBaseUrl = '') {
-  if (recordingIds.length === 0) {
+  const normalizedIds = recordingIds.map((id) => id.trim()).filter(Boolean)
+  if (normalizedIds.length === 0) {
     return [] as RecordingChatSend[]
   }
 
-  const placeholders = recordingIds.map(() => '?').join(',')
+  const placeholders = normalizedIds.map(() => '?').join(',')
   const rows = db()
     .prepare(
       `SELECT id, recording_id, order_id, resi_number, order_number, buyer_username, task_type, video_file_path,
-              status, attempts, message_template, error_message, prepared_at, sent_at, created_at, updated_at
+              attachment_file_paths, status, attempts, message_template, error_message, prepared_at, sent_at, created_at, updated_at
        FROM recording_chat_sends
-       WHERE recording_id IN (${placeholders})`,
+        WHERE recording_id IN (${placeholders})
+           OR lower(resi_number) IN (
+             SELECT lower(resi_number)
+             FROM recordings
+             WHERE id IN (${placeholders})
+           )`,
     )
-    .all(...recordingIds.map((id) => id.trim()).filter(Boolean)) as ChatSendRow[]
+    .all(...normalizedIds, ...normalizedIds) as ChatSendRow[]
 
   return rows.map((row) => mapChatSend(row, apiBaseUrl))
 }

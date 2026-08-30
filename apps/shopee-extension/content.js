@@ -43,6 +43,18 @@ function parseQuantity(text) {
   return match?.[1] ? Number(match[1]) : 1
 }
 
+function cleanVariationText(value) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim()
+  if (!text) return null
+
+  return text
+    .replace(/\s*x\s*\d+.+$/i, '')
+    .replace(/\s*x\s*\d+\s*(?:pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\b).*$/i, '')
+    .replace(/\s*(?:pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\b).*$/i, '')
+    .replace(/\s*x\s*\d+\s*$/i, '')
+    .trim() || null
+}
+
 function parseOrderNumber(text) {
   return firstMatch(text, [/(?:No\.\s*Pesanan|Nomor Pesanan|Order ID|Order Number)\s*([A-Z0-9-]{8,})/i])
 }
@@ -58,10 +70,11 @@ function extractShopeeItems(root) {
       }
 
       const amountText = textOf(element.querySelector('.item-amount, [class*="amount" i], [class*="quantity" i], [class*="qty" i]'))
-      const variationText =
+      const variationText = cleanVariationText(
         textOf(element.querySelector('.item-variation, [class*="variation" i], [class*="variant" i], [data-testid*="variation" i]')) ||
         firstMatch(textOf(element), [/(?:variasi|variation|varian)\s*[:\-]\s*([^|\n]+)/i]) ||
-        null
+        null,
+      )
       const sku = textOf(element.querySelector('[class*="sku" i]')) || firstMatch(textOf(element), [/sku[:\s]+([^|,]+)/i]) || null
       const image = element.querySelector('img')
       const fallbackText = textOf(element)
@@ -78,7 +91,7 @@ function extractShopeeItems(root) {
 
   const seen = new Set()
   return shopeeItems.filter((item) => {
-    const key = `${item.productName.toLowerCase()}|${(item.variationName || '').toLowerCase()}|${item.quantity}`
+    const key = `${item.productName.replace(/\s+/g, ' ').trim().toLowerCase()}|${(item.variationName || '').replace(/\s+/g, ' ').trim().toLowerCase()}|${item.quantity}`
     if (seen.has(key)) return false
     seen.add(key)
     return true
@@ -369,7 +382,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           `Pembeli: ${job.buyerUsername || '-'}`,
           `No. Pesanan: ${job.orderNumber || '-'}`,
           `No. Resi: ${job.resiNumber || '-'}`,
-          `Video: ${job.videoUrl || '-'}`,
+          `File: ${(job.attachments || []).map((attachment) => attachment.fileUrl || attachment.filePath).filter(Boolean).join(', ') || job.videoUrl || '-'}`,
           '',
           messageText,
         ].join('\n')).catch(() => undefined)
@@ -748,6 +761,113 @@ async function waitForActiveConversation(username, composer = null) {
   return header
 }
 
+function getJobAttachments(job) {
+  const attachments = Array.isArray(job.attachments) ? job.attachments : []
+  if (attachments.length > 0) {
+    return attachments.filter((attachment) => attachment?.fileUrl)
+  }
+
+  return job.videoUrl
+    ? [{ fileUrl: job.videoUrl, fileName: `${(job.orderNumber || job.resiNumber || 'pakti-video').replace(/[^\w-]+/g, '_')}.mp4`, mimeType: 'video/mp4' }]
+    : []
+}
+
+function inferAttachmentName(attachment, fallbackName) {
+  if (attachment.fileName) return attachment.fileName
+  const fromPath = String(attachment.filePath || attachment.fileUrl || '').split('?')[0].split('/').pop()
+  return fromPath || fallbackName
+}
+
+async function downloadJobAttachment(attachment, index, headers) {
+  const response = await fetch(attachment.fileUrl, { credentials: 'include', headers })
+  if (!response.ok) {
+    throw new Error(`File Shopee gagal diunduh (${response.status}).`)
+  }
+
+  const blob = await response.blob()
+  const fallbackName = index === 0 ? 'pakti-video.mp4' : `pakti-attachment-${index + 1}`
+  const fileName = inferAttachmentName(attachment, fallbackName).replace(/[<>:"/\\|?*\0]+/g, '_')
+  const mimeType = attachment.mimeType || blob.type || (fileName.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/) ? 'image/jpeg' : 'video/mp4')
+  return new File([blob], fileName, { type: mimeType })
+}
+
+function fileKind(file) {
+  const name = file.name.toLowerCase()
+  const type = file.type.toLowerCase()
+  if (type.startsWith('video/') || name.endsWith('.mp4') || name.endsWith('.webm') || name.endsWith('.mov')) return 'video'
+  if (type.startsWith('image/') || name.match(/\.(jpg|jpeg|png|webp)$/)) return 'image'
+  return 'file'
+}
+
+function fileInputAccepts(input, kind) {
+  const accept = String(input.getAttribute('accept') || '').toLowerCase()
+  if (!accept) return true
+  if (kind === 'video') return accept.includes('video') || accept.includes('.mp4') || accept.includes('.webm') || accept.includes('.mov')
+  if (kind === 'image') return accept.includes('image') || accept.includes('.jpg') || accept.includes('.jpeg') || accept.includes('.png') || accept.includes('.webp')
+  return true
+}
+
+function isSpecificFileInput(input, kind) {
+  const accept = String(input.getAttribute('accept') || '').toLowerCase()
+  if (kind === 'video') return accept.includes('video') || accept.includes('.mp4') || accept.includes('.webm') || accept.includes('.mov')
+  if (kind === 'image') return accept.includes('image') || accept.includes('.jpg') || accept.includes('.jpeg') || accept.includes('.png') || accept.includes('.webp')
+  return false
+}
+
+function findFileInput(kind) {
+  const inputs = [...document.querySelectorAll('input[type="file"]')]
+  return (
+    inputs.find((input) => isSpecificFileInput(input, kind)) ||
+    inputs.find((input) => fileInputAccepts(input, kind) && !isSpecificFileInput(input, kind === 'video' ? 'image' : 'video')) ||
+    inputs.find((input) => fileInputAccepts(input, kind)) ||
+    null
+  )
+}
+
+async function ensureFileInputsReady() {
+  let inputs = [...document.querySelectorAll('input[type="file"]')]
+  if (inputs.length > 0) return inputs
+
+  const attachBtn = document.querySelector(
+    'button[class*="attach"], [aria-label*="attach" i], [aria-label*="lampir" i], [title*="attach" i], [title*="lampir" i], [data-testid*="attach" i]',
+  )
+  if (!attachBtn) {
+    throw new Error('Tombol lampirkan file Shopee tidak ditemukan.')
+  }
+
+  attachBtn.click()
+  await new Promise((r) => setTimeout(r, 1200))
+  inputs = await waitForCondition(() => {
+    const matches = [...document.querySelectorAll('input[type="file"]')]
+    return matches.length > 0 ? matches : null
+  }, 5000, 200)
+  return inputs || []
+}
+
+async function attachFilesToShopee(files, kind) {
+  const fileInput = findFileInput(kind)
+  if (!fileInput) {
+    throw new Error(`Input file Shopee untuk ${kind === 'video' ? 'video' : kind === 'image' ? 'foto' : 'file'} tidak ditemukan.`)
+  }
+
+  const dt = new DataTransfer()
+  files.forEach((file) => dt.items.add(file))
+  fileInput.files = dt.files
+  fileInput.dispatchEvent(new Event('input', { bubbles: true }))
+  fileInput.dispatchEvent(new Event('change', { bubbles: true }))
+
+  const attached = await waitForCondition(
+    () => fileInput.files?.length === files.length && files.every((file, index) => fileInput.files[index]?.name === file.name),
+    3000,
+    150,
+  )
+  if (!attached) {
+    throw new Error(`File Shopee untuk ${kind === 'video' ? 'video' : kind === 'image' ? 'foto' : 'lampiran'} belum terpasang ke input file.`)
+  }
+
+  await new Promise((r) => setTimeout(r, 1200))
+}
+
 async function fillWebchatSearchAndAttach(job) {
   const input = findSearchInput()
   if (!input) throw new Error('Kolom pencarian percakapan Shopee Webchat tidak ditemukan.')
@@ -772,59 +892,31 @@ async function fillWebchatSearchAndAttach(job) {
   }
   const composer = await waitForComposerReady(15000)
   await waitForActiveConversation(job.buyerUsername, composer)
-  if (job.videoUrl) {
+  const attachments = getJobAttachments(job)
+  if (attachments.length > 0) {
     try {
       const stored = await new Promise((resolve) => chrome.storage.sync.get({ apiKey: '' }, resolve))
       const headers = stored.apiKey ? { 'X-Pakti-Extension-Key': stored.apiKey } : undefined
-      const response = await fetch(job.videoUrl, { credentials: 'include', headers })
-      if (!response.ok) {
-        throw new Error(`Video Shopee gagal diunduh (${response.status}).`)
+      const files = []
+      for (let index = 0; index < attachments.length; index += 1) {
+        files.push(await downloadJobAttachment(attachments[index], index, headers))
       }
+      await ensureFileInputsReady()
+      const videoFiles = files.filter((file) => fileKind(file) === 'video')
+      const imageFiles = files.filter((file) => fileKind(file) === 'image')
+      const otherFiles = files.filter((file) => fileKind(file) === 'file')
+      const hasVideoSpecificInput = Boolean([...document.querySelectorAll('input[type="file"]')].find((input) => isSpecificFileInput(input, 'video')))
+      const hasImageSpecificInput = Boolean([...document.querySelectorAll('input[type="file"]')].find((input) => isSpecificFileInput(input, 'image')))
 
-      const blob = await response.blob()
-      const fileName = `${(job.orderNumber || job.resiNumber || 'pakti-video').replace(/[^\w-]+/g, '_')}.mp4`
-      const file = new File([blob], fileName, { type: blob.type || 'video/mp4' })
-      let fileInput = await waitForCondition(
-        () => document.querySelector('input[accept*="video"]') || document.querySelector('input[type="file"]'),
-        5000,
-        200,
-      )
-      if (!fileInput) {
-        const attachBtn = document.querySelector(
-          'button[class*="attach"], [aria-label*="attach" i], [aria-label*="lampir" i], [title*="attach" i], [title*="lampir" i], [data-testid*="attach" i]',
-        )
-        if (!attachBtn) {
-          throw new Error('Tombol lampirkan video Shopee tidak ditemukan.')
-        }
-
-        attachBtn.click()
-        await new Promise((r) => setTimeout(r, 1200))
-        fileInput = await waitForCondition(
-          () => document.querySelector('input[accept*="video"]') || document.querySelector('input[type="file"]'),
-          5000,
-          200,
-        )
-      }
-
-      if (!fileInput) {
-        throw new Error('Input file video Shopee tidak ditemukan.')
-      }
-
-      const dt = new DataTransfer()
-      dt.items.add(file)
-      fileInput.files = dt.files
-      fileInput.dispatchEvent(new Event('input', { bubbles: true }))
-      fileInput.dispatchEvent(new Event('change', { bubbles: true }))
-      const attached = await waitForCondition(
-        () => fileInput.files?.length > 0 && fileInput.files[0]?.name === fileName,
-        3000,
-        150,
-      )
-      if (!attached) {
-        throw new Error('Video Shopee belum terpasang ke input file.')
+      if (videoFiles.length > 0 && imageFiles.length > 0 && (hasVideoSpecificInput || hasImageSpecificInput)) {
+        await attachFilesToShopee(videoFiles, 'video')
+        await attachFilesToShopee(imageFiles, 'image')
+        if (otherFiles.length > 0) await attachFilesToShopee(otherFiles, 'file')
+      } else {
+        await attachFilesToShopee(files, videoFiles.length > 0 ? 'video' : imageFiles.length > 0 ? 'image' : 'file')
       }
     } catch (e) {
-      throw new Error(e instanceof Error ? e.message : 'Video Shopee gagal dipasang.')
+      throw new Error(e instanceof Error ? e.message : 'File Shopee gagal dipasang.')
     }
   }
   if (!job.message) {

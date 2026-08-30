@@ -28,6 +28,7 @@
     "test:packing-pay": "tsx scripts/unit-packing-pay.ts",
     "test:packing-session": "tsx scripts/unit-packing-session.ts",
     "test:packing-payment": "tsx scripts/unit-packing-payment.ts",
+    "test:chat-send": "tsx scripts/unit-chat-send.ts",
     "test:shipping": "tsx scripts/unit-shipping-chat.ts",
     "prebuild": "npm run clean:build",
     "build": "tsc -b && vite build",

@@ -177,6 +177,7 @@ export const SCHEMA_SQL = [
     buyer_username TEXT NOT NULL,
     task_type TEXT NOT NULL,
     video_file_path TEXT NOT NULL,
+    attachment_file_paths TEXT,
     status TEXT NOT NULL,
     attempts INTEGER NOT NULL DEFAULT 0,
     message_template TEXT,

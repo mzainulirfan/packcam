@@ -611,10 +611,10 @@ export function prepareServerRecordingShareFileApi(recordingId: string) {
   )
 }
 
-export function prepareShopeeChatSendApi(recordingId: string, messageTemplate?: string | null) {
+export function prepareShopeeChatSendApi(recordingId: string, messageTemplate?: string | null, fallback?: { buyerUsername?: string | null; orderNumber?: string | null }) {
   return requestApi<RecordingChatSend>(`/api/recordings/${encodeURIComponent(recordingId)}/chat-send/prepare`, {
     method: 'POST',
-    body: JSON.stringify({ messageTemplate }),
+    body: JSON.stringify({ messageTemplate, buyerUsername: fallback?.buyerUsername, orderNumber: fallback?.orderNumber }),
   })
 }
 

@@ -30,6 +30,14 @@ type HistoryRecordingGroup = {
   records: LocalRecordingRecord[]
 }
 
+type OrderItemLike = {
+  id?: string | null
+  sku?: string | null
+  productName: string
+  variationName?: string | null
+  quantity: number
+}
+
 type HistoryFilterState = {
   searchText: string
   taskFilter: HistoryTaskFilter
@@ -116,6 +124,14 @@ export function HistoryPage() {
   const [isRefreshingHistory, setIsRefreshingHistory] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [historyReloadKey, setHistoryReloadKey] = useState(0)
+  const [packingSessionFilter, setPackingSessionFilter] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null
+    try {
+      return window.sessionStorage.getItem('pakti.historyPackingSessionId')
+    } catch {
+      return null
+    }
+  })
   const [chatSendByRecordingId, setChatSendByRecordingId] = useState<Map<string, RecordingChatSend>>(new Map())
   const [shopeeOrderByResi, setShopeeOrderByResi] = useState<Map<string, ShopeeOrder>>(new Map())
 
@@ -154,6 +170,11 @@ export function HistoryPage() {
           const map = new Map<string, RecordingChatSend>()
           for (const send of sends) {
             map.set(send.recordingId, send)
+            for (const record of recordings) {
+              if (record.resiNumber.trim().toLowerCase() === send.resiNumber.trim().toLowerCase()) {
+                map.set(record.id, send)
+              }
+            }
           }
           setChatSendByRecordingId(map)
         })
@@ -249,6 +270,22 @@ export function HistoryPage() {
     })
   }, [dateFrom, dateTo, operatorFilter, searchText, taskFilter])
 
+  useEffect(() => {
+    if (packingSessionFilter) {
+      try {
+        window.sessionStorage.setItem('pakti.historyPackingSessionId', packingSessionFilter)
+      } catch (_e) {
+        void _e
+      }
+    } else {
+      try {
+        window.sessionStorage.removeItem('pakti.historyPackingSessionId')
+      } catch (_e) {
+        void _e
+      }
+    }
+  }, [packingSessionFilter])
+
   const operatorOptions = useMemo(() => {
     if (!isAdmin) {
       return []
@@ -298,6 +335,7 @@ export function HistoryPage() {
       const matchesTask = taskFilter === 'all' || record.taskType === taskFilter
       const matchesDateFrom = !dateFrom || record.recordDate >= dateFrom
       const matchesDateTo = !dateTo || record.recordDate <= dateTo
+      const matchesPackingSession = !packingSessionFilter || (record as unknown as { packingSessionId?: string | null }).packingSessionId === packingSessionFilter
 
       return (
         matchesSearch &&
@@ -305,7 +343,8 @@ export function HistoryPage() {
         matchesAdminOperator &&
         matchesTask &&
         matchesDateFrom &&
-        matchesDateTo
+        matchesDateTo &&
+        matchesPackingSession
       )
     })
   }, [
@@ -314,6 +353,7 @@ export function HistoryPage() {
     isAdmin,
     operatorFilter,
     operatorSession?.operatorName,
+    packingSessionFilter,
     recordings,
     searchText,
     taskFilter,
@@ -417,6 +457,7 @@ export function HistoryPage() {
     setOperatorFilter(defaultHistoryFilterState.operatorFilter)
     setDateFrom(defaultHistoryFilterState.dateFrom)
     setDateTo(defaultHistoryFilterState.dateTo)
+    setPackingSessionFilter(null)
     setPage(1)
   }
 
@@ -497,9 +538,23 @@ export function HistoryPage() {
 
     try {
       setPreparingChatSendId(record.id)
-      const job = await prepareShopeeChatSendApi(record.id)
+      let job: RecordingChatSend
+      try {
+        job = await prepareShopeeChatSendApi(record.id)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : ''
+        if (!message.includes('Isi username pembeli Shopee')) {
+          throw error
+        }
+        const buyerUsername = window.prompt(`Order ${record.resiNumber} belum ada/username kosong di Pakti. Isi username pembeli Shopee untuk kirim manual:`)?.trim()
+        if (!buyerUsername) {
+          throw error
+        }
+        job = await prepareShopeeChatSendApi(record.id, null, { buyerUsername })
+      }
       setChatSendByRecordingId((prev) => {
         const next = new Map(prev)
+        next.set(job.recordingId, job)
         next.set(record.id, job)
         return next
       })
@@ -628,6 +683,19 @@ export function HistoryPage() {
           onClearFilters={clearFilters}
         />
 
+        {packingSessionFilter ? (
+          <Alert>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm">
+                Filter sesi: <span className="font-mono font-bold">{packingSessionFilter.slice(0, 8)}</span> — hanya rekaman packing untuk sesi ini.
+              </p>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setPackingSessionFilter(null)}>
+                [clear]
+              </Button>
+            </div>
+          </Alert>
+        ) : null}
+
         <div className="grid gap-4 min-w-0">
           <section className="history-opencode__table-section min-w-0 overflow-hidden">
             <div className="history-opencode__table-header flex items-center justify-between">
@@ -693,6 +761,9 @@ export function HistoryPage() {
                               <span className="history-opencode__badge">
                                 [!] Repeat QC
                               </span>
+                            ) : null}
+                            {group.records.some((r) => r.taskType === 'packing' && (r as unknown as { packingPayAmount?: number | null }).packingPayAmount != null) ? (
+                              <span className="history-opencode__badge bg-foreground text-background">[dibayar]</span>
                             ) : null}
                           </div>
                         </div>
@@ -801,6 +872,9 @@ export function HistoryPage() {
                                   <StatusPill status={getGroupStatus(group)} />
                                   {group.records.some((record) => isRepeatQcInvalidRecord(record)) ? (
                                     <span className="history-opencode__badge text-[11px]">[!] Repeat QC</span>
+                                  ) : null}
+                                  {group.records.some((r) => r.taskType === 'packing' && (r as unknown as { packingPayAmount?: number | null }).packingPayAmount != null) ? (
+                                    <span className="history-opencode__badge bg-foreground text-background text-[11px]">[dibayar]</span>
                                   ) : null}
                                 </div>
                               </Td>
@@ -1002,8 +1076,11 @@ export function HistoryPage() {
                         <DetailRow
                           label="Snapshot order"
                           value={(() => {
-                            const snap = (selectedRecord as unknown as { orderSnapshot: { shippingChannel?: string; items?: Array<{ productName: string; variationName?: string | null; quantity: number }> } }).orderSnapshot
-                            const items = (snap.items ?? []).map((it) => `${it.productName}${it.variationName ? ` (${it.variationName})` : ''} x${it.quantity}`).join(', ')
+                            const snap = (selectedRecord as unknown as { orderSnapshot: { shippingChannel?: string; items?: OrderItemLike[] } }).orderSnapshot
+                            const items = dedupeOrderItems(snap.items ?? []).map((it) => {
+                              const variationName = cleanOrderVariationName(it.variationName)
+                              return `${it.productName}${variationName ? ` (${variationName})` : ''} x${it.quantity}`
+                            }).join(', ')
                             return `${snap.shippingChannel ?? '-'} · ${items || '-'}`
                           })()}
                         />
@@ -1508,6 +1585,8 @@ function DetailRow({
 }
 
 function OrderDetailRow({ order }: { order: ShopeeOrder }) {
+  const items = dedupeOrderItems(order.items)
+
   return (
     <div className="history-opencode__detail-row history-opencode__order-detail-row grid min-w-0 gap-2">
       <dt>No. Pesanan</dt>
@@ -1517,11 +1596,11 @@ function OrderDetailRow({ order }: { order: ShopeeOrder }) {
           <small className="truncate" title={order.buyerUsername || undefined}>Pembeli: {order.buyerUsername || '-'}</small>
         </div>
         <div className="history-opencode__order-product-list" aria-label="Daftar barang pesanan">
-          {order.items.length ? (
-            order.items.map((item, index) => (
+          {items.length ? (
+            items.map((item, index) => (
               <span key={item.id ?? `${item.productName}-${index}`} className="history-opencode__order-product" title={item.productName}>
                 <span className="history-opencode__order-product-name">{item.productName}</span>
-                {item.variationName ? <small>{item.variationName}</small> : null}
+                {cleanOrderVariationName(item.variationName) ? <small>{cleanOrderVariationName(item.variationName)}</small> : null}
                 <strong>x{item.quantity}</strong>
               </span>
             ))
@@ -1532,6 +1611,39 @@ function OrderDetailRow({ order }: { order: ShopeeOrder }) {
       </dd>
     </div>
   )
+}
+
+function dedupeOrderItems<T extends OrderItemLike>(items: T[]) {
+  const seen = new Set<string>()
+  const result: T[] = []
+
+  for (const item of items) {
+    const variationName = cleanOrderVariationName(item.variationName)
+    const key = [
+      item.productName.trim().toLowerCase(),
+      variationName?.trim().toLowerCase() ?? '',
+      String(item.quantity),
+    ].join('|')
+    if (seen.has(key)) {
+      continue
+    }
+    seen.add(key)
+    result.push(item)
+  }
+
+  return result
+}
+
+function cleanOrderVariationName(value: string | null | undefined) {
+  const text = value?.replace(/\s+/g, ' ').trim()
+  if (!text) return null
+
+  return text
+    .replace(/\s*x\s*\d+.+$/i, '')
+    .replace(/\s*x\s*\d+\s*(?:pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\b).*$/i, '')
+    .replace(/\s*(?:pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\b).*$/i, '')
+    .replace(/\s*x\s*\d+\s*$/i, '')
+    .trim() || null
 }
 
 function Th({ children, className = '' }: { children: ReactNode; className?: string }) {

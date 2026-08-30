@@ -222,6 +222,10 @@ export function closePackingSession(id: string, note?: string | null, currentSes
     return session
   }
 
+  if ((session.completedPackingCount ?? 0) === 0) {
+    throw new Error('Sesi kosong (0 paket) tidak bisa ditutup. Harus ada minimal 1 paket completed.')
+  }
+
   if (currentSession && currentSession.role === 'operator' && currentSession.taskType === 'packing') {
     if (session.packerOperatorName !== currentSession.operatorName || session.packerOperatorCode !== currentSession.operatorCode) {
       throw new Error('Operator packing hanya bisa menutup sesi miliknya sendiri.')

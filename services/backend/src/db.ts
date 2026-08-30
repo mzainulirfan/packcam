@@ -84,6 +84,7 @@ function ensurePackingColumns(database: SQLiteDatabase) {
   ensureColumn(database, 'packing_work_sessions', 'paid_by_operator_code', 'TEXT')
   ensureColumn(database, 'packing_work_sessions', 'created_by_operator_name', 'TEXT')
   ensureColumn(database, 'packing_work_sessions', 'created_by_operator_code', 'TEXT')
+  ensureColumn(database, 'recording_chat_sends', 'attachment_file_paths', 'TEXT')
 
   database.exec(`UPDATE recordings SET media_type = 'video' WHERE media_type IS NULL OR media_type = ''`)
 }

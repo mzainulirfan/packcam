@@ -52,6 +52,19 @@ function normalizeOptionalString(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : null
 }
 
+function cleanVariationName(value: unknown) {
+  const text = normalizeOptionalString(value)
+  if (!text) return null
+
+  return normalizeOptionalString(
+    text
+      .replace(/\s*x\s*\d+.+$/i, '')
+      .replace(/\s*x\s*\d+\s*(?:pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\b).*$/i, '')
+      .replace(/\s*(?:pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\b).*$/i, '')
+      .replace(/\s*x\s*\d+\s*$/i, ''),
+  )
+}
+
 function normalizeOrderItem(item: Partial<ShopeeOrderItem>): ShopeeOrderItem | null {
   const productName = normalizeOptionalString(item.productName)
   if (!productName) {
@@ -63,10 +76,28 @@ function normalizeOrderItem(item: Partial<ShopeeOrderItem>): ShopeeOrderItem | n
   return {
     sku: normalizeOptionalString(item.sku),
     productName,
-    variationName: normalizeOptionalString(item.variationName),
+    variationName: cleanVariationName(item.variationName),
     quantity: Number.isFinite(quantity) && quantity > 0 ? Math.floor(quantity) : 1,
     imageUrl: normalizeOptionalString(item.imageUrl),
   }
+}
+
+function dedupeOrderItems(items: ShopeeOrderItem[]) {
+  const seen = new Set<string>()
+  const result: ShopeeOrderItem[] = []
+
+  for (const item of items) {
+    const key = [
+      item.productName.replace(/\s+/g, ' ').trim().toLowerCase(),
+      item.variationName?.replace(/\s+/g, ' ').trim().toLowerCase() ?? '',
+      String(item.quantity),
+    ].join('|')
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(item)
+  }
+
+  return result
 }
 
 function normalizeOrder(order: Partial<ShopeeOrder>): ShopeeOrder | null {
@@ -87,7 +118,7 @@ function normalizeOrder(order: Partial<ShopeeOrder>): ShopeeOrder | null {
     shippingChannel: normalizeOptionalString(order.shippingChannel),
     orderStatus: normalizeOptionalString(order.orderStatus),
     rawPayload: typeof order.rawPayload === 'undefined' ? null : order.rawPayload,
-    items,
+    items: dedupeOrderItems(items),
   }
 }
 

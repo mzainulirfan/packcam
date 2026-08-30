@@ -8,7 +8,7 @@ import multer from 'multer'
 import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
 import type { AppSettings, ShopeeOrder } from '@pakti/types'
 
-import { calculatePackingPayForOrder, clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, closePackingSession, createPackingPayment, createPackingPayRule, createPackingSession, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deletePackingPayRule, deleteRecording, deleteSessionById, finalizeRecording, getActivePackingSession, getBootstrapStatus, getChatSendStats, getHealthSnapshot, getNextPendingShippingChatSend, getPackingPaymentById, getPackingSessionById, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, getShopeeOrderStats, getShippingChatSendStats, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPackingOperators, listPackingPayRules, listPackingPayments, listPackingSessions, listPendingChatSends, listRecentChatSends, listRecentShippingChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, prepareReadyRecordingChatSendsForToday, prepareRecordingChatSend, prepareRecordingShareFile, prepareShippingChatSends, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, reopenPackingSession, resolveSession, resetOperatorPassword, retryChatSend, retryShippingChatSend, saveSettings, saveSystemConfig, updateChatSendStatus, updatePackingPayRule, updateSessionTaskType, updateShippingChatSendStatus, upsertOperatorProfile } from './store'
+import { calculatePackingPayForOrder, clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, closePackingSession, createPackingPayment, createPackingPayRule, createPackingSession, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deletePackingPayRule, deleteRecording, deleteSessionById, finalizeRecording, getActivePackingSession, getBootstrapStatus, getChatSendStats, getHealthSnapshot, getNextPendingShippingChatSend, getPackingPaymentById, getPackingSessionById, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, getShopeeOrderStats, getShippingChatSendStats, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPackingOperators, listPackingPayRules, listPackingPayments, listPackingSessions, listPendingChatSends, listRecentChatSends, listRecentShippingChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, prepareBundledRecordingChatSend, prepareReadyRecordingChatSendsForToday, prepareRecordingShareFile, prepareShippingChatSends, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, reopenPackingSession, resolveSession, resetOperatorPassword, retryChatSend, retryShippingChatSend, saveSettings, saveSystemConfig, updateChatSendStatus, updatePackingPayRule, updateSessionTaskType, updateShippingChatSendStatus, upsertOperatorProfile } from './store'
 import type { ShippingChatOrderInput } from './store/shippingChatSendStore'
 import { clearSessionCookie, getCookie, normalizeRole, readStringField, sendError, sendOk, setSessionCookie } from './http'
 import type { HttpSession } from './http'
@@ -137,6 +137,18 @@ function requireSessionOrExtensionKey(req: AuthenticatedRequest, res: Response, 
 
 function getPublicApiBaseUrl(req: Request) {
   return (process.env.PUBLIC_API_BASE_URL ?? `${req.protocol}://${req.get('host') ?? `localhost:${port}`}`).trim().replace(/\/+$/, '')
+}
+
+function withPublicChatSendUrls<T extends { videoFilePath: string; attachments?: Array<{ filePath: string }> }>(req: Request, job: T) {
+  const baseUrl = getPublicApiBaseUrl(req)
+  return {
+    ...job,
+    videoUrl: `${baseUrl}/files/${job.videoFilePath}`,
+    attachments: job.attachments?.map((attachment) => ({
+      ...attachment,
+      fileUrl: `${baseUrl}/files/${attachment.filePath}`,
+    })),
+  }
 }
 
 function getLoginRateLimitKey(req: Request, operatorName: string) {
@@ -1116,19 +1128,15 @@ app.post('/api/recordings/:id/chat-send/prepare', async (req, res) => {
       return sendError(res, 403, 'Recording ini tidak bisa diakses oleh sesi login saat ini.')
     }
 
-    const shareFile = recording.share_file_ready && recording.share_file_path
-      ? { filePath: recording.share_file_path }
-      : await prepareRecordingShareFile(recording.id)
-    const job = prepareRecordingChatSend({
+    const job = await prepareBundledRecordingChatSend({
       recordingId: recording.id,
-      videoFilePath: shareFile.filePath,
+      prepareShareFile: prepareRecordingShareFile,
       messageTemplate: typeof req.body?.messageTemplate === 'string' ? req.body.messageTemplate : null,
+      fallbackBuyerUsername: typeof req.body?.buyerUsername === 'string' ? req.body.buyerUsername : null,
+      fallbackOrderNumber: typeof req.body?.orderNumber === 'string' ? req.body.orderNumber : null,
     })
 
-    return sendOk(res, {
-      ...job,
-      videoUrl: `${getPublicApiBaseUrl(req)}/files/${job.videoFilePath}`,
-    })
+    return sendOk(res, withPublicChatSendUrls(req, job))
   } catch (error) {
     return sendError(res, 400, error instanceof Error ? error.message : 'Gagal menyiapkan kirim chat Shopee.')
   }
@@ -1145,10 +1153,7 @@ app.post('/api/chat-sends/auto-prepare-ready', requireSessionOrExtensionKey, asy
 
     return sendOk(res, {
       ...result,
-      created: result.created.map((job) => ({
-        ...job,
-        videoUrl: `${getPublicApiBaseUrl(req)}/files/${job.videoFilePath}`,
-      })),
+      created: result.created.map((job) => withPublicChatSendUrls(req, job)),
     })
   } catch (error) {
     return sendError(res, 400, error instanceof Error ? error.message : 'Gagal menyiapkan chat video otomatis.')

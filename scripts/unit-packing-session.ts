@@ -118,6 +118,11 @@ test('reopenPackingSession menolak sesi yang sudah diakhiri', () => {
     createdBySessionId: 'device-session-1',
   })
   assert.ok(saniSession)
+  // seed 1 paket agar bisa ditutup (guard 0 paket)
+  const now = new Date().toISOString()
+  const resi = `RESI-${Math.random().toString(36).slice(2,6).toUpperCase()}`
+  database.prepare(`INSERT INTO recordings (id, resi_number, task_type, operator_name, operator_code, file_name, file_path, media_type, file_size_bytes, record_date, start_time, end_time, duration_seconds, status, packing_session_id, packer_operator_name, packer_operator_code, packing_pay_amount, packing_pay_status, created_at, updated_at) VALUES (?, ?, 'qc', 'sani', 'PK01', 'qc.mp4', 'qc.mp4', 'video', 100, ?, ?, ?, 5, 'completed', null, 'sani', 'PK01', 1500, 'calculated', ?, ?)`).run(`qc-${Date.now()}`, resi, now.slice(0,10), now, now, now, now)
+  database.prepare(`INSERT INTO recordings (id, resi_number, task_type, operator_name, operator_code, file_name, file_path, media_type, file_size_bytes, record_date, start_time, end_time, duration_seconds, status, packing_session_id, packer_operator_name, packer_operator_code, packing_pay_amount, packing_pay_status, created_at, updated_at) VALUES (?, ?, 'packing', 'sani', 'PK01', 'pack.mp4', 'pack.mp4', 'video', 100, ?, ?, ?, 5, 'completed', ?, 'sani', 'PK01', 1500, 'calculated', ?, ?)`).run(`pack-${Date.now()}`, resi, now.slice(0,10), now, now, saniSession.id, now, now)
   closePackingSession(saniSession.id)
 
   assert.throws(() => reopenPackingSession({

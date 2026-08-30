@@ -188,6 +188,12 @@ export type RecordingChatSend = {
   taskType: WorkTask
   videoFilePath: string
   videoUrl?: string
+  attachments?: Array<{
+    fileName: string
+    filePath: string
+    fileUrl?: string
+    mimeType: string
+  }>
   status: ChatSendStatus
   attempts: number
   messageTemplate: string | null

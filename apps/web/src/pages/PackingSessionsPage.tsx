@@ -11,6 +11,7 @@ import { closePackingSessionApi, createPackingPaymentApi, readPackingPaymentsApi
 import type { PackingPayment, PackingWorkSession } from '@pakti/types'
 import { downloadTextFile } from '@pakti/shared'
 import { recordsToCsv } from '@pakti/shared/exporters'
+import { navigateTo } from '../app/uiState'
 
 export function PackingSessionsPage() {
   const [sessions, setSessions] = useState<PackingWorkSession[]>([])
@@ -20,6 +21,7 @@ export function PackingSessionsPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'closed' | 'cancelled'>('all')
   const [packerFilter, setPackerFilter] = useState<string>('all')
   const [paidFilter, setPaidFilter] = useState<'all' | 'unpaid' | 'paid'>('all')
+  const [showStaleOnly, setShowStaleOnly] = useState(false)
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(() => new Set())
   const [selected, setSelected] = useState<PackingWorkSession | null>(null)
   const [records, setRecords] = useState<Awaited<ReturnType<typeof readServerHistoryRecordingsApi>>['records']>([])
@@ -86,9 +88,11 @@ export function PackingSessionsPage() {
       const matchesPacker = packerFilter === 'all' || `${s.packerOperatorName}::${s.packerOperatorCode}` === packerFilter
       const isPaid = Boolean(s.paidAt)
       const matchesPaid = paidFilter === 'all' || (paidFilter === 'paid' ? isPaid : !isPaid)
-      return matchesSearch && matchesStatus && matchesPacker && matchesPaid
+      const isStale = s.status === 'active' && !s.createdBySessionId
+      const matchesStale = !showStaleOnly || isStale
+      return matchesSearch && matchesStatus && matchesPacker && matchesPaid && matchesStale
     })
-  }, [sessions, search, statusFilter, packerFilter, paidFilter])
+  }, [sessions, search, statusFilter, packerFilter, paidFilter, showStaleOnly])
 
   const totals = useMemo(() => {
     const selectedSessions = selectedSessionIds.size > 0
@@ -580,8 +584,9 @@ export function PackingSessionsPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Filter</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-2 pt-2 sm:grid-cols-2 lg:grid-cols-[1fr_190px_150px_140px_auto]">
-            <Input placeholder="Cari packer / kode / ID sesi..." value={search} onChange={(e) => setSearch(e.target.value)} className="history-opencode__input h-8" />
+          <CardContent className="grid gap-2 pt-2">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_190px_150px_140px_auto]">
+              <Input placeholder="Cari packer / kode / ID sesi..." value={search} onChange={(e) => setSearch(e.target.value)} className="history-opencode__input h-8" />
             <Select value={packerFilter} onValueChange={(v) => setPackerFilter(v)}>
               <SelectTrigger className="history-opencode__select h-8">
                 <SelectValue placeholder="Petugas" />
@@ -614,10 +619,15 @@ export function PackingSessionsPage() {
                 <SelectItem value="cancelled">cancelled</SelectItem>
               </SelectContent>
             </Select>
-            <Button type="button" variant="outline" size="sm" className="history-opencode__button h-8" onClick={() => { setSearch(''); setStatusFilter('all'); setPackerFilter('all'); setPaidFilter('all') }}>
+            <Button type="button" variant="outline" size="sm" className="history-opencode__button h-8" onClick={() => { setSearch(''); setStatusFilter('all'); setPackerFilter('all'); setPaidFilter('all'); setShowStaleOnly(false) }}>
               [reset]
             </Button>
-          </CardContent>
+            </div>
+          <label className="flex items-center gap-2 text-xs">
+            <input type="checkbox" checked={showStaleOnly} onChange={(e) => setShowStaleOnly(e.target.checked)} className="size-4 rounded border-input" />
+            <span>Hanya menggantung (active tanpa device) — {sessions.filter((s) => s.status === 'active' && !s.createdBySessionId).length} sesi</span>
+          </label>
+        </CardContent>
         </Card>
       </div>
 
@@ -706,7 +716,7 @@ export function PackingSessionsPage() {
                           <span className="font-mono text-xs text-muted-foreground">{s.packerCodeSnapshot} · {s.id.slice(0, 8)}</span>
                         </div>
                       </td>
-                      <td className="px-2 py-2 text-xs">[{s.status}]</td>
+                      <td className="px-2 py-2 text-xs">[{s.status}]{s.status === 'active' && !s.createdBySessionId ? <span className="ml-1 rounded bg-amber-500/15 px-1 py-0.5 text-[10px] font-medium text-amber-700">menggantung</span> : null}</td>
                       <td className="px-2 py-2">{s.paidAt ? <span className="rounded bg-foreground px-1.5 py-0.5 text-[11px] font-medium text-background">[dibayar]</span> : <span className="rounded border bg-white px-1.5 py-0.5 text-[11px]">[belum]</span>}</td>
                       <td className="px-2 py-2 text-right text-sm tabular-nums">{s.completedPackingCount}</td>
                       <td className="px-3 py-2 text-right font-mono text-sm tabular-nums">{formatCurrency(s.totalPayAmount)}</td>
@@ -723,6 +733,9 @@ export function PackingSessionsPage() {
                       </td>
                       <td className="px-3 py-2 text-right">
                         <div className="flex justify-end gap-1">
+                          <Button type="button" variant="outline" size="sm" className="history-opencode__button h-7" onClick={() => { window.sessionStorage.setItem('pakti.historyPackingSessionId', s.id); navigateTo('history') }}>
+                            [history]
+                          </Button>
                           <Button type="button" variant="outline" size="sm" className="history-opencode__button h-7" onClick={() => void handleOpenDetail(s)}>
                             [detail]
                           </Button>

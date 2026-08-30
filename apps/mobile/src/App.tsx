@@ -721,7 +721,14 @@ function App() {
       .then((sends) => {
         if (cancelled) return
         const map = new Map<string, import('@pakti/types').RecordingChatSend>()
-        for (const s of sends) map.set(s.recordingId, s)
+        for (const s of sends) {
+          map.set(s.recordingId, s)
+          for (const record of recordings) {
+            if (record.resiNumber.trim().toLowerCase() === s.resiNumber.trim().toLowerCase()) {
+              map.set(record.id, s)
+            }
+          }
+        }
         setChatSendByRecordingId(map)
       })
       .catch(() => {
@@ -879,9 +886,25 @@ function App() {
 
     setPreparingChatSendId(record.id)
     try {
-      const job = await prepareShopeeChatSendApi(record.id)
+      let job: import('@pakti/types').RecordingChatSend
+      try {
+        job = await prepareShopeeChatSendApi(record.id)
+      } catch (error) {
+        const message = normalizeError(error)
+        if (!message.includes('Isi username pembeli Shopee')) {
+          throw error
+        }
+        const buyerUsername = typeof window !== 'undefined'
+          ? window.prompt(`Order ${record.resiNumber} belum ada/username kosong di Pakti. Isi username pembeli Shopee untuk kirim manual:`)?.trim()
+          : ''
+        if (!buyerUsername) {
+          throw error
+        }
+        job = await prepareShopeeChatSendApi(record.id, null, { buyerUsername })
+      }
       setChatSendByRecordingId((prev) => {
         const next = new Map(prev)
+        next.set(job.recordingId, job)
         next.set(record.id, job)
         return next
       })

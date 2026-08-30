@@ -159,6 +159,10 @@ export function createPackingPayment(input: {
   const totalPackages = validSessions.reduce((acc, s) => acc + (s.completedPackingCount ?? 0), 0)
   const totalAmount = validSessions.reduce((acc, s) => acc + (s.totalPayAmount ?? 0), 0)
 
+  if (totalPackages === 0) {
+    throw new Error('Tidak bisa bayar sesi kosong (0 paket). Sesi harus punya minimal 1 paket completed.')
+  }
+
   const paymentMethod = normalizePaymentMethod(input.paymentMethod)
   const note = typeof input.note === 'string' ? input.note.trim() || null : null
   const timestamp = nowIso()
