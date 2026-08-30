@@ -46,16 +46,18 @@ export function AdminPage() {
   useEffect(() => {
     let active = true
 
-    void loadAdminData()
-      .catch(() => {
-        if (!active) return
-        setAdminStatus(null)
-        setError('Sesi login diperlukan atau server belum aktif, panel admin memakai mode terbatas.')
-        setMessage('Sesi login diperlukan atau server belum aktif, panel admin memakai mode terbatas.')
-      })
-      .finally(() => {
-        if (active) setLoading(false)
-      })
+    queueMicrotask(() => {
+      void loadAdminData()
+        .catch(() => {
+          if (!active) return
+          setAdminStatus(null)
+          setError('Sesi login diperlukan atau server belum aktif, panel admin memakai mode terbatas.')
+          setMessage('Sesi login diperlukan atau server belum aktif, panel admin memakai mode terbatas.')
+        })
+        .finally(() => {
+          if (active) setLoading(false)
+        })
+    })
 
     void Promise.all([readPackingSessionsApi(20).catch(() => []), readPackingPayRulesApi().catch(() => [])]).then(([sessions, rules]) => {
       if (!active) return

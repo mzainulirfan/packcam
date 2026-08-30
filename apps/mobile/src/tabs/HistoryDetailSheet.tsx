@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Copy01Icon, SentIcon, Share08Icon, TrashIcon } from '@hugeicons/core-free-icons'
+import { Cancel01Icon, Copy01Icon, SentIcon, Share08Icon, TrashIcon } from '@hugeicons/core-free-icons'
 import { buildServerFileUrl } from '@pakti/api-client'
 import type { RecordingRow, WorkTask } from '@pakti/types'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -40,6 +41,64 @@ type HistoryDetailSheetProps = {
   onDeleteClick: (record: RecordingRow) => void
 }
 
+function isPhotoRecord(record: RecordingRow) {
+  const mediaType = (record as unknown as { mediaType?: string }).mediaType
+  if (mediaType === 'photo') return true
+  const fileName = ((record as unknown as { fileName?: string | null }).fileName ?? record.filePath ?? '').toLowerCase()
+  return /\.(jpe?g|png|webp)$/.test(fileName)
+}
+
+function AuthenticatedImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
+  const [objectUrl, setObjectUrl] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [directFailed, setDirectFailed] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    let nextObjectUrl: string | null = null
+
+    queueMicrotask(() => {
+      if (cancelled) return
+      setObjectUrl(null)
+      setError(null)
+      setDirectFailed(false)
+    })
+
+    fetch(src, { credentials: 'include' })
+      .then((response) => {
+        if (!response.ok) throw new Error(`Gagal membuka foto (${response.status}).`)
+        return response.blob()
+      })
+      .then((blob) => {
+        if (cancelled) return
+        nextObjectUrl = URL.createObjectURL(blob)
+        setObjectUrl(nextObjectUrl)
+      })
+      .catch((fetchError) => {
+        if (!cancelled) setError(fetchError instanceof Error ? fetchError.message : 'Gagal membuka foto.')
+      })
+
+    return () => {
+      cancelled = true
+      if (nextObjectUrl) URL.revokeObjectURL(nextObjectUrl)
+    }
+  }, [src])
+
+  if (error) {
+    return directFailed ? (
+      <div className="grid min-h-[180px] place-items-center bg-black px-4 text-center text-xs text-white/70">{error}</div>
+    ) : (
+      <img className={className} src={src} alt={alt} onError={() => setDirectFailed(true)} />
+    )
+  }
+
+  if (!objectUrl) {
+    return <div className="grid min-h-[180px] place-items-center bg-black text-xs text-white/70">Membuka foto...</div>
+  }
+
+  return <img className={className} src={objectUrl} alt={alt} />
+}
+
 export function HistoryDetailSheet({
   target,
   sharingRecordId,
@@ -49,7 +108,6 @@ export function HistoryDetailSheet({
   shareProgressByRecordingId,
   sharePreparationErrors,
   queuedShareFileIds,
-  preparedShareFileIds,
   chatSendByRecordingId,
   formatDateTime,
   formatTask,
@@ -58,7 +116,6 @@ export function HistoryDetailSheet({
   getGroupShareStatusClassName,
   getShareStatusClassName,
   getShareStatusLabel,
-  getShareStatusDescription,
   onOpenChange,
   onCopyResi,
   onShareRecording,
@@ -78,157 +135,153 @@ export function HistoryDetailSheet({
 
   return (
     <Sheet open onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="w-full rounded-t-[4px] border-border bg-popover p-0" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-        <SheetHeader className="border-b border-[var(--op-hairline)] px-4 pb-3 pt-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 text-left">
-              <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--op-mute)]">Detail resi</p>
-              <SheetTitle className="mt-1 truncate text-left text-[18px] leading-none">{target.resiNumber}</SheetTitle>
+      <SheetContent side="bottom" showCloseButton={false} className="w-full rounded-t-[4px] border-border bg-popover p-0" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+        <SheetHeader className="border-b border-[var(--op-hairline)] px-4 pb-3 pt-4">
+          <div className="grid gap-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 text-left">
+                <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--op-mute)]">Detail resi</p>
+                <SheetTitle className="mt-1 truncate text-left text-[18px] leading-none">{target.resiNumber}</SheetTitle>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  className="grid h-9 w-9 place-items-center rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] text-[var(--op-ink)] hover:bg-[var(--op-surface-soft)]"
+                  onClick={() => onCopyResi(target.resiNumber)}
+                  aria-label="Salin nomor resi"
+                >
+                  <HugeiconsIcon icon={Copy01Icon} size={16} />
+                </button>
+                <button
+                  type="button"
+                  className="grid h-9 w-9 place-items-center rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] text-[var(--op-ink)] hover:bg-[var(--op-surface-soft)]"
+                  onClick={() => onOpenChange(false)}
+                  aria-label="Tutup detail rekaman"
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} size={16} />
+                </button>
+              </div>
             </div>
-            <span className={groupSharePreparing
-              ? 'rounded-[4px] border border-[var(--op-warning,#ff9f0a)] bg-[var(--op-warning,#ff9f0a)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--op-warning,#ff9f0a)] animate-pulse'
-              : groupShareFailed
-                ? 'rounded-[4px] border border-destructive/50 px-2 py-0.5 text-[11px] text-destructive'
-              : groupShareQueued
-                ? 'rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-2 py-0.5 text-[11px] text-[var(--op-mute)]'
-                : getGroupShareStatusClassName(groupShareStatus.ready)}>
-              {groupSharePreparing ? `Menyiapkan share ${groupShareProgress}%` : groupShareFailed ? 'Gagal menyiapkan' : groupShareQueued ? 'Antri share' : groupShareStatus.label}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={groupSharePreparing
+                ? 'rounded-[4px] border border-[var(--op-warning,#ff9f0a)] bg-[var(--op-warning,#ff9f0a)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--op-warning,#ff9f0a)] animate-pulse'
+                : groupShareFailed
+                  ? 'rounded-[4px] border border-destructive/50 px-2 py-0.5 text-[11px] text-destructive'
+                : groupShareQueued
+                  ? 'rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-2 py-0.5 text-[11px] text-[var(--op-mute)]'
+                  : getGroupShareStatusClassName(groupShareStatus.ready)}>
+                {groupSharePreparing ? `Menyiapkan share ${groupShareProgress}%` : groupShareFailed ? 'Gagal menyiapkan' : groupShareQueued ? 'Antri share' : groupShareStatus.label}
+              </span>
+              <span className="text-[12px] text-[var(--op-mute)]">{target.rows.length} dokumentasi tersimpan</span>
+            </div>
           </div>
-          <SheetDescription className="text-left text-[12px]">
-            {target.rows.length} dokumentasi tersimpan untuk resi ini.
-          </SheetDescription>
+          <SheetDescription className="sr-only">Detail dokumentasi untuk resi {target.resiNumber}.</SheetDescription>
         </SheetHeader>
         <div className="grid max-h-[76vh] gap-3 overflow-y-auto px-4 pb-6 pt-3">
-          {target.rows.map((record) => (
-            <article key={record.id} className="grid gap-3 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="grid min-w-0 gap-1">
+          {target.rows.map((record) => {
+            const chatSend = chatSendByRecordingId?.get(record.id)
+            const sharePreparing = preparingShareFileIds.has(record.id)
+            const shareFailed = sharePreparationErrors.has(record.id)
+            const shareQueued = queuedShareFileIds.has(record.id)
+            const shareLabel = sharePreparing
+              ? `Menyiapkan ${shareProgressByRecordingId.get(record.id) ?? 0}%`
+              : shareFailed
+                ? 'Gagal share'
+              : shareQueued
+                ? 'Antri share'
+                : getShareStatusLabel(record)
+            const canShare = record.status === 'completed' && Boolean(record.filePath)
+
+            return (
+              <article key={record.id} className="overflow-hidden rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)]">
+                {canShare ? (
+                  <div className="bg-black">
+                    {isPhotoRecord(record) ? (
+                      <AuthenticatedImage
+                        className="block max-h-[52vh] w-full bg-black object-contain"
+                        src={buildServerFileUrl(record.filePath)}
+                        alt={`Dokumentasi ${record.resiNumber}`}
+                      />
+                    ) : (
+                      <video
+                        className="block max-h-[52vh] w-full bg-black object-contain"
+                        src={buildServerFileUrl(record.filePath)}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        crossOrigin="use-credentials"
+                      />
+                    )}
+                  </div>
+                ) : null}
+
+                <div className="grid gap-3 p-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-[4px] bg-[var(--op-ink)] px-2 py-0.5 text-[12px] font-medium text-[var(--op-canvas)]">
-                      {formatTask(record.taskType)}
+                      {formatTask(record.taskType)} {isPhotoRecord(record) ? 'foto' : 'video'}
                     </span>
                     <span className={record.status === 'completed' ? 'text-[12px] font-medium' : 'text-[12px] text-[var(--op-mute)]'}>
                       {formatStatus(record.status)}
                     </span>
+                    <span className={sharePreparing
+                      ? 'rounded-[4px] border border-[var(--op-warning,#ff9f0a)] bg-[var(--op-warning,#ff9f0a)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--op-warning,#ff9f0a)] animate-pulse'
+                      : shareFailed
+                        ? 'rounded-[4px] border border-destructive/50 px-2 py-0.5 text-[11px] text-destructive'
+                      : shareQueued
+                        ? 'rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-2 py-0.5 text-[11px] text-[var(--op-mute)]'
+                        : getShareStatusClassName(record)}>
+                      {shareLabel}
+                    </span>
                   </div>
-                  <span className="text-[12px] leading-snug text-[var(--op-mute)]">
-                    {formatDateTime(record.updatedAt)} · oleh {record.operatorName || '-'}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className="grid h-9 w-10 shrink-0 place-items-center rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] text-[var(--op-ink)] hover:bg-[var(--op-surface-soft)]"
-                  onClick={() => onCopyResi(record.resiNumber)}
-                  aria-label="Salin nomor resi"
-                >
-                  <HugeiconsIcon icon={Copy01Icon} size={14} />
-                </button>
-              </div>
 
-              {record.status === 'completed' && record.filePath ? (
-                <div className="overflow-hidden rounded-[4px] border border-[var(--op-hairline)] bg-black">
-                  <video
-                    className="block max-h-[44vh] w-full bg-black object-contain"
-                    src={buildServerFileUrl(record.filePath)}
-                    controls
-                    playsInline
-                    preload="metadata"
-                    crossOrigin="use-credentials"
-                  />
-                </div>
-              ) : null}
+                  <p className="m-0 text-[12px] leading-snug text-[var(--op-mute)]">
+                    {formatDateTime(record.updatedAt)} · {record.operatorName || '-'}
+                    {chatSend ? ` · ${chatSend.status === 'sent' ? 'Shopee terkirim' : chatSend.status === 'prepared' ? 'Shopee siap' : `Shopee ${chatSend.status}`}` : ''}
+                  </p>
 
-              <div className="grid gap-1 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className={preparingShareFileIds.has(record.id)
-                    ? 'rounded-[4px] border border-[var(--op-warning,#ff9f0a)] bg-[var(--op-warning,#ff9f0a)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--op-warning,#ff9f0a)] animate-pulse'
-                    : sharePreparationErrors.has(record.id)
-                      ? 'rounded-[4px] border border-destructive/50 px-2 py-0.5 text-[11px] text-destructive'
-                    : queuedShareFileIds.has(record.id)
-                      ? 'rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-2 py-0.5 text-[11px] text-[var(--op-mute)]'
-                      : getShareStatusClassName(record)}>
-                    {preparingShareFileIds.has(record.id)
-                      ? `Menyiapkan share ${shareProgressByRecordingId.get(record.id) ?? 0}%`
-                      : sharePreparationErrors.has(record.id)
-                        ? 'Gagal menyiapkan'
-                      : queuedShareFileIds.has(record.id)
-                        ? 'Antri share'
-                        : getShareStatusLabel(record)}
-                  </span>
-                </div>
-                <span className="text-[12px] leading-relaxed text-[var(--op-mute)]">
-                  {preparingShareFileIds.has(record.id)
-                    ? `Sedang membuat MP4 share di server (${shareProgressByRecordingId.get(record.id) ?? 0}%).`
-                    : sharePreparationErrors.has(record.id)
-                      ? `Gagal: ${sharePreparationErrors.get(record.id)}`
-                    : queuedShareFileIds.has(record.id)
-                      ? 'Menunggu proses recording sebelumnya selesai.'
-                      : getShareStatusDescription(record)}
-                </span>
-                {chatSendByRecordingId?.get(record.id) ? (
-                  <span className="text-[11px] font-medium text-[var(--op-ink)]">
-                    {(() => {
-                      const s = chatSendByRecordingId.get(record.id)!
-                      if (s.status === 'sent') return `✓ Terkirim ke ${s.buyerUsername}`
-                      if (s.status === 'prepared') return `~ Siap kirim ke ${s.buyerUsername}`
-                      if (s.status === 'pending') return `… Antri kirim ke ${s.buyerUsername}`
-                      return `! ${s.status} ke ${s.buyerUsername}`
-                    })()}
-                  </span>
-                ) : null}
-              </div>
+                  {shareFailed ? (
+                    <p className="m-0 rounded-[4px] border border-destructive/30 bg-destructive/5 px-2 py-2 text-[12px] text-destructive">
+                      {sharePreparationErrors.get(record.id)}
+                    </p>
+                  ) : null}
 
-              <div className="grid grid-cols-2 gap-2">
-                {record.status === 'completed' && record.filePath ? (
-                  <>
-                  <button
-                    type="button"
-                    className="flex h-10 items-center justify-center gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 text-sm font-medium hover:bg-[var(--op-surface-soft)] disabled:opacity-50"
-                    onClick={() => onShareRecording(record, 'native')}
-                    disabled={preparingShareFileIds.has(record.id) || deletingRecordId !== null}
-                  >
-                    <HugeiconsIcon icon={Share08Icon} size={14} />
-                    {preparingShareFileIds.has(record.id)
-                      ? 'Menyiapkan...'
-                      : sharePreparationErrors.has(record.id)
-                        ? 'Coba lagi'
-                      : record.shareFileReady || preparedShareFileIds.has(record.id)
-                        ? 'Bagikan'
-                        : 'Siapkan share'}
-                  </button>
+                  <div className="grid grid-cols-3 gap-2">
+                    {canShare ? (
+                      <>
+                        <button
+                          type="button"
+                          className="flex h-10 items-center justify-center gap-1.5 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-2 text-[12px] font-medium hover:bg-[var(--op-surface-soft)] disabled:opacity-50"
+                          onClick={() => onShareRecording(record, 'native')}
+                          disabled={sharePreparing || deletingRecordId !== null}
+                        >
+                          <HugeiconsIcon icon={Share08Icon} size={14} />
+                          Share
+                        </button>
+                        <button
+                          type="button"
+                          className="flex h-10 items-center justify-center gap-1.5 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-2 text-[12px] font-medium hover:bg-[var(--op-surface-soft)] disabled:opacity-50"
+                          onClick={() => onPrepareShopeeChat(record)}
+                          disabled={preparingChatSendId === record.id || sharingRecordId !== null || deletingRecordId !== null}
+                        >
+                          <HugeiconsIcon icon={SentIcon} size={14} />
+                          Shopee
+                        </button>
+                      </>
+                    ) : null}
                     <button
                       type="button"
-                      className="flex h-10 items-center justify-center gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 text-sm font-medium hover:bg-[var(--op-surface-soft)] disabled:opacity-50"
-                      onClick={() => onShareRecording(record, 'whatsapp')}
-                      disabled={preparingShareFileIds.has(record.id) || deletingRecordId !== null}
+                      className={canShare ? 'flex h-10 items-center justify-center gap-1.5 rounded-[4px] border border-destructive/40 bg-transparent px-2 text-[12px] font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50' : 'col-span-3 flex h-10 items-center justify-center gap-1.5 rounded-[4px] border border-destructive/40 bg-transparent px-2 text-[12px] font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50'}
+                      onClick={() => onDeleteClick(record)}
+                      disabled={deletingRecordId !== null || sharingRecordId !== null}
                     >
-                      <HugeiconsIcon icon={SentIcon} size={14} />
-                      WhatsApp
+                      <HugeiconsIcon icon={TrashIcon} size={14} />
+                      Hapus
                     </button>
-                    <button
-                      type="button"
-                      className="col-span-2 flex h-10 items-center justify-center gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 text-sm font-medium hover:bg-[var(--op-surface-soft)] disabled:opacity-50"
-                      onClick={() => onPrepareShopeeChat(record)}
-                      disabled={preparingChatSendId === record.id || sharingRecordId !== null || deletingRecordId !== null}
-                    >
-                      <HugeiconsIcon icon={SentIcon} size={14} />
-                      {preparingChatSendId === record.id ? 'Menyiapkan Shopee...' : 'Shopee Chat'}
-                    </button>
-                  </>
-                ) : null}
-                <button
-                  type="button"
-                  className="col-span-2 flex h-10 items-center justify-center gap-2 rounded-[4px] border border-destructive/40 bg-transparent px-3 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
-                  onClick={() => onDeleteClick(record)}
-                  disabled={deletingRecordId !== null || sharingRecordId !== null}
-                >
-                  <HugeiconsIcon icon={TrashIcon} size={14} />
-                  Hapus dokumentasi
-                </button>
-              </div>
-            </article>
-          ))}
+                  </div>
+                </div>
+              </article>
+            )
+          })}
         </div>
       </SheetContent>
     </Sheet>

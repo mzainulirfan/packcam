@@ -59,6 +59,8 @@ export function getShareStatusLabel(record: RecordingRow) {
     return 'Belum selesai'
   }
 
+  if (record.mediaType === 'photo') return 'Share siap'
+
   return record.shareFileReady ? 'Share siap' : 'Menyiapkan share'
 }
 
@@ -66,6 +68,8 @@ export function getShareStatusDescription(record: RecordingRow) {
   if (record.status !== 'completed' || !record.filePath) {
     return 'Selesaikan rekaman dulu untuk share.'
   }
+
+  if (record.mediaType === 'photo') return 'File siap dibagikan.'
 
   return record.shareFileReady
     ? 'File siap dibagikan.'
@@ -78,7 +82,7 @@ export function getGroupShareStatus(rows: RecordingRow[]) {
     return { label: 'Belum selesai', ready: false }
   }
 
-  return completedRows.every((record) => record.shareFileReady)
+  return completedRows.every((record) => record.mediaType === 'photo' || record.shareFileReady)
     ? { label: 'Share siap', ready: true }
     : { label: 'Menyiapkan share', ready: false }
 }
@@ -119,7 +123,7 @@ export function getShareStatusClassName(record: RecordingRow) {
     return 'rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-2 py-0.5 text-[11px] text-[var(--op-mute)]'
   }
 
-  return record.shareFileReady
+  return record.mediaType === 'photo' || record.shareFileReady
     ? 'rounded-[4px] bg-[var(--op-ink)] px-2 py-0.5 text-[11px] font-medium text-[var(--op-canvas)]'
     : 'rounded-[4px] border border-[var(--op-warning,#ff9f0a)] px-2 py-0.5 text-[11px] text-[var(--op-warning,#ff9f0a)]'
 }

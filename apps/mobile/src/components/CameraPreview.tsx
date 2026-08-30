@@ -55,7 +55,7 @@ export function CameraPreview({
         className="block h-full w-full object-cover"
       />
       {bottomSlot ? <div className="absolute left-3 right-3 bottom-3 z-10">{bottomSlot}</div> : null}
-      {centerSlot ? <div className="absolute inset-x-2 top-10 bottom-24 z-0 flex items-center justify-center px-2 pointer-events-none">{centerSlot}</div> : null}
+      {centerSlot ? <div className="absolute inset-x-2 top-10 bottom-24 z-0 flex items-center justify-center px-2">{centerSlot}</div> : null}
       {isLoading ? <Overlay tone="default">Mengaktifkan kamera...</Overlay> : null}
       {!isLoading && !stream && !error ? <Overlay tone="default">{emptyMessage}</Overlay> : null}
       {error ? <Overlay tone="error">{error}</Overlay> : null}

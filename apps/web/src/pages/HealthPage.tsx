@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
@@ -47,39 +47,48 @@ export function HealthPage() {
   const [message, setMessage] = useState('Memuat ringkasan server...')
   const [activeModal, setActiveModal] = useState<ModalState>(null)
 
-  async function loadHealthSnapshot(successMessage = 'Ringkasan server dimuat.') {
+  const loadHealthSnapshot = useCallback(async (successMessage = 'Ringkasan server dimuat.') => {
     const snapshot = await readServerHealthApi()
     setServerHealth(snapshot as ServerHealthSnapshot)
     setMessage(successMessage)
-  }
+  }, [])
+
+  const refreshHealth = useCallback(async () => {
+    setLoading(true)
+    try {
+      await loadHealthSnapshot()
+    } catch {
+      setServerHealth(null)
+      setMessage('Sesi login diperlukan atau server belum aktif. Ringkasan data belum bisa dimuat.')
+    } finally {
+      setLoading(false)
+    }
+  }, [loadHealthSnapshot])
 
   useEffect(() => {
     let active = true
 
-    void loadHealthSnapshot()
-      .then(() => {
-        if (!active) {
-          return
-        }
-      })
-      .catch(() => {
-        if (!active) {
-          return
-        }
+    queueMicrotask(() => {
+      void loadHealthSnapshot()
+        .catch(() => {
+          if (!active) {
+            return
+          }
 
-        setServerHealth(null)
-        setMessage('Sesi login diperlukan atau server belum aktif. Ringkasan data belum bisa dimuat.')
-      })
-      .finally(() => {
-        if (active) {
-          setLoading(false)
-        }
-      })
+          setServerHealth(null)
+          setMessage('Sesi login diperlukan atau server belum aktif. Ringkasan data belum bisa dimuat.')
+        })
+        .finally(() => {
+          if (active) {
+            setLoading(false)
+          }
+        })
+    })
 
     return () => {
       active = false
     }
-  }, [])
+  }, [loadHealthSnapshot])
 
   useEffect(() => {
     function handleRealtimeHealthUpdate() {
@@ -107,19 +116,7 @@ export function HealthPage() {
         window.removeEventListener(eventName, handleRealtimeHealthUpdate)
       }
     }
-  }, [])
-
-  async function refreshHealth() {
-    setLoading(true)
-    try {
-      await loadHealthSnapshot()
-    } catch {
-      setServerHealth(null)
-      setMessage('Sesi login diperlukan atau server belum aktif. Ringkasan data belum bisa dimuat.')
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [refreshHealth])
 
   async function handleClearScanData() {
     setLoading(true)

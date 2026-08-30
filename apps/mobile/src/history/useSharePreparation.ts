@@ -15,6 +15,12 @@ type ShareFileInfo = {
   mimeType: string
 }
 
+function isPhotoRecord(record: RecordingRow) {
+  if (record.mediaType === 'photo') return true
+  const fileName = `${record.fileName ?? ''} ${record.filePath ?? ''}`.toLowerCase()
+  return /\.(jpe?g|png|webp)(?:\?|#|$)/.test(fileName)
+}
+
 type ScanNotice = {
   kind: 'success' | 'warning'
   title: string
@@ -89,7 +95,7 @@ export function useSharePreparation({
     }
 
     const pendingRecords = recordings
-      .filter((record) => record.status === 'completed' && Boolean(record.filePath) && !record.shareFileReady)
+      .filter((record) => record.status === 'completed' && Boolean(record.filePath) && !isPhotoRecord(record) && !record.shareFileReady)
     const activeRecords = pendingRecords.slice(0, 3)
 
     if (activeRecords.length === 0) {
@@ -148,7 +154,7 @@ export function useSharePreparation({
 
   const queuedShareFileIds = useMemo(() => new Set(
     recordings
-      .filter((record) => record.status === 'completed' && Boolean(record.filePath) && !record.shareFileReady)
+      .filter((record) => record.status === 'completed' && Boolean(record.filePath) && !isPhotoRecord(record) && !record.shareFileReady)
       .slice(3)
       .map((record) => record.id),
   ), [recordings])
@@ -160,7 +166,8 @@ export function useSharePreparation({
         return
       }
 
-      const shareText = `Video ${formatTask(record.taskType)} resi ${record.resiNumber}`
+      const mediaLabel = isPhotoRecord(record) ? 'Foto' : 'Video'
+      const shareText = `${mediaLabel} ${formatTask(record.taskType)} resi ${record.resiNumber}`
       setSharingRecordId(record.id)
       setPreparingShareFileIds((current) => new Set(current).add(record.id))
       setShareProgressByRecordingId((current) => new Map(current).set(record.id, 0))
@@ -174,7 +181,13 @@ export function useSharePreparation({
       try {
         let preparedFile = preparedShareFile
         if (!preparedFile) {
-          const shareFile = record.shareFileReady && record.shareFilePath && record.shareFileName
+          const shareFile = isPhotoRecord(record)
+            ? {
+                fileName: record.fileName,
+                filePath: record.filePath,
+                mimeType: record.shareFileMimeType ?? 'image/jpeg',
+              }
+            : record.shareFileReady && record.shareFilePath && record.shareFileName
             ? {
                 fileName: record.shareFileName,
                 filePath: record.shareFilePath,
@@ -186,17 +199,17 @@ export function useSharePreparation({
           const videoUrl = buildServerFileUrl(shareFile.filePath)
           const response = await fetch(videoUrl, { credentials: 'include' })
           if (!response.ok) {
-            throw new Error('Video belum bisa diambil untuk dibagikan.')
+            throw new Error(`${mediaLabel} belum bisa diambil untuk dibagikan.`)
           }
 
           const blob = await response.blob()
           const file = new File([blob], shareFile.fileName, {
-            type: shareFile.mimeType || blob.type || 'video/mp4',
+            type: shareFile.mimeType || blob.type || (isPhotoRecord(record) ? 'image/jpeg' : 'video/mp4'),
           })
           preparedFile = {
             fileName: shareFile.fileName,
             filePath: shareFile.filePath,
-            mimeType: shareFile.mimeType || blob.type || 'video/mp4',
+            mimeType: shareFile.mimeType || blob.type || (isPhotoRecord(record) ? 'image/jpeg' : 'video/mp4'),
             file,
           }
           preparedShareFilesRef.current.set(record.id, preparedFile)
@@ -220,14 +233,14 @@ export function useSharePreparation({
 
         if (!navigator.canShare?.(shareData)) {
           const targetName = target === 'whatsapp' ? 'WhatsApp' : 'aplikasi lain'
-          setBootError(`Browser ini belum mendukung share file video ke ${targetName}.`)
+          setBootError(`Browser ini belum mendukung share file ${mediaLabel.toLowerCase()} ke ${targetName}.`)
           return
         }
 
         await navigator.share(shareData)
         showScanNotice({
           kind: 'success',
-          title: 'Video siap dibagikan',
+          title: `${mediaLabel} siap dibagikan`,
           message: 'Ketuk Bagikan lagi untuk memilih aplikasi.',
         })
       } catch (error) {

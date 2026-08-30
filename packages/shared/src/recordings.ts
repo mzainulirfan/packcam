@@ -8,6 +8,7 @@ import {
   invalidateCompletedRecordingsForResiApi,
   recoverServerRecordingApi,
   finalizeServerRecordingApi,
+  reportServerLastErrorApi,
 } from '@pakti/api-client'
 
 export type LocalRecordingRecord = {
@@ -313,6 +314,8 @@ export function setRecordingError(id: string, message: string) {
     fileSizeBytes: next.fileSizeBytes ?? null,
     status: 'error',
     note: message,
+    mediaType: next.mediaType,
+    mimeType: next.mimeType,
     packingSessionId: next.packingSessionId,
   }).catch(() => undefined)
 
@@ -372,10 +375,9 @@ export async function recoverIncompleteRecordings() {
         status: 'completed',
       })
     } catch (error) {
-      updateRecording(record.id, {
-        status: 'error',
-        note: error instanceof Error ? error.message : 'Rekaman tidak selesai dan tidak bisa dipulihkan.',
-      })
+      const message = error instanceof Error ? error.message : 'Rekaman tidak selesai dan tidak bisa dipulihkan.'
+      setRecordingError(record.id, message)
+      void reportServerLastErrorApi(message).catch(() => undefined)
       results.push({
         id: record.id,
         message: `Rekaman ${record.resiNumber} belum bisa dipulihkan dari server.`,

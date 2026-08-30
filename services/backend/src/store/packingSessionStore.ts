@@ -18,6 +18,11 @@ type PackingWorkSessionRow = {
   status: PackingWorkSessionStatus
   note: string | null
   created_by_session_id: string | null
+  payment_id: string | null
+  paid_at: string | null
+  paid_amount: number | null
+  paid_by_operator_name: string | null
+  paid_by_operator_code: string | null
   created_at: string
   updated_at: string
   completed_packing_count: number | null
@@ -51,6 +56,11 @@ function mapPackingSession(row: PackingWorkSessionRow): PackingWorkSession {
     completedPackingCount: row.completed_packing_count ?? 0,
     totalPayAmount: row.total_pay_amount ?? 0,
     createdBySessionId: row.created_by_session_id,
+    paymentId: row.payment_id ?? null,
+    paidAt: row.paid_at ?? null,
+    paidAmount: row.paid_amount ?? null,
+    paidByOperatorName: row.paid_by_operator_name ?? null,
+    paidByOperatorCode: row.paid_by_operator_code ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -69,6 +79,11 @@ function selectPackingSessions(whereClause = '', args: unknown[] = []) {
        s.status,
        s.note,
        s.created_by_session_id,
+       s.payment_id,
+       s.paid_at,
+       s.paid_amount,
+       s.paid_by_operator_name,
+       s.paid_by_operator_code,
        s.created_at,
        s.updated_at,
        COUNT(r.id) AS completed_packing_count,
@@ -115,6 +130,7 @@ export function createPackingSession(input: {
   packerOperatorCode: string
   createdBySessionId?: string | null
   note?: string | null
+  releaseActive?: boolean
 }) {
   const packerOperatorName = input.packerOperatorName.trim()
   const packerOperatorCode = input.packerOperatorCode.trim()
@@ -130,7 +146,7 @@ export function createPackingSession(input: {
   if (input.createdBySessionId) {
     const existing = getActivePackingSession({ sessionId: input.createdBySessionId } as HttpSession)
     if (existing) {
-      throw new Error('Masih ada sesi packing aktif di device ini.')
+      releaseActivePackingSession(input.createdBySessionId)
     }
   }
 
@@ -170,6 +186,16 @@ export function createPackingSession(input: {
   return getPackingSessionById(id)
 }
 
+function releaseActivePackingSession(sessionId: string) {
+  const timestamp = nowIso()
+  db().prepare(
+    `UPDATE packing_work_sessions
+     SET created_by_session_id = NULL, updated_at = ?
+     WHERE status = 'active' AND created_by_session_id = ?`,
+  ).run(timestamp, sessionId)
+  broadcastBackendEvent('sessions-updated', { sessionId, action: 'packing-session-released' })
+}
+
 export function closePackingSession(id: string, note?: string | null) {
   const session = getPackingSessionById(id)
   if (!session) {
@@ -188,6 +214,48 @@ export function closePackingSession(id: string, note?: string | null) {
 
   broadcastBackendEvent('sessions-updated', { packingSessionId: id, action: 'packing-session-closed' })
   return getPackingSessionById(id)
+}
+
+export function reopenPackingSession(input: {
+  id: string
+  currentSession: HttpSession
+  releaseActive?: boolean
+}) {
+  const target = getPackingSessionById(input.id)
+  if (!target) {
+    throw new Error('Sesi packing tidak ditemukan.')
+  }
+
+  if (target.status !== 'active') {
+    throw new Error('Hanya sesi packing yang belum diakhiri yang bisa dilanjutkan.')
+  }
+
+  if (target.createdBySessionId === input.currentSession.sessionId) {
+    return target
+  }
+
+  if (target.createdBySessionId && target.createdBySessionId !== input.currentSession.sessionId && !input.releaseActive) {
+    throw new Error('Sesi packing ini masih terhubung ke sesi login lain. Pilih lagi untuk mengambil alih sesi.')
+  }
+
+  const active = getActivePackingSession(input.currentSession)
+  if (active && active.id !== target.id) {
+    if (!input.releaseActive) {
+      throw new Error('Masih ada sesi packing aktif. Lepas sesi aktif dulu atau aktifkan opsi releaseActive.')
+    }
+
+    releaseActivePackingSession(input.currentSession.sessionId)
+  }
+
+  const timestamp = nowIso()
+  db().prepare(
+    `UPDATE packing_work_sessions
+     SET created_by_session_id = ?, updated_at = ?
+     WHERE id = ?`,
+  ).run(input.currentSession.sessionId, timestamp, target.id)
+
+  broadcastBackendEvent('sessions-updated', { packingSessionId: target.id, action: 'packing-session-resumed' })
+  return getPackingSessionById(target.id)
 }
 
 export function assertActivePackingSession(id: string) {

@@ -1,4 +1,4 @@
-import type { AppSettings, OperatorProfile, OperatorRole, OperatorSession, PackingPayRule, PackingPayRuleMatchType, PackingPayType, PackingPayStatus, PackingWorkSession, RecordingChatSend, RecordingMediaType, RecordingRow, ScanLogRow, ShippingChatSend, ShopeeOrder, SystemConfig } from '@pakti/types'
+import type { AppSettings, OperatorProfile, OperatorRole, OperatorSession, PackingPayment, PackingPaymentMethod, PackingPayRule, PackingPayRuleMatchType, PackingPayType, PackingPayStatus, PackingWorkSession, RecordingChatSend, RecordingMediaType, RecordingRow, ScanLogRow, ShippingChatSend, ShopeeOrder, SystemConfig } from '@pakti/types'
 
 type ApiResponse<T> = {
   ok: boolean
@@ -392,7 +392,7 @@ export function readPackingSessionApi(id: string) {
   return requestApi<PackingWorkSession>(`/api/packing-sessions/${encodeURIComponent(id)}`)
 }
 
-export function createPackingSessionApi(payload: { packerOperatorName: string; packerOperatorCode: string; note?: string | null }) {
+export function createPackingSessionApi(payload: { packerOperatorName: string; packerOperatorCode: string; note?: string | null; releaseActive?: boolean }) {
   return requestApi<PackingWorkSession>('/api/packing-sessions', {
     method: 'POST',
     body: JSON.stringify(payload),
@@ -406,8 +406,30 @@ export function closePackingSessionApi(id: string, note?: string | null) {
   })
 }
 
+export function reopenPackingSessionApi(id: string, options: { releaseActive?: boolean } = {}) {
+  return requestApi<PackingWorkSession>(`/api/packing-sessions/${encodeURIComponent(id)}/reopen`, {
+    method: 'POST',
+    body: JSON.stringify({ releaseActive: options.releaseActive === true }),
+  })
+}
+
 export function readPackingSessionsApi(limit = 50) {
   return requestApi<PackingWorkSession[]>(`/api/packing-sessions?limit=${encodeURIComponent(String(limit))}`)
+}
+
+export function readPackingPaymentsApi(limit = 50) {
+  return requestApi<PackingPayment[]>(`/api/packing-payments?limit=${encodeURIComponent(String(limit))}`)
+}
+
+export function readPackingPaymentApi(id: string) {
+  return requestApi<PackingPayment>(`/api/packing-payments/${encodeURIComponent(id)}`)
+}
+
+export function createPackingPaymentApi(payload: { sessionIds: string[]; paymentMethod?: PackingPaymentMethod | string | null; note?: string | null }) {
+  return requestApi<PackingPayment>('/api/packing-payments', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
 }
 
 export function readPackingPayRulesApi() {

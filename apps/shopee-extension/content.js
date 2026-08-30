@@ -1019,15 +1019,22 @@ if (isShopeeWebchatPage()) {
       if (activeAutoJob) {
         // Jangan biarkan input sisa percobaan membuat retry berikutnya dianggap ketikan manual.
         clearSearchInput()
+        const stored = await readExtensionConfig().catch(() => null)
+        const errorMessage = error instanceof Error ? error.message : 'Extension gagal mengirim Shopee Webchat.'
         if (isBuyerNotFoundError(error)) {
-          const stored = await readExtensionConfig().catch(() => null)
           if (stored) {
             await requestPaktiApi(`/api/chat-sends/${encodeURIComponent(activeAutoJob.id)}/cancelled`, stored, {
               method: 'POST',
-              body: JSON.stringify({ error: error instanceof Error ? error.message : 'Percakapan Shopee tidak ditemukan.' }),
+              body: JSON.stringify({ error: errorMessage || 'Percakapan Shopee tidak ditemukan.' }),
             }).catch(() => undefined)
           }
           return
+        }
+        if (stored) {
+          await requestPaktiApi(`/api/chat-sends/${encodeURIComponent(activeAutoJob.id)}/failed`, stored, {
+            method: 'POST',
+            body: JSON.stringify({ error: errorMessage }),
+          }).catch(() => undefined)
         }
       }
       console.warn('[Pakti] autoRunPending gagal', error)

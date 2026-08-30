@@ -19,4 +19,9 @@ assert.equal(
   'Documents/Pakti/videos/qc_RESI_123_20260518_123456_789.mp4',
 )
 
+assert.equal(
+  buildDailyVideoPath({ videoRootPath: '', videoFormat: 'mp4' }, 'RESI/123', 'packing', startedAt, 'photo'),
+  'Documents/Pakti/photos/packing_RESI_123_20260518_123456_789.jpg',
+)
+
 console.log('Shared unit checks passed.')

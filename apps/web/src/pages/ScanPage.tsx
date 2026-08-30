@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { updateOperatorSessionTask, useOperatorSession } from '../app/operatorSession'
 import { BarcodeInput } from '../components/BarcodeInput'
@@ -342,7 +342,7 @@ export function ScanPage() {
     const [name, code] = selectedPackerKey.split('::')
     setPackingSessionLoading(true)
     try {
-      const session = await createPackingSessionApi({ packerOperatorName: name, packerOperatorCode: code })
+      const session = await createPackingSessionApi({ packerOperatorName: name, packerOperatorCode: code, releaseActive: true })
       setActivePackingSession(session)
       setScanAlert({ kind: 'success', message: `Sesi packing dimulai untuk ${session.packerNameSnapshot}.` })
       barcodeScanner.focusInput()
@@ -384,10 +384,9 @@ export function ScanPage() {
     }
     setPackingSessionLoading(true)
     try {
-      await closePackingSessionApi(activePackingSession.id)
-      const next = await createPackingSessionApi({ packerOperatorName: name, packerOperatorCode: code })
+      const next = await createPackingSessionApi({ packerOperatorName: name, packerOperatorCode: code, releaseActive: true })
       setActivePackingSession(next)
-      setScanAlert({ kind: 'success', message: `Sesi diganti ke ${next.packerNameSnapshot} (${next.packerCodeSnapshot}) — tanpa akhiri manual 2 langkah.` })
+      setScanAlert({ kind: 'success', message: `Sesi diganti ke ${next.packerNameSnapshot} (${next.packerCodeSnapshot}); sesi lama belum diakhiri.` })
     } catch (e) {
       setScanAlert({ kind: 'error', message: e instanceof Error ? e.message : 'Gagal ganti sesi.' })
     } finally {
@@ -402,7 +401,7 @@ export function ScanPage() {
     })
   }
 
-  async function stagePhotoCapture(overrideResi?: string) {
+  const stagePhotoCapture = useCallback(async (overrideResi?: string) => {
     const resi = (overrideResi ?? currentProcessingResiRef.current ?? barcodeScanner.value).trim()
     if (!resi) {
       setScanAlert({ kind: 'error', message: 'Scan resi dulu sebelum capture foto.' })
@@ -443,7 +442,7 @@ export function ScanPage() {
     } finally {
       setPackingCaptureLoading(false)
     }
-  }
+  }, [activePackingSession, barcodeScanner.value, lastPhotoId, lastPhotoResi])
 
   async function confirmPhotoStaging() {
     if (!photoStaging || !activePackingSession) return
@@ -513,29 +512,31 @@ export function ScanPage() {
 
   useEffect(() => {
     if (!isPackingTask || !currentProcessingResi?.trim()) {
-      setPackingPreview(null)
+      queueMicrotask(() => setPackingPreview(null))
       return
     }
     const resi = currentProcessingResi.trim()
-    setPackingPreviewLoading(true)
-    void readPackingPreviewByResiApi(resi)
-      .then((preview) => setPackingPreview(preview as unknown as typeof packingPreview))
-      .catch(() => setPackingPreview(null))
-      .finally(() => setPackingPreviewLoading(false))
+    queueMicrotask(() => {
+      setPackingPreviewLoading(true)
+      void readPackingPreviewByResiApi(resi)
+        .then((preview) => setPackingPreview(preview as unknown as typeof packingPreview))
+        .catch(() => setPackingPreview(null))
+        .finally(() => setPackingPreviewLoading(false))
+    })
   }, [currentProcessingResi, isPackingTask])
 
   useEffect(() => () => { if (photoStaging?.previewUrl) URL.revokeObjectURL(photoStaging.previewUrl) }, [photoStaging])
 
   // Otomatis stage foto ketika scan berhasil di mode foto, tetap sediakan opsi manual & foto ulang
   useEffect(() => {
-    if (skipAutoPhoto) { setSkipAutoPhoto(false); return }
+    if (skipAutoPhoto) { queueMicrotask(() => setSkipAutoPhoto(false)); return }
     if (!isPackingTask || packingMediaType !== 'photo' || !currentProcessingResi?.trim() || packingCaptureLoading || !activePackingSession || !cameraVideoRef.current || photoStaging || lastPhotoResi === currentProcessingResi.trim()) return
     const resi = currentProcessingResi.trim()
     const timer = window.setTimeout(() => {
       void stagePhotoCapture(resi)
     }, 450)
     return () => window.clearTimeout(timer)
-  }, [currentProcessingResi, isPackingTask, packingMediaType, packingCaptureLoading, activePackingSession, lastPhotoResi, photoStaging, skipAutoPhoto])
+  }, [currentProcessingResi, isPackingTask, packingMediaType, packingCaptureLoading, activePackingSession, lastPhotoResi, photoStaging, skipAutoPhoto, stagePhotoCapture])
 
   useEffect(() => {
     let active = true
@@ -938,6 +939,20 @@ export function ScanPage() {
               emptyMessage="Pilih kamera untuk memulai preview."
               topSlot={
                 <div className="scan-opencode__camera-hud grid gap-2 px-3 py-2">
+                  {isPhotoPackingMode ? (
+                    <div className="flex items-center justify-between gap-2 rounded-[4px] bg-black/60 backdrop-blur px-2.5 py-1.5">
+                      <button type="button" onClick={() => { if (activePackingSession) { const el=document.getElementById('web-packing-switch'); el?.focus(); (el as unknown as {showPicker?:()=>void})?.showPicker?.() } }} disabled={!activePackingSession} className="grid gap-0.5 text-left flex-1">
+                        <span className="text-[11px] font-bold tracking-wide text-white">[ Sesi Packing ]{activePackingSession ? ' — tap untuk ganti' : ''}</span>
+                        <span className="text-[13px] font-bold text-white">{activePackingSession ? activePackingSession.packerNameSnapshot : 'Mulai sesi'}</span>
+                        <span className="text-[11px] text-white/80">{activePackingSession ? `${activePackingSession.completedPackingCount} paket · ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(activePackingSession.totalPayAmount)}` : 'Tap untuk mulai sesi'}</span>
+                      </button>
+                      {activePackingSession ? (
+                        <Button type="button" variant="outline" size="xs" className="h-7 shrink-0 rounded-[4px] border-white bg-black/40 px-2.5 text-xs font-medium text-white backdrop-blur" disabled={packingSessionLoading} onClick={() => void handleClosePackingSession()}>
+                          Akhiri
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <div className="flex items-center gap-2">
                     <span>
                       [+] Countdown
@@ -1032,7 +1047,7 @@ export function ScanPage() {
                       <button
                         type="button"
                         onClick={() => void stagePhotoCapture()}
-                        disabled={packingCaptureLoading || !currentProcessingResi || !cameraVideoRef.current}
+                        disabled={packingCaptureLoading || !currentProcessingResi || !recordingStream}
                         className="group grid h-[72px] w-[72px] place-items-center rounded-full border-4 border-white bg-white/10 shadow-[0_0_0_4px_rgba(0,0,0,0.2)] backdrop-blur transition hover:bg-white/20 disabled:opacity-40"
                         aria-label="Ambil foto manual"
                       >
@@ -1204,4 +1219,3 @@ function InfoPair({ label, value }: { label: string; value: string }) {
     </div>
   )
 }
-

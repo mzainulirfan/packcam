@@ -93,6 +93,11 @@ export type PackingWorkSession = {
   completedPackingCount: number
   totalPayAmount: number
   createdBySessionId: string | null
+  paymentId: string | null
+  paidAt: string | null
+  paidAmount: number | null
+  paidByOperatorName: string | null
+  paidByOperatorCode: string | null
   createdAt: string
   updatedAt: string
 }
@@ -109,6 +114,29 @@ export type PackingPayRule = {
   amount: number
   priority: number
   active: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export type PackingPaymentMethod = 'cash' | 'transfer' | 'other'
+
+export type PackingPayment = {
+  id: string
+  paymentNo: string
+  packerOperatorName: string
+  packerOperatorCode: string
+  packerNameSnapshot: string
+  packerCodeSnapshot: string
+  totalSessions: number
+  totalPackages: number
+  totalAmount: number
+  paymentMethod: PackingPaymentMethod
+  paidAt: string
+  paidByOperatorName: string
+  paidByOperatorCode: string
+  paidBySessionId: string | null
+  note: string | null
+  sessionIds: string[]
   createdAt: string
   updatedAt: string
 }

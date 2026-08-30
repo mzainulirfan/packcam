@@ -8,7 +8,7 @@ import multer from 'multer'
 import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
 import type { AppSettings, ShopeeOrder } from '@pakti/types'
 
-import { calculatePackingPayForOrder, clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, closePackingSession, createPackingPayRule, createPackingSession, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deletePackingPayRule, deleteRecording, deleteSessionById, finalizeRecording, getActivePackingSession, getBootstrapStatus, getChatSendStats, getHealthSnapshot, getNextPendingShippingChatSend, getPackingPayRuleById, getPackingSessionById, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, getShopeeOrderStats, getShippingChatSendStats, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPackingOperators, listPackingPayRules, listPackingSessions, listPendingChatSends, listRecentChatSends, listRecentShippingChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, prepareReadyRecordingChatSendsForToday, prepareRecordingChatSend, prepareRecordingShareFile, prepareShippingChatSends, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, resolveSession, resetOperatorPassword, retryChatSend, retryShippingChatSend, saveSettings, saveSystemConfig, updateChatSendStatus, updatePackingPayRule, updateSessionTaskType, updateShippingChatSendStatus, upsertOperatorProfile } from './store'
+import { calculatePackingPayForOrder, clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, closePackingSession, createPackingPayment, createPackingPayRule, createPackingSession, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deletePackingPayRule, deleteRecording, deleteSessionById, finalizeRecording, getActivePackingSession, getBootstrapStatus, getChatSendStats, getHealthSnapshot, getNextPendingShippingChatSend, getPackingPaymentById, getPackingSessionById, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, getShopeeOrderStats, getShippingChatSendStats, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPackingOperators, listPackingPayRules, listPackingPayments, listPackingSessions, listPendingChatSends, listRecentChatSends, listRecentShippingChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, prepareReadyRecordingChatSendsForToday, prepareRecordingChatSend, prepareRecordingShareFile, prepareShippingChatSends, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, reopenPackingSession, resolveSession, resetOperatorPassword, retryChatSend, retryShippingChatSend, saveSettings, saveSystemConfig, updateChatSendStatus, updatePackingPayRule, updateSessionTaskType, updateShippingChatSendStatus, upsertOperatorProfile } from './store'
 import type { ShippingChatOrderInput } from './store/shippingChatSendStore'
 import { clearSessionCookie, getCookie, normalizeRole, readStringField, sendError, sendOk, setSessionCookie } from './http'
 import type { HttpSession } from './http'
@@ -537,6 +537,7 @@ app.post('/api/packing-sessions', requireSession, (req, res) => {
       packerOperatorCode: readStringField(req.body?.packerOperatorCode, 'packerOperatorCode'),
       createdBySessionId: session.sessionId,
       note: typeof req.body?.note === 'string' ? req.body.note : null,
+      releaseActive: req.body?.releaseActive === true || req.body?.closeActive === true,
     })
     return sendOk(res, packingSession)
   } catch (error) {
@@ -551,6 +552,25 @@ app.post('/api/packing-sessions/:id/close', requireSession, (req, res) => {
     return sendOk(res, packingSession)
   } catch (error) {
     return sendError(res, 400, error instanceof Error ? error.message : 'Gagal menutup sesi packing.')
+  }
+})
+
+app.post('/api/packing-sessions/:id/reopen', requireSession, (req, res) => {
+  const session = getRequestSession(req)
+  if (!session) {
+    return sendError(res, 401, 'Sesi login diperlukan.')
+  }
+
+  try {
+    const params = req.params as Record<string, string | undefined>
+    const packingSession = reopenPackingSession({
+      id: params.id ?? '',
+      currentSession: session,
+      releaseActive: req.body?.releaseActive === true || req.body?.closeActive === true,
+    })
+    return sendOk(res, packingSession)
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal melanjutkan sesi packing.')
   }
 })
 
@@ -600,6 +620,35 @@ app.delete('/api/packing-pay-rules/:id', requireAdmin, (req, res) => {
     return sendOk(res, { deleted: true })
   } catch (error) {
     return sendError(res, 400, error instanceof Error ? error.message : 'Gagal hapus pay rule.')
+  }
+})
+
+app.get('/api/packing-payments', requireSession, (req, res) => {
+  const query = req.query as Record<string, string | string[] | undefined>
+  const limit = Number(readQueryString(query.limit) || 50)
+  sendOk(res, listPackingPayments(Number.isFinite(limit) ? limit : 50))
+})
+
+app.get('/api/packing-payments/:id', requireSession, (req, res) => {
+  const params = req.params as Record<string, string | undefined>
+  const payment = getPackingPaymentById(params.id ?? '')
+  if (!payment) return sendError(res, 404, 'Pembayaran tidak ditemukan.')
+  return sendOk(res, payment)
+})
+
+app.post('/api/packing-payments', requireAdmin, (req, res) => {
+  const session = getRequestSession(req)
+  if (!session) return sendError(res, 401, 'Sesi login diperlukan.')
+  try {
+    const payment = createPackingPayment({
+      sessionIds: Array.isArray(req.body?.sessionIds) ? (req.body.sessionIds as unknown[]) : [],
+      paymentMethod: typeof req.body?.paymentMethod === 'string' ? req.body.paymentMethod : null,
+      note: typeof req.body?.note === 'string' ? req.body.note : null,
+      paidBySession: session,
+    })
+    return sendOk(res, payment)
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal membuat pembayaran packing.')
   }
 })
 

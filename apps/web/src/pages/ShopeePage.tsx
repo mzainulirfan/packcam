@@ -96,11 +96,11 @@ export function ShopeePage() {
   const pendingTotal = chatSendCounts.pending + shippingChatCounts.pending
 
   useEffect(() => {
-    setQueuePage(1)
+    queueMicrotask(() => setQueuePage(1))
   }, [queueMode, queueSearch, queueStatusFilter])
 
   useEffect(() => {
-    setQueuePage((current) => Math.min(current, pageCount))
+    queueMicrotask(() => setQueuePage((current) => Math.min(current, pageCount)))
   }, [pageCount])
 
   async function loadShopeeData() {
@@ -122,19 +122,21 @@ export function ShopeePage() {
   useEffect(() => {
     let active = true
 
-    void loadShopeeData()
-      .catch(() => {
-        if (!active) return
-        setAdminStatus(null)
-        setRecentShopeeOrders([])
-        setRecentChatSends([])
-        setRecentShippingChatSends([])
-        setError('Sesi admin diperlukan atau server belum aktif.')
-        setMessage('Automation Shopee belum bisa dimuat.')
-      })
-      .finally(() => {
-        if (active) setLoading(false)
-      })
+    queueMicrotask(() => {
+      void loadShopeeData()
+        .catch(() => {
+          if (!active) return
+          setAdminStatus(null)
+          setRecentShopeeOrders([])
+          setRecentChatSends([])
+          setRecentShippingChatSends([])
+          setError('Sesi admin diperlukan atau server belum aktif.')
+          setMessage('Automation Shopee belum bisa dimuat.')
+        })
+        .finally(() => {
+          if (active) setLoading(false)
+        })
+    })
 
     return () => {
       active = false

@@ -128,6 +128,7 @@ export function calculatePackingPayForOrder(order: { shippingChannel?: string | 
   const rules = listPackingPayRules().filter((rule) => rule.active)
   const normalizedShipping = String(order?.shippingChannel ?? '').toLowerCase()
   const items = Array.isArray(order?.items) ? order!.items! : []
+  const totalItemQuantity = Math.max(1, items.reduce((acc, item) => acc + Math.max(1, Number(item.quantity) || 1), 0))
 
   for (const rule of rules) {
     const matchValue = String(rule.matchValue ?? '').toLowerCase().trim()
@@ -136,7 +137,7 @@ export function calculatePackingPayForOrder(order: { shippingChannel?: string | 
 
     if (rule.matchType === 'default') {
       matched = true
-      matchedQty = 1
+      matchedQty = totalItemQuantity
     } else if (rule.matchType === 'shipping_channel') {
       if (matchValue && normalizedShipping.includes(matchValue)) {
         matched = true

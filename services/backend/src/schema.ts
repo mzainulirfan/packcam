@@ -87,6 +87,27 @@ export const SCHEMA_SQL = [
     updated_at TEXT NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS idx_packing_pay_rules_priority ON packing_pay_rules (priority DESC)`,
+  `CREATE TABLE IF NOT EXISTS packing_payments (
+    id TEXT PRIMARY KEY NOT NULL,
+    payment_no TEXT NOT NULL,
+    packer_operator_name TEXT NOT NULL,
+    packer_operator_code TEXT NOT NULL,
+    packer_name_snapshot TEXT NOT NULL,
+    packer_code_snapshot TEXT NOT NULL,
+    total_sessions INTEGER NOT NULL,
+    total_packages INTEGER NOT NULL,
+    total_amount INTEGER NOT NULL,
+    payment_method TEXT NOT NULL,
+    paid_at TEXT NOT NULL,
+    paid_by_operator_name TEXT NOT NULL,
+    paid_by_operator_code TEXT NOT NULL,
+    paid_by_session_id TEXT,
+    note TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_packing_payments_paid_at ON packing_payments (paid_at DESC)`,
+  `CREATE INDEX IF NOT EXISTS idx_packing_payments_packer ON packing_payments (packer_operator_code)`,
   `CREATE TABLE IF NOT EXISTS scan_logs (
     id TEXT PRIMARY KEY NOT NULL,
     resi_number TEXT NOT NULL,

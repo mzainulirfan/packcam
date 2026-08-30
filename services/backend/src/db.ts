@@ -77,8 +77,39 @@ function ensurePackingColumns(database: SQLiteDatabase) {
   ensureColumn(database, 'recordings', 'packing_pay_status', 'TEXT')
   ensureColumn(database, 'recordings', 'packing_pay_breakdown', 'TEXT')
   ensureColumn(database, 'recordings', 'packing_pay_rule_id', 'TEXT')
+  ensureColumn(database, 'packing_work_sessions', 'payment_id', 'TEXT')
+  ensureColumn(database, 'packing_work_sessions', 'paid_at', 'TEXT')
+  ensureColumn(database, 'packing_work_sessions', 'paid_amount', 'INTEGER')
+  ensureColumn(database, 'packing_work_sessions', 'paid_by_operator_name', 'TEXT')
+  ensureColumn(database, 'packing_work_sessions', 'paid_by_operator_code', 'TEXT')
 
   database.exec(`UPDATE recordings SET media_type = 'video' WHERE media_type IS NULL OR media_type = ''`)
+}
+
+function ensurePackingPaymentTable(database: SQLiteDatabase) {
+  database.exec(
+    `CREATE TABLE IF NOT EXISTS packing_payments (
+      id TEXT PRIMARY KEY NOT NULL,
+      payment_no TEXT NOT NULL,
+      packer_operator_name TEXT NOT NULL,
+      packer_operator_code TEXT NOT NULL,
+      packer_name_snapshot TEXT NOT NULL,
+      packer_code_snapshot TEXT NOT NULL,
+      total_sessions INTEGER NOT NULL,
+      total_packages INTEGER NOT NULL,
+      total_amount INTEGER NOT NULL,
+      payment_method TEXT NOT NULL,
+      paid_at TEXT NOT NULL,
+      paid_by_operator_name TEXT NOT NULL,
+      paid_by_operator_code TEXT NOT NULL,
+      paid_by_session_id TEXT,
+      note TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+  )
+  database.exec(`CREATE INDEX IF NOT EXISTS idx_packing_payments_paid_at ON packing_payments (paid_at DESC)`)
+  database.exec(`CREATE INDEX IF NOT EXISTS idx_packing_payments_packer ON packing_payments (packer_operator_code)`)
 }
 
 export function getDb() {
@@ -94,6 +125,7 @@ export function getDb() {
   ensureTaskColumns(db)
   ensureOrderColumns(db)
   ensurePackingColumns(db)
+  ensurePackingPaymentTable(db)
   return db
 }
 

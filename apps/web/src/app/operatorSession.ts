@@ -14,75 +14,17 @@ import type { OperatorProfile, OperatorRole, OperatorSession, WorkTask } from '@
 
 type Listener = () => void
 
-const OPERATOR_STORE_KEY = 'pakti.operatorStore'
 const DEFAULT_NEW_USER_PASSWORD = 'user123'
 
-type OperatorStoreCache = {
-  session: OperatorSession | null
-  profiles: OperatorProfile[]
-  hydrated: boolean
-}
-
-function readOperatorStoreCache(): OperatorStoreCache {
-  if (typeof window === 'undefined') {
-    return {
-      session: null,
-      profiles: [],
-      hydrated: false,
-    }
-  }
-
-  const raw = window.sessionStorage.getItem(OPERATOR_STORE_KEY)
-  if (!raw) {
-    return {
-      session: null,
-      profiles: [],
-      hydrated: false,
-    }
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as Partial<OperatorStoreCache>
-    return {
-      session: parsed.session ?? null,
-      profiles: Array.isArray(parsed.profiles) ? parsed.profiles : [],
-      hydrated: Boolean(parsed.hydrated),
-    }
-  } catch {
-    return {
-      session: null,
-      profiles: [],
-      hydrated: false,
-    }
-  }
-}
-
-function writeOperatorStoreCache() {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  const payload: OperatorStoreCache = {
-    session: currentSession,
-    profiles: currentProfiles,
-    hydrated: isHydrated,
-  }
-
-  window.sessionStorage.setItem(OPERATOR_STORE_KEY, JSON.stringify(payload))
-}
-
-const initialStore = readOperatorStoreCache()
-
-let currentSession: OperatorSession | null = initialStore.session
-let currentProfiles: OperatorProfile[] = initialStore.profiles
-let isHydrated = initialStore.hydrated
+let currentSession: OperatorSession | null = null
+let currentProfiles: OperatorProfile[] = []
+let isHydrated = false
 let loadPromise: Promise<void> | null = null
 let realtimeBridgeReady = false
 let refreshQueue: number | null = null
 const listeners = new Set<Listener>()
 
 function emitChange() {
-  writeOperatorStoreCache()
   for (const listener of listeners) {
     listener()
   }
@@ -283,8 +225,8 @@ export function logoutOperator() {
   loadPromise = null
   if (typeof window !== 'undefined') {
     try {
-      window.sessionStorage.removeItem(OPERATOR_STORE_KEY)
-      window.localStorage.removeItem(OPERATOR_STORE_KEY)
+      window.sessionStorage.removeItem('pakti.operatorStore')
+      window.localStorage.removeItem('pakti.operatorStore')
     } catch {
       void 0
     }

@@ -39,7 +39,7 @@ export function logScanEvent(
   }).catch(() => undefined)
 
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('pakti:scan-log-updated'))
+    window.dispatchEvent(new CustomEvent('pakti:scan-logs-updated'))
   }
 
   return {

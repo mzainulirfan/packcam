@@ -244,6 +244,17 @@ function buildRecordingFileName(resiNumber: string, format: string, taskType: Wo
   return `${prefix}_${sanitizeFileSegment(resiNumber)}_${timestamp}.${extension}`
 }
 
+function getPhotoRootPath(videoRootPath: string) {
+  const normalized = videoRootPath.trim().replaceAll('\\', '/') || DEFAULT_APP_SETTINGS.videoRootPath
+  const segments = normalized.split('/').filter(Boolean)
+  const last = segments.at(-1)?.toLowerCase()
+  if (last === 'videos' || last === 'video') {
+    const parent = segments.slice(0, -1).join('/')
+    return parent ? `${parent}/photos` : 'photos'
+  }
+  return `${normalized}/photos`
+}
+
 function db() {
   ensureServerStorage()
   return getDb()
@@ -347,7 +358,8 @@ export function createRecordingDraft(input: RecordingDraftInput) {
   const fileName = input.fileName
     ? sanitizeFileName(input.fileName)
     : buildRecordingFileName(input.resiNumber, DEFAULT_APP_SETTINGS.videoFormat, taskType, startedAt, mediaType)
-  const filePath = assertSafeRelativeFilePath(input.filePath ?? path.posix.join(DEFAULT_APP_SETTINGS.videoRootPath, fileName))
+  const defaultRootPath = mediaType === 'photo' ? getPhotoRootPath(DEFAULT_APP_SETTINGS.videoRootPath) : DEFAULT_APP_SETTINGS.videoRootPath
+  const filePath = assertSafeRelativeFilePath(input.filePath ?? path.posix.join(defaultRootPath, fileName))
   const timestamp = nowIso()
 
   const mimeType = input.mimeType?.trim() || (mediaType === 'photo' ? 'image/jpeg' : null)

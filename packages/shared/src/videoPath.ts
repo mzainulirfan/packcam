@@ -67,9 +67,22 @@ export function buildDailyVideoPath(
   mediaType: 'video' | 'photo' = 'video',
 ) {
   const fileName = buildRecordingFileName(resiNumber, settings.videoFormat, taskType, startedAt, mediaType)
-  const rootPath = settings.videoRootPath.trim() || DEFAULT_APP_SETTINGS.videoRootPath
+  const rootPath = mediaType === 'photo'
+    ? getPhotoRootPath(settings.videoRootPath.trim() || DEFAULT_APP_SETTINGS.videoRootPath)
+    : settings.videoRootPath.trim() || DEFAULT_APP_SETTINGS.videoRootPath
 
   return `${rootPath}/${fileName}`
+}
+
+export function getPhotoRootPath(videoRootPath: string) {
+  const normalized = videoRootPath.trim().replaceAll('\\', '/') || DEFAULT_APP_SETTINGS.videoRootPath
+  const segments = normalized.split('/').filter(Boolean)
+  const last = segments.at(-1)?.toLowerCase()
+  if (last === 'videos' || last === 'video') {
+    const parent = segments.slice(0, -1).join('/')
+    return parent ? `${parent}/photos` : 'photos'
+  }
+  return `${normalized}/photos`
 }
 
 export function buildRecordingFileName(

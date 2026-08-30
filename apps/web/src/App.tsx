@@ -1,7 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
 import { NAV_ITEMS, type NavGroupId, type PageId } from './app/navigation'
-import { readBootstrapNeedsSetupCache, writeBootstrapNeedsSetupCache } from './app/bootstrapState'
 import { logoutOperator, useOperatorSession } from './app/operatorSession'
 import { navigateTo, useActivePage } from './app/uiState'
 import { startRealtimeBridge, stopRealtimeBridge } from './app/realtime'
@@ -40,7 +39,7 @@ function App() {
   const activePage = useActivePage()
   const operatorSession = useOperatorSession()
   const systemConfig = useSystemConfig()
-  const [bootstrapNeedsSetup, setBootstrapNeedsSetup] = useState<boolean | null>(() => readBootstrapNeedsSetupCache())
+  const [bootstrapNeedsSetup, setBootstrapNeedsSetup] = useState<boolean | null>(null)
   const startupMode = resolveStartupMode({
     bootstrapNeedsSetup,
     operatorSession,
@@ -95,7 +94,6 @@ function App() {
         }
 
         setBootstrapNeedsSetup(status.needsSetup)
-        writeBootstrapNeedsSetupCache(status.needsSetup)
       })
       .catch(() => {
         if (cancelled) {

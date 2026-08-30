@@ -140,7 +140,7 @@ export function HistoryPage() {
 
   useEffect(() => {
     if (recordings.length === 0) {
-      setChatSendByRecordingId(new Map())
+      queueMicrotask(() => setChatSendByRecordingId(new Map()))
       return
     }
 

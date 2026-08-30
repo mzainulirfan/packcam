@@ -50,11 +50,9 @@ export function useSystemConfig() {
 
     handleConfigChange()
     window.addEventListener(SYSTEM_CONFIG_EVENT, handleConfigChange)
-    window.addEventListener('storage', handleConfigChange)
 
     return () => {
       window.removeEventListener(SYSTEM_CONFIG_EVENT, handleConfigChange)
-      window.removeEventListener('storage', handleConfigChange)
     }
   }, [])
 
