@@ -958,6 +958,30 @@ app.get('/api/recordings/resi/:resiNumber', (req, res) => {
   sendOk(res, listRecordingsByResi(params.resiNumber ?? '').filter((record) => canSessionAccessRecording(session, record)))
 })
 
+app.get('/api/recordings/resi/:resiNumber/task-progress', requireSession, (req, res) => {
+  const params = req.params as Record<string, string | undefined>
+  const records = listRecordingsByResi(params.resiNumber ?? '')
+  const latestByTask = new Map<'qc' | 'packing', { status: string; mediaType: string | null; updatedAt: string }>()
+
+  for (const record of records) {
+    const taskType = record.task_type === 'packing' ? 'packing' : 'qc'
+    const updatedAt = record.updated_at ?? record.start_time ?? ''
+    const current = latestByTask.get(taskType)
+    if (!current || updatedAt > current.updatedAt) {
+      latestByTask.set(taskType, {
+        status: record.status,
+        mediaType: record.media_type ?? null,
+        updatedAt,
+      })
+    }
+  }
+
+  return sendOk(res, {
+    qc: latestByTask.get('qc') ?? null,
+    packing: latestByTask.get('packing') ?? null,
+  })
+})
+
 app.post('/api/recordings', (req, res) => {
   const session = getRequestSession(req)
   if (!session) {

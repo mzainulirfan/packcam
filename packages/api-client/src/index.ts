@@ -484,6 +484,13 @@ export function readServerRecordingsByResiApi(resiNumber: string) {
     .then((records) => records.map(normalizeRecordingRow))
 }
 
+export function readServerTaskProgressByResiApi(resiNumber: string) {
+  return requestApi<{
+    qc: { status: RecordingRow['status']; mediaType: RecordingMediaType | null; updatedAt: string } | null
+    packing: { status: RecordingRow['status']; mediaType: RecordingMediaType | null; updatedAt: string } | null
+  }>(`/api/recordings/resi/${encodeURIComponent(resiNumber)}/task-progress`)
+}
+
 export function importShopeeOrdersApi(orders: Array<Partial<ShopeeOrder>>, extensionApiKey?: string) {
   return requestApi<ShopeeOrderImportResult>('/api/import/shopee/orders', {
     method: 'POST',

@@ -28,6 +28,7 @@ import {
   loginServerOperatorApi,
   logoutServerOperatorApi,
   readServerRecordingsByResiApi,
+  readServerTaskProgressByResiApi,
   readServerRecordingsApi,
   readServerSessionApi,
   readServerSystemConfigApi,
@@ -926,6 +927,13 @@ function App() {
 
   const resolveLatestTaskProgress = useCallback(
     async (resiNumber: string) => {
+      try {
+        const progress = await readServerTaskProgressByResiApi(resiNumber)
+        return progress
+      } catch {
+        // Fallback lama tetap dipakai bila backend belum menyediakan endpoint progress.
+      }
+
       try {
         const rows = await readServerRecordingsByResiApi(resiNumber)
         mergeRecordingsForResi(resiNumber, rows)
