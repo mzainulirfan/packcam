@@ -538,6 +538,7 @@ app.post('/api/packing-sessions', requireSession, (req, res) => {
       createdBySessionId: session.sessionId,
       note: typeof req.body?.note === 'string' ? req.body.note : null,
       releaseActive: req.body?.releaseActive === true || req.body?.closeActive === true,
+      currentSession: session,
     })
     return sendOk(res, packingSession)
   } catch (error) {
@@ -547,8 +548,9 @@ app.post('/api/packing-sessions', requireSession, (req, res) => {
 
 app.post('/api/packing-sessions/:id/close', requireSession, (req, res) => {
   try {
+    const session = getRequestSession(req)
     const params = req.params as Record<string, string | undefined>
-    const packingSession = closePackingSession(params.id ?? '', typeof req.body?.note === 'string' ? req.body.note : null)
+    const packingSession = closePackingSession(params.id ?? '', typeof req.body?.note === 'string' ? req.body.note : null, session)
     return sendOk(res, packingSession)
   } catch (error) {
     return sendError(res, 400, error instanceof Error ? error.message : 'Gagal menutup sesi packing.')

@@ -131,6 +131,7 @@ export function createPackingSession(input: {
   createdBySessionId?: string | null
   note?: string | null
   releaseActive?: boolean
+  currentSession?: HttpSession | null
 }) {
   const packerOperatorName = input.packerOperatorName.trim()
   const packerOperatorCode = input.packerOperatorCode.trim()
@@ -141,6 +142,12 @@ export function createPackingSession(input: {
   const profile = findOperatorProfile(packerOperatorName, packerOperatorCode, 'operator')
   if (!profile || profile.taskType !== 'packing') {
     throw new Error('Operator yang dipilih bukan petugas packing.')
+  }
+
+  if (input.currentSession && input.currentSession.role === 'operator' && input.currentSession.taskType === 'packing') {
+    if (profile.operatorName !== input.currentSession.operatorName || profile.operatorCode !== input.currentSession.operatorCode) {
+      throw new Error('Operator packing hanya bisa mengelola sesi miliknya sendiri.')
+    }
   }
 
   if (input.createdBySessionId) {
@@ -196,13 +203,19 @@ function releaseActivePackingSession(sessionId: string) {
   broadcastBackendEvent('sessions-updated', { sessionId, action: 'packing-session-released' })
 }
 
-export function closePackingSession(id: string, note?: string | null) {
+export function closePackingSession(id: string, note?: string | null, currentSession?: HttpSession | null) {
   const session = getPackingSessionById(id)
   if (!session) {
     throw new Error('Sesi packing tidak ditemukan.')
   }
   if (session.status !== 'active') {
     return session
+  }
+
+  if (currentSession && currentSession.role === 'operator' && currentSession.taskType === 'packing') {
+    if (session.packerOperatorName !== currentSession.operatorName || session.packerOperatorCode !== currentSession.operatorCode) {
+      throw new Error('Operator packing hanya bisa menutup sesi miliknya sendiri.')
+    }
   }
 
   const timestamp = nowIso()
@@ -228,6 +241,12 @@ export function reopenPackingSession(input: {
 
   if (target.status !== 'active') {
     throw new Error('Hanya sesi packing yang belum diakhiri yang bisa dilanjutkan.')
+  }
+
+  if (input.currentSession.role === 'operator' && input.currentSession.taskType === 'packing') {
+    if (target.packerOperatorName !== input.currentSession.operatorName || target.packerOperatorCode !== input.currentSession.operatorCode) {
+      throw new Error('Operator packing hanya bisa melanjutkan sesi miliknya sendiri.')
+    }
   }
 
   if (target.createdBySessionId === input.currentSession.sessionId) {
