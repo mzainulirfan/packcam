@@ -69,6 +69,8 @@ export const SCHEMA_SQL = [
     status TEXT NOT NULL,
     note TEXT,
     created_by_session_id TEXT,
+    created_by_operator_name TEXT,
+    created_by_operator_code TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`,

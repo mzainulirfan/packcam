@@ -674,7 +674,7 @@ export function PackingSessionsPage() {
             </div>
           ) : (
             <div className="overflow-x-auto rounded-[4px] border">
-              <table className="history-opencode__table w-full min-w-[960px] border-collapse">
+              <table className="history-opencode__table w-full min-w-[1080px] border-collapse">
                 <thead className="sticky top-0 z-[1] bg-white">
                   <tr className="border-b bg-muted/30">
                     <th className="w-[42px] px-2 py-2 text-left text-[0.72rem] uppercase tracking-wide text-muted-foreground">Pilih</th>
@@ -684,6 +684,7 @@ export function PackingSessionsPage() {
                     <th className="px-2 py-2 text-right text-[0.72rem] uppercase tracking-wide text-muted-foreground">Paket</th>
                     <th className="px-3 py-2 text-right text-[0.72rem] uppercase tracking-wide text-muted-foreground">Upah</th>
                     <th className="px-3 py-2 text-left text-[0.72rem] uppercase tracking-wide text-muted-foreground">Periode</th>
+                    <th className="px-3 py-2 text-left text-[0.72rem] uppercase tracking-wide text-muted-foreground">Dibuat oleh</th>
                     <th className="px-3 py-2 text-right text-[0.72rem] uppercase tracking-wide text-muted-foreground">Aksi</th>
                   </tr>
                 </thead>
@@ -710,6 +711,16 @@ export function PackingSessionsPage() {
                       <td className="px-2 py-2 text-right text-sm tabular-nums">{s.completedPackingCount}</td>
                       <td className="px-3 py-2 text-right font-mono text-sm tabular-nums">{formatCurrency(s.totalPayAmount)}</td>
                       <td className="px-3 py-2 text-xs text-muted-foreground" title={`${new Date(s.startedAt).toLocaleString('id-ID')} → ${s.endedAt ? new Date(s.endedAt).toLocaleString('id-ID') : '— masih aktif'}`}>{formatPeriode(s.startedAt, s.endedAt)}</td>
+                      <td className="px-3 py-2 text-xs">
+                        {s.createdByOperatorName ? (
+                          <span className={s.createdByOperatorName !== s.packerOperatorName || s.createdByOperatorCode !== s.packerOperatorCode ? 'font-medium text-foreground' : 'text-muted-foreground'}>
+                            {s.createdByOperatorName} ({s.createdByOperatorCode})
+                            {s.createdByOperatorName !== s.packerOperatorName || s.createdByOperatorCode !== s.packerOperatorCode ? ' • atas nama' : ''}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
                       <td className="px-3 py-2 text-right">
                         <div className="flex justify-end gap-1">
                           <Button type="button" variant="outline" size="sm" className="history-opencode__button h-7" onClick={() => void handleOpenDetail(s)}>

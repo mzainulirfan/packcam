@@ -170,6 +170,7 @@ function App() {
   const [resumeSearch, setResumeSearch] = useState('')
   const [operatorSearch, setOperatorSearch] = useState('')
   const [confirmSwitchTarget, setConfirmSwitchTarget] = useState<string | null>(null)
+  const [showOtherResume, setShowOtherResume] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
     if (typeof window === 'undefined') {
       return 'scan'
@@ -265,6 +266,7 @@ function App() {
     if (!showSwitchDialog) return
     queueMicrotask(() => {
       setConfirmSwitchTarget(null)
+      setShowOtherResume(false)
       if (resumablePackingSessions.length > 0) setSwitchModalTab('resume')
       else setSwitchModalTab('switch')
     })
@@ -273,6 +275,7 @@ function App() {
   useEffect(() => {
     if (!isPackingMode || activePackingSession) return
     queueMicrotask(() => {
+      setShowOtherResume(false)
       if (resumablePackingSessions.length > 0) setSwitchModalTab('resume')
       else setSwitchModalTab('switch')
     })
@@ -1572,7 +1575,10 @@ function App() {
                 <Input
                   id="mobile-operator-name"
                   value={loginForm.operatorName}
-                  onChange={(event) => setLoginForm((current) => ({ ...current, operatorName: event.target.value }))}
+                  onChange={(event) => {
+                    setLoginForm((current) => ({ ...current, operatorName: event.target.value }))
+                    if (bootError) setBootError(null)
+                  }}
                   autoComplete="username"
                   autoCapitalize="none"
                   autoCorrect="off"
@@ -1589,7 +1595,10 @@ function App() {
                   id="mobile-password"
                   type={showLoginPassword ? 'text' : 'password'}
                   value={loginForm.password}
-                  onChange={(event) => setLoginForm((current) => ({ ...current, password: event.target.value }))}
+                  onChange={(event) => {
+                    setLoginForm((current) => ({ ...current, password: event.target.value }))
+                    if (bootError) setBootError(null)
+                  }}
                   autoComplete="current-password"
                   placeholder="Masukkan password"
                   className="h-11 rounded-[4px] border-[var(--op-hairline)] bg-[var(--op-canvas)] pr-12"
@@ -1719,6 +1728,9 @@ function App() {
                           <span className="rounded bg-[var(--op-ink)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--op-canvas)]">Aktif</span>
                         </p>
                         <p className="m-0 mt-1 text-xs text-muted-foreground">{activePackingSession.completedPackingCount} paket · {formatRupiah(activePackingSession.totalPayAmount)} · {formatDateTime(activePackingSession.startedAt)}</p>
+                        {isAdmin && activePackingSession.createdByOperatorName && (activePackingSession.createdByOperatorName !== activePackingSession.packerOperatorName || activePackingSession.createdByOperatorCode !== activePackingSession.packerOperatorCode) ? (
+                          <p className="m-0 mt-1 text-[11px] font-medium text-[var(--op-ink)]">Atas nama: {activePackingSession.packerNameSnapshot} • oleh {activePackingSession.createdByOperatorName} ({activePackingSession.createdByOperatorCode})</p>
+                        ) : null}
                       </div>
                       <Button type="button" variant="ghost" size="sm" className="h-7 shrink-0 rounded-[4px] px-2 text-xs text-muted-foreground hover:text-destructive" disabled={packingSessionBusy} onClick={() => void handleClosePackingSession()}>
                         Akhiri
@@ -1894,6 +1906,9 @@ function App() {
                       ? `Terakhir: ${recordingSession.state.lastSavedResi}`
                       : 'Scan resi untuk mulai QC'}
                 </p>
+                {isAdmin && activePackingSession?.createdByOperatorName && (activePackingSession.createdByOperatorName !== activePackingSession.packerOperatorName || activePackingSession.createdByOperatorCode !== activePackingSession.packerOperatorCode) ? (
+                  <p className="packing-scan-meta mt-1 text-[10px] !text-[var(--op-ink)]">Atas nama: {activePackingSession.packerNameSnapshot} • oleh {activePackingSession.createdByOperatorName} ({activePackingSession.createdByOperatorCode})</p>
+                ) : null}
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 {isPackingMode && activePackingSession ? (
@@ -1957,26 +1972,95 @@ function App() {
                       <p className="m-0 mt-1 text-sm font-bold leading-tight text-[var(--op-ink)]">Mulai atau lanjutkan sesi</p>
                       <p className="m-0 mt-1 text-xs leading-snug text-muted-foreground">{isOperatorPacking ? 'Lanjutkan sesi milikmu atau mulai sesi baru untuk dirimu.' : 'Pilih sesi aktif yang belum diakhiri, atau mulai sesi baru.'}</p>
                     </div>
-                    <div className="shrink-0 bg-[var(--op-canvas)] px-4 pt-3">
-                      <div className="grid grid-cols-2 gap-1 rounded-[4px] bg-[var(--op-surface-soft)] p-1">
-                        <button
-                          type="button"
-                          onClick={() => setSwitchModalTab('resume')}
-                          className={switchModalTab === 'resume' ? 'rounded-[4px] bg-[var(--op-ink)] px-3 py-1.5 text-xs font-bold text-[var(--op-canvas)]' : 'rounded-[4px] px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-[var(--op-ink)]'}
-                        >
-                          Lanjutkan ({resumablePackingSessions.length})
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSwitchModalTab('switch')}
-                          className={switchModalTab === 'switch' ? 'rounded-[4px] bg-[var(--op-ink)] px-3 py-1.5 text-xs font-bold text-[var(--op-canvas)]' : 'rounded-[4px] px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-[var(--op-ink)]'}
-                        >
-                          Baru
-                        </button>
+                    {!isOperatorPacking ? (
+                      <div className="shrink-0 bg-[var(--op-canvas)] px-4 pt-3">
+                        <div className="grid grid-cols-2 gap-1 rounded-[4px] bg-[var(--op-surface-soft)] p-1">
+                          <button
+                            type="button"
+                            onClick={() => setSwitchModalTab('resume')}
+                            className={switchModalTab === 'resume' ? 'rounded-[4px] bg-[var(--op-ink)] px-3 py-1.5 text-xs font-bold text-[var(--op-canvas)]' : 'rounded-[4px] px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-[var(--op-ink)]'}
+                          >
+                            Lanjutkan ({resumablePackingSessions.length})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSwitchModalTab('switch')}
+                            className={switchModalTab === 'switch' ? 'rounded-[4px] bg-[var(--op-ink)] px-3 py-1.5 text-xs font-bold text-[var(--op-canvas)]' : 'rounded-[4px] px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-[var(--op-ink)]'}
+                          >
+                            Baru
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    ) : null}
                     <div className="flex-1 overflow-y-auto bg-[var(--op-canvas)] px-4 py-3">
-                      {switchModalTab === 'resume' ? (
+                      {isOperatorPacking ? (
+                        <div className="grid gap-3">
+                          {resumablePackingSessions.length > 0 ? (
+                            <div className="grid gap-2">
+                              <p className="m-0 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Lanjutkan sesi</p>
+                              {(() => {
+                                const latest = filteredResumablePackingSessions[0] ?? resumablePackingSessions[0]
+                                if (!latest) return null
+                                return (
+                                  <button
+                                    type="button"
+                                    className="rounded-[4px] border-2 border-[var(--op-ink)] bg-[var(--op-canvas)] px-3 py-3 text-left shadow-sm disabled:opacity-45"
+                                    disabled={packingSessionBusy}
+                                    onClick={() => void handleReopenPackingSession(latest)}
+                                  >
+                                    <span className="flex items-center justify-between gap-2 text-sm font-bold leading-tight text-[var(--op-ink)]">
+                                      <span className="truncate">{latest.packerNameSnapshot}</span>
+                                      <span className="shrink-0 rounded bg-[var(--op-ink)] px-2 py-1 text-xs font-bold text-[var(--op-canvas)]">▶ Lanjutkan</span>
+                                    </span>
+                                    <span className="mt-1 block text-xs text-muted-foreground">{latest.completedPackingCount} paket · {formatRupiah(latest.totalPayAmount)} · {formatDateTime(latest.startedAt)}</span>
+                                  </button>
+                                )
+                              })()}
+                              {filteredResumablePackingSessions.length > 1 ? (
+                                <>
+                                  <button type="button" onClick={() => setShowOtherResume((v) => !v)} className="text-left text-xs font-medium text-muted-foreground hover:text-[var(--op-ink)]">
+                                    {showOtherResume ? 'Sembunyikan sesi lain ▴' : `Cari sesi lain (${filteredResumablePackingSessions.length - 1}) ▾`}
+                                  </button>
+                                  {showOtherResume ? (
+                                    <div className="grid gap-1.5">
+                                      <Input value={resumeSearch} onChange={(e) => setResumeSearch(e.target.value)} placeholder="Cari sesi..." className="h-8 rounded-[4px] border-[var(--op-hairline)] bg-[var(--op-surface-soft)] text-xs text-[var(--op-ink)]" />
+                                      {filteredResumablePackingSessions.slice(1).map((packingSession) => (
+                                        <button
+                                          key={packingSession.id}
+                                          type="button"
+                                          className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 py-2.5 text-left hover:bg-[var(--op-surface-soft)] disabled:opacity-45"
+                                          disabled={packingSessionBusy}
+                                          onClick={() => void handleReopenPackingSession(packingSession)}
+                                        >
+                                          <span className="block truncate text-sm font-bold text-[var(--op-ink)]">{packingSession.packerNameSnapshot}</span>
+                                          <span className="mt-1 block text-xs text-muted-foreground">{packingSession.completedPackingCount} paket · {formatRupiah(packingSession.totalPayAmount)} · {formatDateTime(packingSession.startedAt)}</span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  ) : null}
+                                </>
+                              ) : null}
+                            </div>
+                          ) : null}
+                          <div className="grid gap-2">
+                            <p className="m-0 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{resumablePackingSessions.length > 0 ? 'Atau mulai baru' : 'Mulai sesi'}</p>
+                            <Button
+                              type="button"
+                              className="h-10 w-full rounded-[4px] bg-[var(--op-ink)] text-sm font-bold text-[var(--op-canvas)] hover:bg-[var(--op-ink)]/90 disabled:opacity-45"
+                              disabled={packingSessionBusy}
+                              onClick={() => {
+                                if (!session) return
+                                const key = makePackerKey(session.operatorName, session.operatorCode)
+                                setSelectedPackerKey(key)
+                                void handleStartPackingSession(key)
+                              }}
+                            >
+                              ＋ Mulai Sesi Baru — {session?.operatorName ?? 'Saya'}
+                            </Button>
+                            <p className="m-0 text-center text-[11px] text-muted-foreground">Sesi baru untuk {session?.operatorName ?? 'kamu'} ({session?.operatorCode ?? '-'})</p>
+                          </div>
+                        </div>
+                      ) : switchModalTab === 'resume' ? (
                         <div className="grid gap-2">
                           <Input value={resumeSearch} onChange={(e) => setResumeSearch(e.target.value)} placeholder="Cari Sani, PK01..." className="h-8 rounded-[4px] border-[var(--op-hairline)] bg-[var(--op-surface-soft)] text-xs text-[var(--op-ink)]" />
                           <div className="grid gap-1.5">

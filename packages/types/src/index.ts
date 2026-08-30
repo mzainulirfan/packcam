@@ -93,6 +93,8 @@ export type PackingWorkSession = {
   completedPackingCount: number
   totalPayAmount: number
   createdBySessionId: string | null
+  createdByOperatorName: string | null
+  createdByOperatorCode: string | null
   paymentId: string | null
   paidAt: string | null
   paidAmount: number | null

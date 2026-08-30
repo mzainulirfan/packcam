@@ -8,7 +8,6 @@ import { Button } from '../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
-import { Separator } from '../components/ui/separator'
 import { useSystemConfig } from '@pakti/shared/systemConfig'
 
 type MessageTone = 'info' | 'error'
@@ -36,7 +35,7 @@ export function OperatorLoginPage() {
   const [operatorName, setOperatorName] = useState('')
   const [operatorPassword, setOperatorPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [message, setMessage] = useState('Masuk dengan username dan password akun yang sudah terdaftar.')
+  const [message, setMessage] = useState<string | null>(null)
   const [messageTone, setMessageTone] = useState<MessageTone>('info')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -44,6 +43,7 @@ export function OperatorLoginPage() {
     const name = operatorName.trim()
     const password = operatorPassword.trim()
 
+    setMessage(null)
     if (!name || !password) {
       setMessageTone('error')
       setMessage('Username dan kata sandi wajib diisi.')
@@ -104,7 +104,10 @@ export function OperatorLoginPage() {
               <Input
                 id="operator-username"
                 value={operatorName}
-                onChange={(event) => setOperatorName(event.target.value)}
+                onChange={(event) => {
+                  setOperatorName(event.target.value)
+                  if (message) setMessage(null)
+                }}
                 placeholder="Username"
                 autoComplete="username"
                 className="auth-opencode__input"
@@ -120,7 +123,10 @@ export function OperatorLoginPage() {
                   id="operator-password"
                   type={showPassword ? 'text' : 'password'}
                   value={operatorPassword}
-                  onChange={(event) => setOperatorPassword(event.target.value)}
+                  onChange={(event) => {
+                    setOperatorPassword(event.target.value)
+                    if (message) setMessage(null)
+                  }}
                   placeholder="Password"
                   autoComplete="current-password"
                   className="auth-opencode__input pr-12"
@@ -138,11 +144,9 @@ export function OperatorLoginPage() {
               </div>
             </div>
 
-            <Separator />
-
-            {message ? (
-              <Alert variant={messageTone === 'error' ? 'destructive' : 'info'}>
-                <AlertTitle>{messageTone === 'error' ? 'Login gagal' : 'Informasi'}</AlertTitle>
+            {message && messageTone === 'error' ? (
+              <Alert variant="destructive">
+                <AlertTitle>Login gagal</AlertTitle>
                 <AlertDescription>{message}</AlertDescription>
               </Alert>
             ) : null}

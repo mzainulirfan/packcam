@@ -18,6 +18,8 @@ type PackingWorkSessionRow = {
   status: PackingWorkSessionStatus
   note: string | null
   created_by_session_id: string | null
+  created_by_operator_name: string | null
+  created_by_operator_code: string | null
   payment_id: string | null
   paid_at: string | null
   paid_amount: number | null
@@ -56,6 +58,8 @@ function mapPackingSession(row: PackingWorkSessionRow): PackingWorkSession {
     completedPackingCount: row.completed_packing_count ?? 0,
     totalPayAmount: row.total_pay_amount ?? 0,
     createdBySessionId: row.created_by_session_id,
+    createdByOperatorName: row.created_by_operator_name ?? null,
+    createdByOperatorCode: row.created_by_operator_code ?? null,
     paymentId: row.payment_id ?? null,
     paidAt: row.paid_at ?? null,
     paidAmount: row.paid_amount ?? null,
@@ -79,6 +83,8 @@ function selectPackingSessions(whereClause = '', args: unknown[] = []) {
        s.status,
        s.note,
        s.created_by_session_id,
+       s.created_by_operator_name,
+       s.created_by_operator_code,
        s.payment_id,
        s.paid_at,
        s.paid_amount,
@@ -171,9 +177,11 @@ export function createPackingSession(input: {
       status,
       note,
       created_by_session_id,
+      created_by_operator_name,
+      created_by_operator_code,
       created_at,
       updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     profile.operatorName,
@@ -185,6 +193,8 @@ export function createPackingSession(input: {
     'active',
     input.note?.trim() || null,
     input.createdBySessionId ?? null,
+    input.currentSession?.operatorName ?? null,
+    input.currentSession?.operatorCode ?? null,
     timestamp,
     timestamp,
   )
