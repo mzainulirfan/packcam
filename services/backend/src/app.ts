@@ -8,7 +8,7 @@ import multer from 'multer'
 import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
 import type { AppSettings, ShopeeOrder } from '@pakti/types'
 
-import { calculatePackingPayForOrder, clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, closePackingSession, createPackingPayment, createPackingPayRule, createPackingSession, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deletePackingPayRule, deleteRecording, deleteSessionById, finalizeRecording, getActivePackingSession, getBootstrapStatus, getChatSendStats, getHealthSnapshot, getNextPendingShippingChatSend, getPackingPaymentById, getPackingSessionById, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, getShopeeOrderStats, getShippingChatSendStats, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPackingOperators, listPackingPayRules, listPackingPayments, listPackingSessions, listPendingChatSends, listRecentChatSends, listRecentShippingChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, prepareBundledRecordingChatSend, prepareReadyRecordingChatSendsForToday, prepareRecordingShareFile, prepareShippingChatSends, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, reopenPackingSession, resolveSession, resetOperatorPassword, retryChatSend, retryShippingChatSend, saveSettings, saveSystemConfig, updateChatSendStatus, updatePackingPayRule, updateSessionTaskType, updateShippingChatSendStatus, upsertOperatorProfile } from './store'
+import { calculatePackingPayForOrder, clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, closePackingSession, createPackingPayment, createPackingPayRule, createPackingSession, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deletePackingPayRule, deletePackingSession, deleteRecording, deleteSessionById, finalizeRecording, getActivePackingSession, getBootstrapStatus, getChatSendStats, getHealthSnapshot, getNextPendingShippingChatSend, getPackingPaymentById, getPackingSessionById, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, getShopeeOrderStats, getShippingChatSendStats, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPackingOperators, listPackingPayRules, listPackingPayments, listPackingSessions, listPendingChatSends, listRecentChatSends, listRecentShippingChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, prepareBundledRecordingChatSend, prepareReadyRecordingChatSendsForToday, prepareRecordingShareFile, prepareShippingChatSends, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, reopenPackingSession, resolveSession, resetOperatorPassword, retryChatSend, retryShippingChatSend, saveSettings, saveSystemConfig, updateChatSendStatus, updatePackingPayRule, updateSessionTaskType, updateShippingChatSendStatus, upsertOperatorProfile } from './store'
 import type { ShippingChatOrderInput } from './store/shippingChatSendStore'
 import { clearSessionCookie, getCookie, normalizeRole, readStringField, sendError, sendOk, setSessionCookie } from './http'
 import type { HttpSession } from './http'
@@ -585,6 +585,16 @@ app.post('/api/packing-sessions/:id/reopen', requireSession, (req, res) => {
     return sendOk(res, packingSession)
   } catch (error) {
     return sendError(res, 400, error instanceof Error ? error.message : 'Gagal melanjutkan sesi packing.')
+  }
+})
+
+app.delete('/api/packing-sessions/:id', requireAdmin, (req, res) => {
+  try {
+    const params = req.params as Record<string, string | undefined>
+    deletePackingSession(params.id ?? '')
+    return sendOk(res, { deleted: true })
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal menghapus sesi packing.')
   }
 })
 

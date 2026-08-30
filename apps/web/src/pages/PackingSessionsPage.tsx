@@ -7,11 +7,17 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
-import { closePackingSessionApi, createPackingPaymentApi, readPackingPaymentsApi, readPackingSessionsApi, readServerHistoryRecordingsApi } from '@pakti/api-client'
+import { closePackingSessionApi, createPackingPaymentApi, deletePackingSessionApi, readPackingPaymentsApi, readPackingSessionsApi, readServerHistoryRecordingsApi } from '@pakti/api-client'
 import type { PackingPayment, PackingWorkSession } from '@pakti/types'
 import { downloadTextFile } from '@pakti/shared'
 import { recordsToCsv } from '@pakti/shared/exporters'
 import { navigateTo } from '../app/uiState'
+
+type SessionOrderItem = {
+  productName: string
+  variationName?: string | null
+  quantity: number
+}
 
 export function PackingSessionsPage() {
   const [sessions, setSessions] = useState<PackingWorkSession[]>([])
@@ -36,6 +42,7 @@ export function PackingSessionsPage() {
   const [lastPayment, setLastPayment] = useState<PackingPayment | null>(null)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [shareDraft, setShareDraft] = useState<{ title: string; text: string } | null>(null)
+  const [deleteBusy, setDeleteBusy] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -137,6 +144,16 @@ export function PackingSessionsPage() {
     }
   }, [filtered, selectedSessionIds])
 
+  const deletePreview = useMemo(() => {
+    const selected = filtered.filter((s) => selectedSessionIds.has(s.id))
+    const deletable = selected.filter(canDeleteSession)
+    return {
+      selected,
+      deletable,
+      invalidCount: selected.length - deletable.length,
+    }
+  }, [filtered, selectedSessionIds])
+
   async function handleClose(id: string) {
     if (!confirm('Tutup sesi packing ini?')) return
     try {
@@ -145,6 +162,63 @@ export function PackingSessionsPage() {
       if (selected?.id === id) setSelected(updated as PackingWorkSession)
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Gagal tutup sesi')
+    }
+  }
+
+  function canDeleteSession(s: PackingWorkSession) {
+    return s.status === 'closed' && (s.completedPackingCount ?? 0) === 0 && !s.paidAt && !s.paymentId
+  }
+
+  async function handleDeleteSession(s: PackingWorkSession) {
+    if (!canDeleteSession(s)) {
+      alert('Hanya sesi closed yang kosong dan belum dibayar yang bisa dihapus.')
+      return
+    }
+    if (!confirm(`Hapus sesi kosong ${s.packerNameSnapshot} (${s.packerCodeSnapshot})? Aksi ini tidak bisa dibatalkan.`)) return
+    try {
+      await deletePackingSessionApi(s.id)
+      setSessions((prev) => prev.filter((item) => item.id !== s.id))
+      setSelectedSessionIds((current) => {
+        const next = new Set(current)
+        next.delete(s.id)
+        return next
+      })
+      if (selected?.id === s.id) setSelected(null)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Gagal hapus sesi')
+    }
+  }
+
+  async function handleDeleteSelectedSessions() {
+    if (deletePreview.selected.length === 0) {
+      alert('Centang dulu sesi kosong yang mau dihapus.')
+      return
+    }
+    if (deletePreview.deletable.length === 0) {
+      alert('Tidak ada sesi terpilih yang bisa dihapus. Hanya sesi closed, kosong, dan belum dibayar yang bisa dihapus.')
+      return
+    }
+    const skippedText = deletePreview.invalidCount > 0 ? ` ${deletePreview.invalidCount} sesi lain dilewati karena tidak kosong/belum closed/sudah dibayar.` : ''
+    if (!confirm(`Hapus ${deletePreview.deletable.length} sesi kosong terpilih?${skippedText} Aksi ini tidak bisa dibatalkan.`)) return
+
+    setDeleteBusy(true)
+    try {
+      for (const session of deletePreview.deletable) {
+        await deletePackingSessionApi(session.id)
+      }
+      const deletedIds = new Set(deletePreview.deletable.map((session) => session.id))
+      setSessions((prev) => prev.filter((session) => !deletedIds.has(session.id)))
+      setSelectedSessionIds((current) => {
+        const next = new Set(current)
+        for (const id of deletedIds) next.delete(id)
+        return next
+      })
+      if (selected && deletedIds.has(selected.id)) setSelected(null)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Gagal hapus sesi terpilih')
+      await load()
+    } finally {
+      setDeleteBusy(false)
     }
   }
 
@@ -429,6 +503,11 @@ export function PackingSessionsPage() {
                 [tutup sesi]
               </Button>
             ) : null}
+            {canDeleteSession(selected) ? (
+              <Button type="button" variant="outline" onClick={() => void handleDeleteSession(selected)}>
+                [hapus sesi]
+              </Button>
+            ) : null}
           </div>
         </section>
 
@@ -459,11 +538,11 @@ export function PackingSessionsPage() {
                   </thead>
                   <tbody>
                     {records.map((rec) => {
-                      const r = rec as unknown as { resiNumber: string; orderNumber?: string | null; mediaType?: string; packingPayAmount?: number | null; packingPayBreakdown?: { ruleName?: string; payType?: string; amount?: number; quantity?: number; total?: number } | null; orderSnapshot?: { items?: Array<{ productName: string; variationName?: string | null; quantity: number }> } | null; startTime?: string }
+                      const r = rec as unknown as { resiNumber: string; orderNumber?: string | null; mediaType?: string; packingPayAmount?: number | null; packingPayBreakdown?: { ruleName?: string; payType?: string; amount?: number; quantity?: number; total?: number } | null; orderSnapshot?: { items?: SessionOrderItem[] } | null; startTime?: string }
                       return (
                         <tr key={r.resiNumber + rec.id} className="history-opencode__row hover:bg-muted/30">
                           <td className="px-3 py-2 font-mono text-xs">{r.resiNumber}</td>
-                          <td className="px-3 py-2 text-xs">{r.orderNumber ?? '-'} {r.orderSnapshot?.items ? `· ${r.orderSnapshot.items.map((it) => `${it.productName}${it.variationName ? ` · ${it.variationName}` : ''} x${it.quantity}`).join(', ')}` : ''}</td>
+                          <td className="px-3 py-2 text-xs">{r.orderNumber ?? '-'} {r.orderSnapshot?.items ? `· ${formatSessionOrderItems(r.orderSnapshot.items)}` : ''}</td>
                           <td className="px-3 py-2 text-xs">[{r.mediaType ?? 'video'}]</td>
                           <td className="px-3 py-2 text-right font-mono text-xs">{r.packingPayAmount != null ? formatCurrency(r.packingPayAmount) : '-'}</td>
                           <td className="px-3 py-2 text-xs text-muted-foreground">{r.startTime ? new Date(r.startTime).toLocaleString('id-ID') : '-'}</td>
@@ -567,10 +646,17 @@ export function PackingSessionsPage() {
               <Button type="button" size="sm" onClick={openPayDialog} disabled={payPreview ? !payPreview.valid : true}>
                 [bayar terpilih]
               </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => void handleDeleteSelectedSessions()} disabled={deleteBusy || deletePreview.deletable.length === 0}>
+                {deleteBusy ? '[hapus...]' : '[hapus kosong]'}
+              </Button>
               {payPreview && !payPreview.valid ? (
                 <span className="max-w-[28ch] text-xs leading-snug text-muted-foreground">
                   {payPreview.mixedPacker ? 'Pilih 1 petugas saja.' : payPreview.notClosedCount > 0 ? `${payPreview.notClosedCount} sesi belum closed.` : payPreview.alreadyPaidCount > 0 ? `${payPreview.alreadyPaidCount} sesi sudah dibayar.` : ''}
                 </span>
+              ) : deletePreview.selected.length > 0 && deletePreview.invalidCount > 0 ? (
+                <span className="max-w-[28ch] text-xs leading-snug text-muted-foreground">{deletePreview.deletable.length} bisa dihapus · {deletePreview.invalidCount} dilewati.</span>
+              ) : deletePreview.deletable.length > 0 ? (
+                <span className="text-xs text-muted-foreground">{deletePreview.deletable.length} sesi kosong bisa dihapus</span>
               ) : selectedSessionIds.size === 0 && totals.selectedSessions.length > 0 ? (
                 <span className="text-xs text-muted-foreground">Centang sesi untuk bayar</span>
               ) : null}
@@ -666,6 +752,9 @@ export function PackingSessionsPage() {
               <Button type="button" variant="default" size="sm" className="history-opencode__button h-7" onClick={openPayDialog} disabled={selectedSessionIds.size === 0 || (payPreview ? !payPreview.valid : true)}>
                 [bayar]
               </Button>
+              <Button type="button" variant="outline" size="sm" className="history-opencode__button h-7" onClick={() => void handleDeleteSelectedSessions()} disabled={deleteBusy || deletePreview.deletable.length === 0} title={deletePreview.selected.length > 0 ? `${deletePreview.deletable.length} bisa dihapus · ${deletePreview.invalidCount} dilewati` : 'Centang sesi closed kosong untuk hapus'}>
+                {deleteBusy ? '[hapus...]' : `[hapus kosong${deletePreview.deletable.length > 0 ? ` ${deletePreview.deletable.length}` : ''}]`}
+              </Button>
             </div>
           </div>
         </CardHeader>
@@ -742,6 +831,11 @@ export function PackingSessionsPage() {
                           {s.status === 'active' ? (
                             <Button type="button" variant="outline" size="sm" className="history-opencode__button h-7" onClick={() => void handleClose(s.id)}>
                               [tutup]
+                            </Button>
+                          ) : null}
+                          {canDeleteSession(s) ? (
+                            <Button type="button" variant="outline" size="sm" className="history-opencode__button h-7" onClick={() => void handleDeleteSession(s)}>
+                              [hapus]
                             </Button>
                           ) : null}
                         </div>
@@ -910,4 +1004,33 @@ export function PackingSessionsPage() {
       </Dialog>
     </div>
   )
+}
+
+function cleanSessionOrderText(value: string | null | undefined) {
+  const text = value?.replace(/\s+/g, ' ').trim()
+  if (!text) return null
+
+  return text
+    .replace(/\s*x\s*\d+.+$/i, '')
+    .replace(/\s*(?:variasi\s*:|variation\s*:|varian\s*:|pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\b).*$/i, '')
+    .replace(/\s*x\s*\d+\s*$/i, '')
+    .trim() || null
+}
+
+function formatSessionOrderItems(items: SessionOrderItem[]) {
+  const seen = new Set<string>()
+  const labels: string[] = []
+
+  for (const item of items) {
+    const productName = cleanSessionOrderText(item.productName)
+    if (!productName) continue
+    const variationName = cleanSessionOrderText(item.variationName)
+    const quantity = Number.isFinite(Number(item.quantity)) && Number(item.quantity) > 0 ? Math.floor(Number(item.quantity)) : 1
+    const key = `${productName.toLowerCase()}|${variationName?.toLowerCase() ?? ''}|${quantity}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    labels.push(`${productName}${variationName ? ` · ${variationName}` : ''} x${quantity}`)
+  }
+
+  return labels.join(', ') || '-'
 }

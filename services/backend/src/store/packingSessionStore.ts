@@ -291,6 +291,34 @@ export function reopenPackingSession(input: {
   return getPackingSessionById(target.id)
 }
 
+export function deletePackingSession(id: string) {
+  const session = getPackingSessionById(id)
+  if (!session) {
+    throw new Error('Sesi packing tidak ditemukan.')
+  }
+  if (session.status !== 'closed') {
+    throw new Error('Hanya sesi packing yang sudah closed yang bisa dihapus.')
+  }
+  if ((session.completedPackingCount ?? 0) > 0) {
+    throw new Error('Sesi packing yang sudah berisi paket tidak bisa dihapus.')
+  }
+  if (session.paymentId || session.paidAt) {
+    throw new Error('Sesi packing yang sudah dibayar tidak bisa dihapus.')
+  }
+
+  const timestamp = nowIso()
+  db().prepare(
+    `UPDATE recordings
+     SET packing_session_id = NULL, updated_at = ?
+     WHERE packing_session_id = ?
+       AND NOT (task_type = 'packing' AND status = 'completed')`,
+  ).run(timestamp, session.id)
+  db().prepare('DELETE FROM packing_work_sessions WHERE id = ?').run(session.id)
+
+  broadcastBackendEvent('sessions-updated', { packingSessionId: session.id, action: 'packing-session-deleted' })
+  return true
+}
+
 export function assertActivePackingSession(id: string) {
   const session = getPackingSessionById(id)
   if (!session || session.status !== 'active') {

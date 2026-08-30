@@ -413,6 +413,12 @@ export function reopenPackingSessionApi(id: string, options: { releaseActive?: b
   })
 }
 
+export function deletePackingSessionApi(id: string) {
+  return requestApi<{ deleted: true }>(`/api/packing-sessions/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  })
+}
+
 export function readPackingSessionsApi(limit = 50) {
   return requestApi<PackingWorkSession[]>(`/api/packing-sessions?limit=${encodeURIComponent(String(limit))}`)
 }

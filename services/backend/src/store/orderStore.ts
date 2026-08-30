@@ -52,6 +52,18 @@ function normalizeOptionalString(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : null
 }
 
+function cleanProductName(value: unknown) {
+  const text = normalizeOptionalString(value)
+  if (!text) return null
+
+  return normalizeOptionalString(
+    text
+      .replace(/\s*(?:variasi\s*:|variation\s*:|varian\s*:|pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\b).*$/i, '')
+      .replace(/\s*x\s*\d+.+$/i, '')
+      .replace(/\s*x\s*\d+\s*$/i, ''),
+  )
+}
+
 function cleanVariationName(value: unknown) {
   const text = normalizeOptionalString(value)
   if (!text) return null
@@ -66,7 +78,7 @@ function cleanVariationName(value: unknown) {
 }
 
 function normalizeOrderItem(item: Partial<ShopeeOrderItem>): ShopeeOrderItem | null {
-  const productName = normalizeOptionalString(item.productName)
+  const productName = cleanProductName(item.productName)
   if (!productName) {
     return null
   }

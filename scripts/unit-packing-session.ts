@@ -18,6 +18,7 @@ const { upsertOperatorProfile } = await import('../services/backend/src/store/op
 const {
   closePackingSession,
   createPackingSession,
+  deletePackingSession,
   getPackingSessionById,
   reopenPackingSession,
 } = await import('../services/backend/src/store/packingSessionStore.ts')
@@ -254,4 +255,27 @@ test('admin atas nama menyimpan createdByOperator', () => {
   })
   assert.equal(sani.createdByOperatorName, 'admin')
   assert.equal(sani.createdByOperatorCode, 'ADM')
+})
+
+test('deletePackingSession hanya menghapus sesi closed kosong', () => {
+  resetDb()
+  seedPackingOperator('sani', 'PK01', 'Sani')
+
+  const now = new Date().toISOString()
+  database.prepare(`INSERT INTO packing_work_sessions (id, packer_operator_name, packer_operator_code, packer_name_snapshot, packer_code_snapshot, started_at, ended_at, status, note, created_by_session_id, created_at, updated_at) VALUES ('closed-empty', 'sani', 'PK01', 'Sani', 'PK01', ?, ?, 'closed', NULL, NULL, ?, ?)`).run(now, now, now, now)
+
+  assert.equal(deletePackingSession('closed-empty'), true)
+  assert.equal(getPackingSessionById('closed-empty'), null)
+})
+
+test('deletePackingSession menolak sesi closed yang berisi paket', () => {
+  resetDb()
+  seedPackingOperator('sani', 'PK01', 'Sani')
+
+  const now = new Date().toISOString()
+  database.prepare(`INSERT INTO packing_work_sessions (id, packer_operator_name, packer_operator_code, packer_name_snapshot, packer_code_snapshot, started_at, ended_at, status, note, created_by_session_id, created_at, updated_at) VALUES ('closed-filled', 'sani', 'PK01', 'Sani', 'PK01', ?, ?, 'closed', NULL, NULL, ?, ?)`).run(now, now, now, now)
+  database.prepare(`INSERT INTO recordings (id, resi_number, task_type, operator_name, operator_code, file_name, file_path, media_type, file_size_bytes, record_date, start_time, end_time, duration_seconds, status, packing_session_id, packer_operator_name, packer_operator_code, packing_pay_amount, packing_pay_status, created_at, updated_at) VALUES ('pack-filled', 'RESI-FILLED', 'packing', 'sani', 'PK01', 'pack.mp4', 'pack.mp4', 'video', 100, ?, ?, ?, 5, 'completed', 'closed-filled', 'sani', 'PK01', 1500, 'calculated', ?, ?)`).run(now.slice(0,10), now, now, now, now)
+
+  assert.throws(() => deletePackingSession('closed-filled'), /berisi paket/)
+  assert.ok(getPackingSessionById('closed-filled'))
 })

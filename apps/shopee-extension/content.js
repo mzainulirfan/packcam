@@ -2,6 +2,14 @@ function textOf(element) {
   return element?.textContent?.replace(/\s+/g, ' ').trim() || ''
 }
 
+function textLinesOf(element) {
+  const raw = element?.innerText || element?.textContent || ''
+  return raw
+    .split(/\n+/)
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+}
+
 function firstMatch(text, patterns) {
   for (const pattern of patterns) {
     const match = text.match(pattern)
@@ -43,6 +51,39 @@ function parseQuantity(text) {
   return match?.[1] ? Number(match[1]) : 1
 }
 
+function isOrderMetadataText(value) {
+  const text = String(value || '').trim()
+  if (!text) return true
+  return /^(?:x\s*\d+|rp\s*[\d.]+|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\b|pesan\s*:|variasi\s*:|variation\s*:|varian\s*:|sku\s*:|no\. pesanan\b|nomor pesanan\b|order id\b|resi\b)/i.test(text)
+}
+
+function cleanProductText(value) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim()
+  if (!text || isOrderMetadataText(text)) return null
+
+  return text
+    .replace(/\s*(?:variasi\s*:|variation\s*:|varian\s*:|pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\b).*$/i, '')
+    .replace(/\s*x\s*\d+.+$/i, '')
+    .replace(/\s*x\s*\d+\s*$/i, '')
+    .trim() || null
+}
+
+function deriveProductName(element) {
+  const selectorText = textOf(element.querySelector('.item-name, [class*="item-name" i], [class*="product-name" i], [data-testid*="product-name" i], [data-testid*="item-name" i], [title]'))
+  const fromSelector = cleanProductText(selectorText)
+  if (fromSelector) return fromSelector
+
+  const imageAlt = [...element.querySelectorAll('img')]
+    .map((img) => cleanProductText(img.alt || img.title || ''))
+    .find(Boolean)
+  if (imageAlt) return imageAlt
+
+  const line = textLinesOf(element)
+    .map(cleanProductText)
+    .find((value) => value && value.length >= 3)
+  return line || null
+}
+
 function cleanVariationText(value) {
   const text = String(value || '').replace(/\s+/g, ' ').trim()
   if (!text) return null
@@ -64,7 +105,7 @@ function extractShopeeItems(root) {
 
   const shopeeItems = itemElements
     .map((element) => {
-      const productName = textOf(element.querySelector('.item-name, [class*="item-name" i], [class*="product-name" i], [data-testid*="product" i]'))
+      const productName = deriveProductName(element)
       if (!productName || productName.length < 3) {
         return null
       }
@@ -128,10 +169,11 @@ function extractItems(root) {
 
   return unique.slice(0, 20).map((candidate) => {
     const image = candidate.element.querySelector('img')
+    const productName = deriveProductName(candidate.element) || cleanProductText(candidate.text) || 'Unknown item'
     return {
       sku: firstMatch(candidate.text, [/sku[:\s]+([^|,]+)/i]) || null,
-      productName: candidate.text.replace(/\s*x\s*\d+\s*$/i, '').slice(0, 220),
-      variationName: firstMatch(candidate.text, [/(?:variasi|variation)[:\s]+([^|,]+)/i]) || null,
+      productName: productName.slice(0, 220),
+      variationName: cleanVariationText(firstMatch(candidate.text, [/(?:variasi|variation)[:\s]+([^|,]+)/i]) || null),
       quantity: parseQuantity(candidate.text),
       imageUrl: image?.src || null,
     }

@@ -1079,7 +1079,8 @@ export function HistoryPage() {
                             const snap = (selectedRecord as unknown as { orderSnapshot: { shippingChannel?: string; items?: OrderItemLike[] } }).orderSnapshot
                             const items = dedupeOrderItems(snap.items ?? []).map((it) => {
                               const variationName = cleanOrderVariationName(it.variationName)
-                              return `${it.productName}${variationName ? ` (${variationName})` : ''} x${it.quantity}`
+                              const productName = cleanOrderProductName(it.productName) ?? it.productName
+                              return `${productName}${variationName ? ` (${variationName})` : ''} x${it.quantity}`
                             }).join(', ')
                             return `${snap.shippingChannel ?? '-'} · ${items || '-'}`
                           })()}
@@ -1597,13 +1598,16 @@ function OrderDetailRow({ order }: { order: ShopeeOrder }) {
         </div>
         <div className="history-opencode__order-product-list" aria-label="Daftar barang pesanan">
           {items.length ? (
-            items.map((item, index) => (
-              <span key={item.id ?? `${item.productName}-${index}`} className="history-opencode__order-product" title={item.productName}>
-                <span className="history-opencode__order-product-name">{item.productName}</span>
+            items.map((item, index) => {
+              const productName = cleanOrderProductName(item.productName) ?? item.productName
+              return (
+              <span key={item.id ?? `${productName}-${index}`} className="history-opencode__order-product" title={productName}>
+                <span className="history-opencode__order-product-name">{productName}</span>
                 {cleanOrderVariationName(item.variationName) ? <small>{cleanOrderVariationName(item.variationName)}</small> : null}
                 <strong>x{item.quantity}</strong>
               </span>
-            ))
+              )
+            })
           ) : (
             <span className="history-opencode__order-empty">Barang belum tersedia.</span>
           )}
@@ -1620,7 +1624,7 @@ function dedupeOrderItems<T extends OrderItemLike>(items: T[]) {
   for (const item of items) {
     const variationName = cleanOrderVariationName(item.variationName)
     const key = [
-      item.productName.trim().toLowerCase(),
+      (cleanOrderProductName(item.productName) ?? item.productName).trim().toLowerCase(),
       variationName?.trim().toLowerCase() ?? '',
       String(item.quantity),
     ].join('|')
@@ -1632,6 +1636,17 @@ function dedupeOrderItems<T extends OrderItemLike>(items: T[]) {
   }
 
   return result
+}
+
+function cleanOrderProductName(value: string | null | undefined) {
+  const text = value?.replace(/\s+/g, ' ').trim()
+  if (!text) return null
+
+  return text
+    .replace(/\s*(?:variasi\s*:|variation\s*:|varian\s*:|pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\b).*$/i, '')
+    .replace(/\s*x\s*\d+.+$/i, '')
+    .replace(/\s*x\s*\d+\s*$/i, '')
+    .trim() || null
 }
 
 function cleanOrderVariationName(value: string | null | undefined) {
