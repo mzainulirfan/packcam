@@ -124,6 +124,50 @@ export function deletePackingPayRule(id: string) {
   return true
 }
 
+function getRuleQuantity(rule: PackingPayRule, order: { shippingChannel?: string | null; items?: Array<{ productName: string; variationName?: string | null; sku?: string | null; quantity: number }> } | null) {
+  const normalizedShipping = String(order?.shippingChannel ?? '').toLowerCase()
+  const items = Array.isArray(order?.items) ? order!.items! : []
+  const totalItemQuantity = Math.max(1, items.reduce((acc, item) => acc + Math.max(1, Number(item.quantity) || 1), 0))
+  const matchValue = String(rule.matchValue ?? '').toLowerCase().trim()
+  let matchedQty = totalItemQuantity
+
+  if (rule.matchType === 'shipping_channel') {
+    matchedQty = matchValue && normalizedShipping.includes(matchValue) ? 1 : 0
+  } else if (rule.matchType === 'product_contains') {
+    matchedQty = items.filter((it) => String(it.productName ?? '').toLowerCase().includes(matchValue)).reduce((acc, it) => acc + Math.max(1, Number(it.quantity) || 1), 0)
+  } else if (rule.matchType === 'variation_contains') {
+    matchedQty = items.filter((it) => String(it.variationName ?? '').toLowerCase().includes(matchValue)).reduce((acc, it) => acc + Math.max(1, Number(it.quantity) || 1), 0)
+  } else if (rule.matchType === 'sku_contains') {
+    matchedQty = items.filter((it) => String(it.sku ?? '').toLowerCase().includes(matchValue)).reduce((acc, it) => acc + Math.max(1, Number(it.quantity) || 1), 0)
+  }
+
+  if (matchedQty <= 0) {
+    matchedQty = rule.payType === 'per_qty' ? totalItemQuantity : 1
+  }
+
+  return rule.payType === 'per_qty' ? matchedQty : 1
+}
+
+export function calculatePackingPayForRule(rule: PackingPayRule, order: { shippingChannel?: string | null; items?: Array<{ productName: string; variationName?: string | null; sku?: string | null; quantity: number }> } | null) {
+  const quantity = getRuleQuantity(rule, order)
+  const total = rule.amount * quantity
+  return {
+    rule,
+    amount: total,
+    quantity,
+    breakdown: {
+      ruleName: rule.name,
+      matchType: rule.matchType,
+      matchValue: rule.matchValue,
+      payType: rule.payType,
+      amount: rule.amount,
+      quantity,
+      total,
+      manualOverride: true,
+    },
+  }
+}
+
 export function calculatePackingPayForOrder(order: { shippingChannel?: string | null; items?: Array<{ productName: string; variationName?: string | null; sku?: string | null; quantity: number }> } | null) {
   const rules = listPackingPayRules().filter((rule) => rule.active)
   const normalizedShipping = String(order?.shippingChannel ?? '').toLowerCase()

@@ -15,6 +15,8 @@ process.env.PAKTI_DB_PATH = TEST_DB_PATH
 
 const { getDb } = await import('../services/backend/src/db.ts')
 const { upsertOperatorProfile } = await import('../services/backend/src/store/operatorStore.ts')
+const { createPackingPayRule } = await import('../services/backend/src/store/packingPayRuleStore.ts')
+const { updatePackingRecordingPayRule } = await import('../services/backend/src/store/recordingStore.ts')
 const {
   closePackingSession,
   createPackingSession,
@@ -28,6 +30,7 @@ const database = getDb()
 function resetDb() {
   database.prepare('DELETE FROM recordings').run()
   database.prepare('DELETE FROM packing_work_sessions').run()
+  database.prepare('DELETE FROM packing_pay_rules').run()
   database.prepare('DELETE FROM operator_profiles').run()
 }
 
@@ -278,4 +281,21 @@ test('deletePackingSession menolak sesi closed yang berisi paket', () => {
 
   assert.throws(() => deletePackingSession('closed-filled'), /berisi paket/)
   assert.ok(getPackingSessionById('closed-filled'))
+})
+
+test('updatePackingRecordingPayRule mengubah upah recording dan menolak sesi sudah dibayar', () => {
+  resetDb()
+  seedPackingOperator('sani', 'PK01', 'Sani')
+
+  const now = new Date().toISOString()
+  const rule = createPackingPayRule({ name: 'Manual fragile', matchType: 'default', payType: 'per_package', amount: 2500, priority: 10 })
+  database.prepare(`INSERT INTO packing_work_sessions (id, packer_operator_name, packer_operator_code, packer_name_snapshot, packer_code_snapshot, started_at, ended_at, status, note, created_by_session_id, created_at, updated_at) VALUES ('session-rule', 'sani', 'PK01', 'Sani', 'PK01', ?, ?, 'closed', NULL, NULL, ?, ?)`).run(now, now, now, now)
+  database.prepare(`INSERT INTO recordings (id, resi_number, task_type, operator_name, operator_code, file_name, file_path, media_type, file_size_bytes, record_date, start_time, end_time, duration_seconds, status, packing_session_id, packer_operator_name, packer_operator_code, order_snapshot, packing_pay_amount, packing_pay_status, created_at, updated_at) VALUES ('pack-rule', 'RESI-RULE', 'packing', 'sani', 'PK01', 'pack.mp4', 'pack.mp4', 'video', 100, ?, ?, ?, 5, 'completed', 'session-rule', 'sani', 'PK01', ?, 1500, 'calculated', ?, ?)`).run(now.slice(0,10), now, now, JSON.stringify({ items: [{ productName: 'Produk', quantity: 1 }] }), now, now)
+
+  const updated = updatePackingRecordingPayRule('pack-rule', rule.id)
+  assert.equal(updated?.packing_pay_amount, 2500)
+  assert.equal(updated?.packing_pay_rule_id, rule.id)
+
+  database.prepare(`UPDATE packing_work_sessions SET payment_id = 'pay-1', paid_at = ? WHERE id = 'session-rule'`).run(now)
+  assert.throws(() => updatePackingRecordingPayRule('pack-rule', rule.id), /sudah dibayar/)
 })

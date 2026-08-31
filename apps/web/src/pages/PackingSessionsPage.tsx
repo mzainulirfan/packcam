@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Lock, Pencil, Loader2 } from 'lucide-react'
 
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
@@ -7,8 +8,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
-import { closePackingSessionApi, createPackingPaymentApi, deletePackingSessionApi, readPackingPaymentsApi, readPackingSessionsApi, readServerHistoryRecordingsApi } from '@pakti/api-client'
-import type { PackingPayment, PackingWorkSession } from '@pakti/types'
+import { closePackingSessionApi, createPackingPaymentApi, deletePackingSessionApi, readPackingPaymentsApi, readPackingPayRulesApi, readPackingSessionsApi, readServerHistoryRecordingsApi, updatePackingRecordingPayRuleApi } from '@pakti/api-client'
+import type { PackingPayment, PackingPayRule, PackingWorkSession } from '@pakti/types'
 import { downloadTextFile } from '@pakti/shared'
 import { recordsToCsv } from '@pakti/shared/exporters'
 import { navigateTo } from '../app/uiState'
@@ -43,14 +44,19 @@ export function PackingSessionsPage() {
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [shareDraft, setShareDraft] = useState<{ title: string; text: string } | null>(null)
   const [deleteBusy, setDeleteBusy] = useState(false)
+  const [payRules, setPayRules] = useState<PackingPayRule[]>([])
+  const [payRuleBusyId, setPayRuleBusyId] = useState<string | null>(null)
+  const [payRuleEditTarget, setPayRuleEditTarget] = useState<{ id: string; resiNumber: string; packingPayRuleId?: string | null; packingPayBreakdown?: { ruleName?: string; payType?: string; amount?: number; quantity?: number; total?: number; manualOverride?: boolean } | null; packingPayAmount?: number | null } | null>(null)
+  const [payRuleEditSelectedId, setPayRuleEditSelectedId] = useState<string>('')
 
   async function load() {
     setLoading(true)
     setError(null)
     try {
-      const [data, pays] = await Promise.all([readPackingSessionsApi(100), readPackingPaymentsApi(50).catch(() => [] as PackingPayment[])])
+      const [data, pays, rules] = await Promise.all([readPackingSessionsApi(100), readPackingPaymentsApi(50).catch(() => [] as PackingPayment[]), readPackingPayRulesApi().catch(() => [] as PackingPayRule[])])
       setSessions(data as PackingWorkSession[])
       setPayments(pays as PackingPayment[])
+      setPayRules(rules as PackingPayRule[])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal memuat sesi packing.')
     } finally {
@@ -233,6 +239,54 @@ export function PackingSessionsPage() {
       setRecords([])
     } finally {
       setDetailLoading(false)
+    }
+  }
+
+  function openPayRuleEdit(record: { id: string; resiNumber: string; packingPayRuleId?: string | null; packingPayBreakdown?: { ruleName?: string; payType?: string; amount?: number; quantity?: number; total?: number; manualOverride?: boolean } | null; packingPayAmount?: number | null }) {
+    if (!selected || selected.paidAt || selected.paymentId) {
+      alert('Pay rule tidak bisa diubah karena sesi sudah dibayar.')
+      return
+    }
+    if (payRules.length === 0) {
+      alert('Belum ada pay rule tersedia.')
+      return
+    }
+    setPayRuleEditTarget(record)
+    setPayRuleEditSelectedId(record.packingPayRuleId ?? '')
+  }
+
+  function closePayRuleEdit() {
+    if (payRuleBusyId) return
+    setPayRuleEditTarget(null)
+    setPayRuleEditSelectedId('')
+  }
+
+  async function handleConfirmPayRuleEdit() {
+    if (!payRuleEditTarget) return
+    const recordId = payRuleEditTarget.id
+    const ruleId = payRuleEditSelectedId
+    if (!selected || selected.paidAt || selected.paymentId) {
+      alert('Pay rule tidak bisa diubah karena sesi sudah dibayar.')
+      return
+    }
+    if (!ruleId) {
+      alert('Pilih pay rule terlebih dahulu.')
+      return
+    }
+    setPayRuleBusyId(recordId)
+    try {
+      const updated = await updatePackingRecordingPayRuleApi(recordId, ruleId)
+      setRecords((prev) => prev.map((record) => (record.id === updated.id ? updated : record)))
+      const refreshedSessions = await readPackingSessionsApi(100)
+      setSessions(refreshedSessions as PackingWorkSession[])
+      const refreshedSelected = refreshedSessions.find((session) => session.id === selected.id)
+      if (refreshedSelected) setSelected(refreshedSelected as PackingWorkSession)
+      setPayRuleEditTarget(null)
+      setPayRuleEditSelectedId('')
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Gagal mengubah pay rule.')
+    } finally {
+      setPayRuleBusyId(null)
     }
   }
 
@@ -481,39 +535,59 @@ export function PackingSessionsPage() {
   }
 
   if (selected) {
+    const selectedIsPaid = Boolean(selected.paidAt)
+    const selectedCanDelete = canDeleteSession(selected)
+    const selectedStatusTone = selected.status === 'closed' ? 'bg-foreground text-background' : selected.status === 'active' ? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-700' : 'border bg-muted text-muted-foreground'
+
     return (
-      <div className="admin-opencode grid w-full gap-5 px-0 py-1">
-        <section className="admin-opencode__summary flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="grid gap-2">
-            <div className="admin-opencode__section-label">[←] Sesi Packing / Detail</div>
-            <h1 className="admin-opencode__title">{selected.packerNameSnapshot} ({selected.packerCodeSnapshot})</h1>
-            <p className="admin-opencode__lede">
-              [{selected.status}] · {selected.paidAt ? `[dibayar ${new Date(selected.paidAt).toLocaleString('id-ID')}]` : '[belum dibayar]'} · {new Date(selected.startedAt).toLocaleString('id-ID')} → {selected.endedAt ? new Date(selected.endedAt).toLocaleString('id-ID') : 'masih aktif'} · {selected.completedPackingCount} paket · {formatCurrency(selected.totalPayAmount)}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={() => setSelected(null)}>
-              [← kembali ke daftar]
-            </Button>
-            <Button type="button" variant="outline" onClick={handleExportDetail}>
-              [export csv sesi]
-            </Button>
-            {selected.status === 'active' ? (
-              <Button type="button" variant="outline" onClick={() => void handleClose(selected.id)}>
-                [tutup sesi]
-              </Button>
-            ) : null}
-            {canDeleteSession(selected) ? (
-              <Button type="button" variant="outline" onClick={() => void handleDeleteSession(selected)}>
-                [hapus sesi]
-              </Button>
-            ) : null}
-          </div>
-        </section>
+      <div className="admin-opencode grid w-full gap-4 px-0 py-1">
+        <Card className="admin-opencode__panel">
+          <CardContent className="grid gap-4 pt-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div className="grid min-w-0 gap-2">
+                <button type="button" className="admin-opencode__section-label w-fit text-left" onClick={() => setSelected(null)}>[←] Riwayat Sesi Packing</button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="admin-opencode__title min-w-0">{selected.packerNameSnapshot}</h1>
+                  <span className="admin-opencode__badge">{selected.packerCodeSnapshot}</span>
+                  <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${selectedStatusTone}`}>[{selected.status}]</span>
+                  <span className={selectedIsPaid ? 'rounded bg-foreground px-1.5 py-0.5 text-[11px] font-medium text-background' : 'rounded border bg-white px-1.5 py-0.5 text-[11px]'}>{selectedIsPaid ? '[dibayar]' : '[belum dibayar]'}</span>
+                </div>
+                <p className="admin-opencode__lede max-w-[80ch] text-[0.82rem] leading-snug">
+                  <span className="font-mono">{selected.id.slice(0, 12)}</span> · {formatPeriode(selected.startedAt, selected.endedAt)} · dibuat oleh {selected.createdByOperatorName ? `${selected.createdByOperatorName} (${selected.createdByOperatorCode ?? '-'})` : '-'}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setSelected(null)}>[kembali]</Button>
+                <Button type="button" variant="outline" size="sm" onClick={handleExportDetail} disabled={records.length === 0}>[export]</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => { window.sessionStorage.setItem('pakti.historyPackingSessionId', selected.id); navigateTo('history') }}>[history]</Button>
+                {selected.status === 'active' ? <Button type="button" variant="outline" size="sm" onClick={() => void handleClose(selected.id)}>[tutup]</Button> : null}
+                {selectedCanDelete ? <Button type="button" variant="outline" size="sm" onClick={() => void handleDeleteSession(selected)}>[hapus]</Button> : null}
+              </div>
+            </div>
+
+            <div className="grid gap-2 border-t pt-3 sm:grid-cols-3">
+              <SessionMetric label="Paket" value={String(selected.completedPackingCount)} />
+              <SessionMetric label="Upah" value={formatCurrency(selected.totalPayAmount)} />
+              <SessionMetric label="Payment" value={selectedIsPaid ? formatCurrency(selected.paidAmount ?? selected.totalPayAmount) : '-'} />
+            </div>
+
+            <div className="grid gap-2 border-t pt-3 text-xs text-muted-foreground sm:grid-cols-3">
+              <span>Mulai <strong className="block text-foreground">{new Date(selected.startedAt).toLocaleString('id-ID')}</strong></span>
+              <span>Selesai <strong className="block text-foreground">{selected.endedAt ? new Date(selected.endedAt).toLocaleString('id-ID') : 'masih aktif'}</strong></span>
+              <span>Dibayar <strong className="block text-foreground">{selected.paidAt ? new Date(selected.paidAt).toLocaleString('id-ID') : '-'}</strong></span>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card className="admin-opencode__panel">
-          <CardHeader>
-            <CardTitle>Detail paket sesi</CardTitle>
+          <CardHeader className="pb-2">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div className="grid gap-0.5">
+                <CardTitle>Detail paket sesi</CardTitle>
+                <p className="text-xs text-muted-foreground">Daftar paket completed yang masuk ke sesi ini. Produk dibersihkan dari metadata Shopee.</p>
+              </div>
+              <span className="admin-opencode__badge">{detailLoading ? '[~] loading' : `${records.length} record`}</span>
+            </div>
           </CardHeader>
           <CardContent className="pt-4">
             {detailLoading ? (
@@ -522,31 +596,62 @@ export function PackingSessionsPage() {
                 <div className="h-20 animate-pulse rounded bg-muted/50" />
               </div>
             ) : records.length === 0 ? (
-              <div className="text-sm text-muted-foreground">[-] Belum ada paket completed di sesi ini.</div>
+              <div className="admin-opencode__empty grid gap-2 py-8 text-center">
+                <p>[-] Belum ada paket completed di sesi ini.</p>
+                <p className="text-xs text-muted-foreground">Sesi kosong yang sudah closed bisa dihapus dari halaman ini.</p>
+                {selectedCanDelete ? <Button type="button" variant="outline" size="sm" className="mx-auto" onClick={() => void handleDeleteSession(selected)}>[hapus sesi kosong]</Button> : null}
+              </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="history-opencode__table w-full min-w-[720px] border-collapse">
-                  <thead>
+              <div className="overflow-hidden rounded-[4px] border">
+                <table className="history-opencode__table w-full min-w-[820px] border-collapse">
+                  <thead className="bg-muted/30">
                     <tr>
-                      <th className="px-3 py-2 text-[0.72rem] uppercase tracking-wide">Resi</th>
-                      <th className="px-3 py-2 text-[0.72rem] uppercase tracking-wide">Order</th>
-                      <th className="px-3 py-2 text-[0.72rem] uppercase tracking-wide">Media</th>
-                      <th className="px-3 py-2 text-right text-[0.72rem] uppercase tracking-wide">Upah</th>
-                      <th className="px-3 py-2 text-[0.72rem] uppercase tracking-wide">Waktu</th>
-                      <th className="px-3 py-2 text-[0.72rem] uppercase tracking-wide">Breakdown</th>
+                      <th className="w-[54px] px-3 py-2 text-left text-[0.72rem] uppercase tracking-wide text-muted-foreground">No</th>
+                      <th className="px-3 py-2 text-left text-[0.72rem] uppercase tracking-wide text-muted-foreground">Paket</th>
+                      <th className="px-3 py-2 text-left text-[0.72rem] uppercase tracking-wide text-muted-foreground">Produk</th>
+                      <th className="px-3 py-2 text-right text-[0.72rem] uppercase tracking-wide text-muted-foreground">Upah</th>
+                      <th className="px-3 py-2 text-left text-[0.72rem] uppercase tracking-wide text-muted-foreground">Waktu</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {records.map((rec) => {
-                      const r = rec as unknown as { resiNumber: string; orderNumber?: string | null; mediaType?: string; packingPayAmount?: number | null; packingPayBreakdown?: { ruleName?: string; payType?: string; amount?: number; quantity?: number; total?: number } | null; orderSnapshot?: { items?: SessionOrderItem[] } | null; startTime?: string }
+                    {records.map((rec, index) => {
+                      const r = rec as unknown as { id: string; resiNumber: string; orderNumber?: string | null; mediaType?: string; packingPayAmount?: number | null; packingPayStatus?: string | null; packingPayRuleId?: string | null; packingPayBreakdown?: { ruleName?: string; payType?: string; amount?: number; quantity?: number; total?: number; manualOverride?: boolean } | null; orderSnapshot?: { items?: SessionOrderItem[] } | null; startTime?: string }
+                      const itemsLabel = r.orderSnapshot?.items ? formatSessionOrderItems(r.orderSnapshot.items) : '-'
+                      const currentRule = payRules.find((rule) => rule.id === r.packingPayRuleId)
+                      const currentRuleName = currentRule?.name ?? r.packingPayBreakdown?.ruleName ?? '-'
+                      const canEditRule = !selectedIsPaid && payRules.length > 0
                       return (
-                        <tr key={r.resiNumber + rec.id} className="history-opencode__row hover:bg-muted/30">
-                          <td className="px-3 py-2 font-mono text-xs">{r.resiNumber}</td>
-                          <td className="px-3 py-2 text-xs">{r.orderNumber ?? '-'} {r.orderSnapshot?.items ? `· ${formatSessionOrderItems(r.orderSnapshot.items)}` : ''}</td>
-                          <td className="px-3 py-2 text-xs">[{r.mediaType ?? 'video'}]</td>
-                          <td className="px-3 py-2 text-right font-mono text-xs">{r.packingPayAmount != null ? formatCurrency(r.packingPayAmount) : '-'}</td>
-                          <td className="px-3 py-2 text-xs text-muted-foreground">{r.startTime ? new Date(r.startTime).toLocaleString('id-ID') : '-'}</td>
-                          <td className="px-3 py-2 text-xs text-muted-foreground">{r.packingPayBreakdown ? `${r.packingPayBreakdown.ruleName ?? '-'} · ${r.packingPayBreakdown.payType ?? '-'} · Rp${r.packingPayBreakdown.amount ?? 0} x${r.packingPayBreakdown.quantity ?? 1} = Rp${r.packingPayBreakdown.total ?? 0}` : '-'}</td>
+                        <tr key={r.id ?? `${r.resiNumber}-${index}`} className="history-opencode__row border-b last:border-0 hover:bg-muted/30">
+                          <td className="px-3 py-3 align-top font-mono text-xs text-muted-foreground">{String(index + 1).padStart(2, '0')}</td>
+                          <td className="px-3 py-3 align-top">
+                            <div className="grid gap-1">
+                              <span className="font-mono text-sm font-bold leading-none">{r.resiNumber}</span>
+                              <span className="text-[11px] text-muted-foreground">{r.orderNumber ? `Order ${r.orderNumber}` : 'Order -'} · [{r.mediaType ?? 'video'}]</span>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 align-top">
+                            <div className="grid max-w-[56rem] gap-1">
+                              <p className="text-sm leading-relaxed text-foreground [overflow-wrap:anywhere]">{itemsLabel}</p>
+                              <div className="mt-1 inline-flex items-center gap-1.5">
+                                <span className="text-xs font-medium text-foreground">{currentRuleName}</span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-xs"
+                                  className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
+                                  onClick={() => openPayRuleEdit({ id: r.id, resiNumber: r.resiNumber, packingPayRuleId: r.packingPayRuleId, packingPayBreakdown: r.packingPayBreakdown, packingPayAmount: r.packingPayAmount })}
+                                  disabled={!canEditRule || payRuleBusyId === r.id}
+                                  title={selectedIsPaid ? 'Terkunci: sudah dibayar' : !canEditRule ? 'Tidak ada pay rule' : 'Ubah pay rule'}
+                                  aria-label={`Ubah pay rule ${r.resiNumber}`}
+                                >
+                                  {payRuleBusyId === r.id ? <Loader2 className="h-3 w-3 animate-spin" /> : selectedIsPaid ? <Lock className="h-3 w-3" /> : <Pencil className="h-3 w-3" />}
+                                </Button>
+                                {payRuleBusyId === r.id ? <span className="text-[11px] text-muted-foreground">menyimpan...</span> : null}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 text-right align-top font-mono text-sm tabular-nums">{r.packingPayAmount != null ? formatCurrency(r.packingPayAmount) : '-'}</td>
+                          <td className="px-3 py-3 align-top text-xs text-muted-foreground">{r.startTime ? new Date(r.startTime).toLocaleString('id-ID') : '-'}</td>
                         </tr>
                       )
                     })}
@@ -556,6 +661,48 @@ export function PackingSessionsPage() {
             )}
           </CardContent>
         </Card>
+
+        <Dialog open={Boolean(payRuleEditTarget)} onOpenChange={(open) => { if (!open) closePayRuleEdit() }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Ubah Pay Rule</DialogTitle>
+              <DialogDescription>Pilih pay rule baru untuk paket ini. Perubahan akan menghitung ulang upah paket dan total sesi.</DialogDescription>
+            </DialogHeader>
+            {payRuleEditTarget ? (
+              <div className="grid gap-4">
+                <div className="rounded-[4px] border bg-muted/20 p-3">
+                  <p className="font-mono text-sm font-bold">{payRuleEditTarget.resiNumber}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Saat ini: {payRuleEditTarget.packingPayBreakdown?.ruleName ?? '-'} · {payRuleEditTarget.packingPayBreakdown?.payType ?? '-'} · {payRuleEditTarget.packingPayAmount != null ? formatCurrency(payRuleEditTarget.packingPayAmount) : '-'}
+                    {payRuleEditTarget.packingPayBreakdown?.manualOverride ? ' · manual' : ''}
+                  </p>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Pay rule baru</Label>
+                  <Select value={payRuleEditSelectedId} onValueChange={setPayRuleEditSelectedId}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Pilih pay rule" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {payRules.map((rule) => (
+                        <SelectItem key={rule.id} value={rule.id}>
+                          {rule.name} · {formatCurrency(rule.amount)} · {rule.payType}{rule.active ? '' : ' · nonaktif'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">Rule aktif dengan prioritas lebih tinggi akan dipakai otomatis untuk paket baru; pilihan di sini overrides manual.</p>
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button type="button" variant="outline" onClick={closePayRuleEdit} disabled={Boolean(payRuleBusyId)}>[batal]</Button>
+                  <Button type="button" onClick={() => void handleConfirmPayRuleEdit()} disabled={Boolean(payRuleBusyId) || !payRuleEditSelectedId || payRuleEditSelectedId === (payRuleEditTarget.packingPayRuleId ?? '')}>
+                    {payRuleBusyId ? '[~] menyimpan' : '[simpan]'}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </DialogContent>
+        </Dialog>
       </div>
     )
   }
@@ -1033,4 +1180,25 @@ function formatSessionOrderItems(items: SessionOrderItem[]) {
   }
 
   return labels.join(', ') || '-'
+}
+
+function SessionMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[4px] border bg-muted/10 px-3 py-2">
+      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <strong className="mt-1 block truncate font-mono text-sm text-foreground" title={value}>{value}</strong>
+    </div>
+  )
+}
+
+// @ts-ignore TS6133 - kept for future use, detail now hides durasi per request
+function formatSessionDuration(startedAt: string, endedAt: string | null) {
+  const start = new Date(startedAt).getTime()
+  const end = endedAt ? new Date(endedAt).getTime() : Date.now()
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return '-'
+
+  const minutes = Math.max(1, Math.round((end - start) / 60000))
+  const hours = Math.floor(minutes / 60)
+  const remainder = minutes % 60
+  return hours > 0 ? `${hours}j ${remainder}m` : `${minutes}m`
 }

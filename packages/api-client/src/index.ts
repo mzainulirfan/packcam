@@ -615,6 +615,13 @@ export function finalizeServerRecordingApi(
   }).then(normalizeRecordingRow)
 }
 
+export function updatePackingRecordingPayRuleApi(recordingId: string, ruleId: string) {
+  return requestApi<ServerRecordingRow>(`/api/recordings/${encodeURIComponent(recordingId)}/packing-pay-rule`, {
+    method: 'PATCH',
+    body: JSON.stringify({ ruleId }),
+  }).then(normalizeRecordingRow)
+}
+
 export function prepareServerRecordingShareFileApi(recordingId: string) {
   return requestApi<{ fileName: string; filePath: string; mimeType: string }>(
     `/api/recordings/${encodeURIComponent(recordingId)}/share-file`,

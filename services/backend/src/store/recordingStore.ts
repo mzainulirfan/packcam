@@ -18,7 +18,7 @@ import {
   runFfmpegShareMp4Transcode as runVideoFfmpegShareMp4Transcode,
   SHOPEE_VIDEO_LIMIT_BYTES,
 } from '../video/shareVideo'
-import { calculatePackingPayForOrder } from './packingPayRuleStore'
+import { calculatePackingPayForOrder, calculatePackingPayForRule, getPackingPayRuleById } from './packingPayRuleStore'
 import { assertActivePackingSession } from './packingSessionStore'
 import { getShopeeOrderByResi } from './orderStore'
 
@@ -164,6 +164,15 @@ function resolvePackingPay(resiNumber: string) {
       orderNumber: null,
       shippingChannel: null,
     }
+  }
+}
+
+function parseOrderSnapshot(value: string | null) {
+  if (!value) return null
+  try {
+    return JSON.parse(value) as { shippingChannel?: string | null; items?: Array<{ productName: string; variationName?: string | null; sku?: string | null; quantity: number }> }
+  } catch {
+    return null
   }
 }
 
@@ -489,6 +498,47 @@ export function finalizeRecording(
   const finalized = getRecordingById(id)
   scheduleRecordingWatermark(finalized)
   return finalized
+}
+
+export function updatePackingRecordingPayRule(recordingId: string, ruleId: string) {
+  const recording = getRecordingById(recordingId)
+  if (!recording) {
+    throw new Error('Recording tidak ditemukan.')
+  }
+  if (recording.task_type !== 'packing') {
+    throw new Error('Hanya recording packing yang bisa diubah pay rule-nya.')
+  }
+  if (recording.status !== 'completed') {
+    throw new Error('Hanya recording completed yang bisa diubah pay rule-nya.')
+  }
+
+  const session = recording.packing_session_id
+    ? db().prepare('SELECT payment_id, paid_at FROM packing_work_sessions WHERE id = ? LIMIT 1').get(recording.packing_session_id) as { payment_id: string | null; paid_at: string | null } | undefined
+    : null
+  if (session?.payment_id || session?.paid_at) {
+    throw new Error('Pay rule tidak bisa diubah karena sesi sudah dibayar.')
+  }
+
+  const rule = getPackingPayRuleById(ruleId.trim())
+  if (!rule) {
+    throw new Error('Pay rule tidak ditemukan.')
+  }
+
+  const result = calculatePackingPayForRule(rule, parseOrderSnapshot(recording.order_snapshot))
+  const timestamp = nowIso()
+  db().prepare(
+    `UPDATE recordings
+     SET packing_pay_amount = ?,
+         packing_pay_status = 'calculated',
+         packing_pay_breakdown = ?,
+         packing_pay_rule_id = ?,
+         updated_at = ?
+     WHERE id = ?`,
+  ).run(result.amount, JSON.stringify(result.breakdown), rule.id, timestamp, recording.id)
+
+  broadcastBackendEvent('recordings-updated', { recordingId: recording.id, action: 'packing-pay-rule-updated', resiNumber: recording.resi_number })
+  broadcastBackendEvent('sessions-updated', { packingSessionId: recording.packing_session_id, action: 'packing-pay-rule-updated' })
+  return getRecordingById(recording.id)
 }
 
 export function appendRecordingChunk(id: string, chunk: Buffer) {

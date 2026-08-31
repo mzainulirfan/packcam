@@ -16,6 +16,7 @@ import { WelcomePage } from './pages/WelcomePage'
 import { ScanPage } from './pages/ScanPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { ShopeePage } from './pages/ShopeePage'
+import { ShopeeInspectionPage } from './pages/ShopeeInspectionPage'
 import { UsersPage } from './pages/UsersPage'
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
 import { ToastViewport } from './components/ui/toast'
@@ -27,6 +28,7 @@ const PAGE_COMPONENTS: Record<PageId, ReactElement> = {
   history: <HistoryPage />,
   'packing-sessions': <PackingSessionsPage />,
   shopee: <ShopeePage />,
+  'shopee-inspection': <ShopeeInspectionPage />,
   settings: <SettingsPage />,
   users: <UsersPage />,
   health: <HealthPage />,
@@ -57,7 +59,7 @@ function App() {
   )
   const sidebarSections = useMemo(() => {
     const sectionOrder: Array<{ id: NavGroupId | 'system'; label: string; items: PageId[] }> = [
-      { id: 'operasional', label: 'Operasional', items: ['scan', 'history', 'packing-sessions'] },
+      { id: 'operasional', label: 'Operasional', items: ['scan', 'history', 'packing-sessions', 'shopee-inspection'] },
       { id: 'administrasi', label: 'Administrasi', items: ['shopee', 'users', 'settings'] },
       { id: 'system', label: 'System', items: ['health', 'admin'] },
     ]

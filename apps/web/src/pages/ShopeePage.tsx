@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { readRecentShopeeChatSendsApi, readRecentShopeeOrdersApi, readRecentShippingChatSendsApi, readServerAdminStatusApi, retryShopeeChatSendApi, retryShippingChatSendApi } from '@pakti/api-client'
 import type { ChatSendStatus, RecordingChatSend, ShopeeOrder, ShippingChatSend } from '@pakti/types'
+import { ShopeeInspectionResultCard } from '../components/shopee/ShopeeInspectionResultCard'
+import { navigateTo } from '../app/uiState'
 
 type AdminStatus = Awaited<ReturnType<typeof readServerAdminStatusApi>>
 type ChatSendFilter = 'all' | ChatSendStatus
@@ -205,6 +207,36 @@ export function ShopeePage() {
     }
   }
 
+  async function handleCopyShopee(text: string) {
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      const ta = document.createElement('textarea')
+      ta.value = text
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.focus()
+      ta.select()
+      try { document.execCommand('copy') } catch { /* ignore */ }
+      ta.remove()
+    }
+  }
+
+  function handleVerifyInPakti(order: ShopeeOrder) {
+    const resi = order.trackingNumber?.trim()
+    if (resi) {
+      try { window.sessionStorage.setItem('pakti.shopeeVerifyResi', resi) } catch { /* ignore */ }
+    }
+    try { window.sessionStorage.setItem('pakti.shopeeVerifyOrder', order.orderNumber) } catch { /* ignore */ }
+    navigateTo('history')
+  }
+
+  function handleOpenShopee(order: ShopeeOrder) {
+    window.open('https://seller.shopee.co.id/portal/sale/order', '_blank', 'noopener,noreferrer')
+    void order
+  }
+
   return (
     <div className="admin-opencode grid w-full gap-5 px-0 py-1">
       <section className="admin-opencode__summary flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -253,14 +285,60 @@ export function ShopeePage() {
           </CardContent>
         </Card>
 
-        <Card className="admin-opencode__panel">
-          <CardHeader className="pb-0">
-            <CardTitle>Recent Orders</CardTitle>
+        <Card className="admin-opencode__panel overflow-hidden">
+          <CardHeader className="border-b border-[rgba(15,0,0,0.06)] bg-white pb-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="grid gap-1">
+                <CardTitle className="flex items-center gap-2">
+                  <span className="grid h-6 w-6 place-items-center rounded-[6px] bg-[#201d1d] text-white">◆</span>
+                  Hasil Inspek Shopee
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">Card khusus menampilkan hasil grep/inspek dari seller.shopee.co.id — terverifikasi di DB Pakti. Klik Verifikasi untuk cek di History/Scan.</p>
+              </div>
+              <span className="shrink-0 rounded-full border bg-[#f8f7f7] px-2.5 py-1 font-mono text-xs text-muted-foreground">
+                {recentShopeeOrders.length} order · {automation?.orders.updatedToday ?? 0} hari ini
+              </span>
+            </div>
           </CardHeader>
-          <CardContent className="grid gap-2 pt-3">
-            {recentShopeeOrders.length > 0 ? recentShopeeOrders.slice(0, 3).map((order) => (
-              <RecentOrderItem key={order.id ?? order.orderNumber} order={order} />
-            )) : <div className="admin-opencode__empty">[-] Belum ada order Shopee.</div>}
+          <CardContent className="grid gap-3 bg-[#fcfcfc] p-3 sm:p-4">
+            {recentShopeeOrders.length > 0 ? (
+              <div className="grid gap-3">
+                {/* Highlight: latest inspection result */}
+                <ShopeeInspectionResultCard
+                  order={recentShopeeOrders[0]}
+                  verified
+                  updatedAtLabel={recentShopeeOrders[0].updatedAt ? new Date(recentShopeeOrders[0].updatedAt).toLocaleString('id-ID') : null}
+                  onCopy={(text) => void handleCopyShopee(text)}
+                  onVerify={handleVerifyInPakti}
+                  onOpenShopee={handleOpenShopee}
+                />
+                {recentShopeeOrders.length > 1 ? (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {recentShopeeOrders.slice(1, 3).map((order) => (
+                      <ShopeeInspectionResultCard
+                        key={order.id ?? order.orderNumber}
+                        order={order}
+                        variant="compact"
+                        verified
+                        onCopy={(text) => void handleCopyShopee(text)}
+                        onVerify={handleVerifyInPakti}
+                        onOpenShopee={handleOpenShopee}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+                {recentShopeeOrders.length > 3 ? (
+                  <p className="text-center font-mono text-[11px] text-muted-foreground">
+                    +{recentShopeeOrders.length - 3} order lain di `GET /api/orders/recent?limit=10` — buka History untuk grep lengkap.
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <div className="grid place-items-center gap-2 rounded-[8px] border border-dashed bg-white px-4 py-8 text-center">
+                <p className="font-mono text-sm font-bold text-foreground">[-] Belum ada order Shopee</p>
+                <p className="max-w-[36ch] text-xs leading-relaxed text-muted-foreground">Buka seller.shopee.co.id → extension Pakti → Sync. Hasil akan muncul di card ini & bisa diverifikasi via Scan/History/API.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </section>
@@ -355,6 +433,7 @@ function ActivityTile({ label, value, detail }: { label: string; value: string; 
   )
 }
 
+// @ts-ignore TS6133 - kept for legacy, now replaced by ShopeeInspectionResultCard
 function RecentOrderItem({ order }: { order: ShopeeOrder }) {
   return (
     <div className="rounded-[4px] border border-[rgba(15,0,0,0.1)] bg-muted/20 p-3">
