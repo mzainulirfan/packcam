@@ -1,13 +1,22 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import {
+  ArrowDown01Icon,
+  CheckmarkCircle01Icon,
+  CloudServerIcon,
+  Copy01Icon,
+  FolderOpenIcon,
+  RefreshIcon,
+  Settings01Icon,
+  TextIcon,
+  VideoReplayIcon,
+} from '@hugeicons/core-free-icons'
 
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
-import { Separator } from '../components/ui/separator'
 import { DEFAULT_SYSTEM_CONFIG, DEFAULT_VIDEO_BITRATE, DEFAULT_VIDEO_RESOLUTION, DEFAULT_VIDEO_ROOT_PATH } from '@pakti/shared/defaults'
 import { notify } from '../app/notify'
 import {
@@ -284,198 +293,137 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="settings-opencode mx-auto grid w-full max-w-[1520px] gap-8 px-0 py-1">
-      <section className="settings-opencode__hero flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="grid gap-2">
-          <div className="settings-opencode__section-label">[+] Settings</div>
-          <h1 className="settings-opencode__title">Settings</h1>
+    <div className="settings-page mx-auto max-w-[1240px] bg-[#f6f5f4] px-4 py-8 font-['Inter'] sm:px-6 lg:py-10 xl:px-8">
+      <section className="mb-7 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+        <div>
+          <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Administrasi / Settings</div>
+          <h1 className="mt-2 text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">Pengaturan sistem</h1>
+          <p className="mt-3 max-w-2xl text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Atur folder video, kualitas rekaman, kamera default, dan identitas aplikasi dari satu tempat.</p>
         </div>
-        <strong className="settings-opencode__badge">
-          {serverStatus === 'online' ? '[x]' : serverStatus === 'offline' ? '[!]' : '[~]'} {serverStatusLabel}
-        </strong>
+        <span className={`inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full border px-5 text-[14px] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.035)] ${serverStatus === 'online' ? 'border-[#e6e6e6] bg-white text-[#0075de]' : serverStatus === 'offline' ? 'border-[#f2c8a4] bg-[#fff7ed] text-[#dd5b00]' : 'border-[#e6e6e6] bg-white text-[#615d59]'}`}>
+          <HugeiconsIcon icon={CloudServerIcon} size={18} strokeWidth={1.9} /> {serverStatusLabel}
+        </span>
       </section>
 
-      <div className="grid gap-6">
-        {shouldShowStatusAlert ? (
-          <Alert variant={statusAlertVariant}>
-            <div className="grid gap-1">
-              {serverStatus === 'offline' ? <p>{sourceMessage}</p> : null}
-              {isOperationalDirty ? <p>{saveMessage}</p> : null}
-              {isBrandingDirty ? <p>{brandingMessage}</p> : null}
+      <section className="mb-5 grid gap-3 sm:grid-cols-3">
+        <SettingsStat label="Server" value={serverStatusLabel} detail={sourceMessage} icon={CloudServerIcon} />
+        <SettingsStat label="Operational" value={isOperationalDirty ? 'Unsaved' : 'Saved'} detail={operationalSavedAt || 'Belum tersimpan di sesi ini'} icon={VideoReplayIcon} />
+        <SettingsStat label="Branding" value={isBrandingDirty ? 'Unsaved' : 'Saved'} detail={brandingSavedAt || 'Belum tersimpan di sesi ini'} icon={TextIcon} />
+      </section>
+
+      {shouldShowStatusAlert ? (
+        <Alert variant={statusAlertVariant} className="mb-5 rounded-[8px] border-[#e6e6e6] bg-white font-['Inter'] text-[14px]">
+          <div className="grid gap-1">
+            <p className="font-semibold text-[#000000]">Status pengaturan</p>
+            {serverStatus === 'offline' ? <p className="text-[#31302e]">{sourceMessage}</p> : null}
+            {isOperationalDirty ? <p className="text-[#31302e]">{saveMessage}</p> : null}
+            {isBrandingDirty ? <p className="text-[#31302e]">{brandingMessage}</p> : null}
+          </div>
+        </Alert>
+      ) : null}
+
+      <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+        <section className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
+          <PanelHeader icon={VideoReplayIcon} title="Operational" description="Konfigurasi rekaman, folder penyimpanan, dan kamera default." badge={operationalSavedAt || 'Belum tersimpan'} />
+          <div className="grid gap-5 p-4 sm:p-5">
+            <div className="rounded-[12px] border border-[#e6e6e6] bg-[#f6f5f4] p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Folder video</div>
+                  <p className="mt-2 break-all text-[14px] font-medium text-[#000000]">{settings.videoRootPath}</p>
+                </div>
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => void handleCopyVideoFolder()} className="h-9 rounded-lg border-[#e6e6e6] bg-white px-3 text-[13px] font-medium text-[#615d59] hover:bg-[#f6f5f4]">
+                    <HugeiconsIcon icon={Copy01Icon} size={15} strokeWidth={1.9} /> Copy
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={handleOpenVideoFolder} className="h-9 rounded-lg border-[#e6e6e6] bg-white px-3 text-[13px] font-medium text-[#615d59] hover:bg-[#f6f5f4]">
+                    <HugeiconsIcon icon={FolderOpenIcon} size={15} strokeWidth={1.9} /> Buka
+                  </Button>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => void handleChooseVideoFolder()} className="h-9 rounded-lg border-[#e6e6e6] bg-white px-3 text-[13px] font-medium text-[#000000] hover:bg-[#fbfaf9]">
+                  <HugeiconsIcon icon={FolderOpenIcon} size={15} strokeWidth={1.9} /> Pilih folder
+                </Button>
+                <Button type="button" variant="ghost" size="sm" onClick={handleResetOperational} className="h-9 rounded-lg px-3 text-[13px] font-medium text-[#615d59] hover:bg-white">
+                  <HugeiconsIcon icon={RefreshIcon} size={15} strokeWidth={1.9} /> Reset operational
+                </Button>
+              </div>
             </div>
-          </Alert>
-        ) : null}
 
-        <div className="settings-opencode__simple-grid">
-            <Card className="settings-opencode__panel">
-              <CardHeader className="space-y-2">
-                <CardTitle>Operational</CardTitle>
-                <p>{operationalSavedAt || 'Belum tersimpan di sesi ini'}</p>
-              </CardHeader>
-              <CardContent className="space-y-5 pt-4">
-                <div className="grid gap-4">
-                  <div className="settings-opencode__folder-box">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="grid gap-1">
-                        <p>{settings.videoRootPath}</p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button type="button" variant="outline" size="sm" className="settings-opencode__button" onClick={() => void handleCopyVideoFolder()}>
-                          [copy-path]
-                        </Button>
-                        <Button type="button" variant="outline" size="sm" className="settings-opencode__button" onClick={handleOpenVideoFolder}>
-                          [open-folder]
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <FieldGroup controlId="settings-format-input" label="Format video">
+                <NativeSelect id="settings-format-input" value={settings.videoFormat} onChange={(value) => updateField('videoFormat', value as AppSettings['videoFormat'])}>
+                  <option value="webm">webm</option>
+                  <option value="mp4">mp4</option>
+                </NativeSelect>
+              </FieldGroup>
+              <FieldGroup controlId="settings-resolution-input" label="Resolusi video">
+                <Input id="settings-resolution-input" value={settings.videoResolution} onChange={(event) => updateField('videoResolution', event.target.value)} placeholder={DEFAULT_VIDEO_RESOLUTION} className="h-10 rounded-[5px] border-[#e6e6e6] bg-white px-3 text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+              </FieldGroup>
+            </div>
 
-                  <div className="flex flex-col gap-3 sm:flex-row">
-                    <Button type="button" size="sm" variant="outline" className="settings-opencode__button" onClick={() => void handleChooseVideoFolder()}>
-                      [choose-folder]
-                    </Button>
-                    <Button type="button" size="sm" variant="outline" className="settings-opencode__button" onClick={handleResetOperational}>
-                      [reset-operational]
-                    </Button>
-                  </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <FieldGroup controlId="settings-bitrate-input" label="Bitrate video">
+                <Input id="settings-bitrate-input" value={settings.videoBitrate} onChange={(event) => updateField('videoBitrate', event.target.value)} placeholder={DEFAULT_VIDEO_BITRATE} className="h-10 rounded-[5px] border-[#e6e6e6] bg-white px-3 text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+              </FieldGroup>
+              <FieldGroup controlId="settings-camera-input" label="Kamera default">
+                <NativeSelect id="settings-camera-input" value={settings.cameraDeviceId || '__default__'} onChange={(value) => updateField('cameraDeviceId', value === '__default__' ? '' : value)}>
+                  <option value="__default__">Default camera</option>
+                  {cameraDevices.filter((device) => device.deviceId.trim() !== '').map((device) => (
+                    <option key={device.deviceId} value={device.deviceId}>{device.label}</option>
+                  ))}
+                </NativeSelect>
+              </FieldGroup>
+            </div>
+
+            <label htmlFor="settings-auto-open-input" className="flex items-start gap-3 rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] p-3 text-[14px] text-[#31302e]">
+              <input id="settings-auto-open-input" type="checkbox" checked={settings.autoOpenFolder} onChange={(event) => updateField('autoOpenFolder', event.target.checked)} className="mt-0.5 size-4 accent-[#0075de]" />
+              <span>Aktifkan pembukaan folder otomatis setelah rekaman tersimpan.</span>
+            </label>
+
+            <div className="flex justify-end border-t border-[#e6e6e6] pt-4">
+              <Button type="button" onClick={handleSave} className="h-10 rounded-full bg-[#0075de] px-5 text-[13px] font-medium text-white hover:bg-[#005bab]">
+                <HugeiconsIcon icon={CheckmarkCircle01Icon} size={16} strokeWidth={1.9} /> Simpan settings
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        <section className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
+          <PanelHeader icon={Settings01Icon} title="Branding" description="Identitas aplikasi yang tampil di sidebar dan metadata sistem." badge={brandingSavedAt || 'Belum tersimpan'} />
+          <div className="grid gap-4 p-4 sm:p-5">
+            <FieldGroup controlId="branding-app-name-input" label="Nama aplikasi">
+              <Input id="branding-app-name-input" value={systemConfig.appName} onChange={(event) => updateBrandingField('appName', event.target.value)} placeholder={DEFAULT_SYSTEM_CONFIG.appName} className="h-10 rounded-[5px] border-[#e6e6e6] bg-white px-3 text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+            </FieldGroup>
+            <FieldGroup controlId="branding-tagline-input" label="Tagline">
+              <Input id="branding-tagline-input" value={systemConfig.tagline} onChange={(event) => updateBrandingField('tagline', event.target.value)} placeholder={DEFAULT_SYSTEM_CONFIG.tagline} className="h-10 rounded-[5px] border-[#e6e6e6] bg-white px-3 text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+            </FieldGroup>
+            <FieldGroup controlId="branding-mark-input" label="Brand mark">
+              <Input id="branding-mark-input" value={systemConfig.brandMark} onChange={(event) => updateBrandingField('brandMark', event.target.value)} placeholder={DEFAULT_SYSTEM_CONFIG.brandMark} className="h-10 rounded-[5px] border-[#e6e6e6] bg-white px-3 text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+            </FieldGroup>
+
+            <div className="mt-1 rounded-[12px] border border-[#e6e6e6] bg-[#f6f5f4] p-4">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Preview</div>
+              <div className="mt-3 flex items-center gap-3">
+                <div className="grid h-9 w-9 place-items-center rounded-lg bg-black text-[12px] font-bold text-white">{systemConfig.brandMark || DEFAULT_SYSTEM_CONFIG.brandMark}</div>
+                <div className="min-w-0">
+                  <div className="truncate text-[15px] font-semibold text-[#000000]">{systemConfig.appName || DEFAULT_SYSTEM_CONFIG.appName}</div>
+                  <div className="truncate text-[12px] text-[#a39e98]">{systemConfig.tagline || DEFAULT_SYSTEM_CONFIG.tagline}</div>
                 </div>
+              </div>
+            </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <FieldGroup controlId="settings-format-input" label="video_format">
-                    <Select
-                      value={settings.videoFormat}
-                      onValueChange={(value) => updateField('videoFormat', value as AppSettings['videoFormat'])}
-                    >
-                      <SelectTrigger id="settings-format-input" className="settings-opencode__input w-full">
-                        <SelectValue placeholder="Pilih format" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="webm">webm</SelectItem>
-                        <SelectItem value="mp4">mp4</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FieldGroup>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <FieldGroup controlId="settings-resolution-input" label="video_resolution">
-                    <Input
-                      id="settings-resolution-input"
-                      value={settings.videoResolution}
-                      onChange={(event) => updateField('videoResolution', event.target.value)}
-                      placeholder={DEFAULT_VIDEO_RESOLUTION}
-                      className="settings-opencode__input"
-                    />
-                  </FieldGroup>
-
-                  <FieldGroup controlId="settings-bitrate-input" label="video_bitrate">
-                    <Input
-                      id="settings-bitrate-input"
-                      value={settings.videoBitrate}
-                      onChange={(event) => updateField('videoBitrate', event.target.value)}
-                      placeholder={DEFAULT_VIDEO_BITRATE}
-                      className="settings-opencode__input"
-                    />
-                  </FieldGroup>
-                </div>
-
-                <FieldGroup
-                  controlId="settings-camera-input"
-                  label="camera_device_id"
-                >
-                  <Select
-                    value={settings.cameraDeviceId || '__default__'}
-                    onValueChange={(value) => updateField('cameraDeviceId', value === '__default__' ? '' : value)}
-                  >
-                    <SelectTrigger id="settings-camera-input" className="settings-opencode__input w-full">
-                      <SelectValue placeholder="Default camera" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__default__">Default camera</SelectItem>
-                      {cameraDevices
-                        .filter((device) => device.deviceId.trim() !== '')
-                        .map((device) => (
-                          <SelectItem key={device.deviceId} value={device.deviceId}>
-                            {device.label}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </FieldGroup>
-
-                <FieldGroup controlId="settings-auto-open-input" label="auto_open_folder">
-                  <label className="settings-opencode__check-row flex min-w-0 items-start gap-3">
-                    <input
-                      id="settings-auto-open-input"
-                      type="checkbox"
-                      checked={settings.autoOpenFolder}
-                      onChange={(event) => updateField('autoOpenFolder', event.target.checked)}
-                      className="size-4"
-                    />
-                    <span>Aktifkan pembukaan folder otomatis.</span>
-                  </label>
-                </FieldGroup>
-
-                <Separator />
-
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <Button type="button" size="lg" className="settings-opencode__button" onClick={handleSave}>
-                    [save-settings]
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="settings-opencode__panel">
-              <CardHeader className="space-y-2">
-                <CardTitle>Branding</CardTitle>
-                <p>{brandingSavedAt || 'Belum tersimpan di sesi ini'}</p>
-              </CardHeader>
-              <CardContent className="space-y-5 pt-4">
-                <div className="grid gap-4">
-                  <FieldGroup controlId="branding-app-name-input" label="app_name">
-                    <Input
-                      id="branding-app-name-input"
-                      value={systemConfig.appName}
-                      onChange={(event) => updateBrandingField('appName', event.target.value)}
-                      placeholder={DEFAULT_SYSTEM_CONFIG.appName}
-                      className="settings-opencode__input"
-                    />
-                  </FieldGroup>
-
-                  <FieldGroup controlId="branding-tagline-input" label="tagline">
-                    <Input
-                      id="branding-tagline-input"
-                      value={systemConfig.tagline}
-                      onChange={(event) => updateBrandingField('tagline', event.target.value)}
-                      placeholder={DEFAULT_SYSTEM_CONFIG.tagline}
-                      className="settings-opencode__input"
-                    />
-                  </FieldGroup>
-
-                  <FieldGroup controlId="branding-mark-input" label="brand_mark">
-                    <Input
-                      id="branding-mark-input"
-                      value={systemConfig.brandMark}
-                      onChange={(event) => updateBrandingField('brandMark', event.target.value)}
-                      placeholder={DEFAULT_SYSTEM_CONFIG.brandMark}
-                      className="settings-opencode__input"
-                    />
-                  </FieldGroup>
-
-                </div>
-
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <Button type="button" size="lg" className="settings-opencode__button" onClick={handleSaveBranding}>
-                    [save-branding]
-                  </Button>
-                  <Button type="button" size="lg" variant="outline" className="settings-opencode__button" onClick={handleResetBranding}>
-                    [reset-branding]
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-        </div>
+            <div className="flex flex-wrap justify-end gap-2 border-t border-[#e6e6e6] pt-4">
+              <Button type="button" variant="ghost" onClick={handleResetBranding} className="h-10 rounded-lg border border-[#e6e6e6] bg-white px-4 text-[13px] font-medium text-[#615d59] hover:bg-[#f6f5f4]">
+                <HugeiconsIcon icon={RefreshIcon} size={16} strokeWidth={1.9} /> Reset branding
+              </Button>
+              <Button type="button" onClick={handleSaveBranding} className="h-10 rounded-full bg-[#0075de] px-5 text-[13px] font-medium text-white hover:bg-[#005bab]">
+                <HugeiconsIcon icon={CheckmarkCircle01Icon} size={16} strokeWidth={1.9} /> Simpan branding
+              </Button>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   )
@@ -493,13 +441,60 @@ function FieldGroup({
   children: ReactNode
 }) {
   return (
-    <div className="settings-opencode__field grid min-w-0 gap-2">
-      <Label htmlFor={controlId}>
+    <div className="grid min-w-0 gap-1.5">
+      <Label htmlFor={controlId} className="text-[12px] font-medium text-[#000000]">
         {label}
       </Label>
       {children}
-      {description ? <p>{description}</p> : null}
+      {description ? <p className="text-[12px] text-[#615d59]">{description}</p> : null}
     </div>
+  )
+}
+
+function SettingsStat({ label, value, detail, icon }: { label: string; value: string; detail: string; icon: typeof Settings01Icon }) {
+  return (
+    <article className="rounded-xl border border-[#e6e6e6] bg-white p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div>
+          <div className="mt-3 text-[24px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{value}</div>
+          <p className="mt-2 line-clamp-2 text-[12px] leading-5 text-[#615d59]">{detail}</p>
+        </div>
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
+          <HugeiconsIcon icon={icon} size={19} strokeWidth={1.9} />
+        </span>
+      </div>
+    </article>
+  )
+}
+
+function PanelHeader({ icon, title, description, badge }: { icon: typeof Settings01Icon; title: string; description: string; badge: string }) {
+  return (
+    <div className="flex flex-col gap-3 border-b border-[#e6e6e6] px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
+      <div className="flex min-w-0 gap-3">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
+          <HugeiconsIcon icon={icon} size={19} strokeWidth={1.9} />
+        </span>
+        <div className="min-w-0">
+          <h2 className="text-[16px] font-semibold text-[#000000]">{title}</h2>
+          <p className="mt-1 text-[12px] leading-5 text-[#a39e98]">{description}</p>
+        </div>
+      </div>
+      <span className="inline-flex w-fit items-center rounded-full border border-[#e6e6e6] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#0075de]">{badge}</span>
+    </div>
+  )
+}
+
+function NativeSelect({ id, value, onChange, children }: { id: string; value: string; onChange: (value: string) => void; children: ReactNode }) {
+  return (
+    <label className="relative block">
+      <select id={id} value={value} onChange={(event) => onChange(event.target.value)} className="h-10 w-full appearance-none rounded-[5px] border border-[#e6e6e6] bg-white px-3 pr-9 text-[14px] text-[#000000] focus:border-[#0075de] focus:outline-none">
+        {children}
+      </select>
+      <span className="pointer-events-none absolute inset-y-0 right-3 grid place-items-center text-[#a39e98]">
+        <HugeiconsIcon icon={ArrowDown01Icon} size={15} strokeWidth={1.9} />
+      </span>
+    </label>
   )
 }
 

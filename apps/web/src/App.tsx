@@ -1,5 +1,17 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import {
+  Activity01Icon,
+  Clock01Icon,
+  Package01Icon,
+  QrCodeIcon,
+  Settings01Icon,
+  Shield01Icon,
+  ShoppingBag01Icon,
+  ShoppingBagCheckIcon,
+  UserGroupIcon,
+} from '@hugeicons/core-free-icons'
 import { NAV_ITEMS, type NavGroupId, type PageId } from './app/navigation'
 import { logoutOperator, useOperatorSession } from './app/operatorSession'
 import { navigateTo, useActivePage } from './app/uiState'
@@ -22,6 +34,18 @@ import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
 import { ToastViewport } from './components/ui/toast'
 import 'boxicons/css/boxicons.min.css'
 import './App.css'
+
+const PAGE_ICONS: Record<PageId, typeof QrCodeIcon> = {
+  scan: QrCodeIcon,
+  history: Clock01Icon,
+  'packing-sessions': Package01Icon,
+  'shopee-inspection': ShoppingBagCheckIcon,
+  shopee: ShoppingBag01Icon,
+  settings: Settings01Icon,
+  users: UserGroupIcon,
+  health: Activity01Icon,
+  admin: Shield01Icon,
+}
 
 const PAGE_COMPONENTS: Record<PageId, ReactElement> = {
   scan: <ScanPage />,
@@ -212,14 +236,12 @@ function App() {
                             navigateTo(item.id)
                             setIsMobileSidebarOpen(false)
                           }}
+                          aria-current={item.id === activePage ? 'page' : undefined}
                         >
-                          <span className="nav-tab__marker" aria-hidden="true">
-                            {item.id === activePage ? '[x]' : '[+]'}
+                          <span className="nav-tab__icon" aria-hidden="true">
+                            <HugeiconsIcon icon={PAGE_ICONS[item.id]} size={18} strokeWidth={1.9} />
                           </span>
-                          <span className="nav-tab__content">
-                            <span className="nav-tab__label">{item.label}</span>
-                            <small className="nav-tab__hint">{item.hint}</small>
-                          </span>
+                          <span className="nav-tab__label">{item.label}</span>
                         </button>
                       </li>
                     ))}
@@ -272,7 +294,7 @@ function App() {
             </button>
           </header>
 
-          <main className="dashboard-content">{pageContent}</main>
+          <main className={activePage === 'users' || activePage === 'settings' || activePage === 'health' || activePage === 'admin' || activePage === 'shopee' || activePage === 'shopee-inspection' || activePage === 'packing-sessions' || activePage === 'history' ? 'dashboard-content dashboard-content--notion' : 'dashboard-content'}>{pageContent}</main>
         </section>
       </div>
     )

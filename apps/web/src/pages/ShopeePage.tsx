@@ -1,8 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import {
+  Alert01Icon,
+  ArrowDown01Icon,
+  BubbleChatIcon,
+  CheckmarkCircle01Icon,
+  Delete02Icon,
+  Message01Icon,
+  RefreshIcon,
+  Search01Icon,
+  ShoppingBag01Icon,
+  ShoppingBagCheckIcon,
+  Task01Icon,
+  TruckDeliveryIcon,
+  VideoReplayIcon,
+} from '@hugeicons/core-free-icons'
 
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { readRecentShopeeChatSendsApi, readRecentShopeeOrdersApi, readRecentShippingChatSendsApi, readServerAdminStatusApi, retryShopeeChatSendApi, retryShippingChatSendApi } from '@pakti/api-client'
 import type { ChatSendStatus, RecordingChatSend, ShopeeOrder, ShippingChatSend } from '@pakti/types'
@@ -238,225 +254,138 @@ export function ShopeePage() {
   }
 
   return (
-    <div className="admin-opencode grid w-full gap-5 px-0 py-1">
-      <section className="admin-opencode__summary flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="grid gap-2">
-          <div className="admin-opencode__section-label">[+] Shopee</div>
-          <h1 className="admin-opencode__title">Shopee Automation</h1>
-          <p className="admin-opencode__lede">Monitor order sync dan antrean pesan secara real-time.</p>
+    <div className="shopee-page mx-auto max-w-[1240px] bg-[#f6f5f4] px-4 py-8 font-['Inter'] sm:px-6 lg:py-10 xl:px-8">
+      <section className="mb-7 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+        <div>
+          <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Administrasi / Shopee</div>
+          <h1 className="mt-2 text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">Shopee automation</h1>
+          <p className="mt-3 max-w-2xl text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Monitor order sync, hasil inspeksi, dan antrean pesan Shopee secara real-time.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <span className="admin-opencode__badge">{automation?.extensionWorker ? '● Automation Running' : loading ? '● Checking' : '● Automation Idle'}</span>
-          <span className="admin-opencode__badge">Last sync {formatRelativeTime(automation?.orders.latestUpdatedAt ?? null)}</span>
-          <span className="admin-opencode__badge">{automation?.extensionWorker ? 'Worker healthy' : 'Worker offline'}</span>
-          <Button type="button" variant="outline" onClick={() => void handleRefresh()}>
-            [Refresh]
+          <span className={`inline-flex h-11 items-center justify-center gap-2 rounded-full border px-4 text-[14px] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.035)] ${automation?.extensionWorker ? 'border-[#e6e6e6] bg-white text-[#0075de]' : 'border-[#e6e6e6] bg-white text-[#615d59]'}`}>
+            <HugeiconsIcon icon={ShoppingBagCheckIcon} size={18} strokeWidth={1.9} /> {automation?.extensionWorker ? 'Automation Running' : loading ? 'Checking' : 'Automation Idle'}
+          </span>
+          <Button type="button" variant="outline" onClick={() => void handleRefresh()} className="h-11 rounded-full border-[#e6e6e6] bg-white px-5 text-[14px] font-medium text-[#615d59] hover:bg-[#fbfaf9]">
+            <HugeiconsIcon icon={RefreshIcon} size={18} strokeWidth={1.9} /> Refresh
           </Button>
         </div>
       </section>
 
-      <Alert variant={error ? 'destructive' : 'info'}>
-        <div className="admin-opencode__alert grid gap-1">
-          <p>{error ? '[!]' : '[+]'} Status</p>
-          <p>{error ?? message}</p>
+      <Alert variant={error ? 'destructive' : 'info'} className="mb-5 rounded-[8px] border-[#e6e6e6] bg-white font-['Inter'] text-[14px]">
+        <div className="grid gap-1">
+          <p className="font-semibold text-[#000000]">Status</p>
+          <p className="text-[#31302e]">{error ?? message}</p>
         </div>
       </Alert>
 
-      <Card className="admin-opencode__panel">
-        <CardContent className="pt-4">
-          <div className="grid gap-4 sm:grid-cols-4">
-            <Metric label="Orders Today" value={String(automation?.orders.updatedToday ?? 0)} />
-            <Metric label="Sent Today" value={String(sentToday)} />
-            <Metric label="Pending" value={String(pendingTotal)} />
-            <Metric label="Failed" value={String(failedToday)} />
+      <section className="mb-5 grid gap-3 sm:grid-cols-4">
+        <ShopeeStat label="Orders today" value={String(automation?.orders.updatedToday ?? 0)} detail={`Last sync ${formatRelativeTime(automation?.orders.latestUpdatedAt ?? null)}`} icon={ShoppingBag01Icon} />
+        <ShopeeStat label="Sent today" value={String(sentToday)} detail="Video dan shipping chat" icon={CheckmarkCircle01Icon} />
+        <ShopeeStat label="Pending" value={String(pendingTotal)} detail={`${chatSendCounts.pending} video · ${shippingChatCounts.pending} shipping`} icon={BubbleChatIcon} />
+        <ShopeeStat label="Failed" value={String(failedToday)} detail="Failed atau cancelled hari ini" icon={Alert01Icon} />
+      </section>
+
+      <section className="mb-5 grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
+        <div className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
+          <PanelHeader icon={Task01Icon} title="System activity" description="Status worker dan queue automation Shopee." />
+          <div className="grid gap-3 p-4 sm:grid-cols-3 sm:p-5 xl:grid-cols-1">
+            <ActivityTile label="Webchat Worker" value={automation?.extensionWorker ? 'Active' : 'Offline'} detail={`heartbeat ${formatRelativeTime(automation?.extensionWorker?.updatedAt ?? null)}`} icon={Message01Icon} />
+            <ActivityTile label="Video Queue" value={`${chatSendCounts.pending} pending`} detail={`${chatSendCounts.failed} failed`} icon={VideoReplayIcon} />
+            <ActivityTile label="Shipping Queue" value={`${shippingChatCounts.pending} pending`} detail={`${shippingChatCounts.failed} failed`} icon={TruckDeliveryIcon} />
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      <section className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
-        <Card className="admin-opencode__panel">
-          <CardHeader className="pb-0">
-            <CardTitle>System Activity</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-2 pt-3 sm:grid-cols-3 xl:grid-cols-1">
-            <ActivityTile label="Webchat Worker" value={automation?.extensionWorker ? '● Active' : '● Offline'} detail={`heartbeat ${formatRelativeTime(automation?.extensionWorker?.updatedAt ?? null)}`} />
-            <ActivityTile label="Video Queue" value={`${chatSendCounts.pending} pending`} detail={`${chatSendCounts.failed} failed`} />
-            <ActivityTile label="Shipping Queue" value={`${shippingChatCounts.pending} pending`} detail={`${shippingChatCounts.failed} failed`} />
-          </CardContent>
-        </Card>
-
-        <Card className="admin-opencode__panel overflow-hidden">
-          <CardHeader className="border-b border-[rgba(15,0,0,0.06)] bg-white pb-3">
-            <div className="flex items-start justify-between gap-2">
-              <div className="grid gap-1">
-                <CardTitle className="flex items-center gap-2">
-                  <span className="grid h-6 w-6 place-items-center rounded-[6px] bg-[#201d1d] text-white">◆</span>
-                  Hasil Inspek Shopee
-                </CardTitle>
-                <p className="text-xs text-muted-foreground">Card khusus menampilkan hasil grep/inspek dari seller.shopee.co.id — terverifikasi di DB Pakti. Klik Verifikasi untuk cek di History/Scan.</p>
+        <div className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
+          <div className="flex flex-col gap-3 border-b border-[#e6e6e6] p-4 sm:flex-row sm:items-start sm:justify-between sm:p-5">
+            <div className="flex min-w-0 gap-3">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]"><HugeiconsIcon icon={ShoppingBagCheckIcon} size={19} strokeWidth={1.9} /></span>
+              <div className="min-w-0">
+                <h2 className="text-[16px] font-semibold text-[#000000]">Hasil Inspek Shopee</h2>
+                <p className="mt-1 text-[12px] leading-5 text-[#a39e98]">Card hasil inspeksi seller.shopee.co.id yang terverifikasi di DB Pakti.</p>
               </div>
-              <span className="shrink-0 rounded-full border bg-[#f8f7f7] px-2.5 py-1 font-mono text-xs text-muted-foreground">
-                {recentShopeeOrders.length} order · {automation?.orders.updatedToday ?? 0} hari ini
-              </span>
             </div>
-          </CardHeader>
-          <CardContent className="grid gap-3 bg-[#fcfcfc] p-3 sm:p-4">
+            <span className="inline-flex w-fit items-center rounded-full border border-[#e6e6e6] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#0075de]">{recentShopeeOrders.length} order · {automation?.orders.updatedToday ?? 0} hari ini</span>
+          </div>
+          <div className="grid gap-3 bg-[#fbfaf9] p-3 sm:p-4">
             {recentShopeeOrders.length > 0 ? (
               <div className="grid gap-3">
-                {/* Highlight: latest inspection result */}
-                <ShopeeInspectionResultCard
-                  order={recentShopeeOrders[0]}
-                  verified
-                  updatedAtLabel={recentShopeeOrders[0].updatedAt ? new Date(recentShopeeOrders[0].updatedAt).toLocaleString('id-ID') : null}
-                  onCopy={(text) => void handleCopyShopee(text)}
-                  onVerify={handleVerifyInPakti}
-                  onOpenShopee={handleOpenShopee}
-                />
-                {recentShopeeOrders.length > 1 ? (
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {recentShopeeOrders.slice(1, 3).map((order) => (
-                      <ShopeeInspectionResultCard
-                        key={order.id ?? order.orderNumber}
-                        order={order}
-                        variant="compact"
-                        verified
-                        onCopy={(text) => void handleCopyShopee(text)}
-                        onVerify={handleVerifyInPakti}
-                        onOpenShopee={handleOpenShopee}
-                      />
-                    ))}
-                  </div>
-                ) : null}
-                {recentShopeeOrders.length > 3 ? (
-                  <p className="text-center font-mono text-[11px] text-muted-foreground">
-                    +{recentShopeeOrders.length - 3} order lain di `GET /api/orders/recent?limit=10` — buka History untuk grep lengkap.
-                  </p>
-                ) : null}
+                <ShopeeInspectionResultCard order={recentShopeeOrders[0]} verified updatedAtLabel={recentShopeeOrders[0].updatedAt ? new Date(recentShopeeOrders[0].updatedAt).toLocaleString('id-ID') : null} onCopy={(text) => void handleCopyShopee(text)} onVerify={handleVerifyInPakti} onOpenShopee={handleOpenShopee} />
+                {recentShopeeOrders.length > 1 ? <div className="grid gap-2 sm:grid-cols-2">{recentShopeeOrders.slice(1, 3).map((order) => <ShopeeInspectionResultCard key={order.id ?? order.orderNumber} order={order} variant="compact" verified onCopy={(text) => void handleCopyShopee(text)} onVerify={handleVerifyInPakti} onOpenShopee={handleOpenShopee} />)}</div> : null}
+                {recentShopeeOrders.length > 3 ? <p className="text-center text-[11px] text-[#a39e98]">+{recentShopeeOrders.length - 3} order lain. Buka History untuk grep lengkap.</p> : null}
               </div>
             ) : (
-              <div className="grid place-items-center gap-2 rounded-[8px] border border-dashed bg-white px-4 py-8 text-center">
-                <p className="font-mono text-sm font-bold text-foreground">[-] Belum ada order Shopee</p>
-                <p className="max-w-[36ch] text-xs leading-relaxed text-muted-foreground">Buka seller.shopee.co.id → extension Pakti → Sync. Hasil akan muncul di card ini & bisa diverifikasi via Scan/History/API.</p>
+              <div className="grid place-items-center gap-2 rounded-[12px] border border-dashed border-[#e6e6e6] bg-white px-4 py-8 text-center">
+                <p className="text-[14px] font-semibold text-[#000000]">Belum ada order Shopee</p>
+                <p className="max-w-[36ch] text-[12px] leading-5 text-[#615d59]">Buka seller.shopee.co.id, jalankan extension Pakti, lalu Sync. Hasil akan muncul di card ini.</p>
               </div>
             )}
-          </CardContent>
-        </Card>
-      </section>
-
-      <section className="history-opencode">
-        <section className="history-opencode__filters mb-4">
-          <div className="grid gap-4">
-            <div className="flex items-center justify-between gap-3 border-b border-[rgba(15,0,0,0.08)] pb-3">
-              <p className="text-sm font-bold">[+] Filter Pencarian</p>
-              <Button type="button" variant="ghost" size="sm" className="history-opencode__button" onClick={handleClearQueueFilters} aria-label="Reset filter" title="Reset filter">
-                [reset]
-              </Button>
-            </div>
-            <div className="history-opencode__filter-bar">
-              <div className="relative">
-                <span className="history-opencode__input-prefix" aria-hidden="true">[?]</span>
-                <Input value={queueSearch} onChange={(event) => setQueueSearch(event.target.value)} placeholder="Cari buyer / order / pesan..." className="history-opencode__input pl-12" aria-label="Cari buyer, order, atau pesan" />
-                {queueSearch.trim() ? (
-                  <Button type="button" variant="ghost" size="sm" className="history-opencode__clear" onClick={() => setQueueSearch('')}>
-                    [clear]
-                  </Button>
-                ) : null}
-              </div>
-
-              <div className="grid items-start gap-3 xl:grid-cols-[minmax(260px,auto)_240px]">
-                <div className="history-opencode__task-filter" aria-label="Filter tipe antrean">
-                  {QUEUE_MODE_OPTIONS.map((option) => (
-                    <Button
-                      key={option.value}
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className={queueMode === option.value ? 'is-active' : ''}
-                      onClick={() => setQueueMode(option.value)}
-                    >
-                      {queueMode === option.value ? `[${option.label}]` : option.label}
-                    </Button>
-                  ))}
-                </div>
-                <StatusFilter
-                  id="shopee-queue-status-filter"
-                  value={queueStatusFilter}
-                  counts={queueStatusCounts}
-                  total={modeFilteredQueueItems.length}
-                  onChange={setQueueStatusFilter}
-                />
-              </div>
-            </div>
           </div>
-        </section>
-
-        <div className="history-opencode__table-section overflow-hidden">
-          <div className="history-opencode__table-header flex flex-col gap-4 px-5 py-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="grid gap-1">
-              <h2>Chat Queue</h2>
-              <p>{activeTotal} jobs</p>
-            </div>
-          </div>
-          <QueueTable jobs={pagedQueueItems} retryingId={retryingId} onRetryVideo={handleRetryVideoChat} onRetryShipping={handleRetryShippingChat} />
-          {activeTotal > QUEUE_PAGE_SIZE ? (
-            <PaginationControls
-              page={Math.min(queuePage, pageCount)}
-              pageCount={pageCount}
-              total={activeTotal}
-              pageSize={QUEUE_PAGE_SIZE}
-              onPageChange={setQueuePage}
-              onPrevious={() => setQueuePage((current) => Math.max(1, current - 1))}
-              onNext={() => setQueuePage((current) => Math.min(pageCount, current + 1))}
-            />
-          ) : null}
         </div>
       </section>
+
+      <section className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
+        <div className="border-b border-[#e6e6e6] p-4 sm:p-5">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+            <label className="relative flex min-w-[240px] flex-1">
+              <span className="pointer-events-none absolute inset-y-0 left-0 grid w-10 place-items-center text-[#a39e98]"><HugeiconsIcon icon={Search01Icon} size={18} strokeWidth={1.9} /></span>
+              <Input value={queueSearch} onChange={(event) => setQueueSearch(event.target.value)} placeholder="Cari buyer / order / pesan..." className="h-10 w-full rounded-[8px] border-[#e6e6e6] bg-white pl-10 pr-3 text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#CFCBC7] focus-visible:ring-0" aria-label="Cari buyer, order, atau pesan" />
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap rounded-lg border border-[#e6e6e6] bg-[#f6f5f4] p-1">
+                {QUEUE_MODE_OPTIONS.map((option) => <Button key={option.value} type="button" variant="ghost" size="sm" className={`h-8 rounded-[6px] px-3 text-[13px] font-medium ${queueMode === option.value ? 'bg-white text-[#000000] shadow-sm' : 'text-[#615d59] hover:bg-white/70'}`} onClick={() => setQueueMode(option.value)}>{option.label}</Button>)}
+              </div>
+              <StatusFilter id="shopee-queue-status-filter" value={queueStatusFilter} counts={queueStatusCounts} total={modeFilteredQueueItems.length} onChange={setQueueStatusFilter} />
+              <Button type="button" variant="ghost" size="sm" className="h-10 rounded-lg px-3 text-[13px] font-medium text-[#615d59] hover:bg-[#f6f5f4]" onClick={handleClearQueueFilters} aria-label="Reset filter" title="Reset filter"><HugeiconsIcon icon={Delete02Icon} size={16} strokeWidth={1.9} /> Reset</Button>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-5">
+          <div><h2 className="text-[16px] font-semibold text-[#000000]">Chat Queue</h2><p className="mt-1 text-[12px] text-[#a39e98]">{activeTotal} jobs dalam antrean filter saat ini.</p></div>
+          <span className="inline-flex items-center rounded-full border border-[#e6e6e6] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#0075de]">{activeTotal} jobs</span>
+        </div>
+        <QueueTable jobs={pagedQueueItems} retryingId={retryingId} onRetryVideo={handleRetryVideoChat} onRetryShipping={handleRetryShippingChat} />
+        {activeTotal > QUEUE_PAGE_SIZE ? <PaginationControls page={Math.min(queuePage, pageCount)} pageCount={pageCount} total={activeTotal} pageSize={QUEUE_PAGE_SIZE} onPageChange={setQueuePage} onPrevious={() => setQueuePage((current) => Math.max(1, current - 1))} onNext={() => setQueuePage((current) => Math.min(pageCount, current + 1))} /> : null}
+      </section>
     </div>
   )
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function ShopeeStat({ label, value, detail, icon }: { label: string; value: string; detail: string; icon: typeof ShoppingBag01Icon }) {
   return (
-    <div className="admin-opencode__stat">
-      <p><strong>{value}</strong><br />{label}</p>
-    </div>
-  )
-}
-
-function ActivityTile({ label, value, detail }: { label: string; value: string; detail: string }) {
-  return (
-    <div className="rounded-[4px] border border-[rgba(15,0,0,0.1)] bg-muted/30 p-3">
-      <p className="text-[0.68rem] font-bold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
-      <p className="mt-2 font-mono text-sm font-bold text-foreground">{value}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
-    </div>
-  )
-}
-
-// @ts-ignore TS6133 - kept for legacy, now replaced by ShopeeInspectionResultCard
-function RecentOrderItem({ order }: { order: ShopeeOrder }) {
-  return (
-    <div className="rounded-[4px] border border-[rgba(15,0,0,0.1)] bg-muted/20 p-3">
-      <div className="flex items-start justify-between gap-3">
+    <article className="rounded-xl border border-[#e6e6e6] bg-white p-5">
+      <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="truncate font-mono text-sm font-bold text-foreground">#{order.orderNumber}</p>
-          <p className="mt-1 truncate text-xs text-muted-foreground">{order.buyerUsername ?? '-'} · {order.shippingChannel ?? '-'}</p>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div>
+          <div className="mt-3 text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{value}</div>
+          <p className="mt-2 line-clamp-2 text-[12px] leading-5 text-[#615d59]">{detail}</p>
         </div>
-        <span className="shrink-0 text-xs text-muted-foreground">order</span>
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]"><HugeiconsIcon icon={icon} size={19} strokeWidth={1.9} /></span>
       </div>
-      <p className="mt-2 truncate text-xs text-muted-foreground">{order.trackingNumber ?? '-'}</p>
+    </article>
+  )
+}
+
+function PanelHeader({ icon, title, description }: { icon: typeof ShoppingBag01Icon; title: string; description: string }) {
+  return (
+    <div className="flex items-start gap-3 border-b border-[#e6e6e6] px-4 py-4 sm:px-5">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]"><HugeiconsIcon icon={icon} size={19} strokeWidth={1.9} /></span>
+      <div className="min-w-0"><h2 className="text-[16px] font-semibold text-[#000000]">{title}</h2><p className="mt-1 text-[12px] leading-5 text-[#a39e98]">{description}</p></div>
     </div>
   )
+}
+
+function ActivityTile({ label, value, detail, icon }: { label: string; value: string; detail: string; icon: typeof ShoppingBag01Icon }) {
+  return <div className="rounded-[12px] border border-[#e6e6e6] bg-[#f6f5f4] p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</p><p className="mt-2 text-[16px] font-semibold text-[#000000]">{value}</p><p className="mt-1 text-[12px] text-[#615d59]">{detail}</p></div><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-[#31302e]"><HugeiconsIcon icon={icon} size={17} strokeWidth={1.9} /></span></div></div>
 }
 
 function StatusFilter({ id, value, counts, total, onChange }: { id: string; value: ChatSendFilter; counts: Record<ChatSendStatus, number>; total: number; onChange: (value: ChatSendFilter) => void }) {
   return (
-    <label htmlFor={id} className="grid gap-1 text-sm text-muted-foreground">
-      <span className="history-opencode__date-label">status</span>
-      <select id={id} value={value} onChange={(event) => onChange(event.target.value as ChatSendFilter)} className="history-opencode__select min-w-[180px]">
+    <label htmlFor={id} className="relative inline-flex h-10 items-center rounded-lg border border-[#e6e6e6] bg-white text-[#000000]">
+      <select id={id} value={value} onChange={(event) => onChange(event.target.value as ChatSendFilter)} className="h-full min-w-[190px] appearance-none rounded-lg bg-transparent px-3 pr-9 text-[13px] font-medium focus:outline-none focus:ring-0">
         <option value="all">Status: All ({total})</option>
         {CHAT_SEND_STATUSES.map((status) => <option key={status} value={status}>{status} ({counts[status]})</option>)}
       </select>
+      <span className="pointer-events-none absolute right-3 grid place-items-center text-[#a39e98]"><HugeiconsIcon icon={ArrowDown01Icon} size={15} strokeWidth={1.9} /></span>
     </label>
   )
 }
@@ -473,44 +402,41 @@ function QueueTable({
   onRetryShipping: (id: string) => Promise<void>
 }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="history-opencode__table w-full min-w-[860px] border-collapse">
-        <thead>
-          <tr>
-            <th className="px-3 py-2">Buyer</th>
-            <th className="px-3 py-2">Order</th>
-            <th className="px-3 py-2">Message</th>
-            <th className="px-3 py-2">Status</th>
-            <th className="px-3 py-2 text-right">Retry</th>
+    <div className="overflow-x-auto scrollbar-thin">
+      <table className="w-full min-w-[860px] border-collapse">
+        <thead className="bg-[#f6f5f4]">
+          <tr className="text-left">
+            <Th>Buyer</Th>
+            <Th>Order</Th>
+            <Th>Message</Th>
+            <Th>Status</Th>
+            <Th className="text-right">Retry</Th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-[#e6e6e6]">
           {jobs.map((job) => (
-            <tr key={`${job.type}-${job.id}`} className="history-opencode__row">
-              <td className="px-3 py-3 font-medium">{job.buyerUsername}</td>
-              <td className="px-3 py-3">
-                <span className="block">{job.orderNumber ?? '-'}</span>
-                <span className="block text-muted-foreground">{job.type} · {job.trackingNumber ?? '-'}</span>
-              </td>
-              <td className="max-w-[340px] px-3 py-3 text-muted-foreground"><span className="block truncate" title={job.message}>{job.message}</span></td>
-              <td className="px-3 py-3"><StatusBadge status={job.status} /></td>
-              <td className="px-3 py-3 text-right">
+            <tr key={`${job.type}-${job.id}`} className="bg-white transition-colors hover:bg-[#fbfaf9]">
+              <Td className="font-medium text-[#000000]">{job.buyerUsername}</Td>
+              <Td><span className="block text-[#000000]">{job.orderNumber ?? '-'}</span><span className="mt-0.5 block text-[12px] text-[#a39e98]">{job.type} · {job.trackingNumber ?? '-'}</span></Td>
+              <Td className="max-w-[340px] text-[#615d59]"><span className="block truncate" title={job.message}>{job.message}</span></Td>
+              <Td><StatusBadge status={job.status} /></Td>
+              <Td className="text-right">
                 {job.status === 'failed' || job.status === 'cancelled' ? (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="history-opencode__button"
+                    className="h-8 rounded-lg border-[#e6e6e6] bg-white px-3 text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]"
                     disabled={retryingId === job.id}
                     onClick={() => void (job.type === 'video' ? onRetryVideo(job.id) : onRetryShipping(job.id))}
                   >
-                    {retryingId === job.id ? '[mengantre]' : '[retry]'}
+                    {retryingId === job.id ? 'Mengantre' : 'Retry'}
                   </Button>
                 ) : null}
-              </td>
+              </Td>
             </tr>
           ))}
-          {jobs.length === 0 ? <tr><td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">[-] Tidak ada job dengan kriteria ini.</td></tr> : null}
+          {jobs.length === 0 ? <tr><td colSpan={5} className="px-6 py-10 text-center text-[14px] text-[#615d59]">Tidak ada job dengan kriteria ini.</td></tr> : null}
         </tbody>
       </table>
     </div>
@@ -538,12 +464,12 @@ function PaginationControls({
   const last = Math.min(total, page * pageSize)
 
   return (
-    <div className="history-opencode__pagination flex flex-col gap-3 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 border-t border-[#e6e6e6] px-5 py-3 text-[13px] text-[#615d59] sm:flex-row sm:items-center sm:justify-between">
       <span>
         {total === 0 ? '0 job' : <>Menampilkan <span>{first}-{last}</span> dari <span>{total}</span> job</>}
       </span>
       <div className="flex flex-wrap items-center gap-1">
-        <Button type="button" variant="outline" size="sm" className="history-opencode__button" disabled={page <= 1} onClick={onPrevious}>
+        <Button type="button" variant="outline" size="sm" className="h-8 min-w-8 rounded-lg border-[#e6e6e6] bg-white px-2" disabled={page <= 1} onClick={onPrevious}>
           ‹
         </Button>
         {buildPageItems(page, pageCount).map((item, index) => item === '…' ? (
@@ -554,13 +480,13 @@ function PaginationControls({
             type="button"
             variant={item === page ? 'default' : 'outline'}
             size="sm"
-            className={item === page ? 'history-opencode__page-number' : 'history-opencode__button min-w-8'}
+            className={`h-8 min-w-8 rounded-lg px-2 text-[12px] ${item === page ? 'bg-[#0075de] text-white hover:bg-[#005bab]' : 'border-[#e6e6e6] bg-white text-[#615d59]'}`}
             onClick={() => onPageChange(item)}
           >
             {item}
           </Button>
         ))}
-        <Button type="button" variant="outline" size="sm" className="history-opencode__button" disabled={page >= pageCount} onClick={onNext}>
+        <Button type="button" variant="outline" size="sm" className="h-8 min-w-8 rounded-lg border-[#e6e6e6] bg-white px-2" disabled={page >= pageCount} onClick={onNext}>
           ›
         </Button>
       </div>
@@ -584,7 +510,17 @@ function buildPageItems(currentPage: number, pageCount: number) {
 }
 
 function StatusBadge({ status }: { status: ChatSendStatus }) {
-  return <span className="admin-opencode__badge">[{status}]</span>
+  const isBad = status === 'failed' || status === 'cancelled'
+  const isGood = status === 'sent'
+  return <span className={`inline-flex rounded-[5px] border px-2 py-1 text-[12px] font-medium ${isBad ? 'border-[#f2c8a4] bg-[#fff7ed] text-[#dd5b00]' : isGood ? 'border-[#e6e6e6] bg-white text-[#0075de]' : 'border-[#e6e6e6] bg-white text-[#615d59]'}`}>{status}</span>
+}
+
+function Th({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return <th className={`px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98] ${className}`}>{children}</th>
+}
+
+function Td({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return <td className={`px-4 py-3 align-top text-[13px] text-[#31302e] ${className}`}>{children}</td>
 }
 
 function formatRelativeTime(value: string | null) {

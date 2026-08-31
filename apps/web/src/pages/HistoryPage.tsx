@@ -1,18 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import {
-  Download,
-  Trash2,
-} from 'lucide-react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Cancel01Icon, Copy01Icon, Delete02Icon, Download01Icon, Package01Icon, RefreshIcon, Search01Icon, Tick02Icon, Clock01Icon } from '@hugeicons/core-free-icons'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 
 import { useOperatorSession } from '../app/operatorSession'
 import { navigateTo } from '../app/uiState'
 import { setRepeatQcResi } from '../app/repeatQcState'
-import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
 import { ModalOverlay } from '../components/ui/ModalOverlay'
-import { DialogCloseButton, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog'
+import { Dialog, DialogContent } from '../components/ui/dialog'
+import { DialogDescription, DialogTitle } from '../components/ui/dialog'
 import { notify } from '../app/notify'
 import { buildServerFileUrl, deleteServerRecordingApi, openServerSettingsFolderApi, prepareServerRecordingShareFileApi, prepareShopeeChatSendApi, readRecentShopeeOrdersApi, readServerHistoryRecordingsApi, readShopeeChatSendsByRecordingIdsApi } from '@pakti/api-client'
 import type { RecordingChatSend, ShopeeOrder } from '@pakti/types'
@@ -648,25 +646,62 @@ export function HistoryPage() {
   }
 
   return (
-    <div className="history-opencode mx-auto grid w-full max-w-[1520px] gap-8 px-0 py-1">
-      <div className="grid gap-8">
-        <section className="history-opencode__hero flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <div className="history-opencode__section-label">[+] Operasional · Riwayat</div>
-            <h1 className="history-opencode__title">History Dokumentasi</h1>
-            <p className="history-opencode__lede">Pantau dokumentasi QC dan packing berdasarkan nomor resi dan nomor pesanan. Klik baris untuk detail.</p>
+    <div className="history-page mx-auto max-w-[1240px] bg-[#f6f5f4] px-4 py-8 font-['Inter'] sm:px-6 lg:py-10 xl:px-8">
+      <section className="mb-7 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+        <div>
+          <div className="font-['Inter'] text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Operasional / Riwayat</div>
+          <h1 className="mt-2 font-['Inter'] text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">History Dokumentasi</h1>
+          <p className="mt-3 max-w-2xl font-['Inter'] text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Pantau dokumentasi QC dan packing berdasarkan nomor resi dan nomor pesanan. Klik baris untuk detail.</p>
+        </div>
+        <Button type="button" onClick={() => setIsExportOpen(true)} className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-[#0075de] px-5 font-['Inter'] text-[14px] font-medium text-white shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.035)] hover:bg-[#005bab] active:scale-[0.98]">
+          <HugeiconsIcon icon={Download01Icon} size={18} strokeWidth={1.9} /> Export
+        </Button>
+      </section>
+
+      <section className="grid gap-3 sm:grid-cols-3">
+        <article className="rounded-xl border border-[#e6e6e6] bg-white p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Total dokumentasi</div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{groupedRecordings.length}</span>
+                <span className="font-['Inter'] text-[13px] text-[#615d59]">paket</span>
+              </div>
+            </div>
+            <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
+              <HugeiconsIcon icon={Package01Icon} size={19} strokeWidth={1.9} />
+            </span>
           </div>
-
-          <Button type="button" variant="outline" className="history-opencode__button" onClick={() => setIsExportOpen(true)}>
-            [export]
-          </Button>
-        </section>
-
-        <section className="history-opencode__stats">
-          <StatCard marker="[+]" label="Total dokumentasi" value={groupedRecordings.length} unit="paket" />
-          <StatCard marker="[x]" label="Lengkap" value={historyMetrics.completed} unit="paket" />
-          <StatCard marker="[-]" label="Belum lengkap" value={historyMetrics.incomplete} unit="paket" />
-        </section>
+        </article>
+        <article className="rounded-xl border border-[#e6e6e6] bg-white p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Lengkap</div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{historyMetrics.completed}</span>
+                <span className="font-['Inter'] text-[13px] text-[#615d59]">paket</span>
+              </div>
+            </div>
+            <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
+              <HugeiconsIcon icon={Tick02Icon} size={19} strokeWidth={1.9} />
+            </span>
+          </div>
+        </article>
+        <article className="rounded-xl border border-[#e6e6e6] bg-white p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Belum lengkap</div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{historyMetrics.incomplete}</span>
+                <span className="font-['Inter'] text-[13px] text-[#615d59]">paket</span>
+              </div>
+            </div>
+            <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
+              <HugeiconsIcon icon={Clock01Icon} size={19} strokeWidth={1.9} />
+            </span>
+          </div>
+        </article>
+      </section>
 
         <HistoryFilters
           searchText={searchText}
@@ -684,114 +719,95 @@ export function HistoryPage() {
         />
 
         {packingSessionFilter ? (
-          <Alert>
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm">
-                Filter sesi: <span className="font-mono font-bold">{packingSessionFilter.slice(0, 8)}</span> — hanya rekaman packing untuk sesi ini.
-              </p>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setPackingSessionFilter(null)}>
-                [clear]
-              </Button>
-            </div>
-          </Alert>
+          <div className="mt-5 flex flex-col gap-3 rounded-xl border border-[#e6e6e6] bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="font-['Inter'] text-[13px] text-[#31302e]">
+              Filter sesi: <span className="font-['Inter'] font-semibold text-[#000000]">{packingSessionFilter.slice(0, 8)}</span> — hanya rekaman packing untuk sesi ini.
+            </p>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setPackingSessionFilter(null)} className="h-8 rounded-full border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">
+              <HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={1.9} /> Clear
+            </Button>
+          </div>
         ) : null}
 
-        <div className="grid gap-4 min-w-0">
-          <section className="history-opencode__table-section min-w-0 overflow-hidden">
-            <div className="history-opencode__table-header flex items-center justify-between">
-                <div>
-                  <h2>[+] Dokumentasi paket</h2>
-                  <p>
-                    {isRefreshingHistory ? 'Memperbarui data terbaru...' : 'Klik nomor resi atau baris untuk melihat detail dokumentasi.'}
-                  </p>
-                </div>
-                <div className="hidden items-center gap-2 sm:flex">
-                  <span>{groupedRecordings.length} hasil</span>
-                </div>
+        <div className="mt-5 grid gap-4 min-w-0">
+          <section className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
+            <div className="flex items-center justify-between gap-4 border-b border-[#e6e6e6] px-4 py-4 sm:px-5">
+              <div>
+                <h2 className="font-['Inter'] text-[16px] font-semibold text-[#000000]">Dokumentasi paket</h2>
+                <p className="mt-1 font-['Inter'] text-[12px] text-[#a39e98]">{isRefreshingHistory ? 'Memperbarui data terbaru...' : 'Klik nomor resi atau baris untuk melihat detail dokumentasi.'}</p>
+              </div>
+              <span className="hidden items-center rounded-full border border-[#e6e6e6] bg-white px-2.5 py-1 font-['Inter'] text-[11px] font-semibold text-[#0075de] sm:inline-flex">{groupedRecordings.length} hasil</span>
             </div>
             <div className="min-w-0 p-0">
-              {isLoadingHistory ? (
-                <HistorySkeleton />
-              ) : null}
+              {isLoadingHistory ? <HistorySkeleton /> : null}
 
               {historyError ? (
-                <div className="mb-4 grid gap-3 rounded-[4px] border border-rose-300 bg-rose-50 p-6 text-sm text-rose-900">
+                <div className="m-4 grid gap-3 rounded-[8px] border border-[#fecaca] bg-[#fee2e2] p-4 font-['Inter'] text-[13px] text-[#991b1b]">
                   <div className="grid gap-1">
-                    <strong>History belum bisa dimuat.</strong>
-                    <p>{historyError}</p>
+                    <strong className="font-semibold text-[#991b1b]">History belum bisa dimuat.</strong>
+                    <p className="text-[#991b1b]">{historyError}</p>
                   </div>
-                  <Button type="button" variant="outline" className="w-fit border-rose-300 bg-white" onClick={() => setHistoryReloadKey((current) => current + 1)}>
+                  <Button type="button" variant="ghost" className="h-9 w-fit rounded-full border border-[#fecaca] bg-white px-4 font-['Inter'] text-[13px] text-[#991b1b] hover:bg-white" onClick={() => setHistoryReloadKey((current) => current + 1)}>
                     Coba lagi
                   </Button>
                 </div>
               ) : null}
 
-              <div className="history-opencode__mobile-list md:hidden">
+              <div className="divide-y divide-[#e6e6e6] md:hidden">
                 {!isLoadingHistory && !historyError && pageItems.length ? (
                   pageItems.map((group) => {
                     const isSelected = group.latest.id === selectedRecord?.id
                     const groupChatSend = group.records.map((r) => visibleChatSendByRecordingId.get(r.id)).find(Boolean)
                     return (
-                      <article
-                        key={group.resiNumber}
-                          className={isSelected ? 'history-opencode__mobile-card is-selected' : 'history-opencode__mobile-card'}
-                      >
+                      <article key={group.resiNumber} className={`grid gap-3 p-4 ${isSelected ? 'bg-[#f6f5f4]' : 'bg-white'}`}>
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <button
-                              type="button"
-                              className="history-opencode__resi-link truncate text-left"
-                              onClick={() => openDetail(group.latest)}
-                            >
+                            <button type="button" className="truncate text-left font-['Inter'] text-[14px] font-semibold text-[#000000] hover:underline" onClick={() => openDetail(group.latest)}>
                               {group.resiNumber}
                             </button>
                             {shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())?.orderNumber ? (
-                              <p className="history-opencode__meta truncate text-[11px] opacity-80">No. Pesanan {shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())!.orderNumber}</p>
+                              <p className="truncate font-['Inter'] text-[11px] text-[#a39e98]">No. Pesanan {shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())!.orderNumber}</p>
                             ) : null}
-                            <p className="history-opencode__meta">{formatCompactDateTime(group.latest.updatedAt)}</p>
+                            <p className="font-['Inter'] text-[12px] text-[#a39e98]">{formatCompactDateTime(group.latest.updatedAt)}</p>
                           </div>
-                          <div className="flex flex-col items-end gap-2">
+                          <div className="flex flex-col items-end gap-1.5">
                             <StatusPill status={getGroupStatus(group)} />
                             {groupChatSend ? (
-                              <span className="history-opencode__badge">
-                                {groupChatSend.status === 'sent' ? '[✓] Terkirim' : groupChatSend.status === 'prepared' ? '[~] Siap kirim' : '[…] Antri'} {groupChatSend.buyerUsername ? `· ${groupChatSend.buyerUsername}` : ''}
+                              <span className="inline-flex rounded-full border border-[#e6e6e6] bg-[#f6f5f4] px-2 py-0.5 font-['Inter'] text-[11px] font-medium text-[#31302e]">
+                                {groupChatSend.status === 'sent' ? 'Terkirim' : groupChatSend.status === 'prepared' ? 'Siap kirim' : 'Antri'} {groupChatSend.buyerUsername ? `· ${groupChatSend.buyerUsername}` : ''}
                               </span>
                             ) : null}
                             {group.records.some((record) => isRepeatQcInvalidRecord(record)) ? (
-                              <span className="history-opencode__badge">
-                                [!] Repeat QC
-                              </span>
+                              <span className="inline-flex rounded-full bg-[#fef3c7] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-[#92400e] ring-1 ring-[#fde68a]">Repeat QC</span>
                             ) : null}
                             {group.records.some((r) => r.taskType === 'packing' && (r as unknown as { packingPayAmount?: number | null }).packingPayAmount != null) ? (
-                              <span className="history-opencode__badge bg-foreground text-background">[dibayar]</span>
+                              <span className="inline-flex rounded-full bg-[#000000] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-white">Dibayar</span>
                             ) : null}
                           </div>
                         </div>
 
                         <div className="flex items-center justify-between gap-3">
-                          <span className="history-opencode__meta truncate">
-                            {formatOperatorForCurrentSession(group.latest.operatorName, group.latest.operatorCode, currentOperatorName, currentOperatorCode)}
-                          </span>
-                          <div className="flex gap-1">
+                          <span className="truncate font-['Inter'] text-[12px] text-[#615d59]">{formatOperatorForCurrentSession(group.latest.operatorName, group.latest.operatorCode, currentOperatorName, currentOperatorCode)}</span>
+                          <div className="flex gap-1.5">
                             {(() => {
                               const latestChatSend = visibleChatSendByRecordingId.get(group.latest.id)
                               const label =
                                 preparingChatSendId === group.latest.id
-                                  ? '[...]'
+                                  ? '...'
                                   : latestChatSend?.status === 'sent'
-                                    ? '[terkirim]'
+                                    ? 'Terkirim'
                                     : latestChatSend?.status === 'prepared'
-                                      ? '[siap]'
+                                      ? 'Siap'
                                       : latestChatSend?.status === 'pending'
-                                        ? '[antri]'
-                                        : '[kirim]'
+                                        ? 'Antri'
+                                        : 'Kirim'
                               const disabled = preparingChatSendId === group.latest.id || group.latest.status !== 'completed' || latestChatSend?.status === 'sent'
                               return (
                                 <Button
                                   type="button"
-                                  variant="outline"
+                                  variant="ghost"
                                   size="sm"
-                                  className="history-opencode__button"
+                                  className="h-8 rounded-full border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"
                                   disabled={disabled}
                                   onClick={() => void handlePrepareShopeeChat(group.latest)}
                                   title={latestChatSend?.status === 'sent' ? `Sudah terkirim ke ${latestChatSend.buyerUsername}` : 'Kirim video ke pembeli via Shopee Chat'}
@@ -800,12 +816,11 @@ export function HistoryPage() {
                                 </Button>
                               )
                             })()}
-                            <Button type="button" variant="outline" size="sm" className="history-opencode__button" onClick={() => openDetail(group.latest)}>
-                              [detail]
+                            <Button type="button" variant="ghost" size="sm" className="h-8 rounded-full border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]" onClick={() => openDetail(group.latest)}>
+                              Detail
                             </Button>
                           </div>
                         </div>
-
                       </article>
                     )
                   })
@@ -816,17 +831,17 @@ export function HistoryPage() {
 
               <div className="hidden overflow-x-auto md:block">
                 <div className="overflow-x-auto">
-                  <table className="history-opencode__table w-full min-w-[720px] border-collapse">
-                    <thead>
-                      <tr>
+                  <table className="w-full min-w-[720px] border-collapse">
+                    <thead className="bg-[#f6f5f4]">
+                      <tr className="text-left">
                         <Th>Resi</Th>
                         <Th>Operator</Th>
                         <Th>Status</Th>
                         <Th>Terkirim</Th>
-                        <Th className="text-right">Aksi</Th>
+                        <Th className="px-5 text-right">Aksi</Th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-[#e6e6e6]">
                       {!isLoadingHistory && !historyError && pageItems.length ? (
                         pageItems.map((group) => {
                           const isSelected = group.latest.id === selectedRecord?.id
@@ -842,16 +857,12 @@ export function HistoryPage() {
                                   openDetail(group.latest)
                                 }
                               }}
-                              className={
-                                isSelected
-                                  ? 'history-opencode__row is-selected table-row cursor-pointer outline-none'
-                                  : 'history-opencode__row table-row cursor-pointer outline-none'
-                              }
+                              className={`cursor-pointer outline-none transition-colors ${isSelected ? 'bg-[#f6f5f4]' : 'bg-white hover:bg-[#fbfaf9]'}`}
                             >
                               <Td>
                                 <button
                                   type="button"
-                                  className="history-opencode__resi-link text-left"
+                                  className="text-left font-['Inter'] text-[14px] font-semibold text-[#000000] hover:underline"
                                   onClick={(event) => {
                                     event.stopPropagation()
                                     openDetail(group.latest)
@@ -860,9 +871,9 @@ export function HistoryPage() {
                                   {group.resiNumber}
                                 </button>
                                 {shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())?.orderNumber ? (
-                                  <div className="history-opencode__meta text-[11px]">No. Pesanan {shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())!.orderNumber}</div>
+                                  <div className="font-['Inter'] text-[11px] text-[#a39e98]">No. Pesanan {shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())!.orderNumber}</div>
                                 ) : null}
-                                <div className="history-opencode__meta text-[11px]">{formatCompactDateTime(group.latest.updatedAt)}</div>
+                                <div className="font-['Inter'] text-[11px] text-[#a39e98]">{formatCompactDateTime(group.latest.updatedAt)}</div>
                               </Td>
                               <Td>
                                 <OperatorCell value={formatOperatorForCurrentSession(group.latest.operatorName, group.latest.operatorCode, currentOperatorName, currentOperatorCode)} />
@@ -871,20 +882,20 @@ export function HistoryPage() {
                                 <div className="flex flex-col gap-1">
                                   <StatusPill status={getGroupStatus(group)} />
                                   {group.records.some((record) => isRepeatQcInvalidRecord(record)) ? (
-                                    <span className="history-opencode__badge text-[11px]">[!] Repeat QC</span>
+                                    <span className="inline-flex rounded-full bg-[#fef3c7] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-[#92400e] ring-1 ring-[#fde68a]">Repeat QC</span>
                                   ) : null}
                                   {group.records.some((r) => r.taskType === 'packing' && (r as unknown as { packingPayAmount?: number | null }).packingPayAmount != null) ? (
-                                    <span className="history-opencode__badge bg-foreground text-background text-[11px]">[dibayar]</span>
+                                    <span className="inline-flex rounded-full bg-[#000000] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-white">Dibayar</span>
                                   ) : null}
                                 </div>
                               </Td>
                               <Td>
                                 {tableGroupChatSend ? (
-                                  <span className="history-opencode__badge">
-                                    {tableGroupChatSend.status === 'sent' ? '[✓] Terkirim' : tableGroupChatSend.status === 'prepared' ? '[~] Siap kirim' : '[…] Antri'} {tableGroupChatSend.buyerUsername ? `· ${tableGroupChatSend.buyerUsername}` : ''}
+                                  <span className="inline-flex rounded-full border border-[#e6e6e6] bg-[#f6f5f4] px-2 py-0.5 font-['Inter'] text-[11px] font-medium text-[#31302e]">
+                                    {tableGroupChatSend.status === 'sent' ? 'Terkirim' : tableGroupChatSend.status === 'prepared' ? 'Siap kirim' : 'Antri'} {tableGroupChatSend.buyerUsername ? `· ${tableGroupChatSend.buyerUsername}` : ''}
                                   </span>
                                 ) : (
-                                  <span className="history-opencode__meta">—</span>
+                                  <span className="font-['Inter'] text-[13px] text-[#a39e98]">—</span>
                                 )}
                               </Td>
                               <Td>
@@ -893,21 +904,21 @@ export function HistoryPage() {
                                     const latestChatSend = visibleChatSendByRecordingId.get(group.latest.id)
                                     const label =
                                       preparingChatSendId === group.latest.id
-                                        ? '[...]'
+                                        ? '...'
                                         : latestChatSend?.status === 'sent'
-                                          ? '[terkirim]'
+                                          ? 'Terkirim'
                                           : latestChatSend?.status === 'prepared'
-                                            ? '[siap]'
+                                            ? 'Siap'
                                             : latestChatSend?.status === 'pending'
-                                              ? '[antri]'
-                                              : '[kirim]'
+                                              ? 'Antri'
+                                              : 'Kirim'
                                     const disabled = preparingChatSendId === group.latest.id || group.latest.status !== 'completed' || latestChatSend?.status === 'sent'
                                     return (
                                       <Button
                                         type="button"
-                                        variant="outline"
+                                        variant="ghost"
                                         size="sm"
-                                        className="history-opencode__button"
+                                        className="h-8 rounded-full border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"
                                         disabled={disabled}
                                         onClick={() => void handlePrepareShopeeChat(group.latest)}
                                         title={latestChatSend?.status === 'sent' ? `Sudah terkirim ke ${latestChatSend.buyerUsername}` : group.latest.status !== 'completed' ? 'Hanya untuk rekaman selesai' : 'Kirim video ke pembeli via Shopee Chat'}
@@ -923,8 +934,8 @@ export function HistoryPage() {
                         })
                       ) : !isLoadingHistory && !historyError ? (
                         <tr>
-                            <td colSpan={5} className="p-6">
-                              <EmptyHistoryState hasActiveFilters={hasActiveFilters} onReset={clearFilters} />
+                          <td colSpan={5} className="p-6">
+                            <EmptyHistoryState hasActiveFilters={hasActiveFilters} onReset={clearFilters} />
                           </td>
                         </tr>
                       ) : null}
@@ -934,16 +945,16 @@ export function HistoryPage() {
               </div>
 
               {groupedRecordings.length > PAGE_SIZE ? (
-                <div className="history-opencode__pagination flex flex-col gap-3 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
-                  <span>
-                    Menampilkan <span>{(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, groupedRecordings.length)}</span> dari <span>{groupedRecordings.length}</span> dokumentasi
+                <div className="flex flex-col gap-3 border-t border-[#e6e6e6] bg-white px-4 py-3 font-['Inter'] sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                  <span className="font-['Inter'] text-[13px] text-[#615d59]">
+                    Menampilkan <span className="font-semibold text-[#000000]">{(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, groupedRecordings.length)}</span> dari <span className="font-semibold text-[#000000]">{groupedRecordings.length}</span> dokumentasi
                   </span>
                   <div className="flex flex-wrap items-center gap-1">
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
-                      className="history-opencode__button"
+                      className="h-8 min-w-8 rounded-full border border-[#e6e6e6] bg-white px-2 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]"
                       onClick={() => setPage((current) => Math.max(1, current - 1))}
                       disabled={currentPage <= 1}
                     >
@@ -962,16 +973,20 @@ export function HistoryPage() {
                       }
                       return pages.map((p, idx) =>
                         p === '…' ? (
-                          <span key={`e-${idx}`} className="px-1 text-slate-400">
+                          <span key={`e-${idx}`} className="px-1 font-['Inter'] text-[13px] text-[#a39e98]">
                             …
                           </span>
                         ) : (
                           <Button
                             key={p}
                             type="button"
-                            variant={p === currentPage ? 'default' : 'outline'}
+                            variant="ghost"
                             size="sm"
-                            className={p === currentPage ? 'history-opencode__page-number' : 'history-opencode__button min-w-8'}
+                            className={
+                              p === currentPage
+                                ? "h-8 min-w-8 rounded-full bg-[#000000] px-2 font-['Inter'] text-[13px] font-semibold text-white hover:bg-[#000000]"
+                                : "h-8 min-w-8 rounded-full border border-[#e6e6e6] bg-white px-2 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]"
+                            }
                             onClick={() => setPage(p as number)}
                           >
                             {p}
@@ -981,9 +996,9 @@ export function HistoryPage() {
                     })()}
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
-                      className="history-opencode__button"
+                      className="h-8 min-w-8 rounded-full border border-[#e6e6e6] bg-white px-2 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]"
                       onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
                       disabled={currentPage >= totalPages}
                     >
@@ -997,55 +1012,53 @@ export function HistoryPage() {
         </div>
 
         {isExportOpen ? (
-          <ModalOverlay onClose={() => setIsExportOpen(false)} contentClassName="max-w-lg">
-            <div className="grid gap-4">
-              <DialogHeader className="flex items-start justify-between gap-4 text-left">
-                <div className="grid gap-1">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Export data</p>
-                  <DialogTitle className="text-xl">Pilih format export</DialogTitle>
-                  <DialogDescription className="text-sm leading-6 text-slate-500">
-                    Pilih format file untuk mengunduh history yang sedang tampil.
-                  </DialogDescription>
+          <Dialog open={isExportOpen} onOpenChange={(open) => !open && setIsExportOpen(false)}>
+            <DialogContent showCloseButton={false} className="history-modal max-w-lg gap-0 overflow-hidden rounded-2xl border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+              <div className="border-b border-[#e6e6e6] p-6">
+                <div className="flex items-start justify-between gap-5">
+                  <div className="grid gap-1">
+                    <p className="font-['Inter'] text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Export data</p>
+                    <DialogTitle className="font-['Inter'] text-[20px] font-semibold tracking-[-0.2px] text-[#000000]">Pilih format export</DialogTitle>
+                    <DialogDescription className="font-['Inter'] text-[13px] leading-5 text-[#615d59]">Pilih format file untuk mengunduh history yang sedang tampil.</DialogDescription>
+                  </div>
+                  <Button type="button" variant="ghost" size="icon" onClick={() => setIsExportOpen(false)} className="h-9 w-9 shrink-0 rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]">
+                    <HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.9} />
+                  </Button>
                 </div>
-                <DialogCloseButton onClick={() => setIsExportOpen(false)} />
-              </DialogHeader>
-
-              <Alert variant="info">
-                <div className="grid gap-1">
-                  <p className="font-medium">Data siap diexport</p>
-                  <p className="text-sm leading-6 text-current/80">
-                    {exportSummaryLabel}. Export akan mengikuti filter aktif saat ini.
-                  </p>
-                </div>
-              </Alert>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Button
-                  type="button"
-                  className="h-12 justify-between"
-                  onClick={() => {
-                    handleExportCsv()
-                    setIsExportOpen(false)
-                  }}
-                >
-                  <span>Export CSV</span>
-                  <Download className="size-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-12 justify-between border-slate-200"
-                  onClick={() => {
-                    handleExportExcel()
-                    setIsExportOpen(false)
-                  }}
-                >
-                  <span>Export Excel</span>
-                  <Download className="size-4" />
-                </Button>
               </div>
-            </div>
-          </ModalOverlay>
+              <div className="grid gap-4 p-6">
+                <div className="rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] p-4">
+                  <p className="font-['Inter'] text-[13px] font-semibold text-[#000000]">Data siap diexport</p>
+                  <p className="mt-1 font-['Inter'] text-[13px] leading-5 text-[#615d59]">{exportSummaryLabel}. Export akan mengikuti filter aktif saat ini.</p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Button
+                    type="button"
+                    className="h-12 justify-between rounded-full bg-[#0075de] px-5 font-['Inter'] text-[14px] font-medium text-white hover:bg-[#005bab]"
+                    onClick={() => {
+                      handleExportCsv()
+                      setIsExportOpen(false)
+                    }}
+                  >
+                    <span>Export CSV</span>
+                    <HugeiconsIcon icon={Download01Icon} size={16} strokeWidth={1.9} />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-12 justify-between rounded-full border border-[#e6e6e6] bg-white px-5 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"
+                    onClick={() => {
+                      handleExportExcel()
+                      setIsExportOpen(false)
+                    }}
+                  >
+                    <span>Export Excel</span>
+                    <HugeiconsIcon icon={Download01Icon} size={16} strokeWidth={1.9} />
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         ) : null}
 
         {selectedRecord ? (
@@ -1063,8 +1076,8 @@ export function HistoryPage() {
           >
                 <div className="grid gap-4">
                   {selectedGroup?.records.some((record) => isRepeatQcInvalidRecord(record)) ? (
-                    <div className="history-opencode__detail-note is-warning">
-                      <p>[!] Ada rekaman lama tidak valid karena repeat QC.</p>
+                    <div className="rounded-[8px] border border-[#fde68a] bg-[#fef3c7] px-3 py-3">
+                      <p className="font-['Inter'] text-[13px] font-semibold text-[#92400e]">Ada rekaman lama tidak valid karena repeat QC.</p>
                     </div>
                   ) : null}
 
@@ -1106,47 +1119,38 @@ export function HistoryPage() {
                     </dl>
                   </div>
 
-                  <div className="history-opencode__quick-actions grid gap-3">
-                    <div className="history-opencode__quick-actions-head">
-                      <p>Aksi cepat</p>
-                      <span>Pilih tindakan lanjutan untuk dokumentasi resi ini.</span>
+                  <div className="grid gap-3 rounded-[8px] border border-[#e6e6e6] bg-white p-4">
+                    <div className="border-b border-[#e6e6e6] pb-2">
+                      <p className="font-['Inter'] text-[13px] font-semibold text-[#000000]">Aksi cepat</p>
+                      <span className="font-['Inter'] text-[12px] text-[#a39e98]">Pilih tindakan lanjutan untuk dokumentasi resi ini.</span>
                     </div>
-                    <div className="history-opencode__quick-actions-grid">
+                    <div className="grid gap-2">
                       {selectedGroup && canRepeatQc(selectedGroup) ? (
                         <Button
                           type="button"
-                          variant="outline"
-                          size="sm"
-                          className="history-opencode__button history-opencode__quick-action-button is-primary"
+                          variant="ghost"
+                          className="h-auto justify-between rounded-[8px] border border-[#000000] bg-[#000000] px-4 py-3 text-left font-['Inter'] text-white hover:bg-[#31302e]"
                           onClick={() => {
                             setRepeatQcResi(selectedGroup.resiNumber)
                             navigateTo('scan')
                           }}
                         >
-                          <span>[Ulangi QC]</span>
-                          <small>Rekam ulang proses QC</small>
+                          <span className="grid text-left"><span className="font-['Inter'] text-[13px] font-semibold">Ulangi QC</span><span className="font-['Inter'] text-[11px] text-white/70">Rekam ulang proses QC</span></span>
+                          <HugeiconsIcon icon={RefreshIcon} size={16} strokeWidth={1.9} />
                         </Button>
                       ) : null}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="history-opencode__button history-opencode__quick-action-button"
-                        onClick={() => void handleOpenVideoFolder()}
-                      >
-                        <span>[Buka folder]</span>
-                        <small>Lihat lokasi file video</small>
+                      <Button type="button" variant="ghost" className="h-auto justify-between rounded-[8px] border border-[#e6e6e6] bg-white px-4 py-3 text-left font-['Inter'] hover:bg-[#f6f5f4]" onClick={() => void handleOpenVideoFolder()}>
+                        <span className="grid text-left"><span className="font-['Inter'] text-[13px] font-semibold text-[#000000]">Buka folder</span><span className="font-['Inter'] text-[11px] text-[#615d59]">Lihat lokasi file video</span></span>
+                        <HugeiconsIcon icon={Package01Icon} size={16} strokeWidth={1.9} />
                       </Button>
                       <Button
                         type="button"
-                        variant="outline"
-                        size="sm"
-                        className="history-opencode__button history-opencode__quick-action-button"
+                        variant="ghost"
+                        className="h-auto justify-between rounded-[8px] border border-[#e6e6e6] bg-white px-4 py-3 text-left font-['Inter'] hover:bg-[#f6f5f4]"
                         disabled={disableSelectedChatAction}
                         onClick={() => void handlePrepareShopeeChat(selectedRecord)}
                       >
-                        <span>{selectedChatActionLabel}</span>
-                        <small>{selectedChatActionDescription}</small>
+                        <span className="grid text-left"><span className="font-['Inter'] text-[13px] font-semibold text-[#000000]">{selectedChatActionLabel.replace(/\[|\]/g, '')}</span><span className="font-['Inter'] text-[11px] text-[#615d59]">{selectedChatActionDescription}</span></span>
                       </Button>
                     </div>
                   </div>
@@ -1164,17 +1168,11 @@ export function HistoryPage() {
                         <>
                           <Tabs value={detailHistoryTab} onValueChange={(value) => setDetailHistoryTab(value as 'qc' | 'packing')}>
                             <TabsList variant="line" className="inline-flex gap-6 rounded-none border-0 bg-transparent p-0">
-                              <TabsTrigger
-                                value="qc"
-                                className="rounded-none !border-0 bg-transparent px-3 py-2 font-mono text-[11px] tracking-wide text-[#646262] shadow-none data-active:!bg-transparent data-active:!shadow-none data-[state=active]:bg-transparent data-[state=active]:font-bold data-[state=active]:text-[#201d1d] data-[state=active]:shadow-none"
-                              >
-                                [{`QC · ${qcRecords.length}`}]
+                              <TabsTrigger value="qc" className="rounded-none !border-0 bg-transparent px-3 py-2 font-['Inter'] text-[12px] font-medium tracking-wide text-[#615d59] shadow-none data-[state=active]:font-semibold data-[state=active]:text-[#000000]">
+                                QC · {qcRecords.length}
                               </TabsTrigger>
-                              <TabsTrigger
-                                value="packing"
-                                className="rounded-none !border-0 bg-transparent px-3 py-2 font-mono text-[11px] tracking-wide text-[#646262] shadow-none data-active:!bg-transparent data-active:!shadow-none data-[state=active]:bg-transparent data-[state=active]:font-bold data-[state=active]:text-[#201d1d] data-[state=active]:shadow-none"
-                              >
-                                [{`Packing · ${packingRecords.length}`}]
+                              <TabsTrigger value="packing" className="rounded-none !border-0 bg-transparent px-3 py-2 font-['Inter'] text-[12px] font-medium tracking-wide text-[#615d59] shadow-none data-[state=active]:font-semibold data-[state=active]:text-[#000000]">
+                                Packing · {packingRecords.length}
                               </TabsTrigger>
                             </TabsList>
                             <TabsContent value="qc" className="grid gap-2 pt-2">
@@ -1198,7 +1196,7 @@ export function HistoryPage() {
                                   )
                                 })
                               ) : (
-                                <p className="history-opencode__meta py-2 text-center">Belum ada rekaman QC.</p>
+                                <p className="py-2 text-center font-['Inter'] text-[13px] text-[#a39e98]">Belum ada rekaman QC.</p>
                               )}
                             </TabsContent>
                             <TabsContent value="packing" className="grid gap-2 pt-2">
@@ -1222,12 +1220,12 @@ export function HistoryPage() {
                                   )
                                 })
                               ) : (
-                                <p className="history-opencode__meta py-2 text-center">Belum ada rekaman Packing.</p>
+                                <p className="py-2 text-center font-['Inter'] text-[13px] text-[#a39e98]">Belum ada rekaman Packing.</p>
                               )}
                             </TabsContent>
                           </Tabs>
                           {activeRecords.length === 0 ? null : previewRecord?.status === 'completed' && previewRecord.filePath ? (
-                            <div className="overflow-hidden rounded border border-[rgba(15,0,0,0.12)] bg-black">
+                            <div className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-black">
                               {(() => {
                                 const ext = (previewRecord.fileName ?? previewRecord.filePath ?? '').toLowerCase().split('.').pop() ?? ''
                                 const isPhoto = previewRecord.mediaType === 'photo' || ext === 'jpg' || ext === 'jpeg' || ext === 'png' || ext === 'webp'
@@ -1246,160 +1244,115 @@ export function HistoryPage() {
                               )}
                             </div>
                           ) : (
-                            <div className="history-opencode__empty-detail text-sm">Preview belum tersedia untuk {detailHistoryTab.toUpperCase()}.</div>
+                            <div className="rounded-[8px] border border-[#e6e6e6] bg-white px-3 py-3 text-center font-['Inter'] text-[13px] text-[#615d59]">Preview belum tersedia untuk {detailHistoryTab.toUpperCase()}.</div>
                           )}
                         </>
                       )
                     })()
                   ) : (
-                    <div className="history-opencode__empty-detail">Pilih salah satu baris untuk melihat detail data.</div>
+                    <div className="rounded-[8px] border border-dashed border-[#e6e6e6] bg-[#f6f5f4] px-3 py-6 text-center font-['Inter'] text-[13px] text-[#615d59]">Pilih salah satu baris untuk melihat detail data.</div>
                   )}
                 </div>
           </HistoryDetailDialog>
         ) : null}
 
         {previewTarget ? (
-          <ModalOverlay
-            onClose={closePreview}
-            contentClassName="w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] p-0 sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] lg:w-[92rem] lg:max-w-[92rem]"
-          >
-            <div className="history-opencode__detail-modal flex max-h-[92vh] flex-col overflow-hidden">
-              <DialogHeader className="history-opencode__detail-header flex items-start justify-between gap-4 text-left">
+          <ModalOverlay onClose={closePreview} contentClassName="w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] p-0 sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] lg:w-[92rem] lg:max-w-[92rem] overflow-hidden rounded-2xl border-[#e6e6e6] bg-white font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+            <div className="flex max-h-[92vh] flex-col overflow-hidden bg-white font-['Inter']">
+              <div className="flex items-start justify-between gap-4 border-b border-[#e6e6e6] bg-white p-6 text-left">
                 <div className="grid gap-1">
-                  <p>[+] Video preview</p>
-                  <DialogTitle>{previewTarget.resiNumber}</DialogTitle>
-                  <DialogDescription>
-                    Operator:{' '}
-                    {formatOperatorForCurrentSession(
-                      previewTarget.operatorName,
-                      previewTarget.operatorCode,
-                      currentOperatorName,
-                      currentOperatorCode,
-                    )}
+                  <p className="font-['Inter'] text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Video preview</p>
+                  <DialogTitle className="font-['Inter'] text-[20px] font-semibold tracking-[-0.2px] text-[#000000]">{previewTarget.resiNumber}</DialogTitle>
+                  <DialogDescription className="font-['Inter'] text-[13px] text-[#615d59]">
+                    Operator: {formatOperatorForCurrentSession(previewTarget.operatorName, previewTarget.operatorCode, currentOperatorName, currentOperatorCode)}
                   </DialogDescription>
                 </div>
-                <DialogCloseButton onClick={closePreview} />
-              </DialogHeader>
+                <Button type="button" variant="ghost" size="icon" onClick={closePreview} className="h-9 w-9 shrink-0 rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]">
+                  <HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.9} />
+                </Button>
+              </div>
 
-              <div className="history-opencode__preview-body grid gap-4">
+              <div className="grid gap-4 bg-[#f6f5f4] p-4 lg:p-6">
                 {previewUrl ? (
-                  <video
-                    src={previewUrl}
-                    crossOrigin="use-credentials"
-                    controls
-                    autoPlay
-                    playsInline
-                    className="history-opencode__video max-h-[74vh] w-full bg-black"
-                  />
+                  <video src={previewUrl} crossOrigin="use-credentials" controls autoPlay playsInline className="max-h-[74vh] w-full rounded-xl bg-black" />
                 ) : (
-                  <div className="history-opencode__empty-detail grid gap-2">
-                    <strong>[-] Preview belum tersedia.</strong>
-                    <p>{previewMessage}</p>
+                  <div className="grid gap-2 rounded-[8px] border border-[#e6e6e6] bg-white p-4">
+                    <strong className="font-['Inter'] text-[14px] font-semibold text-[#000000]">Preview belum tersedia.</strong>
+                    <p className="font-['Inter'] text-[13px] text-[#615d59]">{previewMessage}</p>
                   </div>
                 )}
 
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <Button type="button" className="history-opencode__button" onClick={handleDownloadPreview} disabled={!previewUrl || downloadingRecordId !== null}>
-                    {previewTarget && downloadingRecordId === previewTarget.id ? '[preparing]' : previewTarget.shareFileReady ? '[download]' : '[preparing video]'}
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button type="button" className="h-9 rounded-full bg-[#0075de] px-4 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#005bab]" onClick={handleDownloadPreview} disabled={!previewUrl || downloadingRecordId !== null}>
+                    <HugeiconsIcon icon={Download01Icon} size={16} strokeWidth={1.9} /> {previewTarget && downloadingRecordId === previewTarget.id ? 'Menyiapkan...' : previewTarget.shareFileReady ? 'Download' : 'Menyiapkan video'}
                   </Button>
-                  <Button type="button" variant="outline" className="history-opencode__button" onClick={() => void handleCopyText(previewTarget.filePath, 'Path file')}>
-                    [copy-path]
+                  <Button type="button" variant="ghost" className="h-9 rounded-full border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]" onClick={() => void handleCopyText(previewTarget.filePath, 'Path file')}>
+                    <HugeiconsIcon icon={Copy01Icon} size={16} strokeWidth={1.9} /> Copy path
                   </Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    disabled={deletingRecordId !== null}
-                    onClick={() => setDeleteTarget(previewTarget)}
-                  >
-                    {deletingRecordId === previewTarget.id ? '[deleting]' : '[delete]'}
+                  <Button type="button" variant="ghost" className="h-9 rounded-full border border-[#fecaca] bg-[#fee2e2] px-4 font-['Inter'] text-[13px] font-medium text-[#991b1b] hover:bg-[#fecaca]" disabled={deletingRecordId !== null} onClick={() => setDeleteTarget(previewTarget)}>
+                    <HugeiconsIcon icon={Delete02Icon} size={16} strokeWidth={1.9} /> {deletingRecordId === previewTarget.id ? 'Menghapus...' : 'Hapus'}
                   </Button>
                 </div>
 
-                <p className="history-opencode__meta">{previewMessage}</p>
+                <p className="font-['Inter'] text-[12px] text-[#a39e98]">{previewMessage}</p>
               </div>
             </div>
           </ModalOverlay>
         ) : null}
 
         {dualPreviewTarget ? (
-          <ModalOverlay
-            onClose={closeDualPreview}
-            contentClassName="w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] p-0 sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] lg:w-[108rem] lg:max-w-[108rem]"
-          >
-            <div className="history-opencode__detail-modal flex max-h-[92vh] flex-col overflow-hidden">
-              <DialogHeader className="history-opencode__detail-header flex items-start justify-between gap-4 text-left">
+          <ModalOverlay onClose={closeDualPreview} contentClassName="w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] p-0 sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] lg:w-[108rem] lg:max-w-[108rem] overflow-hidden rounded-2xl border-[#e6e6e6] bg-white font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+            <div className="flex max-h-[92vh] flex-col overflow-hidden bg-white font-['Inter']">
+              <div className="flex items-start justify-between gap-4 border-b border-[#e6e6e6] bg-white p-6 text-left">
                 <div className="grid gap-1">
-                  <p>[+] Video resi</p>
-                  <DialogTitle>{dualPreviewTarget.resiNumber}</DialogTitle>
-                  <DialogDescription>
-                    Kedua video sudah selesai, tampilkan QC dan packing dalam satu tampilan.
-                  </DialogDescription>
+                  <p className="font-['Inter'] text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Video resi</p>
+                  <DialogTitle className="font-['Inter'] text-[20px] font-semibold tracking-[-0.2px] text-[#000000]">{dualPreviewTarget.resiNumber}</DialogTitle>
+                  <DialogDescription className="font-['Inter'] text-[13px] text-[#615d59]">Kedua video sudah selesai, tampilkan QC dan packing dalam satu tampilan.</DialogDescription>
                 </div>
-                <DialogCloseButton onClick={closeDualPreview} />
-              </DialogHeader>
+                <Button type="button" variant="ghost" size="icon" onClick={closeDualPreview} className="h-9 w-9 shrink-0 rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]">
+                  <HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.9} />
+                </Button>
+              </div>
 
-              <div className="history-opencode__preview-body flex-1 overflow-y-auto overscroll-contain">
+              <div className="flex-1 overflow-y-auto bg-[#f6f5f4] p-4 lg:p-6">
                 <div className="grid gap-4 md:grid-cols-2 md:items-start">
-                {(['qc', 'packing'] as const).map((taskType) => {
-                  const record = dualPreviewTarget.records.find((item) => item.taskType === taskType && item.status === 'completed')
+                  {(['qc', 'packing'] as const).map((taskType) => {
+                    const record = dualPreviewTarget.records.find((item) => item.taskType === taskType && item.status === 'completed')
 
-                  if (!record) {
-                    return null
-                  }
+                    if (!record) {
+                      return null
+                    }
 
-                  return (
-                    <div key={taskType} className="history-opencode__video-card grid min-w-0 gap-2">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="grid gap-1">
-                          <p>[+] Tugas</p>
-                          <strong>{taskType}</strong>
+                    return (
+                      <div key={taskType} className="grid min-w-0 gap-3 rounded-xl border border-[#e6e6e6] bg-white p-4">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="grid gap-1">
+                            <p className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Tugas</p>
+                            <span className="font-['Inter'] text-[14px] font-semibold capitalize text-[#000000]">{taskType}</span>
+                          </div>
+                        </div>
+
+                        <video src={buildServerFileUrl(record.filePath)} crossOrigin="use-credentials" controls playsInline className="h-[34vh] w-full rounded-xl bg-black sm:h-[40vh] md:h-[44vh] lg:h-[62vh]" />
+
+                        <div className="flex flex-wrap gap-2">
+                          <Button type="button" variant="ghost" size="sm" className="h-8 rounded-full border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] text-[#31302e] hover:bg-[#f6f5f4]" onClick={() => void handleCopyText(record.filePath, 'Path file')}>
+                            <HugeiconsIcon icon={Copy01Icon} size={14} strokeWidth={1.9} /> Copy path
+                          </Button>
+                          <Button type="button" size="sm" className="h-8 rounded-full bg-[#0075de] px-3 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#005bab]" disabled={downloadingRecordId !== null} onClick={() => handleDownloadRecord(record)}>
+                            <HugeiconsIcon icon={Download01Icon} size={14} strokeWidth={1.9} /> {downloadingRecordId === record.id ? 'Menyiapkan...' : record.shareFileReady ? 'Download' : 'Menyiapkan video'}
+                          </Button>
+                          <Button type="button" variant="ghost" size="sm" className="h-8 rounded-full border border-[#fecaca] bg-[#fee2e2] px-3 font-['Inter'] text-[12px] font-medium text-[#991b1b] hover:bg-[#fecaca]" disabled={deletingRecordId !== null} onClick={() => setDeleteTarget(record)}>
+                            <HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={1.9} /> {deletingRecordId === record.id ? 'Menghapus...' : 'Hapus'}
+                          </Button>
+                        </div>
+
+                        <div className="flex flex-col gap-1 font-['Inter'] text-[12px] text-[#615d59] sm:flex-row sm:items-center sm:justify-between">
+                          <span className="truncate">File: {record.fileName}</span>
+                          <span className="truncate">Durasi: {formatDuration(record.durationSeconds)}</span>
                         </div>
                       </div>
-
-                      <video
-                        src={buildServerFileUrl(record.filePath)}
-                        crossOrigin="use-credentials"
-                        controls
-                        playsInline
-                        className="history-opencode__video h-[34vh] w-full bg-black sm:h-[40vh] md:h-[44vh] lg:h-[62vh]"
-                      />
-
-                      <div className="flex flex-col gap-3 sm:flex-row">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="history-opencode__button"
-                          onClick={() => void handleCopyText(record.filePath, 'Path file')}
-                        >
-                          [copy-path]
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          disabled={downloadingRecordId !== null}
-                          onClick={() => handleDownloadRecord(record)}
-                        >
-                          {downloadingRecordId === record.id ? '[preparing]' : record.shareFileReady ? '[download]' : '[preparing video]'}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          disabled={deletingRecordId !== null}
-                          onClick={() => setDeleteTarget(record)}
-                        >
-                          {deletingRecordId === record.id ? '[deleting]' : '[delete]'}
-                        </Button>
-                      </div>
-
-                      <div className="history-opencode__record-meta flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <span className="truncate">File: {record.fileName}</span>
-                        <span className="truncate">Durasi: {formatDuration(record.durationSeconds)}</span>
-                      </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
                 </div>
               </div>
             </div>
@@ -1407,43 +1360,35 @@ export function HistoryPage() {
         ) : null}
 
         {deleteTarget ? (
-          <ModalOverlay
-            onClose={() => {
-              if (!deletingRecordId) {
-                setDeleteTarget(null)
-              }
-            }}
-          >
-            <div className="grid gap-4">
-              <DialogHeader className="flex items-start justify-between gap-4 text-left">
+          <ModalOverlay onClose={() => { if (!deletingRecordId) setDeleteTarget(null) }} contentClassName="overflow-hidden rounded-2xl border-[#e6e6e6] bg-white font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+            <div className="grid gap-4 p-6">
+              <div className="flex items-start justify-between gap-4 text-left">
                 <div className="grid gap-1">
-                  <p className="text-xs uppercase tracking-[0.2em] text-rose-500">Hapus recording</p>
-                  <DialogTitle className="text-xl">Hapus video {deleteTarget.resiNumber}?</DialogTitle>
-                  <DialogDescription className="text-sm leading-6 text-slate-500">
-                    File video dan metadata recording ini akan dihapus dari server. Setelah dihapus, resi ini bisa direkam ulang.
-                  </DialogDescription>
+                  <p className="font-['Inter'] text-[12px] font-semibold uppercase tracking-[0.08em] text-[#991b1b]">Hapus recording</p>
+                  <DialogTitle className="font-['Inter'] text-[20px] font-semibold tracking-[-0.2px] text-[#000000]">Hapus video {deleteTarget.resiNumber}?</DialogTitle>
+                  <DialogDescription className="font-['Inter'] text-[13px] leading-5 text-[#615d59]">File video dan metadata recording ini akan dihapus dari server. Setelah dihapus, resi ini bisa direkam ulang.</DialogDescription>
                 </div>
-                <DialogCloseButton onClick={() => setDeleteTarget(null)} />
-              </DialogHeader>
+                <Button type="button" variant="ghost" size="icon" onClick={() => setDeleteTarget(null)} className="h-9 w-9 shrink-0 rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]">
+                  <HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.9} />
+                </Button>
+              </div>
 
-              <div className="grid gap-2 rounded-[4px] border border-rose-300 bg-rose-50 p-4 text-sm leading-6 text-rose-950">
-                <strong>{deleteTarget.taskType === 'qc' ? 'QC' : 'Packing'} - {deleteTarget.fileName}</strong>
-                <span>{formatDateTime(deleteTarget.startTime)}</span>
+              <div className="grid gap-2 rounded-[8px] border border-[#fecaca] bg-[#fee2e2] p-4 font-['Inter'] text-[13px] leading-5 text-[#991b1b]">
+                <strong className="font-semibold">{deleteTarget.taskType === 'qc' ? 'QC' : 'Packing'} - {deleteTarget.fileName}</strong>
+                <span className="text-[#991b1b]">{formatDateTime(deleteTarget.startTime)}</span>
               </div>
 
               <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                <Button type="button" variant="outline" disabled={Boolean(deletingRecordId)} onClick={() => setDeleteTarget(null)}>
+                <Button type="button" variant="ghost" disabled={Boolean(deletingRecordId)} onClick={() => setDeleteTarget(null)} className="h-9 rounded-full border border-[#e6e6e6] bg-white px-5 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">
                   Batal
                 </Button>
-                <Button type="button" variant="destructive" disabled={Boolean(deletingRecordId)} onClick={() => void handleConfirmDeleteRecord()}>
-                  <Trash2 className="size-4" />
-                  {deletingRecordId ? '[Menghapus...]' : '[Hapus recording]'}
+                <Button type="button" variant="ghost" disabled={Boolean(deletingRecordId)} onClick={() => void handleConfirmDeleteRecord()} className="h-9 rounded-full bg-[#991b1b] px-5 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#7f1d1d]">
+                  <HugeiconsIcon icon={Delete02Icon} size={16} strokeWidth={1.9} /> {deletingRecordId ? 'Menghapus...' : 'Hapus recording'}
                 </Button>
               </div>
             </div>
           </ModalOverlay>
         ) : null}
-      </div>
     </div>
   )
 }
@@ -1471,6 +1416,7 @@ function normalizeHistoryRecord(record: RecordingRow): LocalRecordingRecord {
   }
 }
 
+// @ts-ignore TS6133 - kept for future use
 function StatCard({
   marker,
   label,
@@ -1483,12 +1429,16 @@ function StatCard({
   unit: string
 }) {
   return (
-    <article className="history-opencode__stat">
-      <span className="history-opencode__stat-marker">{marker}</span>
-      <div>
-        <p>{label}</p>
-        <strong>{value}</strong>
-        <span>{unit}</span>
+    <article className="rounded-xl border border-[#e6e6e6] bg-white p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{value}</span>
+            <span className="font-['Inter'] text-[13px] text-[#615d59]">{unit}</span>
+          </div>
+        </div>
+        <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e] font-['Inter'] text-[12px] font-semibold">{marker}</span>
       </div>
     </article>
   )
@@ -1496,11 +1446,11 @@ function StatCard({
 
 function HistorySkeleton() {
   return (
-    <div className="history-opencode__skeleton" aria-label="Memuat history">
+    <div className="grid gap-2 p-4" aria-label="Memuat history">
       {Array.from({ length: 5 }).map((_, index) => (
-        <div key={index} className="history-opencode__skeleton-row">
-          <span>[loading]</span>
-          <span>........................................</span>
+        <div key={index} className="flex justify-between gap-3 rounded-lg border border-[#e6e6e6] bg-[#f6f5f4] p-3">
+          <span className="h-4 w-20 animate-pulse rounded bg-[#e6e6e6]" />
+          <span className="h-4 w-32 animate-pulse rounded bg-[#e6e6e6]" />
         </div>
       ))}
     </div>
@@ -1509,17 +1459,14 @@ function HistorySkeleton() {
 
 function EmptyHistoryState({ hasActiveFilters, onReset }: { hasActiveFilters: boolean; onReset: () => void }) {
   return (
-    <div className="history-opencode__empty">
-      <div className="grid max-w-md gap-2">
-        <strong>{hasActiveFilters ? '[-] Dokumentasi tidak ditemukan' : '[-] Belum ada dokumentasi'}</strong>
-        <p>
-          {hasActiveFilters
-            ? 'Tidak ada dokumentasi yang cocok dengan filter atau nomor resi tersebut.'
-            : 'Dokumentasi QC dan packing yang sudah direkam akan muncul di halaman ini.'}
-        </p>
+    <div className="px-6 py-14 text-center">
+      <div className="mx-auto grid h-11 w-11 place-items-center rounded-xl bg-[#f6f5f4] text-[#615d59]">
+        <HugeiconsIcon icon={Search01Icon} size={20} strokeWidth={1.9} />
       </div>
-      <Button type="button" className="history-opencode__button" variant={hasActiveFilters ? 'outline' : 'default'} onClick={hasActiveFilters ? onReset : () => navigateTo('scan')}>
-        {hasActiveFilters ? '[reset]' : '[scan]'}
+      <div className="mt-3 font-['Inter'] text-[14px] font-medium text-[#000000]">{hasActiveFilters ? 'Dokumentasi tidak ditemukan' : 'Belum ada dokumentasi'}</div>
+      <p className="mx-auto mt-1 max-w-md font-['Inter'] text-[13px] leading-5 text-[#615d59]">{hasActiveFilters ? 'Tidak ada dokumentasi yang cocok dengan filter atau nomor resi tersebut.' : 'Dokumentasi QC dan packing yang sudah direkam akan muncul di halaman ini.'}</p>
+      <Button type="button" variant="ghost" className={`mt-4 h-9 rounded-full px-4 font-['Inter'] text-[13px] font-medium ${hasActiveFilters ? 'border border-[#e6e6e6] bg-white text-[#31302e] hover:bg-[#f6f5f4]' : 'bg-[#0075de] text-white hover:bg-[#005bab]'}`} onClick={hasActiveFilters ? onReset : () => navigateTo('scan')}>
+        {hasActiveFilters ? 'Reset' : 'Scan'}
       </Button>
     </div>
   )
@@ -1527,40 +1474,17 @@ function EmptyHistoryState({ hasActiveFilters, onReset }: { hasActiveFilters: bo
 
 function OperatorCell({ value }: { value: string }) {
   return (
-    <div className="history-opencode__operator-cell">
-      <span>[{getInitials(value)}]</span>
-      <span>{value}</span>
+    <div className="flex min-w-0 items-center gap-2 font-['Inter'] text-[13px] text-[#31302e]">
+      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-black text-[11px] font-semibold text-white">{getInitials(value)}</span>
+      <span className="truncate">{value}</span>
     </div>
   )
 }
 
 function StatusPill({ status }: { status: LocalRecordingRecord['status'] | 'idle' | 'partial' }) {
-  const label =
-    status === 'completed'
-      ? 'Lengkap'
-      : status === 'recording'
-        ? 'Recording'
-        : status === 'error'
-          ? 'Error'
-          : status === 'partial'
-            ? 'Belum lengkap'
-            : 'Belum ada'
-  const marker =
-    status === 'completed'
-      ? '[x]'
-      : status === 'partial'
-        ? '[-]'
-        : status === 'error'
-          ? '[!]'
-          : status === 'recording'
-            ? '[~]'
-            : '[-]'
-
-  return (
-    <span className="history-opencode__status">
-      {marker} {label}
-    </span>
-  )
+  const label = status === 'completed' ? 'Lengkap' : status === 'recording' ? 'Recording' : status === 'error' ? 'Error' : status === 'partial' ? 'Belum lengkap' : 'Belum ada'
+  const tone = status === 'completed' ? 'bg-[#000000] text-white' : status === 'error' ? 'bg-[#fee2e2] text-[#991b1b] ring-1 ring-[#fecaca]' : status === 'recording' ? 'bg-[#fef3c7] text-[#92400e] ring-1 ring-[#fde68a]' : 'border border-[#e6e6e6] bg-white text-[#615d59]'
+  return <span className={`inline-flex rounded-full px-2.5 py-1 font-['Inter'] text-[11px] font-semibold ${tone}`}>{label}</span>
 }
 
 function DetailRow({
@@ -1573,12 +1497,9 @@ function DetailRow({
   singleLine?: boolean
 }) {
   return (
-    <div className="history-opencode__detail-row grid min-w-0 gap-1">
-      <dt>{label}</dt>
-      <dd
-        className={singleLine ? 'truncate' : '[overflow-wrap:anywhere] break-words'}
-        title={typeof value === 'string' ? value : undefined}
-      >
+    <div className="grid gap-1 rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] px-3 py-2.5">
+      <dt className="font-['Inter'] text-[12px] font-medium text-[#615d59]">{label}</dt>
+      <dd className={`font-['Inter'] text-[13px] font-medium text-[#000000] ${singleLine ? 'truncate' : '[overflow-wrap:anywhere] break-words'}`} title={typeof value === 'string' ? value : undefined}>
         {value}
       </dd>
     </div>
@@ -1589,27 +1510,35 @@ function OrderDetailRow({ order }: { order: ShopeeOrder }) {
   const items = dedupeOrderItems(order.items)
 
   return (
-    <div className="history-opencode__detail-row history-opencode__order-detail-row grid min-w-0 gap-2">
-      <dt>No. Pesanan</dt>
+    <div className="grid gap-1 rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] px-3 py-2.5">
+      <dt className="font-['Inter'] text-[12px] font-medium text-[#615d59]">No. Pesanan</dt>
       <dd className="grid min-w-0 gap-2">
-        <div className="history-opencode__order-head">
-          <span className="truncate" title={order.orderNumber}>{order.orderNumber}</span>
-          <small className="truncate" title={order.buyerUsername || undefined}>Pembeli: {order.buyerUsername || '-'}</small>
+        <div className="grid gap-0.5">
+          <span className="truncate font-['Inter'] text-[13px] font-semibold text-[#000000]" title={order.orderNumber}>
+            {order.orderNumber}
+          </span>
+          <span className="truncate font-['Inter'] text-[12px] text-[#a39e98]" title={order.buyerUsername || undefined}>
+            Pembeli: {order.buyerUsername || '-'}
+          </span>
         </div>
-        <div className="history-opencode__order-product-list" aria-label="Daftar barang pesanan">
+        <div className="grid gap-1.5" aria-label="Daftar barang pesanan">
           {items.length ? (
             items.map((item, index) => {
               const productName = cleanOrderProductName(item.productName) ?? item.productName
               return (
-              <span key={item.id ?? `${productName}-${index}`} className="history-opencode__order-product" title={productName}>
-                <span className="history-opencode__order-product-name">{productName}</span>
-                {cleanOrderVariationName(item.variationName) ? <small>{cleanOrderVariationName(item.variationName)}</small> : null}
-                <strong>x{item.quantity}</strong>
-              </span>
+                <span
+                  key={item.id ?? `${productName}-${index}`}
+                  className="flex items-center justify-between gap-2 rounded-[8px] border border-[#e6e6e6] bg-white px-2.5 py-1.5"
+                  title={productName}
+                >
+                  <span className="min-w-0 flex-1 truncate font-['Inter'] text-[13px] text-[#000000]">{productName}</span>
+                  {cleanOrderVariationName(item.variationName) ? <span className="truncate font-['Inter'] text-[11px] text-[#615d59]">{cleanOrderVariationName(item.variationName)}</span> : null}
+                  <span className="rounded-full bg-[#f6f5f4] px-1.5 py-0.5 font-['Inter'] text-[11px] font-semibold text-[#000000] ring-1 ring-[#e6e6e6]">x{item.quantity}</span>
+                </span>
               )
             })
           ) : (
-            <span className="history-opencode__order-empty">Barang belum tersedia.</span>
+            <span className="font-['Inter'] text-[13px] text-[#a39e98]">Barang belum tersedia.</span>
           )}
         </div>
       </dd>
@@ -1662,11 +1591,11 @@ function cleanOrderVariationName(value: string | null | undefined) {
 }
 
 function Th({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <th className={`px-5 py-3 ${className}`}>[{children}]</th>
+  return <th className={`bg-[#f6f5f4] px-4 py-3 text-left font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98] ${className}`}>{children}</th>
 }
 
 function Td({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <td className={`px-5 py-4 align-middle ${className}`}>{children}</td>
+  return <td className={`bg-white px-4 py-3 align-middle font-['Inter'] text-[13px] text-[#31302e] ${className}`}>{children}</td>
 }
 
 function formatDateTime(value: string) {

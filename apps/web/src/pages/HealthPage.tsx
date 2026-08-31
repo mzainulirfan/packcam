@@ -1,11 +1,21 @@
 import { useCallback, useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import {
+  Activity01Icon,
+  Alert01Icon,
+  Cancel01Icon,
+  CheckmarkCircle01Icon,
+  CloudServerIcon,
+  Database02Icon,
+  Delete02Icon,
+  RefreshIcon,
+  Shield01Icon,
+} from '@hugeicons/core-free-icons'
 
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { ModalOverlay } from '../components/ui/ModalOverlay'
-import { DialogCloseButton } from '../components/ui/dialog'
-import { DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog'
 import { getBuildInfo } from '@pakti/shared'
 import {
   clearServerAllDataApi,
@@ -173,105 +183,84 @@ export function HealthPage() {
   ] as const
 
   return (
-    <div className="health-opencode grid w-full gap-5 px-0 py-1">
-      <section className="health-opencode__summary flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="grid gap-2">
-          <div className="health-opencode__section-label">[+] Health</div>
-          <h1 className="health-opencode__title">Health Console</h1>
-          <p className="health-opencode__lede">Diagnosa runtime, server, storage, dan reset data.</p>
+    <div className="health-page mx-auto max-w-[1240px] bg-[#f6f5f4] px-4 py-8 font-['Inter'] sm:px-6 lg:py-10 xl:px-8">
+      <section className="mb-7 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+        <div>
+          <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">System / Health</div>
+          <h1 className="mt-2 text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">Health console</h1>
+          <p className="mt-3 max-w-2xl text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Diagnosa runtime, server, storage, dan reset data operasional dari satu panel.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <span className="health-opencode__badge">v{buildInfo.version}</span>
-          <span className="health-opencode__badge">{serverHealth ? '[x] server' : '[!] server'}</span>
-          <span className="health-opencode__badge">{loading ? '[~] loading' : '[x] idle'}</span>
-          <Button type="button" variant="outline" className="health-opencode__button" onClick={() => void refreshHealth()}>
-            [refresh]
+          <span className="inline-flex h-11 items-center justify-center rounded-full border border-[#e6e6e6] bg-white px-4 text-[14px] font-medium text-[#0075de] shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.035)]">v{buildInfo.version}</span>
+          <Button type="button" variant="outline" onClick={() => void refreshHealth()} className="h-11 rounded-full border-[#e6e6e6] bg-white px-5 text-[14px] font-medium text-[#615d59] hover:bg-[#fbfaf9]">
+            <HugeiconsIcon icon={RefreshIcon} size={18} strokeWidth={1.9} /> Refresh
           </Button>
         </div>
       </section>
 
-      <Alert variant={serverHealth ? 'info' : 'destructive'}>
-        <div className="health-opencode__alert grid gap-1">
-          <p>{serverHealth ? '[x]' : '[!]'} Status server</p>
-          <p>{loading ? 'Memuat ringkasan server...' : message}</p>
+      <section className="mb-5 grid gap-3 sm:grid-cols-3">
+        <HealthStat label="Server" value={serverHealth ? serverHealth.status : 'offline'} detail={loading ? 'Memuat ringkasan server...' : message} icon={CloudServerIcon} />
+        <HealthStat label="Storage" value={String(serverHealth?.storage?.counts?.recordings ?? 0)} detail={`${serverHealth?.storage?.counts?.sessions ?? 0} sesi · ${serverHealth?.storage?.counts?.scanLogs ?? 0} scan log`} icon={Database02Icon} />
+        <HealthStat label="Bootstrap" value={serverHealth?.bootstrap?.needsSetup ? 'needed' : serverHealth ? 'ready' : '-'} detail={`${serverHealth?.bootstrap?.adminCount ?? 0} admin · ${serverHealth?.bootstrap?.operatorCount ?? 0} operator`} icon={Shield01Icon} />
+      </section>
+
+      <Alert variant={serverHealth ? 'info' : 'destructive'} className="mb-5 rounded-[8px] border-[#e6e6e6] bg-white font-['Inter'] text-[14px]">
+        <div className="grid gap-1">
+          <p className="font-semibold text-[#000000]">Status server</p>
+          <p className="text-[#31302e]">{loading ? 'Memuat ringkasan server...' : message}</p>
         </div>
       </Alert>
 
       {serverHealth?.lastError ? (
-        <Alert variant="destructive">
-          <div className="health-opencode__alert grid gap-3">
-            <p>[!] Last error</p>
-            <p>{serverHealth.lastError.message}</p>
-            <p>{serverHealth.lastError.createdAt}</p>
-            <div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="health-opencode__button"
-                onClick={() => void clearServerLastErrorApi().then(() => refreshHealth())}
-              >
-                [clear-error]
-              </Button>
+        <Alert variant="destructive" className="mb-5 rounded-[8px] border-[#f2c8a4] bg-[#fff7ed] font-['Inter'] text-[14px]">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="grid gap-1">
+              <p className="font-semibold text-[#000000]">Last error</p>
+              <p className="text-[#31302e]">{serverHealth.lastError.message}</p>
+              <p className="text-[12px] text-[#a39e98]">{serverHealth.lastError.createdAt}</p>
             </div>
+            <Button type="button" variant="outline" size="sm" className="h-9 rounded-lg border-[#f2c8a4] bg-white px-3 text-[13px] text-[#dd5b00] hover:bg-[#fff7ed]" onClick={() => void clearServerLastErrorApi().then(() => refreshHealth())}>
+              <HugeiconsIcon icon={Delete02Icon} size={15} strokeWidth={1.9} /> Clear error
+            </Button>
           </div>
         </Alert>
       ) : null}
 
-      <Card className="health-opencode__panel">
-        <CardHeader>
-          <CardTitle>System overview</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-4">
-          {loading && !serverHealth ? (
-            <div className="health-opencode__empty">[~] Memuat status server...</div>
-          ) : (
-            <div className="health-opencode__stats">
-              <Metric index="01" label="Status" value={serverHealth?.status ?? 'offline'} />
-              <Metric index="02" label="Bootstrap" value={serverHealth?.bootstrap?.needsSetup ? 'needed' : serverHealth ? 'ready' : '-'} />
-              <Metric index="03" label="Operators" value={String(serverHealth?.storage?.counts?.operatorProfiles ?? 0)} />
-              <Metric index="04" label="Sessions" value={String(serverHealth?.storage?.counts?.sessions ?? 0)} />
-              <Metric index="05" label="Recordings" value={String(serverHealth?.storage?.counts?.recordings ?? 0)} />
-              <Metric index="06" label="Scan logs" value={String(serverHealth?.storage?.counts?.scanLogs ?? 0)} />
-              <Metric index="07" label="Last error" value={serverHealth?.lastError ? 'ada' : 'clear'} />
-              <Metric index="08" label="Secure context" value={typeof window !== 'undefined' && window.isSecureContext ? 'ready' : 'missing'} />
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <section className="mb-5 overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
+        <PanelHeader icon={Activity01Icon} title="System overview" description="Ringkasan status backend dan penyimpanan data." />
+        {loading && !serverHealth ? (
+          <EmptyState>Memuat status server...</EmptyState>
+        ) : (
+          <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-4">
+            <Metric label="Status" value={serverHealth?.status ?? 'offline'} />
+            <Metric label="Bootstrap" value={serverHealth?.bootstrap?.needsSetup ? 'needed' : serverHealth ? 'ready' : '-'} />
+            <Metric label="Operators" value={String(serverHealth?.storage?.counts?.operatorProfiles ?? 0)} />
+            <Metric label="Sessions" value={String(serverHealth?.storage?.counts?.sessions ?? 0)} />
+            <Metric label="Recordings" value={String(serverHealth?.storage?.counts?.recordings ?? 0)} />
+            <Metric label="Scan logs" value={String(serverHealth?.storage?.counts?.scanLogs ?? 0)} />
+            <Metric label="Last error" value={serverHealth?.lastError ? 'ada' : 'clear'} />
+            <Metric label="Secure context" value={typeof window !== 'undefined' && window.isSecureContext ? 'ready' : 'missing'} />
+          </div>
+        )}
+      </section>
 
-      <section className="grid gap-4 lg:grid-cols-2">
-        <Card className="health-opencode__panel">
-          <CardHeader>
-            <CardTitle>Runtime diagnostics</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 pt-4">
+      <section className="grid gap-5 lg:grid-cols-2">
+        <div className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
+          <PanelHeader icon={CheckmarkCircle01Icon} title="Runtime diagnostics" description="Kesiapan browser untuk kamera, recorder, dan komunikasi API." />
+          <div className="grid gap-3 p-4 sm:p-5">
             {runtimeChecks.map((check) => (
               <RuntimeCheckRow key={check.label} label={check.label} description={check.description} value={check.value} />
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card className="health-opencode__panel">
-          <CardHeader>
-            <CardTitle>Danger zone</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 pt-4">
-            <DangerAction
-              title="Reset scan data"
-              description="Menghapus data QC, packing, recording, dan log. User/operator tetap aman."
-              actionLabel="[clear-scan]"
-              onClick={() => setActiveModal('scan')}
-            />
-            <DangerAction
-              title="Reset all data"
-              description="Menghapus seluruh data server, termasuk user, session login, recording, log, dan pengaturan."
-              actionLabel="[clear-all]"
-              onClick={() => setActiveModal('all')}
-              destructive
-            />
-          </CardContent>
-        </Card>
+        <div className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
+          <PanelHeader icon={Alert01Icon} title="Danger zone" description="Aksi reset data server yang butuh konfirmasi." />
+          <div className="grid gap-3 p-4 sm:p-5">
+            <DangerAction title="Reset scan data" description="Menghapus data QC, packing, recording, dan log. User/operator tetap aman." actionLabel="Clear scan" onClick={() => setActiveModal('scan')} />
+            <DangerAction title="Reset all data" description="Menghapus seluruh data server, termasuk user, session login, recording, log, dan pengaturan." actionLabel="Clear all" onClick={() => setActiveModal('all')} destructive />
+          </div>
+        </div>
       </section>
 
         {activeModal === 'scan' ? (
@@ -301,23 +290,14 @@ export function HealthPage() {
   )
 }
 
-function Metric({ index, label, value }: { index: string; label: string; value: string }) {
-  return (
-    <div className="health-opencode__stat">
-      <span>{index}</span>
-      <p>{label}<br /><strong>{value}</strong></p>
-    </div>
-  )
-}
-
 function RuntimeCheckRow({ label, description, value }: { label: string; description: string; value: boolean }) {
   return (
-    <div className="health-opencode__check-row">
+    <div className="flex items-start justify-between gap-3 rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] p-3">
       <div className="min-w-0">
-        <div>{label}</div>
-        <p>{description}</p>
+        <div className="text-[14px] font-medium text-[#000000]">{label}</div>
+        <p className="mt-1 text-[12px] leading-5 text-[#615d59]">{description}</p>
       </div>
-      <span className="health-opencode__badge">{value ? '[x] OK' : '[!] Missing'}</span>
+      <span className={`inline-flex shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${value ? 'border-[#e6e6e6] bg-white text-[#0075de]' : 'border-[#f2c8a4] bg-[#fff7ed] text-[#dd5b00]'}`}>{value ? 'OK' : 'Missing'}</span>
     </div>
   )
 }
@@ -336,12 +316,13 @@ function DangerAction({
   destructive?: boolean
 }) {
   return (
-    <div className="health-opencode__list-row items-center">
+    <div className="flex flex-col gap-3 rounded-[12px] border border-[#e6e6e6] bg-[#f6f5f4] p-4 sm:flex-row sm:items-center sm:justify-between">
       <span className="min-w-0">
-        <strong>{title}</strong>
-        <small className="block">{description}</small>
+        <strong className="block text-[14px] font-semibold text-[#000000]">{title}</strong>
+        <small className="mt-1 block text-[12px] leading-5 text-[#615d59]">{description}</small>
       </span>
-      <Button type="button" variant={destructive ? 'destructive' : 'outline'} className="health-opencode__button" onClick={onClick}>
+      <Button type="button" variant={destructive ? 'destructive' : 'outline'} className={`h-9 shrink-0 rounded-lg px-3 text-[13px] font-medium ${destructive ? 'bg-black text-white hover:bg-[#31302e]' : 'border-[#e6e6e6] bg-white text-[#615d59] hover:bg-[#fbfaf9]'}`} onClick={onClick}>
+        <HugeiconsIcon icon={Delete02Icon} size={15} strokeWidth={1.9} />
         {actionLabel}
       </Button>
     </div>
@@ -366,36 +347,80 @@ function ConfirmDialog({
   disabled?: boolean
 }) {
   return (
-    <ModalOverlay onClose={onCancel} contentClassName="health-opencode__modal max-w-lg">
-      <div className="grid gap-4">
-        <DialogHeader className="health-opencode__modal-header flex-row items-start justify-between gap-4">
-          <div className="grid gap-2">
-            <p>{tone === 'danger' ? '[!]' : '[+]'} Peringatan</p>
-            <DialogTitle
-              id={tone === 'danger' ? 'health-reset-title' : 'health-reset-scan-title'}
-            >
-              {title}
-            </DialogTitle>
-            <DialogDescription>{description}</DialogDescription>
+    <ModalOverlay onClose={onCancel} contentClassName="health-modal max-w-[420px] gap-0 overflow-hidden rounded-2xl border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+      <div>
+        <div className="border-b border-[#e6e6e6] p-6">
+          <div className="flex items-start justify-between gap-5">
+            <div className="grid gap-1">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{tone === 'danger' ? 'Danger action' : 'Konfirmasi'}</p>
+              <h3 className="text-[18px] font-semibold text-[#000000]">{title}</h3>
+              <p className="text-[13px] leading-5 text-[#615d59]">{description}</p>
+            </div>
+            <Button type="button" variant="ghost" size="icon" onClick={onCancel} className="h-9 w-9 shrink-0 rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]">
+              <HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.9} />
+            </Button>
           </div>
-          <DialogCloseButton onClick={onCancel} />
-        </DialogHeader>
+        </div>
 
-        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <Button type="button" variant="outline" className="health-opencode__button" onClick={onCancel}>
-            [cancel]
+        <div className="flex items-center justify-end gap-2 border-t border-[#e6e6e6] bg-white p-4">
+          <Button type="button" variant="ghost" className="h-9 rounded-full border border-[#e6e6e6] bg-white px-5 text-[13px]" onClick={onCancel}>
+            Batal
           </Button>
           <Button
             type="button"
             variant={tone === 'danger' ? 'destructive' : 'default'}
-            className="health-opencode__button"
+            className={`h-9 rounded-full px-6 text-[13px] font-medium ${tone === 'danger' ? 'bg-black text-white hover:bg-[#31302e]' : 'bg-[#0075de] text-white hover:bg-[#005bab]'}`}
             onClick={() => void onConfirm()}
             disabled={disabled}
           >
-            [{confirmLabel.toLowerCase().replaceAll(' ', '-')}]
+            {confirmLabel}
           </Button>
         </div>
       </div>
     </ModalOverlay>
   )
+}
+
+function HealthStat({ label, value, detail, icon }: { label: string; value: string; detail: string; icon: typeof Activity01Icon }) {
+  return (
+    <article className="rounded-xl border border-[#e6e6e6] bg-white p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div>
+          <div className="mt-3 text-[24px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{value}</div>
+          <p className="mt-2 line-clamp-2 text-[12px] leading-5 text-[#615d59]">{detail}</p>
+        </div>
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
+          <HugeiconsIcon icon={icon} size={19} strokeWidth={1.9} />
+        </span>
+      </div>
+    </article>
+  )
+}
+
+function PanelHeader({ icon, title, description }: { icon: typeof Activity01Icon; title: string; description: string }) {
+  return (
+    <div className="flex items-start gap-3 border-b border-[#e6e6e6] px-4 py-4 sm:px-5">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
+        <HugeiconsIcon icon={icon} size={19} strokeWidth={1.9} />
+      </span>
+      <div className="min-w-0">
+        <h2 className="text-[16px] font-semibold text-[#000000]">{title}</h2>
+        <p className="mt-1 text-[12px] leading-5 text-[#a39e98]">{description}</p>
+      </div>
+    </div>
+  )
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] p-3">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div>
+      <div className="mt-2 text-[18px] font-semibold text-[#000000]">{value}</div>
+    </div>
+  )
+}
+
+function EmptyState({ children }: { children: ReactNode }) {
+  return <div className="p-6 text-center text-[14px] font-medium text-[#615d59]">{children}</div>
 }

@@ -1,15 +1,25 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  removeOperatorProfile,
-  updateOperatorPassword,
-  upsertOperatorProfile,
-  useOperatorProfiles,
-  useOperatorSession,
-} from '../app/operatorSession'
+  ArrowDown01Icon,
+  Cancel01Icon,
+  Edit02Icon,
+  Key01Icon,
+  MoreHorizontalIcon,
+  RefreshIcon,
+  Search01Icon,
+  ShieldUserIcon,
+  Task01Icon,
+  UserAdd01Icon,
+  UserCircleIcon,
+  UserGroupIcon,
+  UserMultiple02Icon,
+} from '@hugeicons/core-free-icons'
+import { removeOperatorProfile, updateOperatorPassword, upsertOperatorProfile, useOperatorProfiles, useOperatorSession } from '../app/operatorSession'
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog'
+import { Dialog, DialogContent } from '../components/ui/dialog'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { notify } from '../app/notify'
@@ -57,18 +67,11 @@ const defaultUserFilterState: UserFilterState = {
 }
 
 function readStoredUserFilters(): UserFilterState {
-  if (typeof window === 'undefined') {
-    return defaultUserFilterState
-  }
-
+  if (typeof window === 'undefined') return defaultUserFilterState
   const raw = window.sessionStorage.getItem(USERS_FILTERS_KEY)
-  if (!raw) {
-    return defaultUserFilterState
-  }
-
+  if (!raw) return defaultUserFilterState
   try {
     const parsed = JSON.parse(raw) as Partial<UserFilterState>
-
     return {
       searchText: typeof parsed.searchText === 'string' ? parsed.searchText : '',
       roleFilter: parsed.roleFilter === 'admin' || parsed.roleFilter === 'operator' ? parsed.roleFilter : 'all',
@@ -80,10 +83,7 @@ function readStoredUserFilters(): UserFilterState {
 }
 
 function writeStoredUserFilters(filters: UserFilterState) {
-  if (typeof window === 'undefined') {
-    return
-  }
-
+  if (typeof window === 'undefined') return
   window.sessionStorage.setItem(USERS_FILTERS_KEY, JSON.stringify(filters))
 }
 
@@ -112,18 +112,10 @@ export function UsersPage() {
   const [isResetting, setIsResetting] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<OperatorProfile | null>(null)
   const [pendingSaveAction, setPendingSaveAction] = useState<PendingSaveAction | null>(null)
-  const shouldShowStatusAlert =
-    messageTone === 'error' ||
-    message.includes('sudah dipakai') ||
-    message.includes('wajib') ||
-    message.includes('Minimal satu akun admin')
+  const shouldShowStatusAlert = messageTone === 'error' || message.includes('sudah dipakai') || message.includes('wajib') || message.includes('Minimal satu akun admin')
 
   useEffect(() => {
-    writeStoredUserFilters({
-      searchText,
-      roleFilter,
-      taskFilter,
-    })
+    writeStoredUserFilters({ searchText, roleFilter, taskFilter })
   }, [roleFilter, searchText, taskFilter])
 
   const filteredProfiles = useMemo(() => {
@@ -138,7 +130,6 @@ export function UsersPage() {
         profile.operatorCode.toLowerCase().includes(normalizedSearch) ||
         profile.role.toLowerCase().includes(normalizedSearch) ||
         profile.taskType.toLowerCase().includes(normalizedSearch)
-
       return matchesSearch && matchesRole && matchesTask
     })
   }, [operatorProfiles, roleFilter, searchText, taskFilter])
@@ -147,83 +138,37 @@ export function UsersPage() {
   const totalOperators = operatorProfiles.filter((profile) => profile.role === 'operator').length
   const nextCreateCode = useMemo(() => generateNextOperatorCode(operatorProfiles), [operatorProfiles])
   const hasActiveFilters = Boolean(searchText.trim()) || roleFilter !== 'all' || taskFilter !== 'all'
-  const currentSessionKey = operatorSession
-    ? profileKey({
-        operatorName: operatorSession.operatorName,
-        operatorCode: operatorSession.operatorCode,
-        role: operatorSession.role,
-      })
-    : null
+  const currentSessionKey = operatorSession ? profileKey({ operatorName: operatorSession.operatorName, operatorCode: operatorSession.operatorCode, role: operatorSession.role }) : null
 
   const nameConflict = useMemo(() => {
     const normalizedName = operatorName.trim().toLowerCase()
-
-    if (!normalizedName) {
-      return null
-    }
-
+    if (!normalizedName) return null
     const sourceKey = formSourceProfile ? profileKey(formSourceProfile) : null
-    return (
-      operatorProfiles.find((profile) => {
-        return (
-          profile.operatorName.trim().toLowerCase() === normalizedName &&
-          profileKey(profile) !== sourceKey
-        )
-      }) ?? null
-    )
+    return operatorProfiles.find((profile) => profile.operatorName.trim().toLowerCase() === normalizedName && profileKey(profile) !== sourceKey) ?? null
   }, [formSourceProfile, operatorName, operatorProfiles])
 
   const codeConflict = useMemo(() => {
     const normalizedCode = operatorCode.trim().toLowerCase()
-
-    if (!normalizedCode) {
-      return null
-    }
-
+    if (!normalizedCode) return null
     const sourceKey = formSourceProfile ? profileKey(formSourceProfile) : null
-    return (
-      operatorProfiles.find((profile) => {
-        return (
-          profile.operatorCode.trim().toLowerCase() === normalizedCode &&
-          profileKey(profile) !== sourceKey
-        )
-      }) ?? null
-    )
+    return operatorProfiles.find((profile) => profile.operatorCode.trim().toLowerCase() === normalizedCode && profileKey(profile) !== sourceKey) ?? null
   }, [formSourceProfile, operatorCode, operatorProfiles])
 
   const nameFieldHelp = useMemo(() => {
-    if (!operatorName.trim()) {
-      return 'Username wajib diisi.'
-    }
-
-    if (/\s/.test(operatorName)) {
-      return 'Username tidak boleh mengandung spasi.'
-    }
-
-    if (nameConflict) {
-      return `Username "${nameConflict.operatorName}" sudah dipakai user lain.`
-    }
-
+    if (!operatorName.trim()) return 'Username wajib diisi.'
+    if (/\s/.test(operatorName)) return 'Username tidak boleh mengandung spasi.'
+    if (nameConflict) return `Username "${nameConflict.operatorName}" sudah dipakai user lain.`
     return 'Username tersedia.'
   }, [nameConflict, operatorName])
 
   const codeFieldHelp = useMemo(() => {
-    if (!operatorCode.trim()) {
-      return 'Kode user wajib diisi.'
-    }
-
-    if (codeConflict) {
-      return `Kode "${codeConflict.operatorCode}" sudah dipakai user lain.`
-    }
-
+    if (!operatorCode.trim()) return 'Kode user wajib diisi.'
+    if (codeConflict) return `Kode "${codeConflict.operatorCode}" sudah dipakai user lain.`
     return 'Kode user tersedia.'
   }, [codeConflict, operatorCode])
 
   const isEditingCurrentSession = useMemo(() => {
-    if (!operatorSession || !formSourceProfile) {
-      return false
-    }
-
+    if (!operatorSession || !formSourceProfile) return false
     return profileKey(formSourceProfile) === currentSessionKey
   }, [currentSessionKey, formSourceProfile, operatorSession])
 
@@ -296,13 +241,11 @@ export function UsersPage() {
       setMessage('Akun yang sedang aktif tidak boleh dihapus dari sesi ini.')
       return
     }
-
     if (isLastAdminProfile(profile, operatorProfiles)) {
       setMessageTone('error')
       setMessage('Minimal satu akun admin harus tetap ada.')
       return
     }
-
     setDialogState('delete')
     setDeleteTarget(profile)
     setMessageTone('info')
@@ -312,49 +255,33 @@ export function UsersPage() {
   async function commitSaveAction(action: PendingSaveAction) {
     const { name, code, role, taskType, fullNameValue, isEditMode, sourceProfile } = action
     const sourceKey = sourceProfile ? profileKey(sourceProfile) : null
-
     if (!name) {
       setMessageTone('error')
       setMessage('Username wajib diisi.')
       return
     }
-
     if (/\s/.test(name)) {
       setMessageTone('error')
       setMessage('Username tidak boleh mengandung spasi.')
       return
     }
-
     if (nameConflict && profileKey(nameConflict) !== sourceKey) {
       setMessageTone('error')
       setMessage(`Nama "${nameConflict.operatorName}" sudah dipakai user lain.`)
       return
     }
-
     if (!fullNameValue) {
       setMessageTone('error')
       setMessage('Nama lengkap wajib diisi.')
       return
     }
-
     if (isEditMode && sourceProfile && isLastAdminProfile(sourceProfile, operatorProfiles) && role !== 'admin') {
       setMessageTone('error')
       setMessage('Minimal satu akun admin harus tetap ada.')
       return
     }
-
     try {
-      const savedProfile = await upsertOperatorProfile(
-        name,
-        code,
-        taskType,
-        isEditMode,
-        isEditMode ? undefined : DEFAULT_NEW_USER_PASSWORD,
-        fullNameValue,
-        role,
-        sourceProfile,
-      )
-
+      const savedProfile = await upsertOperatorProfile(name, code, taskType, isEditMode, isEditMode ? undefined : DEFAULT_NEW_USER_PASSWORD, fullNameValue, role, sourceProfile)
       setSelectedKey(profileKey(savedProfile))
       setMessage(`Profil ${savedProfile.operatorName} tersimpan di server.`)
       setMessageTone('info')
@@ -377,86 +304,44 @@ export function UsersPage() {
     const role = operatorRole
     const taskType = operatorTaskType
     const sourceKey = formSourceProfile ? profileKey(formSourceProfile) : null
-
     if (!name) {
       setMessageTone('error')
       setMessage('Username wajib diisi.')
       return
     }
-
     if (/\s/.test(name)) {
       setMessageTone('error')
       setMessage('Username tidak boleh mengandung spasi.')
       return
     }
-
     if (nameConflict && profileKey(nameConflict) !== sourceKey) {
       setMessageTone('error')
       setMessage(`Nama "${nameConflict.operatorName}" sudah dipakai user lain.`)
       return
     }
-
     if (!fullNameValue) {
       setMessageTone('error')
       setMessage('Nama lengkap wajib diisi.')
       return
     }
-
-    if (
-      isEditMode &&
-      formSourceProfile &&
-      isLastAdminProfile(formSourceProfile, operatorProfiles) &&
-      operatorRole !== 'admin'
-    ) {
+    if (isEditMode && formSourceProfile && isLastAdminProfile(formSourceProfile, operatorProfiles) && operatorRole !== 'admin') {
       setMessageTone('error')
       setMessage('Minimal satu akun admin harus tetap ada.')
       return
     }
-
-    if (
-      isEditMode &&
-      formSourceProfile &&
-      (
-        (operatorRole === 'admin' && formSourceProfile.role !== 'admin') ||
-        isEditingCurrentSession
-      )
-    ) {
-      setPendingSaveAction({
-        name,
-        code,
-        role,
-        taskType,
-        fullNameValue,
-        isEditMode,
-        sourceProfile: formSourceProfile,
-      })
+    if (isEditMode && formSourceProfile && ((operatorRole === 'admin' && formSourceProfile.role !== 'admin') || isEditingCurrentSession)) {
+      setPendingSaveAction({ name, code, role, taskType, fullNameValue, isEditMode, sourceProfile: formSourceProfile })
       setDialogState('confirm-save')
       return
     }
-
-    await commitSaveAction({
-      name,
-      code,
-      role,
-      taskType,
-      fullNameValue,
-      isEditMode,
-      sourceProfile: formSourceProfile,
-    })
+    await commitSaveAction({ name, code, role, taskType, fullNameValue, isEditMode, sourceProfile: formSourceProfile })
   }
 
   async function handleDeleteProfile(profile: OperatorProfile) {
     try {
       await removeOperatorProfile(profile.operatorName, profile.operatorCode, profile.role)
-
-      if (selectedKey === profileKey(profile)) {
-        setSelectedKey(null)
-      }
-
-      if (formSourceProfile && profileKey(formSourceProfile) === profileKey(profile)) {
-        closeFormModal()
-      }
-
+      if (selectedKey === profileKey(profile)) setSelectedKey(null)
+      if (formSourceProfile && profileKey(formSourceProfile) === profileKey(profile)) closeFormModal()
       setMessage(`Profil ${profile.operatorName} dihapus dari server.`)
       setMessageTone('info')
       notify.save('Profil dihapus', `${profile.operatorName} berhasil dihapus dari server.`)
@@ -471,34 +356,22 @@ export function UsersPage() {
   }
 
   async function handleResetPassword() {
-    if (!resetTarget) {
-      return
-    }
-
+    if (!resetTarget) return
     const password = resetPassword.trim()
     const passwordConfirm = resetPasswordConfirm.trim()
-
     if (!password || !passwordConfirm) {
       setMessageTone('error')
       setMessage('Kata sandi baru dan konfirmasi wajib diisi.')
       return
     }
-
     if (password !== passwordConfirm) {
       setMessageTone('error')
       setMessage('Konfirmasi kata sandi tidak cocok.')
       return
     }
-
     setIsResetting(true)
-
     try {
-      await updateOperatorPassword(
-        resetTarget.operatorName,
-        resetTarget.operatorCode,
-        password,
-        resetTarget.role,
-      )
+      await updateOperatorPassword(resetTarget.operatorName, resetTarget.operatorCode, password, resetTarget.role)
       setMessage(`Kata sandi ${resetTarget.operatorName} direset di server.`)
       setMessageTone('info')
       notify.reset('Password direset', `Kata sandi ${resetTarget.operatorName} berhasil direset.`)
@@ -517,621 +390,400 @@ export function UsersPage() {
   }
 
   return (
-    <div className="users-opencode mx-auto grid w-full max-w-[1520px] gap-8 px-0 py-1">
-      <section className="users-opencode__hero flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="users-page mx-auto max-w-[1240px] bg-[#f6f5f4] px-4 py-8 font-['Inter'] sm:px-6 lg:py-10 xl:px-8">
+      <section className="mb-7 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div>
-          <div className="users-opencode__section-label">[+] Administrasi</div>
-          <h1 className="users-opencode__title">Users</h1>
-          <p className="users-opencode__lede">
-            Tambah, edit, reset password, atau hapus akun operator QC dan packing.
-          </p>
+          <div className="font-['Inter'] text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Administrasi / Users</div>
+          <h1 className="mt-2 font-['Inter'] text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">Kelola pengguna</h1>
+          <p className="mt-3 max-w-2xl font-['Inter'] text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Tambah akun, atur role dan tugas, reset password, atau nonaktifkan akses operator dari satu tempat.</p>
         </div>
-        <Button type="button" className="users-opencode__button" onClick={openCreateModal}>
-          [new-user]
+        <Button type="button" onClick={openCreateModal} className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-[#0075de] px-5 font-['Inter'] text-[14px] font-medium text-white shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.035)] hover:bg-[#005bab] active:scale-[0.98]">
+          <HugeiconsIcon icon={UserAdd01Icon} size={18} strokeWidth={1.9} /> Tambah user
         </Button>
       </section>
 
-      <section className="users-opencode__stats">
-        <StatCard marker="[+]" label="Total user" value={operatorProfiles.length} unit="akun" />
-        <StatCard marker="[x]" label="Admin" value={totalAdmins} unit="akun" />
-        <StatCard marker="[-]" label="Operator" value={totalOperators} unit="akun" />
+      <section className="grid gap-3 sm:grid-cols-3">
+        <article className="rounded-xl border border-[#e6e6e6] bg-white p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Total user</div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{operatorProfiles.length}</span>
+                <span className="font-['Inter'] text-[13px] text-[#615d59]">akun</span>
+              </div>
+            </div>
+            <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
+              <HugeiconsIcon icon={UserGroupIcon} size={19} strokeWidth={1.9} />
+            </span>
+          </div>
+        </article>
+        <article className="rounded-xl border border-[#e6e6e6] bg-white p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Admin</div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{totalAdmins}</span>
+                <span className="font-['Inter'] text-[13px] text-[#615d59]">akun</span>
+              </div>
+            </div>
+            <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
+              <HugeiconsIcon icon={ShieldUserIcon} size={19} strokeWidth={1.9} />
+            </span>
+          </div>
+        </article>
+        <article className="rounded-xl border border-[#e6e6e6] bg-white p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Operator</div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{totalOperators}</span>
+                <span className="font-['Inter'] text-[13px] text-[#615d59]">akun</span>
+              </div>
+            </div>
+            <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
+              <HugeiconsIcon icon={UserMultiple02Icon} size={19} strokeWidth={1.9} />
+            </span>
+          </div>
+        </article>
       </section>
 
-      <div className="sticky top-0 z-10 -mx-4 border-b bg-white/85 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-        <section className="users-opencode__filters users-opencode__filters--inline">
-          <div className="users-opencode__filter-grid">
-          <div className="users-opencode__search-block">
-            <span className="users-opencode__filter-label">search</span>
-            <span className="users-opencode__input-prefix" aria-hidden="true">[?]</span>
-            <Input
-              id="users-search"
-              value={searchText}
-              onChange={(event) => setSearchText(event.target.value)}
-              placeholder="Cari nama, username, kode..."
-              className="users-opencode__input pl-12"
-              aria-label="Cari user"
-            />
+      <section className="mt-5 overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
+        <div className="border-b border-[#e6e6e6] p-4 sm:p-5">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+            <label className="relative flex flex-1 min-w-[240px]">
+              <span className="pointer-events-none absolute inset-y-0 left-0 grid w-10 place-items-center text-[#a39e98]">
+                <HugeiconsIcon icon={Search01Icon} size={18} strokeWidth={1.9} />
+              </span>
+              <Input id="users-search" value={searchText} onChange={(e) => setSearchText(e.target.value)} placeholder="Cari nama, username, atau kode..." className="h-10 w-full rounded-[8px] border-[#e6e6e6] bg-white pl-10 pr-3 font-['Inter'] text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#CFCBC7] focus-visible:ring-0" aria-label="Cari user" />
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <label className="relative inline-flex h-10 items-center rounded-lg border border-[#e6e6e6] bg-[#f6f5f4] text-[#000000]">
+                <span className="pointer-events-none absolute left-3 grid place-items-center text-[#31302e]">
+                  <HugeiconsIcon icon={UserCircleIcon} size={17} strokeWidth={1.9} />
+                </span>
+                <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as UserRoleFilter)} className="h-full appearance-none rounded-lg bg-transparent pl-9 pr-8 font-['Inter'] text-[13px] font-medium focus:outline-none focus:ring-0">
+                  <option value="all">Semua role</option>
+                  <option value="admin">Admin</option>
+                  <option value="operator">Operator</option>
+                </select>
+                <span className="pointer-events-none absolute right-3 grid place-items-center text-[#a39e98]">
+                  <HugeiconsIcon icon={ArrowDown01Icon} size={15} strokeWidth={1.9} />
+                </span>
+              </label>
+              <label className="relative inline-flex h-10 items-center rounded-lg border border-[#e6e6e6] bg-white text-[#000000]">
+                <span className="pointer-events-none absolute left-3 grid place-items-center text-[#31302e]">
+                  <HugeiconsIcon icon={Task01Icon} size={17} strokeWidth={1.9} />
+                </span>
+                <select value={taskFilter} onChange={(e) => setTaskFilter(e.target.value as UserTaskFilter)} className="h-full appearance-none rounded-lg bg-transparent pl-9 pr-8 font-['Inter'] text-[13px] font-medium focus:outline-none focus:ring-0">
+                  <option value="all">Semua tugas</option>
+                  <option value="qc">QC</option>
+                  <option value="packing">Packing</option>
+                </select>
+                <span className="pointer-events-none absolute right-3 grid place-items-center text-[#a39e98]">
+                  <HugeiconsIcon icon={ArrowDown01Icon} size={15} strokeWidth={1.9} />
+                </span>
+              </label>
+              <Button type="button" variant="ghost" onClick={clearFilters} disabled={!hasActiveFilters} className="h-10 inline-flex items-center gap-2 rounded-lg px-3 font-['Inter'] text-[13px] font-medium text-[#615d59] hover:bg-[#f6f5f4] disabled:opacity-40">
+                <HugeiconsIcon icon={RefreshIcon} size={16} strokeWidth={1.9} /> Reset
+              </Button>
+            </div>
           </div>
-
-          <div className="users-opencode__filter-controls">
-            <FilterGroup
-              label="role"
-              options={[
-                ['all', 'Semua'],
-                ['admin', 'Admin'],
-                ['operator', 'Operator'],
-              ]}
-              value={roleFilter}
-              onChange={(value) => setRoleFilter(value as UserRoleFilter)}
-            />
-
-            <FilterGroup
-              label="task"
-              options={[
-                ['all', 'Semua'],
-                ['qc', 'QC'],
-                ['packing', 'Packing'],
-              ]}
-              value={taskFilter}
-              onChange={(value) => setTaskFilter(value as UserTaskFilter)}
-            />
-          </div>
-
-          <div className="users-opencode__filter-actions">
-            <span><strong>{filteredProfiles.length}</strong>/{operatorProfiles.length}</span>
-            <Button type="button" variant="ghost" className="users-opencode__button" onClick={clearFilters} disabled={!hasActiveFilters}>
-              [reset]
-            </Button>
-          </div>
-        </div>
-
           {shouldShowStatusAlert ? (
-            <Alert variant={messageTone === 'error' ? 'destructive' : 'default'} className="mt-2">
-              <div className="users-opencode__alert grid gap-1">
-                <p>{messageTone === 'error' ? '[!] Status' : '[+] Status'}</p>
-                <p>{message}</p>
-              </div>
+            <Alert variant={messageTone === 'error' ? 'destructive' : 'default'} className="mt-3 rounded-[8px] border-[#e6e6e6] bg-[#f6f5f4] font-['Inter'] text-[14px]">
+              <p className="font-semibold text-[#000000]">{messageTone === 'error' ? 'Perlu perhatian' : 'Status'}</p>
+              <p className="text-[#31302e]">{message}</p>
             </Alert>
           ) : null}
-        </section>
         </div>
 
-      <section className="users-opencode__table-section overflow-hidden">
-        <div className="users-opencode__table-header flex items-center justify-between px-5 py-4">
+        <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-5">
           <div>
-            <h2>[+] Daftar operator</h2>
-            <p>Klik nama operator untuk edit detail akun.</p>
+            <h2 className="font-['Inter'] text-[16px] font-semibold text-[#000000]">Daftar pengguna</h2>
+            <p className="mt-1 font-['Inter'] text-[12px] text-[#a39e98]">Klik nama untuk melihat atau mengubah detail akun.</p>
           </div>
-          <span className="users-opencode__badge">
-            {filteredProfiles.length} hasil
-          </span>
+          <span className="inline-flex items-center rounded-full border border-[#e6e6e6] bg-white px-2.5 py-1 font-['Inter'] text-[11px] font-semibold text-[#0075de]">{filteredProfiles.length} hasil</span>
         </div>
 
-        <div className="p-0">
-          <div className="users-opencode__mobile-list md:hidden">
-            {filteredProfiles.length ? (
-              filteredProfiles.map((profile) => {
-                const key = profileKey(profile)
-                const isSelected = selectedKey === key
-
-                return (
-                  <article key={key} className={isSelected ? 'users-opencode__mobile-card is-selected' : 'users-opencode__mobile-card'}>
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0 grid gap-1">
-                        <button type="button" className="users-opencode__name-button truncate text-left" onClick={() => openEditModal(profile)}>
-                          {profile.fullName ?? profile.operatorName}
+        <div className="overflow-x-auto scrollbar-thin">
+          <table className="w-full min-w-[900px] border-collapse">
+            <thead className="bg-[#f6f5f4]">
+              <tr className="text-left">
+                <Th className="px-5 font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Pengguna</Th>
+                <Th className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Kode</Th>
+                <Th className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Role</Th>
+                <Th className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Tugas</Th>
+                <Th className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Terakhir aktif</Th>
+                <Th className="px-5 text-right font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Aksi</Th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#e6e6e6]">
+              {filteredProfiles.length ? (
+                filteredProfiles.map((profile) => {
+                  const key = profileKey(profile)
+                  return (
+                    <tr key={key} className={`bg-white transition-colors hover:bg-[#fbfaf9] ${selectedKey === key ? 'bg-[#f6f5f4]' : ''}`}>
+                      <Td className="px-5 py-4">
+                        <button type="button" onClick={() => openEditModal(profile)} className="group flex items-center gap-3 text-left">
+                          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-black text-[12px] font-semibold text-white">{getInitials(profile.fullName ?? profile.operatorName)}</span>
+                          <span className="min-w-0 text-left">
+                            <span className="block font-['Inter'] text-[14px] font-medium text-[#000000] underline-offset-2 group-hover:underline">{profile.fullName ?? profile.operatorName}</span>
+                            <span className="mt-0.5 block font-['Inter'] text-[12px] text-[#a39e98]">@{profile.operatorName}</span>
+                          </span>
                         </button>
-                        <p className="users-opencode__meta truncate">{profile.operatorCode}</p>
-                      </div>
-                      <RoleBadge role={profile.role} />
-                    </div>
-
-                    <div className="users-opencode__task-grid grid grid-cols-2 gap-3">
-                      <div>
-                        <div className="users-opencode__meta">Task</div>
-                        <div className="mt-1"><TaskBadge taskType={profile.taskType} /></div>
-                      </div>
-                      <div>
-                        <div className="users-opencode__meta">Last used</div>
-                        <div className="mt-1"><DateTimeCell value={profile.lastUsedAt} compact /></div>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
-                      <Button type="button" variant="outline" size="sm" className="users-opencode__button w-full" onClick={() => openEditModal(profile)}>[edit]</Button>
-                      <Button type="button" variant="outline" size="sm" className="users-opencode__button w-full" onClick={() => openResetModal(profile)}>[reset]</Button>
-                      <Button type="button" variant="destructive" size="sm" className="users-opencode__button" onClick={() => openDeleteModal(profile)} aria-label={`Hapus ${profile.fullName ?? profile.operatorName}`}>[delete]</Button>
-                    </div>
-                  </article>
-                )
-              })
-            ) : (
-              <div className="users-opencode__empty">
-                <strong>[-] Belum ada operator yang cocok.</strong>
-                <p>Ubah kata kunci pencarian atau buat operator baru.</p>
-              </div>
-            )}
-          </div>
-
-          <div className="hidden max-h-[56vh] overflow-auto md:block">
-            <table className="users-opencode__table w-full min-w-[900px] border-collapse">
-              <thead className="sticky top-0 z-[1] bg-white">
-                <tr className="border-b bg-muted/30">
-                  <Th className="text-[0.72rem] uppercase tracking-wide text-muted-foreground">Nama</Th>
-                  <Th className="text-[0.72rem] uppercase tracking-wide text-muted-foreground">Kode</Th>
-                  <Th className="text-[0.72rem] uppercase tracking-wide text-muted-foreground">Role</Th>
-                  <Th className="text-[0.72rem] uppercase tracking-wide text-muted-foreground">Tugas</Th>
-                  <Th className="text-[0.72rem] uppercase tracking-wide text-muted-foreground">Last used</Th>
-                  <Th className="text-right text-[0.72rem] uppercase tracking-wide text-muted-foreground">Aksi</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredProfiles.length ? (
-                  filteredProfiles.map((profile) => {
-                    const key = profileKey(profile)
-
-                    return (
-                      <tr key={key} className={selectedKey === key ? 'users-opencode__row is-selected table-row' : 'users-opencode__row table-row'}>
-                        <Td>
-                          <div className="flex items-center gap-2">
-                            <div className="users-opencode__avatar">
-                              [{getInitials(profile.fullName ?? profile.operatorName)}]
-                            </div>
-                            <div className="min-w-0">
-                              <button type="button" className="users-opencode__name-button truncate" onClick={() => openEditModal(profile)}>
-                                {profile.fullName ?? profile.operatorName}
-                              </button>
-                              <p className="users-opencode__meta mt-0.5 truncate">{profile.operatorName}</p>
-                            </div>
-                          </div>
-                        </Td>
-                        <Td>{profile.operatorCode}</Td>
-                        <Td><RoleBadge role={profile.role} /></Td>
-                        <Td><TaskBadge taskType={profile.taskType} /></Td>
-                        <Td className="whitespace-nowrap"><DateTimeCell value={profile.lastUsedAt} /></Td>
-                        <Td>
-                          <div className="row-actions flex items-center justify-end gap-1 opacity-80 transition">
-                            <Button type="button" variant="outline" size="sm" className="users-opencode__button" onClick={() => openEditModal(profile)}>[edit]</Button>
-                            <Button type="button" variant="outline" size="sm" className="users-opencode__button" onClick={() => openResetModal(profile)}>[reset]</Button>
-                            <Button type="button" variant="destructive" size="sm" className="users-opencode__button" onClick={() => openDeleteModal(profile)}>[delete]</Button>
-                          </div>
-                        </Td>
-                      </tr>
-                    )
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan={6} className="p-6">
-                      <div className="users-opencode__empty">
-                        <strong>[-] Belum ada operator yang cocok.</strong>
-                        <p>Ubah kata kunci pencarian atau buat operator baru.</p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                      </Td>
+                      <Td className="py-4 font-['Inter'] text-[13px] text-[#615d59]">{profile.operatorCode}</Td>
+                      <Td>
+                        <span className={`inline-flex rounded-[5px] border px-2 py-1 font-['Inter'] text-[12px] font-medium ${profile.role === 'admin' ? 'border-[#e6e6e6] bg-white text-[#000000]' : 'border-[#e6e6e6] bg-white text-[#615d59]'}`}>{profile.role === 'admin' ? 'Admin' : 'Operator'}</span>
+                      </Td>
+                      <Td>
+                        <span className="inline-flex rounded-[5px] bg-[#f6f5f4] px-2 py-1 font-['Inter'] text-[12px] font-medium text-[#000000] ring-1 ring-[#e6e6e6]">{profile.taskType === 'qc' ? 'QC' : 'Packing'}</span>
+                      </Td>
+                      <Td>
+                        <DateTimeCell value={profile.lastUsedAt} />
+                      </Td>
+                      <Td className="px-5 py-4">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" onClick={() => openEditModal(profile)} title="Edit user">
+                            <HugeiconsIcon icon={Edit02Icon} size={18} strokeWidth={1.9} />
+                          </Button>
+                          <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" onClick={() => openResetModal(profile)} title="Reset password">
+                            <HugeiconsIcon icon={Key01Icon} size={18} strokeWidth={1.9} />
+                          </Button>
+                          <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" onClick={() => openDeleteModal(profile)} title="Menu lainnya">
+                            <HugeiconsIcon icon={MoreHorizontalIcon} size={18} strokeWidth={1.9} />
+                          </Button>
+                        </div>
+                      </Td>
+                    </tr>
+                  )
+                })
+              ) : null}
+            </tbody>
+          </table>
         </div>
+
+        {!filteredProfiles.length ? (
+          <div className="border-t border-[#e6e6e6] px-6 py-14 text-center">
+            <div className="mx-auto grid h-11 w-11 place-items-center rounded-xl bg-[#f6f5f4] text-[#615d59]">
+              <HugeiconsIcon icon={Search01Icon} size={20} strokeWidth={1.9} />
+            </div>
+            <div className="mt-3 font-['Inter'] text-[14px] font-medium text-[#000000]">Pengguna tidak ditemukan</div>
+            <div className="mt-1 font-['Inter'] text-[12px] text-[#a39e98]">Coba gunakan kata kunci yang berbeda.</div>
+          </div>
+        ) : null}
       </section>
 
-        <Dialog open={dialogState === 'form'} onOpenChange={(open) => !open && closeFormModal()}>
-          <DialogContent className="max-w-xl max-h-[84vh] flex flex-col overflow-hidden p-0 sm:max-w-[640px]">
-            <DialogHeader className="shrink-0 border-b px-6 py-5 text-left">
-              <div className="grid gap-1">
-                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{formMode === 'edit' ? '[+] Edit user' : '[+] Tambah user'}</p>
-                <DialogTitle>{formMode === 'edit' ? `Edit ${formSourceProfile?.operatorName ?? 'user'}` : 'Buat operator baru'}</DialogTitle>
-                <DialogDescription>{formMode === 'edit' ? 'Edit akun operator.' : 'Tambah akun operator.'}</DialogDescription>
-              </div>
-            </DialogHeader>
-            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-              {formMode === 'edit' && formSourceProfile ? (
-                <Alert variant={isEditingCurrentSession ? 'default' : 'default'} className="py-2">
-                  <div className="grid gap-1 text-xs leading-snug">
-                    <p className="font-medium">{isEditingCurrentSession ? '[!] Akun aktif sedang diedit' : '[+] Mode edit aktif'}</p>
-                    <p className="text-muted-foreground">{isEditingCurrentSession ? 'Akun ini sedang dipakai pada sesi login saat ini. Simpan dengan hati-hati.' : `Perubahan akan diterapkan ke ${formatOperator(formSourceProfile.operatorName, formSourceProfile.operatorCode)}.`}</p>
-                    <p className="text-muted-foreground">Username & kode dikunci saat edit. Gunakan reset password untuk ganti kata sandi.</p>
-                  </div>
-                </Alert>
-              ) : null}
+      <p className="font-['Inter'] text-[12px] text-[#a39e98]">Catatan: hapus/nonaktifkan akun dipindahkan ke menu lanjutan untuk mengurangi risiko klik tidak sengaja.</p>
 
-              <div className="space-y-4">
-                <Field
-                  id="user-fullname"
-                  label="nama lengkap"
-                  value={fullName}
-                  onChange={(event) => setFullName(event.target.value)}
-                  placeholder="Nama lengkap"
-                  helperText="Nama lengkap wajib diisi."
-                />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field
-                    id="user-username"
-                    label="username"
-                    value={operatorName}
-                    onChange={(event) => setOperatorName(event.target.value.replace(/\s+/g, ''))}
-                    placeholder="Username"
-                    helperText={nameFieldHelp}
-                    tone={nameConflict ? 'error' : 'default'}
-                    readOnly={formMode === 'edit'}
-                  />
-                  {formMode === 'edit' ? (
-                    <Field
-                      id="user-code"
-                      label="kode"
-                      value={operatorCode}
-                      onChange={(event) => setOperatorCode(event.target.value)}
-                      placeholder="001"
-                      readOnly
-                      helperText={codeFieldHelp}
-                      tone={codeConflict ? 'error' : 'default'}
-                    />
-                  ) : (
-                    <div className="grid gap-2">
-                      <Label className="text-xs">kode otomatis</Label>
-                      <div className="flex h-8 items-center justify-between rounded-[6px] border bg-muted px-3 font-mono text-sm">
-                        <span>{nextCreateCode}</span>
-                        <span className="text-xs text-muted-foreground">pass: user123</span>
-                      </div>
-                    </div>
-                  )}
+      <Dialog open={dialogState === 'form'} onOpenChange={(open) => !open && closeFormModal()}>
+        <DialogContent showCloseButton={false} className="users-modal max-w-[520px] gap-0 overflow-hidden rounded-2xl border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+          <div className="border-b border-[#e6e6e6] p-6">
+            <div className="flex items-start justify-between gap-5">
+              <div className="grid gap-1">
+                <h3 className="font-['Inter'] text-[20px] font-semibold tracking-[-0.2px] text-[#000000]">{formMode === 'edit' ? `Edit ${formSourceProfile?.operatorName ?? 'user'}` : 'Tambah user'}</h3>
+                <p className="font-['Inter'] text-[13px] leading-5 text-[#615d59]">{formMode === 'edit' ? 'Perbarui data operator dengan hati-hati.' : 'Buat akun baru dan tentukan akses awalnya.'}</p>
+              </div>
+              <Button type="button" variant="ghost" size="icon" onClick={closeFormModal} className="h-9 w-9 shrink-0 rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" title="Tutup modal">
+                <HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.9} />
+              </Button>
+            </div>
+          </div>
+          <div className="max-h-[64vh] overflow-y-auto p-6">
+            <div className="grid gap-4">
+              {formMode === 'edit' && formSourceProfile && (
+                <div className="rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] px-3 py-3">
+                  <p className="font-['Inter'] text-[13px] font-semibold text-[#000000]">{isEditingCurrentSession ? 'Akun aktif sedang diedit' : 'Mode edit aktif'}</p>
+                  <p className="mt-1 font-['Inter'] text-[13px] leading-5 text-[#615d59]">{isEditingCurrentSession ? 'Akun ini sedang dipakai pada sesi login saat ini.' : `Perubahan akan diterapkan ke ${formatOperator(formSourceProfile.operatorName, formSourceProfile.operatorCode)}.`}</p>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="grid gap-2">
-                    <Label className="text-xs">role</Label>
-                    <div className="grid grid-cols-2 gap-1 rounded-[8px] bg-muted p-1">
-                      {ROLE_OPTIONS.map((option) => {
-                        const checked = operatorRole === option.value
-                        return (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => setOperatorRole(option.value)}
-                            className={checked ? 'rounded-[6px] bg-foreground px-3 py-2 text-xs font-bold text-background' : 'rounded-[6px] px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground'}
-                          >
-                            {option.label}
-                          </button>
-                        )
-                      })}
+              )}
+              <div className="grid gap-1.5">
+                <Label className="font-['Inter'] text-[12px] font-medium text-[#000000]">Nama</Label>
+                <Input id="user-fullname" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Contoh: Sani" className="h-10 rounded-[5px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#0075de] focus-visible:ring-0" />
+                <p className="font-['Inter'] text-[12px] text-[#615d59]">Nama lengkap wajib diisi.</p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="user-username" className="font-['Inter'] text-[12px] font-medium text-[#000000]">Username</Label>
+                  <Input id="user-username" value={operatorName} onChange={(e) => setOperatorName(e.target.value.replace(/\s+/g, ''))} placeholder="sani" readOnly={formMode === 'edit'} className={`h-10 rounded-[5px] border bg-white px-3 font-['Inter'] text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#0075de] focus-visible:ring-0 ${nameConflict ? 'border-[#dd5b00] bg-[#fff7ed]' : 'border-[#e6e6e6]'}`} />
+                  <p className={`font-['Inter'] text-[12px] ${nameConflict ? 'text-[#dd5b00]' : 'text-[#a39e98]'}`}>{nameFieldHelp}</p>
+                </div>
+                {formMode === 'edit' ? (
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="user-code" className="font-['Inter'] text-[12px] font-medium text-[#000000]">Kode</Label>
+                    <Input id="user-code" value={operatorCode} onChange={(e) => setOperatorCode(e.target.value)} placeholder="001" readOnly className={`h-10 rounded-[5px] border bg-white px-3 font-['Inter'] text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#0075de] focus-visible:ring-0 ${codeConflict ? 'border-[#dd5b00] bg-[#fff7ed]' : 'border-[#e6e6e6]'}`} />
+                    <p className={`font-['Inter'] text-[12px] ${codeConflict ? 'text-[#dd5b00]' : 'text-[#a39e98]'}`}>{codeFieldHelp}</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-1.5">
+                    <Label className="font-['Inter'] text-[12px] font-medium text-[#000000]">Kode</Label>
+                    <div className="flex h-10 items-center justify-between rounded-[5px] border border-[#e6e6e6] bg-[#f6f5f4] px-3 font-['Inter'] text-[14px]">
+                      <span className="font-['Inter'] font-semibold text-[#000000]">{nextCreateCode}</span>
+                      <span className="rounded-full bg-white px-2 py-0.5 font-['Inter'] text-[11px] font-medium text-[#615d59] ring-1 ring-[#e6e6e6]">pass: user123</span>
                     </div>
                   </div>
-                  <div className="grid gap-2">
-                    <Label className="text-xs">tugas</Label>
-                    <div className="grid grid-cols-2 gap-1 rounded-[8px] bg-muted p-1">
-                      {TASK_OPTIONS.map((option) => {
-                        const checked = operatorTaskType === option.value
-                        return (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => setOperatorTaskType(option.value)}
-                            className={checked ? 'rounded-[6px] bg-foreground px-3 py-2 text-xs font-bold text-background' : 'rounded-[6px] px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground'}
-                          >
-                            {option.label}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
+                )}
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-1.5">
+                  <Label className="font-['Inter'] text-[12px] font-medium text-[#000000]">Role</Label>
+                  <select value={operatorRole} onChange={(e) => setOperatorRole(e.target.value as OperatorRole)} className="h-10 w-full rounded-[5px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[14px] focus:border-[#0075de] focus:outline-none">
+                    {ROLE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid gap-1.5">
+                  <Label className="font-['Inter'] text-[12px] font-medium text-[#000000]">Tugas</Label>
+                  <select value={operatorTaskType} onChange={(e) => setOperatorTaskType(e.target.value as WorkTask)} className="h-10 w-full rounded-[5px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[14px] focus:border-[#0075de] focus:outline-none">
+                    {TASK_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>
-            <DialogFooter className="shrink-0 border-t bg-card px-6 py-5">
-              <Button type="button" variant="outline" onClick={closeFormModal}>
-                [cancel]
-              </Button>
-              <Button type="button" onClick={() => void handleSaveForm()} disabled={!!nameConflict || !!codeConflict || !fullName.trim() || !operatorName.trim()}>
-                [save]
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          </div>
+          <div className="flex items-center justify-end gap-2 border-t border-[#e6e6e6] bg-white p-4">
+            <Button type="button" variant="ghost" onClick={closeFormModal} className="h-10 rounded-lg border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px] font-medium hover:bg-[#f6f5f4]">Batal</Button>
+            <Button type="button" onClick={() => void handleSaveForm()} disabled={!!nameConflict || !!codeConflict || !fullName.trim() || !operatorName.trim()} className="h-10 rounded-full bg-[#0075de] px-5 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#005bab] disabled:opacity-40">Simpan user</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-        <Dialog open={dialogState === 'confirm-save' && !!pendingSaveAction} onOpenChange={(open) => !open && closeConfirmSaveModal()}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">[+] Konfirmasi simpan</p>
-              <DialogTitle>{pendingSaveAction?.isEditMode ? `Simpan perubahan ${pendingSaveAction?.name}` : `Buat ${pendingSaveAction?.name}`}</DialogTitle>
-              <DialogDescription>Lanjutkan hanya jika perubahan ini memang sudah benar.</DialogDescription>
-            </DialogHeader>
-            <Alert variant="default" className="py-2">
-              <div className="grid gap-1 text-xs">
-                <p className="font-medium">[+] Alasan konfirmasi</p>
-                <p className="text-muted-foreground">
-                  {[
-                    isEditingCurrentSession ? 'Akun ini sedang dipakai pada sesi login aktif.' : null,
-                    pendingSaveAction?.role === 'admin' && pendingSaveAction?.sourceProfile?.role !== 'admin'
-                      ? `Perubahan ini akan mempromosikan ${pendingSaveAction?.sourceProfile?.operatorName ?? 'user'} menjadi admin.`
-                      : null,
-                  ]
-                    .filter((item): item is string => Boolean(item))
-                    .join(' ')}
-                </p>
+      <Dialog open={dialogState === 'confirm-save' && !!pendingSaveAction} onOpenChange={(open) => !open && closeConfirmSaveModal()}>
+        <DialogContent showCloseButton={false} className="users-modal max-w-md gap-0 overflow-hidden rounded-2xl border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+          <div className="border-b border-[#e6e6e6] p-6">
+            <div className="flex items-start justify-between gap-5">
+              <div className="grid gap-1">
+                <h3 className="font-['Inter'] text-[18px] font-semibold text-[#000000]">{pendingSaveAction?.isEditMode ? `Simpan perubahan ${pendingSaveAction?.name}` : `Buat ${pendingSaveAction?.name}`}</h3>
+                <p className="font-['Inter'] text-[13px] leading-5 text-[#615d59]">Lanjutkan hanya jika perubahan ini memang sudah benar.</p>
               </div>
-            </Alert>
-            <dl className="grid gap-3 md:grid-cols-2 text-sm">
+              <Button type="button" variant="ghost" size="icon" onClick={closeConfirmSaveModal} className="h-9 w-9 shrink-0 rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" title="Tutup modal">
+                <HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.9} />
+              </Button>
+            </div>
+          </div>
+          <div className="grid gap-4 p-6">
+            <div className="rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] px-3 py-3">
+              <p className="font-['Inter'] text-[13px] font-semibold text-[#000000]">Alasan konfirmasi</p>
+              <p className="mt-1 font-['Inter'] text-[13px] leading-5 text-[#615d59]">{[isEditingCurrentSession ? 'Akun ini sedang dipakai pada sesi login aktif.' : null, pendingSaveAction?.role === 'admin' && pendingSaveAction?.sourceProfile?.role !== 'admin' ? `Perubahan ini akan mempromosikan ${pendingSaveAction?.sourceProfile?.operatorName ?? 'user'} menjadi admin.` : null].filter(Boolean).join(' ') || 'Tidak ada catatan khusus.'}</p>
+            </div>
+            <dl className="grid gap-2 rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] p-3 font-['Inter'] text-[13px] md:grid-cols-2">
               <DetailRow label="Nama lengkap" value={pendingSaveAction?.fullNameValue} />
               <DetailRow label="Username" value={pendingSaveAction?.name} />
-              <DetailRow label="Operator code" value={pendingSaveAction?.code} />
+              <DetailRow label="Kode" value={pendingSaveAction?.code} />
               <DetailRow label="Role" value={pendingSaveAction?.role} />
-              <DetailRow label="Task" value={pendingSaveAction?.taskType} />
+              <DetailRow label="Tugas" value={pendingSaveAction?.taskType} />
             </dl>
-            <DialogFooter className="px-6 pb-6 pt-4">
-              <Button type="button" variant="outline" onClick={closeConfirmSaveModal}>
-                [back]
-              </Button>
-              <Button
-                type="button"
-                onClick={() => {
-                  if (!pendingSaveAction) return
-                  void commitSaveAction(pendingSaveAction)
-                }}
-              >
-                [save-now]
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          </div>
+          <div className="flex items-center justify-end gap-2 border-t border-[#e6e6e6] bg-white p-4">
+            <Button type="button" variant="ghost" onClick={closeConfirmSaveModal} className="h-9 rounded-full border border-[#e6e6e6] bg-white px-5 font-['Inter'] text-[13px]">Kembali</Button>
+            <Button type="button" onClick={() => { if (!pendingSaveAction) return; void commitSaveAction(pendingSaveAction) }} className="h-9 rounded-full bg-[#0075de] px-6 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#005bab]">Simpan sekarang</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-        <Dialog open={dialogState === 'reset' && !!resetTarget} onOpenChange={(open) => !open && (setResetTarget(null), setDialogState(null))}>
-          <DialogContent className="max-w-sm max-h-[80vh] flex flex-col overflow-hidden p-0">
-            <DialogHeader className="shrink-0 border-b px-6 py-5 text-left">
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">[+] Reset password</p>
-              <DialogTitle>{resetTarget ? formatOperator(resetTarget.operatorName, resetTarget.operatorCode) : ''}</DialogTitle>
-              <DialogDescription>{resetTarget?.role ?? ''}</DialogDescription>
-            </DialogHeader>
-            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
-              <PasswordField
-                id="reset-password"
-                label="password_baru"
-                value={resetPassword}
-                onChange={(event) => setResetPassword(event.target.value)}
-                placeholder="Password baru"
-                showPassword={resetShowPassword}
-                onToggle={() => setResetShowPassword((current) => !current)}
-              />
-              <PasswordField
-                id="reset-password-confirm"
-                label="konfirmasi_password"
-                value={resetPasswordConfirm}
-                onChange={(event) => setResetPasswordConfirm(event.target.value)}
-                placeholder="Ulangi password baru"
-                showPassword={resetShowPassword}
-                onToggle={() => setResetShowPassword((current) => !current)}
-              />
+      <Dialog open={dialogState === 'reset' && !!resetTarget} onOpenChange={(open) => !open && (setResetTarget(null), setDialogState(null))}>
+        <DialogContent showCloseButton={false} className="users-modal max-w-[420px] gap-0 overflow-hidden rounded-2xl border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+          <div className="border-b border-[#e6e6e6] p-6">
+            <div className="flex items-start justify-between gap-5">
+              <div className="grid gap-1">
+                <h3 className="font-['Inter'] text-[20px] font-semibold tracking-[-0.2px] text-[#000000]">Reset password</h3>
+                <p className="font-['Inter'] text-[13px] leading-5 text-[#615d59]">{resetTarget ? `${formatOperator(resetTarget.operatorName, resetTarget.operatorCode)} · ${resetTarget.role}` : 'Atur ulang kata sandi'}</p>
+              </div>
+              <Button type="button" variant="ghost" size="icon" onClick={() => (setResetTarget(null), setDialogState(null))} className="h-9 w-9 shrink-0 rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" title="Tutup modal">
+                <HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.9} />
+              </Button>
             </div>
-            <DialogFooter className="shrink-0 border-t bg-card px-6 py-5">
-              <Button type="button" variant="outline" onClick={() => (setResetTarget(null), setDialogState(null))} disabled={isResetting}>
-                [cancel]
-              </Button>
-              <Button type="button" onClick={() => void handleResetPassword()} disabled={isResetting}>
-                {isResetting ? '[saving]' : '[save-password]'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={dialogState === 'delete' && !!deleteTarget} onOpenChange={(open) => !open && (setDeleteTarget(null), setDialogState(null))}>
-          <DialogContent className="max-w-sm max-h-[80vh] flex flex-col overflow-hidden p-0">
-            <DialogHeader className="shrink-0 border-b px-6 py-5 text-left">
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-destructive">[!] Hapus user</p>
-              <DialogTitle>{deleteTarget?.fullName ?? deleteTarget?.operatorName ?? ''}</DialogTitle>
-              <DialogDescription>
-                {deleteTarget ? `${deleteTarget.operatorCode} · ${deleteTarget.role}` : ''}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="px-6 py-4">
-              <Alert variant="destructive" className="py-3">
-                <div className="grid gap-1 text-xs">
-                  <p className="font-medium">[!] Konfirmasi hapus</p>
-                  <p className="text-muted-foreground">Data user ini akan dihapus dari daftar operator. Lanjutkan?</p>
-                </div>
-              </Alert>
+          </div>
+          <div className="grid gap-4 p-6">
+            <div className="grid gap-1.5">
+              <Label className="font-['Inter'] text-[12px] font-medium text-[#000000]">Password baru</Label>
+              <div className="relative">
+                <Input id="reset-password" type={resetShowPassword ? 'text' : 'password'} value={resetPassword} onChange={(e) => setResetPassword(e.target.value)} placeholder="Password baru" className="h-10 rounded-[5px] border-[#e6e6e6] bg-white pr-20 font-['Inter'] text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+                <button type="button" onClick={() => setResetShowPassword((v) => !v)} className="absolute right-1 top-1/2 h-7 -translate-y-1/2 rounded-[6px] bg-white px-2 font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]">{resetShowPassword ? 'Sembunyi' : 'Lihat'}</button>
+              </div>
             </div>
-            <DialogFooter className="shrink-0 border-t bg-card px-6 py-5">
-              <Button type="button" variant="outline" onClick={() => (setDeleteTarget(null), setDialogState(null))}>
-                [cancel]
+            <div className="grid gap-1.5">
+              <Label className="font-['Inter'] text-[12px] font-medium text-[#000000]">Konfirmasi password</Label>
+              <div className="relative">
+                <Input id="reset-password-confirm" type={resetShowPassword ? 'text' : 'password'} value={resetPasswordConfirm} onChange={(e) => setResetPasswordConfirm(e.target.value)} placeholder="Ulangi password baru" className="h-10 rounded-[5px] border-[#e6e6e6] bg-white pr-20 font-['Inter'] text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+                <button type="button" onClick={() => setResetShowPassword((v) => !v)} className="absolute right-1 top-1/2 h-7 -translate-y-1/2 rounded-[6px] bg-white px-2 font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]">{resetShowPassword ? 'Sembunyi' : 'Lihat'}</button>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center justify-end gap-2 border-t border-[#e6e6e6] bg-white p-4">
+            <Button type="button" variant="ghost" onClick={() => (setResetTarget(null), setDialogState(null))} disabled={isResetting} className="h-9 rounded-full border border-[#e6e6e6] bg-white px-5 font-['Inter'] text-[13px]">Batal</Button>
+            <Button type="button" onClick={() => void handleResetPassword()} disabled={isResetting} className="h-9 rounded-full bg-[#0075de] px-6 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#005bab] disabled:opacity-40">{isResetting ? 'Menyimpan...' : 'Simpan password'}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={dialogState === 'delete' && !!deleteTarget} onOpenChange={(open) => !open && (setDeleteTarget(null), setDialogState(null))}>
+        <DialogContent showCloseButton={false} className="users-modal max-w-[420px] gap-0 overflow-hidden rounded-2xl border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+          <div className="border-b border-[#e6e6e6] p-6">
+            <div className="flex items-start justify-between gap-5">
+              <div className="grid gap-1">
+                <h3 className="font-['Inter'] text-[18px] font-semibold text-[#000000]">Hapus user</h3>
+                <p className="font-['Inter'] text-[13px] leading-5 text-[#615d59]">{deleteTarget ? `${deleteTarget.fullName ?? deleteTarget.operatorName} · ${deleteTarget.operatorCode} · ${deleteTarget.role}` : ''}</p>
+              </div>
+              <Button type="button" variant="ghost" size="icon" onClick={() => (setDeleteTarget(null), setDialogState(null))} className="h-9 w-9 shrink-0 rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" title="Tutup modal">
+                <HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.9} />
               </Button>
-              <Button type="button" variant="destructive" onClick={() => deleteTarget && void handleDeleteProfile(deleteTarget)}>
-                [delete-user]
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-    </div>
-  )
-}
-
-function StatCard({
-  marker,
-  label,
-  value,
-  unit,
-}: {
-  marker: string
-  label: string
-  value: number
-  unit: string
-}) {
-  return (
-    <article className="users-opencode__stat">
-      <span className="users-opencode__stat-marker">{marker}</span>
-      <div>
-        <p>{label}</p>
-        <strong className="tabular-nums">{value}</strong>
-        <span>{unit}</span>
-      </div>
-    </article>
-  )
-}
-
-function FilterGroup({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string
-  options: Array<[string, string]>
-  value: string
-  onChange: (value: string) => void
-}) {
-  return (
-    <div className="users-opencode__filter-group grid gap-2">
-      <span>{label}</span>
-      <div className="flex flex-wrap gap-2">
-        {options.map(([optionValue, optionLabel]) => (
-          <Button
-            key={optionValue}
-            type="button"
-            size="sm"
-            variant={value === optionValue ? 'default' : 'ghost'}
-            className="users-opencode__button"
-            onClick={() => onChange(optionValue)}
-            aria-pressed={value === optionValue}
-          >
-            {value === optionValue ? '[x]' : '[+]'} {optionLabel}
-          </Button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function RoleBadge({ role }: { role: OperatorRole }) {
-  return (
-    <span className="users-opencode__badge">
-      {role === 'admin' ? '[x]' : '[+]'} {role}
-    </span>
-  )
-}
-
-function TaskBadge({ taskType }: { taskType: WorkTask }) {
-  return (
-    <span className="users-opencode__badge">
-      [+] {taskType}
-    </span>
-  )
-}
-
-function Field({
-  id,
-  label,
-  helperText,
-  tone = 'default',
-  ...inputProps
-}: {
-  id: string
-  label: string
-  helperText?: string
-  tone?: 'default' | 'error'
-} & React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <div className="users-opencode__field grid gap-2">
-      <Label htmlFor={id}>
-        {label}
-      </Label>
-      <Input
-        id={id}
-        className={tone === 'error' ? 'users-opencode__input is-error' : 'users-opencode__input'}
-        {...inputProps}
-      />
-      {helperText ? (
-        <p className={tone === 'error' ? 'users-opencode__help is-error' : 'users-opencode__help'}>
-          {helperText}
-        </p>
-      ) : null}
-    </div>
-  )
-}
-
-function PasswordField({
-  id,
-  label,
-  showPassword,
-  onToggle,
-  ...inputProps
-}: {
-  id: string
-  label: string
-  showPassword: boolean
-  onToggle: () => void
-} & React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <div className="users-opencode__field grid gap-2">
-      <Label htmlFor={id}>
-        {label}
-      </Label>
-      <div className="relative">
-        <Input id={id} type={showPassword ? 'text' : 'password'} className="users-opencode__input pr-12" {...inputProps} />
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="users-opencode__password-toggle absolute right-1 top-1/2 -translate-y-1/2"
-          onClick={onToggle}
-          aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
-        >
-          {showPassword ? '[hide]' : '[show]'}
-        </Button>
-      </div>
+            </div>
+          </div>
+          <div className="p-6">
+            <div className="rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] px-3 py-3">
+              <p className="font-['Inter'] text-[13px] font-semibold text-[#000000]">Konfirmasi hapus</p>
+              <p className="mt-1 font-['Inter'] text-[13px] leading-5 text-[#615d59]">Data user ini akan dihapus dari daftar operator. Tindakan tidak bisa dibatalkan.</p>
+            </div>
+          </div>
+          <div className="flex items-center justify-end gap-2 border-t border-[#e6e6e6] bg-white p-4">
+            <Button type="button" variant="ghost" onClick={() => (setDeleteTarget(null), setDialogState(null))} className="h-9 rounded-full border border-[#e6e6e6] bg-white px-5 font-['Inter'] text-[13px]">Batal</Button>
+            <Button type="button" onClick={() => deleteTarget && void handleDeleteProfile(deleteTarget)} className="h-9 rounded-full bg-black px-6 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]">Hapus user</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
 function Th({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <th className={`px-5 py-3 ${className}`}>{children}</th>
+  return <th className={`bg-[#f6f5f4] px-4 py-3 text-left font-['Inter'] ${className}`}>{children}</th>
 }
 
 function Td({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <td className={`px-5 py-4 align-top ${className}`}>{children}</td>
+  return <td className={`bg-white px-4 py-3 align-top font-['Inter'] text-[14px] text-[#31302e] ${className}`}>{children}</td>
 }
 
 function DateTimeCell({ value, compact = false }: { value: string; compact?: boolean }) {
   const date = new Date(value)
-
-  if (Number.isNaN(date.getTime())) {
-    return <span>{value}</span>
-  }
-
+  if (Number.isNaN(date.getTime())) return <span className="font-['Inter'] text-[#615d59]">{value}</span>
   const dateLabel = new Intl.DateTimeFormat('id-ID', { dateStyle: compact ? 'short' : 'medium' }).format(date)
   const timeLabel = new Intl.DateTimeFormat('id-ID', { timeStyle: 'short' }).format(date)
-
-  if (compact) {
-    return <span>{dateLabel} · {timeLabel}</span>
-  }
-
+  if (compact) return <span className="font-['Inter'] text-[13px] text-[#615d59]">{dateLabel} · {timeLabel}</span>
   return (
-    <div className="users-opencode__datetime">
-      <div>{dateLabel}</div>
-      <div>{timeLabel}</div>
+    <div className="grid gap-0.5">
+      <div className="font-['Inter'] text-[13px] font-medium text-[#000000]">{dateLabel}</div>
+      <div className="font-['Inter'] text-[12px] text-[#a39e98]">{timeLabel}</div>
     </div>
   )
 }
 
 function getInitials(value: string) {
-  const initials = value
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join('')
-
+  const initials = value.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join('')
   return initials || 'US'
 }
 
-function DetailRow({
-  label,
-  value,
-}: {
-  label: string
-  value: ReactNode
-}) {
+function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="users-opencode__detail-row grid gap-1">
-      <dt>{label}</dt>
-      <dd>{value}</dd>
+    <div className="grid gap-1 rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] px-3 py-2.5">
+      <dt className="font-['Inter'] text-[12px] font-medium text-[#615d59]">{label}</dt>
+      <dd className="font-['Inter'] text-[13px] font-medium text-[#000000]">{value ?? '-'}</dd>
     </div>
   )
 }
@@ -1141,20 +793,15 @@ function profileKey(profile: Pick<OperatorProfile, 'operatorName' | 'operatorCod
 }
 
 function generateNextOperatorCode(profiles: OperatorProfile[]) {
-  const nextNumber =
-    profiles.reduce((max, profile) => {
-      const numeric = Number.parseInt(profile.operatorCode.trim(), 10)
-      return Number.isFinite(numeric) ? Math.max(max, numeric) : max
-    }, 0) + 1
-
+  const nextNumber = profiles.reduce((max, profile) => {
+    const numeric = Number.parseInt(profile.operatorCode.trim(), 10)
+    return Number.isFinite(numeric) ? Math.max(max, numeric) : max
+  }, 0) + 1
   return String(nextNumber).padStart(3, '0')
 }
 
 function formatOperator(operatorName: string, operatorCode: string) {
-  if (operatorName && operatorCode) {
-    return `${operatorName} (${operatorCode})`
-  }
-
+  if (operatorName && operatorCode) return `${operatorName} (${operatorCode})`
   return operatorName || operatorCode || '-'
 }
 

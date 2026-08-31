@@ -1,11 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CalendarDays, Copy, ExternalLink, Package, RefreshCw, Search, ShoppingBag, Truck } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import {
+  ArrowDown01Icon,
+  Calendar03Icon,
+  Copy01Icon,
+  Delete02Icon,
+  ExternalLinkIcon,
+  Package01Icon,
+  RefreshIcon,
+  Search01Icon,
+  ShoppingBag01Icon,
+  TruckDeliveryIcon,
+} from '@hugeicons/core-free-icons'
 
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Input } from '../components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { ShopeeInspectionResultCard } from '../components/shopee/ShopeeInspectionResultCard'
 import { readRecentShopeeOrdersApi, readServerAdminStatusApi } from '@pakti/api-client'
 import type { ShopeeOrder } from '@pakti/types'
@@ -166,291 +177,157 @@ export function ShopeeInspectionPage() {
     return `${Math.floor(s / 3600)}j lalu`
   }
 
+  const hasActiveFilters = Boolean(search.trim()) || channelFilter !== 'all' || verifiedFilter !== 'all' || dateFilter !== 'all' || Boolean(customFrom) || Boolean(customTo)
+
+  function clearFilters() {
+    setSearch('')
+    setChannelFilter('all')
+    setVerifiedFilter('all')
+    setDateFilter('all')
+    setCustomFrom('')
+    setCustomTo('')
+  }
+
   return (
-    <div className="admin-opencode grid w-full gap-5 px-0 py-1">
-      <section className="admin-opencode__summary flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="grid gap-1">
-          <div className="admin-opencode__section-label">[+] Shopee · Hasil Inspek</div>
-          <h1 className="admin-opencode__title">Hasil Inspek Shopee</h1>
-          <p className="admin-opencode__lede max-w-[68ch] text-[0.82rem] leading-snug">
-            Card khusus menampilkan hasil grep/inspek dari <span className="font-mono font-bold">seller.shopee.co.id</span> yang tersimpan di Pakti. Terverifikasi via DB `orders` + `order_items` — bisa dicek di Scan / History / API.
-          </p>
+    <div className="shopee-inspection-page mx-auto max-w-[1240px] bg-[#f6f5f4] px-4 py-8 font-['Inter'] sm:px-6 lg:py-10 xl:px-8">
+      <section className="mb-7 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+        <div>
+          <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Operasional / Hasil Shopee</div>
+          <h1 className="mt-2 text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">Hasil Inspek Shopee</h1>
+          <p className="mt-3 max-w-2xl text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Card hasil inspeksi dari seller.shopee.co.id yang tersimpan di Pakti dan bisa diverifikasi ke History atau Scan.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="admin-opencode__badge">{loading ? '[~] loading' : `[x] ${filtered.length}/${orders.length}`}</span>
-          <Button type="button" variant="outline" size="sm" onClick={() => void load()} disabled={loading} className="gap-1.5">
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+        <div className="flex flex-wrap gap-2">
+          <span className="inline-flex h-11 items-center justify-center rounded-full border border-[#e6e6e6] bg-white px-4 text-[14px] font-medium text-[#0075de] shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.035)]">{loading ? 'Loading' : `${filtered.length}/${orders.length}`}</span>
+          <Button type="button" variant="outline" onClick={() => void load()} disabled={loading} className="h-11 rounded-full border-[#e6e6e6] bg-white px-5 text-[14px] font-medium text-[#615d59] hover:bg-[#fbfaf9]">
+            <HugeiconsIcon icon={RefreshIcon} size={18} strokeWidth={1.9} className={loading ? 'animate-spin' : ''} /> Refresh
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={handleOpenShopee} className="gap-1.5">
-            <ExternalLink className="h-3.5 w-3.5" />
-            Buka Shopee
+          <Button type="button" variant="outline" onClick={handleOpenShopee} className="h-11 rounded-full border-[#e6e6e6] bg-white px-5 text-[14px] font-medium text-[#615d59] hover:bg-[#fbfaf9]">
+            <HugeiconsIcon icon={ExternalLinkIcon} size={18} strokeWidth={1.9} /> Buka Shopee
           </Button>
         </div>
       </section>
 
-      {error ? (
-        <Alert variant="destructive">
-          <p>{error}</p>
-        </Alert>
-      ) : null}
+      {error ? <Alert variant="destructive" className="mb-5 rounded-[8px] border-[#f2c8a4] bg-[#fff7ed] font-['Inter'] text-[14px]"><p className="text-[#31302e]">{error}</p></Alert> : null}
 
-      <Card className="admin-opencode__panel">
-        <CardContent className="pt-4">
-          <div className="grid gap-3 sm:grid-cols-4">
-            <div className="admin-opencode__stat">
-              <p>
-                <strong className="tabular-nums">{orders.length}</strong>
-                <br />
-                Total order
-              </p>
-            </div>
-            <div className="admin-opencode__stat">
-              <p>
-                <strong className="tabular-nums">{adminStatus?.shopeeAutomation.orders.updatedToday ?? '-'}</strong>
-                <br />
-                Update hari ini
-              </p>
-            </div>
-            <div className="admin-opencode__stat">
-              <p>
-                <strong className="tabular-nums">{totalQty}</strong>
-                <br />
-                Total qty
-              </p>
-            </div>
-            <div className="admin-opencode__stat">
-              <p>
-                <strong className="tabular-nums">{formatRelativeTime(adminStatus?.shopeeAutomation.orders.latestUpdatedAt ?? null)}</strong>
-                <br />
-                Last sync
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <section className="mb-5 grid gap-3 sm:grid-cols-4">
+        <InspectionStat label="Total order" value={String(orders.length)} detail="Order tersimpan" icon={ShoppingBag01Icon} />
+        <InspectionStat label="Update hari ini" value={String(adminStatus?.shopeeAutomation.orders.updatedToday ?? '-')} detail="Dari worker Shopee" icon={RefreshIcon} />
+        <InspectionStat label="Total qty" value={String(totalQty)} detail="Akumulasi item" icon={Package01Icon} />
+        <InspectionStat label="Last sync" value={formatRelativeTime(adminStatus?.shopeeAutomation.orders.latestUpdatedAt ?? null)} detail="Sinkronisasi terakhir" icon={Calendar03Icon} />
+      </section>
 
-      <Card className="admin-opencode__panel">
-        <CardHeader className="pb-2">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle className="flex items-center gap-2 text-[0.95rem]">
-              <span className="grid h-7 w-7 place-items-center rounded-[6px] bg-[#201d1d] text-white">
-                <ShoppingBag className="h-4 w-4" />
-              </span>
-              Filter hasil inspek
-            </CardTitle>
-            <span className="text-xs text-muted-foreground">
-              {filtered.length} dari {orders.length} · hal {currentPage}/{totalPages}
-            </span>
-          </div>
-        </CardHeader>
-        <CardContent className="grid gap-3 pt-2">
-          <div className="grid gap-3 lg:grid-cols-[1fr_200px_200px]">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari buyer / order / resi / produk / SKU..." className="h-9 pl-8 font-mono text-xs" />
+      <section className="mb-5 overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
+        <div className="border-b border-[#e6e6e6] p-4 sm:p-5">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+            <label className="relative flex min-w-[240px] flex-1">
+              <span className="pointer-events-none absolute inset-y-0 left-0 grid w-10 place-items-center text-[#a39e98]"><HugeiconsIcon icon={Search01Icon} size={18} strokeWidth={1.9} /></span>
+              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari buyer / order / resi / produk / SKU..." className="h-10 w-full rounded-[8px] border-[#e6e6e6] bg-white pl-10 pr-3 text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#CFCBC7] focus-visible:ring-0" />
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <NativeSelect value={channelFilter} onChange={setChannelFilter} icon={TruckDeliveryIcon}>
+                <option value="all">Semua channel</option>
+                {channelOptions.map((ch) => <option key={ch} value={ch}>{ch}</option>)}
+              </NativeSelect>
+              <NativeSelect value={verifiedFilter} onChange={(v) => setVerifiedFilter(v as typeof verifiedFilter)} icon={ShoppingBag01Icon}>
+                <option value="all">Semua status</option>
+                <option value="verified">Terverifikasi</option>
+                <option value="unverified">Belum</option>
+              </NativeSelect>
+              <Button type="button" variant="ghost" onClick={clearFilters} disabled={!hasActiveFilters} className="h-10 rounded-lg px-3 text-[13px] font-medium text-[#615d59] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={Delete02Icon} size={16} strokeWidth={1.9} /> Reset</Button>
             </div>
-            <Select value={channelFilter} onValueChange={(v) => setChannelFilter(v)}>
-              <SelectTrigger className="h-9 bg-white text-xs">
-                <SelectValue placeholder="Channel" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Semua channel</SelectItem>
-                {channelOptions.map((ch) => (
-                  <SelectItem key={ch} value={ch}>
-                    <span className="inline-flex items-center gap-1">
-                      <Truck className="h-3 w-3" />
-                      {ch}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={verifiedFilter} onValueChange={(v) => setVerifiedFilter(v as typeof verifiedFilter)}>
-              <SelectTrigger className="h-9 bg-white text-xs">
-                <SelectValue placeholder="Verifikasi" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Semua status</SelectItem>
-                <SelectItem value="verified">Terverifikasi</SelectItem>
-                <SelectItem value="unverified">Belum</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
-          <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 font-mono text-xs font-medium text-muted-foreground">
-                <CalendarDays className="h-3.5 w-3.5" />
-                Tanggal:
-              </span>
-              <div className="inline-flex overflow-hidden rounded-[6px] border bg-[#f8f7f7] p-1">
+          <div className="mt-3 flex flex-col gap-3 border-t border-[#e6e6e6] pt-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1 text-[13px] font-medium text-[#615d59]"><HugeiconsIcon icon={Calendar03Icon} size={16} strokeWidth={1.9} /> Tanggal:</span>
+              <div className="inline-flex flex-wrap rounded-lg border border-[#e6e6e6] bg-[#f6f5f4] p-1">
                 {[
                   { v: 'all' as const, l: 'Semua' },
                   { v: 'today' as const, l: 'Hari ini' },
                   { v: 'yesterday' as const, l: 'Kemarin' },
                   { v: '7days' as const, l: '7 Hari' },
                   { v: 'custom' as const, l: 'Custom' },
-                ].map((opt) => (
-                  <button
-                    key={opt.v}
-                    type="button"
-                    onClick={() => setDateFilter(opt.v)}
-                    className={`rounded-[4px] px-2.5 py-1 font-mono text-xs font-medium transition-colors ${dateFilter === opt.v ? 'bg-white text-foreground shadow-sm border border-[rgba(15,0,0,0.08)]' : 'text-muted-foreground hover:text-foreground'}`}
-                  >
-                    {opt.l}
-                  </button>
-                ))}
+                ].map((opt) => <button key={opt.v} type="button" onClick={() => setDateFilter(opt.v)} className={`h-8 rounded-[6px] px-3 text-[13px] font-medium transition-colors ${dateFilter === opt.v ? 'bg-white text-[#000000] shadow-sm' : 'text-[#615d59] hover:bg-white/70'}`}>{opt.l}</button>)}
               </div>
             </div>
-            {dateFilter === 'custom' && (
-              <div className="flex flex-wrap items-center gap-2">
-                <Input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="h-7 w-[148px] bg-white font-mono text-xs" />
-                <span className="font-mono text-xs text-muted-foreground">s.d.</span>
-                <Input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="h-7 w-[148px] bg-white font-mono text-xs" />
-              </div>
-            )}
-            {dateFilter !== 'all' && dateFilter !== 'custom' && <span className="font-mono text-[11px] text-muted-foreground">{filtered.length} hasil</span>}
+            {dateFilter === 'custom' ? <div className="flex flex-wrap items-center gap-2"><Input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="h-9 w-[148px] rounded-lg border-[#e6e6e6] bg-white text-[13px]" /><span className="text-[13px] text-[#a39e98]">s.d.</span><Input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="h-9 w-[148px] rounded-lg border-[#e6e6e6] bg-white text-[13px]" /></div> : <span className="text-[12px] text-[#a39e98]">{filtered.length} hasil</span>}
           </div>
-
-          {(search.trim() || channelFilter !== 'all' || verifiedFilter !== 'all' || dateFilter !== 'all' || customFrom || customTo) && (
-            <div className="flex flex-wrap items-center gap-2 border-t pt-3 text-xs text-muted-foreground">
-              <span>
-                Filter aktif:
-                {search.trim() ? ` cari "${search.trim()}"` : ''}
-                {channelFilter !== 'all' ? ` · channel ${channelFilter}` : ''}
-                {verifiedFilter !== 'all' ? ` · ${verifiedFilter}` : ''}
-                {dateFilter !== 'all' ? ` · ${dateFilter === 'today' ? 'hari ini' : dateFilter === 'yesterday' ? 'kemarin' : dateFilter === '7days' ? '7 hari' : customFrom && customTo ? `${customFrom} s.d. ${customTo}` : customFrom ? `≥ ${customFrom}` : customTo ? `≤ ${customTo}` : 'custom'}` : ''}
-              </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="ml-auto h-7 gap-1 rounded-[6px] text-xs"
-                onClick={() => {
-                  setSearch('')
-                  setChannelFilter('all')
-                  setVerifiedFilter('all')
-                  setDateFilter('all')
-                  setCustomFrom('')
-                  setCustomTo('')
-                }}
-              >
-                Reset
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {loading ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-[220px] animate-pulse rounded-[8px] border bg-muted/20" />
-          ))}
         </div>
-      ) : filtered.length === 0 ? (
-        <Card className="admin-opencode__panel">
-          <CardContent className="grid place-items-center gap-3 py-12 text-center">
-            <div className="grid h-12 w-12 place-items-center rounded-full bg-[#f1eeee] text-muted-foreground">
-              <Package className="h-6 w-6" />
-            </div>
-            <div className="grid gap-1">
-              <p className="font-mono text-sm font-bold text-foreground">Tidak ada hasil sesuai filter</p>
-              <p className="max-w-[42ch] text-sm leading-relaxed text-muted-foreground">
-                {orders.length === 0
-                  ? 'Belum ada order Shopee di Pakti. Buka seller.shopee.co.id → extension Pakti → Sync.'
-                  : 'Coba ubah kata kunci / channel / status verifikasi / tanggal.'}
-              </p>
-            </div>
-            {orders.length === 0 ? (
-              <Button type="button" variant="outline" size="sm" onClick={handleOpenShopee} className="gap-1.5">
-                <ExternalLink className="h-3.5 w-3.5" /> Buka Shopee Seller
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setSearch('')
-                  setChannelFilter('all')
-                  setVerifiedFilter('all')
-                  setDateFilter('all')
-                  setCustomFrom('')
-                  setCustomTo('')
-                }}
-              >
-                Reset filter
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {pageItems.map((order) => (
-              <ShopeeInspectionResultCard
-                key={order.id ?? order.orderNumber}
-                order={order}
-                verified={Boolean(order.orderNumber && order.trackingNumber)}
-                updatedAtLabel={order.updatedAt ? new Date(order.updatedAt).toLocaleString('id-ID') : null}
-                onCopy={(text, label) => void copyText(text, `${label}-${order.orderNumber}`)}
-                onVerify={handleVerify}
-                onOpenShopee={handleOpenShopee}
-              />
-            ))}
-          </div>
+        <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-5">
+          <div><h2 className="text-[16px] font-semibold text-[#000000]">Daftar hasil inspek</h2><p className="mt-1 text-[12px] text-[#a39e98]">{filtered.length} dari {orders.length} · halaman {currentPage}/{totalPages}</p></div>
+          <span className="inline-flex items-center rounded-full border border-[#e6e6e6] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#0075de]">{filtered.length} hasil</span>
+        </div>
+      </section>
 
-          {totalPages > 1 && (
-            <div className="flex flex-col items-center justify-between gap-3 rounded-[8px] border bg-white px-4 py-3 sm:flex-row">
-              <span className="font-mono text-xs text-muted-foreground">
-                Menampilkan {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, filtered.length)} dari {filtered.length} hasil
-              </span>
-              <div className="flex flex-wrap items-center gap-1">
-                <Button type="button" variant="outline" size="sm" className="h-7" disabled={currentPage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-                  ‹
-                </Button>
-                {Array.from({ length: totalPages }).map((_, idx) => {
-                  const p = idx + 1
-                  if (totalPages > 7 && Math.abs(p - currentPage) > 2 && p !== 1 && p !== totalPages) {
-                    if (p === 2 && currentPage > 4) return <span key={p} className="px-1 text-muted-foreground">…</span>
-                    if (p === totalPages - 1 && currentPage < totalPages - 3) return <span key={p} className="px-1 text-muted-foreground">…</span>
-                    return null
-                  }
-                  return (
-                    <Button
-                      key={p}
-                      type="button"
-                      variant={p === currentPage ? 'default' : 'outline'}
-                      size="sm"
-                      className="h-7 min-w-7"
-                      onClick={() => setPage(p)}
-                    >
-                      {p}
-                    </Button>
-                  )
-                })}
-                <Button type="button" variant="outline" size="sm" className="h-7" disabled={currentPage >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
-                  ›
-                </Button>
-              </div>
-            </div>
-          )}
+      {loading ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-[220px] animate-pulse rounded-xl border border-[#e6e6e6] bg-white" />)}</div> : filtered.length === 0 ? <EmptyState ordersCount={orders.length} onOpenShopee={handleOpenShopee} onReset={clearFilters} /> : <>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {pageItems.map((order) => <ShopeeInspectionResultCard key={order.id ?? order.orderNumber} order={order} verified={Boolean(order.orderNumber && order.trackingNumber)} updatedAtLabel={order.updatedAt ? new Date(order.updatedAt).toLocaleString('id-ID') : null} onCopy={(text, label) => void copyText(text, `${label}-${order.orderNumber}`)} onVerify={handleVerify} onOpenShopee={handleOpenShopee} />)}
+        </div>
+        {totalPages > 1 ? <Pagination currentPage={currentPage} totalPages={totalPages} total={filtered.length} onPageChange={setPage} /> : null}
+        <div className="mt-3 flex flex-col gap-2 rounded-xl border border-dashed border-[#e6e6e6] bg-white px-4 py-3 text-[12px] text-[#615d59] sm:flex-row sm:items-center sm:justify-between">
+          <span className="inline-flex items-center gap-1.5"><HugeiconsIcon icon={Copy01Icon} size={14} strokeWidth={1.9} />{copiedKey ? `Copied ${copiedKey}` : 'Klik Copy di card untuk salin resi/order.'}</span>
+          <span className="text-[#a39e98]">Verifikasi membuka History dengan konteks order/resi.</span>
+        </div>
+      </>}
+    </div>
+  )
+}
 
-          <Card className="admin-opencode__panel border-dashed bg-[#fcfcfc]">
-            <CardContent className="flex flex-col gap-2 py-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-              <span className="inline-flex items-center gap-1.5">
-                <Copy className="h-3 w-3" />
-                {copiedKey ? `[copied ${copiedKey}]` : 'Klik Copy di card untuk salin resi/order.'}
-              </span>
-              <span className="inline-flex flex-wrap gap-2">
-                <span className="rounded-full border bg-white px-2 py-0.5">Verifikasi → History (`GET /api/history/recordings?search=`)</span>
-                <span className="rounded-full border bg-white px-2 py-0.5">Scan (`GET /api/orders/by-resi/:resi`)</span>
-              </span>
-            </CardContent>
-          </Card>
-        </>
-      )}
+function InspectionStat({ label, value, detail, icon }: { label: string; value: string; detail: string; icon: typeof ShoppingBag01Icon }) {
+  return (
+    <article className="rounded-xl border border-[#e6e6e6] bg-white p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div>
+          <div className="mt-3 text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{value}</div>
+          <p className="mt-2 text-[12px] leading-5 text-[#615d59]">{detail}</p>
+        </div>
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]"><HugeiconsIcon icon={icon} size={19} strokeWidth={1.9} /></span>
+      </div>
+    </article>
+  )
+}
+
+function NativeSelect({ value, onChange, icon, children }: { value: string; onChange: (value: string) => void; icon: typeof ShoppingBag01Icon; children: ReactNode }) {
+  return (
+    <label className="relative inline-flex h-10 items-center rounded-lg border border-[#e6e6e6] bg-white text-[#000000]">
+      <span className="pointer-events-none absolute left-3 grid place-items-center text-[#31302e]"><HugeiconsIcon icon={icon} size={17} strokeWidth={1.9} /></span>
+      <select value={value} onChange={(event) => onChange(event.target.value)} className="h-full min-w-[180px] appearance-none rounded-lg bg-transparent pl-9 pr-9 text-[13px] font-medium focus:outline-none focus:ring-0">
+        {children}
+      </select>
+      <span className="pointer-events-none absolute right-3 grid place-items-center text-[#a39e98]"><HugeiconsIcon icon={ArrowDown01Icon} size={15} strokeWidth={1.9} /></span>
+    </label>
+  )
+}
+
+function EmptyState({ ordersCount, onOpenShopee, onReset }: { ordersCount: number; onOpenShopee: () => void; onReset: () => void }) {
+  return (
+    <section className="grid place-items-center gap-3 rounded-xl border border-[#e6e6e6] bg-white px-6 py-14 text-center">
+      <div className="grid h-12 w-12 place-items-center rounded-xl bg-[#f6f5f4] text-[#615d59]"><HugeiconsIcon icon={Package01Icon} size={22} strokeWidth={1.9} /></div>
+      <div className="grid gap-1"><p className="text-[14px] font-semibold text-[#000000]">Tidak ada hasil sesuai filter</p><p className="max-w-[42ch] text-[13px] leading-6 text-[#615d59]">{ordersCount === 0 ? 'Belum ada order Shopee di Pakti. Buka seller.shopee.co.id, jalankan extension Pakti, lalu Sync.' : 'Coba ubah kata kunci, channel, status verifikasi, atau tanggal.'}</p></div>
+      <Button type="button" variant="outline" size="sm" onClick={ordersCount === 0 ? onOpenShopee : onReset} className="h-9 rounded-lg border-[#e6e6e6] bg-white px-3 text-[13px] font-medium text-[#615d59] hover:bg-[#f6f5f4]">
+        <HugeiconsIcon icon={ordersCount === 0 ? ExternalLinkIcon : Delete02Icon} size={15} strokeWidth={1.9} /> {ordersCount === 0 ? 'Buka Shopee Seller' : 'Reset filter'}
+      </Button>
+    </section>
+  )
+}
+
+function Pagination({ currentPage, totalPages, total, onPageChange }: { currentPage: number; totalPages: number; total: number; onPageChange: (page: number) => void }) {
+  return (
+    <div className="mt-3 flex flex-col items-center justify-between gap-3 rounded-xl border border-[#e6e6e6] bg-white px-4 py-3 text-[13px] text-[#615d59] sm:flex-row">
+      <span>Menampilkan {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, total)} dari {total} hasil</span>
+      <div className="flex flex-wrap items-center gap-1">
+        <Button type="button" variant="outline" size="sm" className="h-8 min-w-8 rounded-lg border-[#e6e6e6] bg-white px-2" disabled={currentPage <= 1} onClick={() => onPageChange(Math.max(1, currentPage - 1))}>‹</Button>
+        {Array.from({ length: totalPages }).map((_, idx) => {
+          const p = idx + 1
+          if (totalPages > 7 && Math.abs(p - currentPage) > 2 && p !== 1 && p !== totalPages) {
+            if (p === 2 && currentPage > 4) return <span key={p} className="px-1 text-[#a39e98]">...</span>
+            if (p === totalPages - 1 && currentPage < totalPages - 3) return <span key={p} className="px-1 text-[#a39e98]">...</span>
+            return null
+          }
+          return <Button key={p} type="button" variant={p === currentPage ? 'default' : 'outline'} size="sm" className={`h-8 min-w-8 rounded-lg px-2 text-[12px] ${p === currentPage ? 'bg-[#0075de] text-white hover:bg-[#005bab]' : 'border-[#e6e6e6] bg-white text-[#615d59]'}`} onClick={() => onPageChange(p)}>{p}</Button>
+        })}
+        <Button type="button" variant="outline" size="sm" className="h-8 min-w-8 rounded-lg border-[#e6e6e6] bg-white px-2" disabled={currentPage >= totalPages} onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}>›</Button>
+      </div>
     </div>
   )
 }

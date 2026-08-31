@@ -1,8 +1,24 @@
 import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import {
+  Activity01Icon,
+  AddCircleIcon,
+  ArrowRight01Icon,
+  Cancel01Icon,
+  CloudServerIcon,
+  Database02Icon,
+  Delete02Icon,
+  DollarCircleIcon,
+  Download01Icon,
+  Package01Icon,
+  RefreshIcon,
+  Search01Icon,
+  UserGroupIcon,
+} from '@hugeicons/core-free-icons'
 
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { navigateTo } from '../app/uiState'
 import {
@@ -19,7 +35,6 @@ import type { PackingPayRule, PackingWorkSession } from '@pakti/types'
 import { downloadTextFile } from '@pakti/shared'
 import { recordsToCsv } from '@pakti/shared/exporters'
 import { ModalOverlay } from '../components/ui/ModalOverlay'
-import { DialogCloseButton, DialogHeader, DialogTitle } from '../components/ui/dialog'
 
 type AdminStatus = Awaited<ReturnType<typeof readServerAdminStatusApi>>
 
@@ -178,276 +193,129 @@ export function AdminPage() {
     downloadTextFile(`payroll-${session?.packerCodeSnapshot ?? 'session'}-${session?.id.slice(0, 8) ?? 'unknown'}.csv`, csv, 'text/csv;charset=utf-8')
   }
 
+  const filteredPackingSessions = packingSessions.filter((s) => !sessionFilterText.trim() || `${s.packerNameSnapshot} ${s.packerCodeSnapshot}`.toLowerCase().includes(sessionFilterText.trim().toLowerCase()))
+
   return (
-    <div className="admin-opencode grid w-full gap-5 px-0 py-1">
-      <section className="admin-opencode__summary flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="grid gap-2">
-          <div className="admin-opencode__section-label">[+] Admin</div>
-          <h1 className="admin-opencode__title">Admin Console</h1>
-          <p className="admin-opencode__lede">Pantau status server, sesi, operator, dan aktivitas sistem inti.</p>
+    <div className="admin-page mx-auto max-w-[1240px] bg-[#f6f5f4] px-4 py-8 font-['Inter'] sm:px-6 lg:py-10 xl:px-8">
+      <section className="mb-7 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+        <div>
+          <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">System / Admin</div>
+          <h1 className="mt-2 text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">Admin console</h1>
+          <p className="mt-3 max-w-2xl text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Pantau status server, aktivitas terbaru, sesi packing payroll, dan variasi aturan upah.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <span className="admin-opencode__badge">{loading ? '[~] loading' : error ? '[!] error' : '[x] ready'}</span>
-          <span className="admin-opencode__badge">server only</span>
-          <Button type="button" variant="outline" onClick={() => void handleRefresh()}>
-            [refresh]
+          <span className={`inline-flex h-11 items-center justify-center rounded-full border px-4 text-[14px] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.035)] ${error ? 'border-[#f2c8a4] bg-[#fff7ed] text-[#dd5b00]' : 'border-[#e6e6e6] bg-white text-[#0075de]'}`}>{loading ? 'Loading' : error ? 'Error' : 'Ready'}</span>
+          <Button type="button" variant="outline" onClick={() => void handleRefresh()} className="h-11 rounded-full border-[#e6e6e6] bg-white px-5 text-[14px] font-medium text-[#615d59] hover:bg-[#fbfaf9]">
+            <HugeiconsIcon icon={RefreshIcon} size={18} strokeWidth={1.9} /> Refresh
           </Button>
         </div>
       </section>
 
-      <Alert variant={error ? 'destructive' : 'info'}>
-        <div className="admin-opencode__alert grid gap-1">
-          <p>{error ? '[!]' : '[+]'} Status</p>
-          <p>{message}</p>
+      <section className="mb-5 grid gap-3 sm:grid-cols-3">
+        <AdminStat label="Operators" value={String(adminStatus?.bootstrap.operatorCount ?? 0)} detail={`${adminStatus?.bootstrap.adminCount ?? 0} admin aktif`} icon={UserGroupIcon} />
+        <AdminStat label="Recordings" value={String(adminStatus?.counts.recordings ?? 0)} detail={`${adminStatus?.counts.scanLogs ?? 0} scan log`} icon={Database02Icon} />
+        <AdminStat label="Sessions" value={String(adminStatus?.counts.sessions ?? packingSessions.length)} detail={`${payRules.length} pay rule`} icon={Package01Icon} />
+      </section>
+
+      <Alert variant={error ? 'destructive' : 'info'} className="mb-5 rounded-[8px] border-[#e6e6e6] bg-white font-['Inter'] text-[14px]">
+        <div className="grid gap-1">
+          <p className="font-semibold text-[#000000]">Status</p>
+          <p className="text-[#31302e]">{message}</p>
         </div>
       </Alert>
 
-      <Card className="admin-opencode__panel">
-        <CardHeader>
-          <CardTitle>System overview</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-4">
-          {loading ? (
-            <div className="admin-opencode__empty">[~] Memuat status server...</div>
-          ) : error ? (
-            <div className="admin-opencode__empty">[!] Status server belum tersedia.</div>
-          ) : adminStatus ? (
-            <div className="admin-opencode__stats">
-              <Metric index="01" label="Bootstrap" value={adminStatus.bootstrap.needsSetup ? 'needed' : 'ready'} />
-              <Metric index="02" label="Operators" value={String(adminStatus.bootstrap.operatorCount)} />
-              <Metric index="03" label="Admins" value={String(adminStatus.bootstrap.adminCount)} />
-              <Metric index="04" label="Recordings" value={String(adminStatus.counts.recordings)} />
-              <Metric index="05" label="Scan logs" value={String(adminStatus.counts.scanLogs)} />
-              <Metric index="06" label="Sessions" value={String(adminStatus.counts.sessions)} />
-              <Metric index="07" label="Last error" value={adminStatus.lastError ? 'ada' : 'clear'} />
-              <Metric index="08" label="Database" value={adminStatus.health ? 'online' : 'unknown'} />
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
-
-      <Card className="admin-opencode__panel">
-        <CardHeader>
-          <CardTitle>Recent activity</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 pt-4 md:grid-cols-2">
-          <ActivityBlock title="Recent recordings" emptyText="[-] Belum ada recording di server.">
-            {adminStatus?.recentRecordings.slice(0, 6).map((recording) => (
-              <div key={recording.id} className="admin-opencode__list-row">
-                <span>{recording.resiNumber}</span>
-                <span>[{recording.status}]</span>
-              </div>
-            ))}
-          </ActivityBlock>
-
-          <ActivityBlock title="Recent scan logs" emptyText="[-] Belum ada scan log di server.">
-            {adminStatus?.recentScanLogs.slice(0, 6).map((log) => (
-              <div key={log.id} className="admin-opencode__list-row">
-                <span>{log.resiNumber}</span>
-                <span>[{log.action}]</span>
-              </div>
-            ))}
-          </ActivityBlock>
-        </CardContent>
-      </Card>
-
-      <Card className="admin-opencode__panel">
-        <CardHeader>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <CardTitle>Packing sessions (payroll) — ringkasan</CardTitle>
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" size="sm" className="history-opencode__button" onClick={() => navigateTo('packing-sessions')}>
-                [buka halaman sesi →]
-              </Button>
-              <Input placeholder="Filter packer..." value={sessionFilterText} onChange={(e) => setSessionFilterText(e.target.value)} className="history-opencode__input h-9 w-[180px]" />
-              <Button type="button" variant="outline" size="sm" className="history-opencode__button" onClick={() => handleExportPayroll(null, 'all')}>
-                [export payroll csv]
-              </Button>
-            </div>
+      <section className="mb-5 overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
+        <PanelHeader icon={CloudServerIcon} title="System overview" description="Ringkasan status server dan database utama." />
+        {loading ? <EmptyState>Memuat status server...</EmptyState> : error ? <EmptyState>Status server belum tersedia.</EmptyState> : adminStatus ? (
+          <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-4">
+            <Metric label="Bootstrap" value={adminStatus.bootstrap.needsSetup ? 'needed' : 'ready'} />
+            <Metric label="Operators" value={String(adminStatus.bootstrap.operatorCount)} />
+            <Metric label="Admins" value={String(adminStatus.bootstrap.adminCount)} />
+            <Metric label="Recordings" value={String(adminStatus.counts.recordings)} />
+            <Metric label="Scan logs" value={String(adminStatus.counts.scanLogs)} />
+            <Metric label="Sessions" value={String(adminStatus.counts.sessions)} />
+            <Metric label="Last error" value={adminStatus.lastError ? 'ada' : 'clear'} />
+            <Metric label="Database" value={adminStatus.health ? 'online' : 'unknown'} />
           </div>
-        </CardHeader>
-        <CardContent className="grid gap-3 pt-4">
-          {packingSessions.length === 0 ? (
-            <div className="admin-opencode__empty">[-] Belum ada sesi packing.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="history-opencode__table w-full min-w-[860px] border-collapse">
-                <thead>
-                  <tr>
-                    <th className="px-3 py-2">Packer</th>
-                    <th className="px-3 py-2">Status</th>
-                    <th className="px-3 py-2">Paket</th>
-                    <th className="px-3 py-2">Upah</th>
-                    <th className="px-3 py-2">Mulai</th>
-                    <th className="px-3 py-2 text-right">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {packingSessions
-                    .filter((s) =>
-                      !sessionFilterText.trim() ||
-                      `${s.packerNameSnapshot} ${s.packerCodeSnapshot}`.toLowerCase().includes(sessionFilterText.trim().toLowerCase()),
-                    )
-                    .map((s) => (
-                      <tr key={s.id} className="history-opencode__row">
-                        <td className="px-3 py-2 font-medium">{s.packerNameSnapshot} ({s.packerCodeSnapshot})</td>
-                        <td className="px-3 py-2">[{s.status}]</td>
-                        <td className="px-3 py-2">{s.completedPackingCount}</td>
-                        <td className="px-3 py-2">{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(s.totalPayAmount)}</td>
-                        <td className="px-3 py-2 text-xs">{new Date(s.startedAt).toLocaleString('id-ID')}</td>
-                        <td className="px-3 py-2 text-right">
-                          <div className="flex justify-end gap-1">
-                            <Button type="button" variant="outline" size="sm" className="history-opencode__button" onClick={() => void handleOpenSessionDetail(s as unknown as PackingWorkSession)}>
-                              [detail]
-                            </Button>
-                            {s.status === 'active' ? (
-                              <Button type="button" variant="outline" size="sm" className="history-opencode__button" onClick={() => void handleCloseSession(s.id)}>
-                                [tutup]
-                              </Button>
-                            ) : null}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        ) : null}
+      </section>
 
-      <Card className="admin-opencode__panel">
-        <CardHeader>
-          <CardTitle>Pay rules (variasi upah)</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 pt-4">
-          <div className="grid gap-2 rounded-[4px] border border-[rgba(15,0,0,0.12)] bg-muted/20 p-3">
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
-              <Input placeholder="Nama rule" value={payForm.name} onChange={(e) => setPayForm((p) => ({ ...p, name: e.target.value }))} className="history-opencode__input" />
-              <select value={payForm.matchType} onChange={(e) => setPayForm((p) => ({ ...p, matchType: e.target.value as PackingPayRule['matchType'] }))} className="history-opencode__select h-10">
-                <option value="default">default</option>
-                <option value="product_contains">product_contains</option>
-                <option value="variation_contains">variation_contains</option>
-                <option value="sku_contains">sku_contains</option>
-                <option value="shipping_channel">shipping_channel</option>
-              </select>
-              <Input placeholder="Match value" value={payForm.matchValue} onChange={(e) => setPayForm((p) => ({ ...p, matchValue: e.target.value }))} className="history-opencode__input" />
-              <select value={payForm.payType} onChange={(e) => setPayForm((p) => ({ ...p, payType: e.target.value as PackingPayRule['payType'] }))} className="history-opencode__select h-10">
-                <option value="per_package">per_package</option>
-                <option value="per_qty">per_qty</option>
-              </select>
-              <Input placeholder="Amount" type="number" value={payForm.amount} onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))} className="history-opencode__input" />
-              <Input placeholder="Priority" type="number" value={payForm.priority} onChange={(e) => setPayForm((p) => ({ ...p, priority: e.target.value }))} className="history-opencode__input" />
-            </div>
-            <Button type="button" variant="outline" size="sm" className="history-opencode__button w-fit" onClick={() => void handleCreatePayRule()}>
-              [tambah rule]
-            </Button>
+      <section className="mb-5 overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
+        <PanelHeader icon={Activity01Icon} title="Recent activity" description="Aktivitas recording dan scan log terbaru dari server." />
+        <div className="grid gap-4 p-4 md:grid-cols-2 sm:p-5">
+          <ActivityBlock title="Recent recordings" emptyText="Belum ada recording di server.">
+            {adminStatus?.recentRecordings.slice(0, 6).map((recording) => <ActivityRow key={recording.id} primary={recording.resiNumber} secondary={recording.status} />)}
+          </ActivityBlock>
+          <ActivityBlock title="Recent scan logs" emptyText="Belum ada scan log di server.">
+            {adminStatus?.recentScanLogs.slice(0, 6).map((log) => <ActivityRow key={log.id} primary={log.resiNumber} secondary={log.action} />)}
+          </ActivityBlock>
+        </div>
+      </section>
+
+      <section className="mb-5 overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
+        <div className="flex flex-col gap-3 border-b border-[#e6e6e6] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+          <div>
+            <h2 className="text-[16px] font-semibold text-[#000000]">Packing sessions payroll</h2>
+            <p className="mt-1 text-[12px] text-[#a39e98]">Ringkasan sesi packing dan nominal upah.</p>
           </div>
-
-          <div className="overflow-x-auto">
-            <table className="history-opencode__table w-full min-w-[860px] border-collapse">
-              <thead>
-                <tr>
-                  <th className="px-3 py-2">Nama</th>
-                  <th className="px-3 py-2">Match</th>
-                  <th className="px-3 py-2">Pay</th>
-                  <th className="px-3 py-2">Amount</th>
-                  <th className="px-3 py-2">Priority</th>
-                  <th className="px-3 py-2">Aktif</th>
-                  <th className="px-3 py-2 text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payRules.map((r) => (
-                  <tr key={r.id} className="history-opencode__row">
-                    <td className="px-3 py-2">{r.name}</td>
-                    <td className="px-3 py-2">{r.matchType}{r.matchValue ? `:${r.matchValue}` : ''}</td>
-                    <td className="px-3 py-2">{r.payType}</td>
-                    <td className="px-3 py-2">
-                      <Input className="history-opencode__input h-8 w-[90px]" type="number" defaultValue={r.amount} onBlur={(e) => {
-                        const v = Number(e.target.value)
-                        if (v !== r.amount && Number.isFinite(v) && v > 0) void handleInlineUpdateRule(r, { amount: v })
-                      }} />
-                    </td>
-                    <td className="px-3 py-2">
-                      <Input className="history-opencode__input h-8 w-[70px]" type="number" defaultValue={r.priority} onBlur={(e) => {
-                        const v = Number(e.target.value)
-                        if (v !== r.priority && Number.isFinite(v)) void handleInlineUpdateRule(r, { priority: v })
-                      }} />
-                    </td>
-                    <td className="px-3 py-2">
-                      <Button type="button" variant={r.active ? 'default' : 'outline'} size="sm" className="history-opencode__button" onClick={() => void handleToggleRuleActive(r)}>
-                        {r.active ? '[aktif]' : '[nonaktif]'}
-                      </Button>
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <Button type="button" variant="outline" size="sm" className="history-opencode__button" onClick={() => void handleDeletePayRule(r.id)}>
-                        [hapus]
-                      </Button>
-                    </td>
-                  </tr>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm" className="h-9 rounded-lg border-[#e6e6e6] bg-white px-3 text-[13px] font-medium text-[#615d59]" onClick={() => navigateTo('packing-sessions')}><HugeiconsIcon icon={ArrowRight01Icon} size={15} strokeWidth={1.9} /> Buka sesi</Button>
+            <label className="relative">
+              <HugeiconsIcon icon={Search01Icon} size={15} strokeWidth={1.9} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#a39e98]" />
+              <Input placeholder="Filter packer..." value={sessionFilterText} onChange={(e) => setSessionFilterText(e.target.value)} className="h-9 w-[190px] rounded-lg border-[#e6e6e6] bg-white pl-9 text-[13px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+            </label>
+            <Button type="button" variant="outline" size="sm" className="h-9 rounded-lg border-[#e6e6e6] bg-white px-3 text-[13px] font-medium text-[#615d59]" onClick={() => handleExportPayroll(null, 'all')}><HugeiconsIcon icon={Download01Icon} size={15} strokeWidth={1.9} /> Export CSV</Button>
+          </div>
+        </div>
+        {packingSessions.length === 0 ? <EmptyState>Belum ada sesi packing.</EmptyState> : (
+          <div className="overflow-x-auto scrollbar-thin">
+            <table className="w-full min-w-[860px] border-collapse">
+              <thead className="bg-[#f6f5f4]"><tr className="text-left"><Th>Packer</Th><Th>Status</Th><Th>Paket</Th><Th>Upah</Th><Th>Mulai</Th><Th className="text-right">Aksi</Th></tr></thead>
+              <tbody className="divide-y divide-[#e6e6e6]">
+                {filteredPackingSessions.map((s) => (
+                  <tr key={s.id} className="bg-white hover:bg-[#fbfaf9]"><Td className="font-medium text-[#000000]">{s.packerNameSnapshot} ({s.packerCodeSnapshot})</Td><Td><StatusBadge value={s.status} /></Td><Td>{s.completedPackingCount}</Td><Td>{formatCurrency(s.totalPayAmount)}</Td><Td>{formatDateTime(s.startedAt)}</Td><Td className="text-right"><div className="flex justify-end gap-1"><SmallAction onClick={() => void handleOpenSessionDetail(s as unknown as PackingWorkSession)}>Detail</SmallAction>{s.status === 'active' ? <SmallAction onClick={() => void handleCloseSession(s.id)}>Tutup</SmallAction> : null}</div></Td></tr>
                 ))}
-                {payRules.length === 0 ? <tr><td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">[-] Belum ada rule.</td></tr> : null}
               </tbody>
             </table>
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </section>
+
+      <section className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
+        <PanelHeader icon={DollarCircleIcon} title="Pay rules" description="Aturan variasi upah packing berdasarkan default, produk, SKU, atau channel pengiriman." />
+        <div className="grid gap-4 p-4 sm:p-5">
+          <div className="grid gap-3 rounded-[12px] border border-[#e6e6e6] bg-[#f6f5f4] p-4">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+              <AdminInput placeholder="Nama rule" value={payForm.name} onChange={(e) => setPayForm((p) => ({ ...p, name: e.target.value }))} />
+              <AdminSelect value={payForm.matchType} onChange={(e) => setPayForm((p) => ({ ...p, matchType: e.target.value as PackingPayRule['matchType'] }))}><option value="default">default</option><option value="product_contains">product_contains</option><option value="variation_contains">variation_contains</option><option value="sku_contains">sku_contains</option><option value="shipping_channel">shipping_channel</option></AdminSelect>
+              <AdminInput placeholder="Match value" value={payForm.matchValue} onChange={(e) => setPayForm((p) => ({ ...p, matchValue: e.target.value }))} />
+              <AdminSelect value={payForm.payType} onChange={(e) => setPayForm((p) => ({ ...p, payType: e.target.value as PackingPayRule['payType'] }))}><option value="per_package">per_package</option><option value="per_qty">per_qty</option></AdminSelect>
+              <AdminInput placeholder="Amount" type="number" value={payForm.amount} onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))} />
+              <AdminInput placeholder="Priority" type="number" value={payForm.priority} onChange={(e) => setPayForm((p) => ({ ...p, priority: e.target.value }))} />
+            </div>
+            <Button type="button" variant="outline" size="sm" className="h-9 w-fit rounded-lg border-[#e6e6e6] bg-white px-3 text-[13px] font-medium text-[#000000]" onClick={() => void handleCreatePayRule()}><HugeiconsIcon icon={AddCircleIcon} size={15} strokeWidth={1.9} /> Tambah rule</Button>
+          </div>
+
+          <div className="overflow-x-auto scrollbar-thin rounded-xl border border-[#e6e6e6]">
+            <table className="w-full min-w-[860px] border-collapse">
+              <thead className="bg-[#f6f5f4]"><tr className="text-left"><Th>Nama</Th><Th>Match</Th><Th>Pay</Th><Th>Amount</Th><Th>Priority</Th><Th>Aktif</Th><Th className="text-right">Aksi</Th></tr></thead>
+              <tbody className="divide-y divide-[#e6e6e6]">
+                {payRules.map((r) => (
+                  <tr key={r.id} className="bg-white hover:bg-[#fbfaf9]"><Td className="font-medium text-[#000000]">{r.name}</Td><Td>{r.matchType}{r.matchValue ? `:${r.matchValue}` : ''}</Td><Td>{r.payType}</Td><Td><InlineNumber defaultValue={r.amount} className="w-[90px]" onCommit={(v) => { if (v !== r.amount && Number.isFinite(v) && v > 0) void handleInlineUpdateRule(r, { amount: v }) }} /></Td><Td><InlineNumber defaultValue={r.priority} className="w-[70px]" onCommit={(v) => { if (v !== r.priority && Number.isFinite(v)) void handleInlineUpdateRule(r, { priority: v }) }} /></Td><Td><Button type="button" variant={r.active ? 'default' : 'outline'} size="sm" className={`h-8 rounded-full px-3 text-[12px] font-medium ${r.active ? 'bg-[#0075de] text-white hover:bg-[#005bab]' : 'border-[#e6e6e6] bg-white text-[#615d59]'}`} onClick={() => void handleToggleRuleActive(r)}>{r.active ? 'Aktif' : 'Nonaktif'}</Button></Td><Td className="text-right"><SmallAction onClick={() => void handleDeletePayRule(r.id)}><HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={1.9} /></SmallAction></Td></tr>
+                ))}
+                {payRules.length === 0 ? <tr><td colSpan={7} className="px-6 py-10 text-center text-[14px] text-[#615d59]">Belum ada rule.</td></tr> : null}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
 
       {selectedSession ? (
-        <ModalOverlay onClose={() => setSelectedSession(null)} contentClassName="max-w-3xl">
-          <div className="grid gap-4">
-            <DialogHeader className="flex items-start justify-between gap-4 text-left">
-              <div className="grid gap-1">
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Detail sesi packing</p>
-                <DialogTitle className="text-lg">{selectedSession.packerNameSnapshot} ({selectedSession.packerCodeSnapshot}) · [{selectedSession.status}]</DialogTitle>
-                <p className="text-sm text-slate-500">{new Date(selectedSession.startedAt).toLocaleString('id-ID')} → {selectedSession.endedAt ? new Date(selectedSession.endedAt).toLocaleString('id-ID') : 'masih aktif'} · {selectedSession.completedPackingCount} paket · {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(selectedSession.totalPayAmount)}</p>
-              </div>
-              <DialogCloseButton onClick={() => setSelectedSession(null)} />
-            </DialogHeader>
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" size="sm" className="history-opencode__button" onClick={() => handleExportPayroll(selectedSession, 'session')}>
-                [export csv sesi]
-              </Button>
-              {selectedSession.status === 'active' ? (
-                <Button type="button" variant="outline" size="sm" className="history-opencode__button" onClick={() => void handleCloseSession(selectedSession.id)}>
-                  [tutup sesi]
-                </Button>
-              ) : null}
-            </div>
-            {sessionDetailLoading ? (
-              <div className="text-sm">[~] Memuat detail sesi...</div>
-            ) : sessionRecords.length === 0 ? (
-              <div className="text-sm">[-] Belum ada paket completed di sesi ini.</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="history-opencode__table w-full min-w-[640px] border-collapse">
-                  <thead>
-                    <tr>
-                      <th className="px-3 py-2">Resi</th>
-                      <th className="px-3 py-2">Order</th>
-                      <th className="px-3 py-2">Media</th>
-                      <th className="px-3 py-2">Upah</th>
-                      <th className="px-3 py-2">Breakdown</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sessionRecords.map((rec) => {
-                      const r = rec as unknown as { resiNumber: string; orderNumber?: string | null; mediaType?: string; packingPayAmount?: number | null; packingPayBreakdown?: { ruleName?: string; payType?: string; amount?: number; quantity?: number; total?: number } | null; orderSnapshot?: { items?: Array<{ productName: string; variationName?: string | null; quantity: number }> } | null }
-                      return (
-                        <tr key={r.resiNumber + rec.id} className="history-opencode__row">
-                          <td className="px-3 py-2 font-mono text-xs">{r.resiNumber}</td>
-                          <td className="px-3 py-2 text-xs">{r.orderNumber ?? (r.orderSnapshot ? '-' : '-')}{r.orderSnapshot?.items ? ` · ${r.orderSnapshot.items.map((it) => `${it.productName} x${it.quantity}`).join(', ')}` : ''}</td>
-                          <td className="px-3 py-2">[{r.mediaType ?? 'video'}]</td>
-                          <td className="px-3 py-2">{r.packingPayAmount != null ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(r.packingPayAmount) : '-'}</td>
-                          <td className="px-3 py-2 text-xs">{r.packingPayBreakdown ? `${r.packingPayBreakdown.ruleName ?? '-'} · ${r.packingPayBreakdown.payType ?? '-'} · Rp${r.packingPayBreakdown.amount ?? 0} x${r.packingPayBreakdown.quantity ?? 1}` : '-'}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+        <ModalOverlay onClose={() => setSelectedSession(null)} contentClassName="admin-modal max-w-3xl gap-0 overflow-hidden rounded-2xl border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+          <div>
+            <div className="border-b border-[#e6e6e6] p-6"><div className="flex items-start justify-between gap-5"><div className="grid gap-1"><p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Detail sesi packing</p><h3 className="text-[18px] font-semibold text-[#000000]">{selectedSession.packerNameSnapshot} ({selectedSession.packerCodeSnapshot}) · {selectedSession.status}</h3><p className="text-[13px] leading-5 text-[#615d59]">{formatDateTime(selectedSession.startedAt)} {'->'} {selectedSession.endedAt ? formatDateTime(selectedSession.endedAt) : 'masih aktif'} · {selectedSession.completedPackingCount} paket · {formatCurrency(selectedSession.totalPayAmount)}</p></div><Button type="button" variant="ghost" size="icon" onClick={() => setSelectedSession(null)} className="h-9 w-9 shrink-0 rounded-lg text-[#615d59] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.9} /></Button></div></div>
+            <div className="flex flex-wrap gap-2 p-4"><Button type="button" variant="outline" size="sm" className="h-9 rounded-lg border-[#e6e6e6] bg-white px-3 text-[13px]" onClick={() => handleExportPayroll(selectedSession, 'session')}><HugeiconsIcon icon={Download01Icon} size={15} strokeWidth={1.9} /> Export CSV sesi</Button>{selectedSession.status === 'active' ? <Button type="button" variant="outline" size="sm" className="h-9 rounded-lg border-[#e6e6e6] bg-white px-3 text-[13px]" onClick={() => void handleCloseSession(selectedSession.id)}>Tutup sesi</Button> : null}</div>
+            {sessionDetailLoading ? <EmptyState>Memuat detail sesi...</EmptyState> : sessionRecords.length === 0 ? <EmptyState>Belum ada paket completed di sesi ini.</EmptyState> : <SessionRecordsTable records={sessionRecords} />}
           </div>
         </ModalOverlay>
       ) : null}
@@ -455,24 +323,102 @@ export function AdminPage() {
   )
 }
 
-function Metric({ index, label, value }: { index: string; label: string; value: string }) {
+function ActivityBlock({ title, emptyText, children }: { title: string; emptyText: string; children: ReactNode }) {
+  const hasChildren = Array.isArray(children) ? children.length > 0 : Boolean(children)
+
   return (
-    <div className="admin-opencode__stat">
-      <span>{index}</span>
-      <p>{label}<br /><strong>{value}</strong></p>
+    <div className="rounded-[12px] border border-[#e6e6e6] bg-[#f6f5f4] p-4">
+      <p className="text-[13px] font-semibold text-[#000000]">{title}</p>
+      <div className="mt-3 grid gap-2 text-[13px]">
+        {hasChildren ? children : <p className="text-[#615d59]">{emptyText}</p>}
+      </div>
     </div>
   )
 }
 
-function ActivityBlock({ title, emptyText, children }: { title: string; emptyText: string; children: React.ReactNode }) {
-  const hasChildren = Array.isArray(children) ? children.length > 0 : Boolean(children)
-
+function AdminStat({ label, value, detail, icon }: { label: string; value: string; detail: string; icon: typeof Activity01Icon }) {
   return (
-    <div className="admin-opencode__list-block">
-      <p>[+] {title}</p>
-      <div className="mt-3 grid gap-2">
-        {hasChildren ? children : <p>{emptyText}</p>}
+    <article className="rounded-xl border border-[#e6e6e6] bg-white p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div>
+          <div className="mt-3 text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{value}</div>
+          <p className="mt-2 text-[12px] text-[#615d59]">{detail}</p>
+        </div>
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]"><HugeiconsIcon icon={icon} size={19} strokeWidth={1.9} /></span>
       </div>
+    </article>
+  )
+}
+
+function PanelHeader({ icon, title, description }: { icon: typeof Activity01Icon; title: string; description: string }) {
+  return (
+    <div className="flex items-start gap-3 border-b border-[#e6e6e6] px-4 py-4 sm:px-5">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]"><HugeiconsIcon icon={icon} size={19} strokeWidth={1.9} /></span>
+      <div className="min-w-0"><h2 className="text-[16px] font-semibold text-[#000000]">{title}</h2><p className="mt-1 text-[12px] leading-5 text-[#a39e98]">{description}</p></div>
     </div>
   )
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] p-3"><div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div><div className="mt-2 text-[18px] font-semibold text-[#000000]">{value}</div></div>
+}
+
+function ActivityRow({ primary, secondary }: { primary: string; secondary: string }) {
+  return <div className="flex items-center justify-between gap-3 rounded-[8px] border border-[#e6e6e6] bg-white px-3 py-2"><span className="truncate font-medium text-[#000000]">{primary}</span><span className="shrink-0 rounded-full border border-[#e6e6e6] px-2 py-0.5 text-[11px] font-semibold text-[#0075de]">{secondary}</span></div>
+}
+
+function StatusBadge({ value }: { value: string }) {
+  return <span className="inline-flex rounded-[5px] border border-[#e6e6e6] bg-white px-2 py-1 text-[12px] font-medium text-[#615d59]">{value}</span>
+}
+
+function Th({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return <th className={`px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98] ${className}`}>{children}</th>
+}
+
+function Td({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return <td className={`px-4 py-3 align-top text-[13px] text-[#31302e] ${className}`}>{children}</td>
+}
+
+function SmallAction({ children, onClick }: { children: ReactNode; onClick: () => void }) {
+  return <Button type="button" variant="outline" size="sm" className="h-8 rounded-lg border-[#e6e6e6] bg-white px-3 text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]" onClick={onClick}>{children}</Button>
+}
+
+function AdminInput(props: React.ComponentProps<typeof Input>) {
+  return <Input {...props} className={`h-10 rounded-[5px] border-[#e6e6e6] bg-white px-3 text-[13px] focus-visible:border-[#0075de] focus-visible:ring-0 ${props.className ?? ''}`} />
+}
+
+function AdminSelect({ children, ...props }: React.ComponentProps<'select'>) {
+  return <select {...props} className={`h-10 rounded-[5px] border border-[#e6e6e6] bg-white px-3 text-[13px] focus:border-[#0075de] focus:outline-none ${props.className ?? ''}`}>{children}</select>
+}
+
+function InlineNumber({ defaultValue, className, onCommit }: { defaultValue: number; className?: string; onCommit: (value: number) => void }) {
+  return <Input className={`h-8 rounded-[5px] border-[#e6e6e6] bg-white px-2 text-[13px] focus-visible:border-[#0075de] focus-visible:ring-0 ${className ?? ''}`} type="number" defaultValue={defaultValue} onBlur={(e) => onCommit(Number(e.target.value))} />
+}
+
+function EmptyState({ children }: { children: ReactNode }) {
+  return <div className="p-6 text-center text-[14px] font-medium text-[#615d59]">{children}</div>
+}
+
+function SessionRecordsTable({ records }: { records: Awaited<ReturnType<typeof readServerHistoryRecordingsApi>>['records'] }) {
+  return (
+    <div className="overflow-x-auto scrollbar-thin border-t border-[#e6e6e6]">
+      <table className="w-full min-w-[640px] border-collapse"><thead className="bg-[#f6f5f4]"><tr><Th>Resi</Th><Th>Order</Th><Th>Media</Th><Th>Upah</Th><Th>Breakdown</Th></tr></thead><tbody className="divide-y divide-[#e6e6e6]">
+        {records.map((rec) => {
+          const r = rec as unknown as { resiNumber: string; orderNumber?: string | null; mediaType?: string; packingPayAmount?: number | null; packingPayBreakdown?: { ruleName?: string; payType?: string; amount?: number; quantity?: number } | null; orderSnapshot?: { items?: Array<{ productName: string; quantity: number }> } | null }
+          return <tr key={r.resiNumber + rec.id} className="bg-white hover:bg-[#fbfaf9]"><Td className="font-medium text-[#000000]">{r.resiNumber}</Td><Td>{r.orderNumber ?? '-'}{r.orderSnapshot?.items ? ` · ${r.orderSnapshot.items.map((it) => `${it.productName} x${it.quantity}`).join(', ')}` : ''}</Td><Td>{r.mediaType ?? 'video'}</Td><Td>{r.packingPayAmount != null ? formatCurrency(r.packingPayAmount) : '-'}</Td><Td>{r.packingPayBreakdown ? `${r.packingPayBreakdown.ruleName ?? '-'} · ${r.packingPayBreakdown.payType ?? '-'} · Rp${r.packingPayBreakdown.amount ?? 0} x${r.packingPayBreakdown.quantity ?? 1}` : '-'}</Td></tr>
+        })}
+      </tbody></table>
+    </div>
+  )
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value)
+}
+
+function formatDateTime(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
 }

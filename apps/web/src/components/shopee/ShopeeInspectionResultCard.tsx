@@ -1,4 +1,5 @@
-import { Copy, ExternalLink, Package, Search, ShoppingBag, Truck, User } from 'lucide-react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { CheckmarkCircle01Icon, Copy01Icon, ExternalLinkIcon, Package01Icon, Search01Icon, ShoppingBag01Icon, TruckDeliveryIcon, UserIcon } from '@hugeicons/core-free-icons'
 
 import { Button } from '../ui/button'
 import type { ShopeeOrder } from '@pakti/types'
@@ -39,108 +40,100 @@ export function ShopeeInspectionResultCard({
 }: ShopeeInspectionResultCardProps) {
   const isCompact = variant === 'compact'
   const totalQty = order.items?.reduce((acc, it) => acc + (it.quantity ?? 0), 0) ?? 0
-  const verificationTone =
-    verified === true
-      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-      : verified === false
-        ? 'border-amber-200 bg-amber-50 text-amber-700'
-        : 'border-[rgba(15,0,0,0.12)] bg-[#f8f7f7] text-muted-foreground'
+  const verificationTone = verified === true ? 'border-[#e6e6e6] bg-white text-[#0075de]' : verified === false ? 'border-[#f2c8a4] bg-[#fff7ed] text-[#dd5b00]' : 'border-[#e6e6e6] bg-white text-[#615d59]'
 
   const verificationLabel = verified === true ? 'Terverifikasi di Pakti' : verified === false ? 'Belum ada di Pakti' : 'Hasil inspek'
 
   return (
-    <div className="group flex flex-col gap-0 overflow-hidden rounded-[8px] border border-[rgba(15,0,0,0.12)] bg-[#fdfcfc] shadow-[0_1px_2px_rgba(15,0,0,0.04)] transition-colors hover:border-[rgba(15,0,0,0.18)]">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3 border-b border-[rgba(15,0,0,0.06)] bg-white px-3 py-3 sm:px-4">
+    <div className="group flex flex-col gap-0 overflow-hidden rounded-xl border border-[#e6e6e6] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.035)] transition-colors hover:border-[#d8d5d1]">
+      <div className="flex items-start justify-between gap-3 border-b border-[#e6e6e6] bg-white px-3 py-3 sm:px-4">
         <div className="grid min-w-0 gap-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-[6px] bg-[#201d1d] px-2 py-1 font-mono text-xs font-bold text-white">
-              <ShoppingBag className="h-3 w-3" />
+            <span className="inline-flex items-center gap-1.5 rounded-[6px] bg-[#000000] px-2 py-1 text-xs font-bold text-white">
+              <HugeiconsIcon icon={ShoppingBag01Icon} size={13} strokeWidth={1.9} />
               #{order.orderNumber}
             </span>
             {order.shippingChannel ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(15,0,0,0.08)] bg-[#f8f7f7] px-2 py-0.5 text-[11px] font-medium text-foreground">
-                <Truck className="h-3 w-3" />
+              <span className="inline-flex items-center gap-1 rounded-full border border-[#e6e6e6] bg-[#f6f5f4] px-2 py-0.5 text-[11px] font-medium text-[#31302e]">
+                <HugeiconsIcon icon={TruckDeliveryIcon} size={13} strokeWidth={1.9} />
                 {order.shippingChannel}
               </span>
             ) : null}
           </div>
-          <div className="flex flex-wrap items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-            <span className="inline-flex items-center gap-1 rounded bg-[#f1eeee] px-1.5 py-0.5 text-foreground" title={order.trackingNumber ?? '-'}>
-              <Package className="h-3 w-3" />
+          <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[#a39e98]">
+            <span className="inline-flex items-center gap-1 rounded bg-[#f6f5f4] px-1.5 py-0.5 text-[#31302e]" title={order.trackingNumber ?? '-'}>
+              <HugeiconsIcon icon={Package01Icon} size={13} strokeWidth={1.9} />
               {order.trackingNumber ?? '-'}
             </span>
             {order.trackingNumber && onCopy ? (
               <button
                 type="button"
-                className="grid h-5 w-5 place-items-center rounded hover:bg-muted"
+                className="grid h-5 w-5 place-items-center rounded hover:bg-[#f6f5f4]"
                 onClick={() => onCopy(order.trackingNumber!, 'Resi')}
                 title="Copy resi"
               >
-                <Copy className="h-3 w-3" />
+                <HugeiconsIcon icon={Copy01Icon} size={13} strokeWidth={1.9} />
               </button>
             ) : null}
             <span className="hidden sm:inline">·</span>
             <span className="inline-flex items-center gap-1">
-              <User className="h-3 w-3" />
+              <HugeiconsIcon icon={UserIcon} size={13} strokeWidth={1.9} />
               {order.buyerUsername ?? '-'}
             </span>
           </div>
         </div>
         <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium ${verificationTone}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${verified === true ? 'bg-emerald-500' : verified === false ? 'bg-amber-500' : 'bg-muted-foreground'}`} />
+          {verified === true ? <HugeiconsIcon icon={CheckmarkCircle01Icon} size={13} strokeWidth={1.9} /> : <span className={`h-1.5 w-1.5 rounded-full ${verified === false ? 'bg-[#dd5b00]' : 'bg-[#a39e98]'}`} />}
           {verificationLabel}
         </span>
       </div>
 
-      {/* Body */}
       <div className="grid gap-2 px-3 py-3 sm:px-4">
         <div className="flex items-center justify-between gap-2">
-          <p className="flex items-center gap-1.5 font-mono text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-            <Package className="h-3 w-3" />
+          <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">
+            <HugeiconsIcon icon={Package01Icon} size={13} strokeWidth={1.9} />
             {order.items?.length ?? 0} produk · {totalQty} qty
           </p>
-          {updatedAtLabel ? <span className="font-mono text-[11px] text-muted-foreground">{updatedAtLabel}</span> : null}
+          {updatedAtLabel ? <span className="text-[11px] text-[#a39e98]">{updatedAtLabel}</span> : null}
         </div>
 
-        <div className={isCompact ? 'line-clamp-2 text-xs leading-relaxed text-foreground [overflow-wrap:anywhere]' : 'grid gap-1.5'}>
+        <div className={isCompact ? 'line-clamp-2 text-xs leading-relaxed text-[#31302e] [overflow-wrap:anywhere]' : 'grid gap-1.5'}>
           {isCompact ? (
-            <p className="text-xs leading-relaxed text-foreground [overflow-wrap:anywhere]" title={formatItemsSummary(order.items)}>
+            <p className="text-xs leading-relaxed text-[#31302e] [overflow-wrap:anywhere]" title={formatItemsSummary(order.items)}>
               {formatItemsSummary(order.items)}
             </p>
           ) : (
             (order.items ?? []).slice(0, 6).map((it, idx) => (
-              <div key={`${it.sku ?? it.productName}-${idx}`} className="flex items-start justify-between gap-2 rounded-[6px] border border-[rgba(15,0,0,0.06)] bg-[#fcfcfc] px-2.5 py-2">
+              <div key={`${it.sku ?? it.productName}-${idx}`} className="flex items-start justify-between gap-2 rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] px-2.5 py-2">
                 <div className="grid min-w-0 gap-0.5">
-                  <span className="line-clamp-1 font-mono text-xs font-medium text-foreground" title={it.productName}>
+                  <span className="line-clamp-1 text-xs font-medium text-[#000000]" title={it.productName}>
                     {it.productName}
                   </span>
-                  <span className="flex flex-wrap gap-1 font-mono text-[11px] text-muted-foreground">
+                  <span className="flex flex-wrap gap-1 text-[11px] text-[#615d59]">
                     {it.variationName ? <span className="rounded bg-white px-1 py-0.5">{it.variationName}</span> : null}
                     {it.sku ? <span className="rounded bg-white px-1 py-0.5">{it.sku}</span> : null}
                   </span>
                 </div>
-                <span className="shrink-0 rounded-full bg-[#201d1d] px-2 py-0.5 font-mono text-xs font-bold text-white">x{it.quantity}</span>
+                <span className="shrink-0 rounded-full bg-[#000000] px-2 py-0.5 text-xs font-bold text-white">x{it.quantity}</span>
               </div>
             ))
           )}
           {!isCompact && (order.items?.length ?? 0) > 6 ? (
-            <p className="font-mono text-[11px] text-muted-foreground">+{order.items.length - 6} item lagi</p>
+            <p className="text-[11px] text-[#a39e98]">+{order.items.length - 6} item lagi</p>
           ) : null}
         </div>
       </div>
 
-      {/* Footer actions */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[rgba(15,0,0,0.06)] bg-[#fcfcfc] px-3 py-2.5 sm:px-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#e6e6e6] bg-[#fbfaf9] px-3 py-2.5 sm:px-4">
         <div className="flex flex-wrap gap-1.5">
           {order.orderNumber && onCopy ? (
-            <Button type="button" variant="outline" size="sm" className="h-7 gap-1 rounded-[6px] bg-white px-2 text-xs" onClick={() => onCopy(order.orderNumber, 'Order')}>
-              <Copy className="h-3 w-3" /> Order
+            <Button type="button" variant="outline" size="sm" className="h-7 gap-1 rounded-[6px] border-[#e6e6e6] bg-white px-2 text-xs" onClick={() => onCopy(order.orderNumber, 'Order')}>
+              <HugeiconsIcon icon={Copy01Icon} size={13} strokeWidth={1.9} /> Order
             </Button>
           ) : null}
           {order.trackingNumber && onCopy ? (
-            <Button type="button" variant="outline" size="sm" className="h-7 gap-1 rounded-[6px] bg-white px-2 text-xs" onClick={() => onCopy(order.trackingNumber!, 'Resi')}>
-              <Copy className="h-3 w-3" /> Resi
+            <Button type="button" variant="outline" size="sm" className="h-7 gap-1 rounded-[6px] border-[#e6e6e6] bg-white px-2 text-xs" onClick={() => onCopy(order.trackingNumber!, 'Resi')}>
+              <HugeiconsIcon icon={Copy01Icon} size={13} strokeWidth={1.9} /> Resi
             </Button>
           ) : null}
         </div>
@@ -150,16 +143,16 @@ export function ShopeeInspectionResultCard({
               type="button"
               variant="outline"
               size="sm"
-              className="h-7 gap-1 rounded-[6px] bg-white px-2 text-xs"
+              className="h-7 gap-1 rounded-[6px] border-[#e6e6e6] bg-white px-2 text-xs"
               onClick={() => onVerify(order)}
               title="Verifikasi di Pakti (buka Scan/History)"
             >
-              <Search className="h-3 w-3" /> Verifikasi
+              <HugeiconsIcon icon={Search01Icon} size={13} strokeWidth={1.9} /> Verifikasi
             </Button>
           ) : null}
           {onOpenShopee ? (
-            <Button type="button" variant="outline" size="sm" className="h-7 gap-1 rounded-[6px] bg-white px-2 text-xs" onClick={() => onOpenShopee(order)}>
-              <ExternalLink className="h-3 w-3" /> Shopee
+            <Button type="button" variant="outline" size="sm" className="h-7 gap-1 rounded-[6px] border-[#e6e6e6] bg-white px-2 text-xs" onClick={() => onOpenShopee(order)}>
+              <HugeiconsIcon icon={ExternalLinkIcon} size={13} strokeWidth={1.9} /> Shopee
             </Button>
           ) : null}
         </div>
