@@ -58,7 +58,7 @@ function cleanProductName(value: unknown) {
 
   return normalizeOptionalString(
     text
-      .replace(/\s*(?:variasi\s*:|variation\s*:|varian\s*:|pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\b).*$/i, '')
+      .replace(/\s*(?:variasi\s*:|variation\s*:|varian\s*:|pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\s+(?:instan|instant)\b).*$/i, '')
       .replace(/\s*x\s*\d+.+$/i, '')
       .replace(/\s*x\s*\d+\s*$/i, ''),
   )
@@ -71,8 +71,8 @@ function cleanVariationName(value: unknown) {
   return normalizeOptionalString(
     text
       .replace(/\s*x\s*\d+.+$/i, '')
-      .replace(/\s*x\s*\d+\s*(?:pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\b).*$/i, '')
-      .replace(/\s*(?:pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\b).*$/i, '')
+      .replace(/\s*x\s*\d+\s*(?:pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\s+(?:instan|instant)\b).*$/i, '')
+      .replace(/\s*(?:pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\s+(?:instan|instant)\b).*$/i, '')
       .replace(/\s*x\s*\d+\s*$/i, ''),
   )
 }
@@ -219,10 +219,10 @@ export function importShopeeOrders(orders: Array<Partial<ShopeeOrder>>): ShopeeO
         `INSERT INTO orders (id, source, order_number, tracking_number, buyer_username, shipping_channel, order_status, raw_payload, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(source, order_number) DO UPDATE SET
-           tracking_number = excluded.tracking_number,
-           buyer_username = excluded.buyer_username,
-           shipping_channel = excluded.shipping_channel,
-           order_status = excluded.order_status,
+           tracking_number = COALESCE(excluded.tracking_number, orders.tracking_number),
+           buyer_username = COALESCE(excluded.buyer_username, orders.buyer_username),
+           shipping_channel = COALESCE(excluded.shipping_channel, orders.shipping_channel),
+           order_status = COALESCE(excluded.order_status, orders.order_status),
            raw_payload = excluded.raw_payload,
            updated_at = excluded.updated_at`,
       ).run(
@@ -238,22 +238,24 @@ export function importShopeeOrders(orders: Array<Partial<ShopeeOrder>>): ShopeeO
         timestamp,
       )
 
-      database.prepare(`DELETE FROM order_items WHERE order_id = ?`).run(orderId)
-      for (const item of order.items) {
-        database.prepare(
-          `INSERT INTO order_items (id, order_id, sku, product_name, variation_name, quantity, image_url, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        ).run(
-          makeId('orderitem'),
-          orderId,
-          item.sku,
-          item.productName,
-          item.variationName,
-          item.quantity,
-          item.imageUrl,
-          timestamp,
-          timestamp,
-        )
+      if (order.items.length > 0 || !existing) {
+        database.prepare(`DELETE FROM order_items WHERE order_id = ?`).run(orderId)
+        for (const item of order.items) {
+          database.prepare(
+            `INSERT INTO order_items (id, order_id, sku, product_name, variation_name, quantity, image_url, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          ).run(
+            makeId('orderitem'),
+            orderId,
+            item.sku,
+            item.productName,
+            item.variationName,
+            item.quantity,
+            item.imageUrl,
+            timestamp,
+            timestamp,
+          )
+        }
       }
 
       if (existing) {

@@ -18,6 +18,7 @@ process.env.PAKTI_DB_PATH = TEST_DB_PATH
 
 const { getDb } = await import('../services/backend/src/db.ts')
 const { listChatSendsByRecordingIds, prepareBundledRecordingChatSend } = await import('../services/backend/src/store/chatSendStore.ts')
+const { getShopeeOrderByResi, importShopeeOrders } = await import('../services/backend/src/store/orderStore.ts')
 
 const database = getDb()
 
@@ -133,4 +134,71 @@ test('prepareBundledRecordingChatSend bisa pakai username manual saat order belu
   assert.equal(job.orderNumber, null)
   assert.equal(job.attachments?.length, 2)
   assert.deepEqual(job.attachments?.map((attachment) => attachment.filePath), ['share/qc-video-manual.mp4', 'photos/packing-photo-manual.jpg'])
+})
+
+test('importShopeeOrders tidak menghapus buyer dan produk saat sync SPX parsial', () => {
+  clearDb()
+
+  const first = importShopeeOrders([
+    {
+      source: 'shopee',
+      orderNumber: '250831SPXINSTAN01',
+      trackingNumber: 'SPXID1234567890',
+      buyerUsername: 'buyer_spx',
+      shippingChannel: 'SPX Instan',
+      orderStatus: 'shipping',
+      rawPayload: {},
+      items: [
+        { sku: null, productName: 'Produk SPX Test', variationName: 'Hitam', quantity: 2, imageUrl: null },
+      ],
+    },
+  ])
+  const second = importShopeeOrders([
+    {
+      source: 'shopee',
+      orderNumber: '250831SPXINSTAN01',
+      trackingNumber: 'SPXID1234567890',
+      buyerUsername: null,
+      shippingChannel: 'SPX Instan',
+      orderStatus: 'shipping',
+      rawPayload: {},
+      items: [],
+    },
+  ])
+
+  const order = getShopeeOrderByResi('SPXID1234567890')
+  assert.equal(first.imported, 1)
+  assert.equal(second.updated, 1)
+  assert.equal(order?.buyerUsername, 'buyer_spx')
+  assert.equal(order?.items.length, 1)
+  assert.equal(order?.items[0]?.productName, 'Produk SPX Test')
+  assert.equal(order?.items[0]?.quantity, 2)
+})
+
+test('prepareBundledRecordingChatSend memakai buyer dari orderNumber fallback saat resi tidak cocok', async () => {
+  clearDb()
+  importShopeeOrders([
+    {
+      source: 'shopee',
+      orderNumber: '250831SPXINSTAN02',
+      trackingNumber: 'SPXID9999999999',
+      buyerUsername: 'buyer_order_fallback',
+      shippingChannel: 'SPX Instan',
+      orderStatus: 'shipping',
+      rawPayload: {},
+      items: [
+        { sku: null, productName: 'Produk Fallback Order', variationName: null, quantity: 1, imageUrl: null },
+      ],
+    },
+  ])
+  seedRecording({ id: 'qc-video-order-fallback', resiNumber: 'SPXID0000000000', taskType: 'qc', mediaType: 'video', fileName: 'qc-order-fallback.mp4', mimeType: 'video/mp4' })
+
+  const job = await prepareBundledRecordingChatSend({
+    recordingId: 'qc-video-order-fallback',
+    fallbackOrderNumber: '250831SPXINSTAN02',
+    prepareShareFile,
+  })
+
+  assert.equal(job.buyerUsername, 'buyer_order_fallback')
+  assert.equal(job.orderNumber, '250831SPXINSTAN02')
 })

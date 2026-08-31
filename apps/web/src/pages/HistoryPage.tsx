@@ -11,7 +11,7 @@ import { Button } from '../components/ui/button'
 import { ModalOverlay } from '../components/ui/ModalOverlay'
 import { DialogDescription, DialogTitle } from '../components/ui/dialog'
 import { notify } from '../app/notify'
-import { buildServerFileUrl, deleteServerRecordingApi, openServerSettingsFolderApi, prepareServerRecordingShareFileApi, prepareShopeeChatSendApi, readRecentShopeeOrdersApi, readServerHistoryRecordingsApi, readShopeeChatSendsByRecordingIdsApi } from '@pakti/api-client'
+import { buildServerFileUrl, deleteServerRecordingApi, openServerSettingsFolderApi, prepareServerRecordingShareFileApi, prepareShopeeChatSendApi, readRecentShopeeOrdersApi, readServerHistoryRecordingsApi, readShopeeChatSendsByRecordingIdsApi, readShopeeOrderByOrderNumberApi, readShopeeOrderByResiApi } from '@pakti/api-client'
 import type { RecordingChatSend, ShopeeOrder } from '@pakti/types'
 import { recordsToCsv, recordsToExcelXml } from '@pakti/shared/exporters'
 import type { LocalRecordingRecord } from '@pakti/shared/recordings'
@@ -132,20 +132,44 @@ export function HistoryPage() {
   })
   const [chatSendByRecordingId, setChatSendByRecordingId] = useState<Map<string, RecordingChatSend>>(new Map())
   const [shopeeOrderByResi, setShopeeOrderByResi] = useState<Map<string, ShopeeOrder>>(new Map())
+  const [shopeeOrderByOrderNumber, setShopeeOrderByOrderNumber] = useState<Map<string, ShopeeOrder>>(new Map())
+
+  useEffect(() => {
+    try {
+      const verifyResi = window.sessionStorage.getItem('pakti.shopeeVerifyResi')?.trim() || ''
+      const verifyOrder = window.sessionStorage.getItem('pakti.shopeeVerifyOrder')?.trim() || ''
+      const query = verifyResi || verifyOrder
+      if (!query) return
+      window.sessionStorage.removeItem('pakti.shopeeVerifyResi')
+      window.sessionStorage.removeItem('pakti.shopeeVerifyOrder')
+      setSearchText(query)
+      setDateFrom('')
+      setDateTo('')
+      setPage(1)
+    } catch (_e) {
+      void _e
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
     void readRecentShopeeOrdersApi(500)
       .then((orders) => {
         if (cancelled) return
-        const map = new Map<string, ShopeeOrder>()
+        const byResi = new Map<string, ShopeeOrder>()
+        const byOrderNumber = new Map<string, ShopeeOrder>()
         for (const order of orders) {
-          if (order.trackingNumber) map.set(order.trackingNumber.trim().toLowerCase(), order)
+          if (order.trackingNumber) byResi.set(order.trackingNumber.trim().toLowerCase(), order)
+          byOrderNumber.set(order.orderNumber.trim().toLowerCase(), order)
         }
-        setShopeeOrderByResi(map)
+        setShopeeOrderByResi(byResi)
+        setShopeeOrderByOrderNumber(byOrderNumber)
       })
       .catch(() => {
-        if (!cancelled) setShopeeOrderByResi(new Map())
+        if (!cancelled) {
+          setShopeeOrderByResi(new Map())
+          setShopeeOrderByOrderNumber(new Map())
+        }
       })
     return () => {
       cancelled = true
@@ -375,6 +399,44 @@ export function HistoryPage() {
     return filteredRecordings.find((record) => record.id === selectedId) ?? pageItems[0]?.latest ?? null
   }, [filteredRecordings, pageItems, selectedId])
 
+  const selectedOrderSnapshot = (selectedRecord as unknown as { orderSnapshot?: { shippingChannel?: string; orderNumber?: string | null; buyerUsername?: string | null; items?: OrderItemLike[] } | null })?.orderSnapshot ?? null
+
+  useEffect(() => {
+    if (!selectedRecord?.resiNumber) {
+      return
+    }
+
+    const lookupKey = selectedRecord.resiNumber.trim().toLowerCase()
+    const snapshotOrderNumber = selectedOrderSnapshot?.orderNumber?.trim() || ''
+    if (shopeeOrderByResi.has(lookupKey) || shopeeOrderByOrderNumber.has(lookupKey) || (snapshotOrderNumber && shopeeOrderByOrderNumber.has(snapshotOrderNumber.toLowerCase()))) {
+      return
+    }
+
+    let cancelled = false
+    const resiOrOrderNumber = selectedRecord.resiNumber
+    const orderNumber = snapshotOrderNumber || resiOrOrderNumber
+    void readShopeeOrderByResiApi(resiOrOrderNumber)
+      .catch(() => readShopeeOrderByOrderNumberApi(orderNumber))
+      .then((order) => {
+        if (cancelled) return
+        setShopeeOrderByResi((prev) => {
+          const next = new Map(prev)
+          if (order.trackingNumber) next.set(order.trackingNumber.trim().toLowerCase(), order)
+          return next
+        })
+        setShopeeOrderByOrderNumber((prev) => {
+          const next = new Map(prev)
+          next.set(order.orderNumber.trim().toLowerCase(), order)
+          return next
+        })
+      })
+      .catch(() => undefined)
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedOrderSnapshot?.orderNumber, selectedRecord, shopeeOrderByOrderNumber, shopeeOrderByResi])
+
   const selectedGroup = useMemo(() => {
     if (!selectedRecord) {
       return null
@@ -398,7 +460,17 @@ export function HistoryPage() {
     return { completed, incomplete }
   }, [groupedRecordings])
   const hasActiveFilters = Boolean(searchText.trim() || taskFilter !== 'all' || operatorFilter !== 'all' || dateFrom || dateTo)
-  const selectedShopeeOrder = selectedRecord ? shopeeOrderByResi.get(selectedRecord.resiNumber.trim().toLowerCase()) ?? null : null
+
+  function getShopeeOrderForRecord(record: LocalRecordingRecord) {
+    const snapshot = (record as unknown as { orderSnapshot?: { orderNumber?: string | null } | null }).orderSnapshot ?? null
+    const key = record.resiNumber.trim().toLowerCase()
+    return shopeeOrderByResi.get(key) ??
+      shopeeOrderByOrderNumber.get(key) ??
+      (snapshot?.orderNumber ? shopeeOrderByOrderNumber.get(snapshot.orderNumber.trim().toLowerCase()) : undefined) ??
+      null
+  }
+
+  const selectedShopeeOrder = selectedRecord ? getShopeeOrderForRecord(selectedRecord) : null
   const selectedChatSend = selectedRecord ? visibleChatSendByRecordingId.get(selectedRecord.id) ?? null : null
   const selectedChatActionLabel = preparingChatSendId === selectedRecord?.id
     ? '[Menyiapkan...]'
@@ -423,6 +495,29 @@ export function HistoryPage() {
             ? 'Job sebelumnya gagal/batal'
             : 'Siapkan pesan ke pembeli'
   const disableSelectedChatAction = preparingChatSendId === selectedRecord?.id || selectedRecord?.status !== 'completed' || selectedChatSend?.status === 'sent' || selectedChatSend?.status === 'pending'
+
+  function getChatActionState(record: LocalRecordingRecord) {
+    const chatSend = visibleChatSendByRecordingId.get(record.id) ?? null
+    const label = preparingChatSendId === record.id
+      ? '...'
+      : chatSend?.status === 'sent'
+        ? 'Terkirim'
+        : chatSend?.status === 'prepared'
+          ? 'Siap'
+          : chatSend?.status === 'pending'
+            ? 'Antri'
+            : chatSend?.status === 'failed' || chatSend?.status === 'cancelled'
+              ? 'Ulang'
+              : 'Kirim'
+    const disabled = preparingChatSendId === record.id || record.status !== 'completed' || chatSend?.status === 'sent' || chatSend?.status === 'pending'
+    const title = chatSend?.status === 'sent'
+      ? `Sudah terkirim ke ${chatSend.buyerUsername}`
+      : record.status !== 'completed'
+        ? 'Hanya untuk rekaman selesai'
+        : 'Kirim video ke pembeli via Shopee Chat'
+
+    return { label, disabled, title }
+  }
 
   function handleTaskChange(nextFilter: HistoryTaskFilter) {
     setTaskFilter(nextFilter)
@@ -537,7 +632,7 @@ export function HistoryPage() {
     }
   }
 
-  async function handlePrepareShopeeChat(record: LocalRecordingRecord) {
+  async function handlePrepareShopeeChat(record: LocalRecordingRecord, shopeeOrder = getShopeeOrderForRecord(record)) {
     if (preparingChatSendId) {
       return
     }
@@ -546,7 +641,10 @@ export function HistoryPage() {
       setPreparingChatSendId(record.id)
       let job: RecordingChatSend
       try {
-        job = await prepareShopeeChatSendApi(record.id)
+        job = await prepareShopeeChatSendApi(record.id, null, {
+          buyerUsername: shopeeOrder?.buyerUsername ?? null,
+          orderNumber: shopeeOrder?.orderNumber ?? null,
+        })
       } catch (error) {
         const message = error instanceof Error ? error.message : ''
         if (!message.includes('Isi username pembeli Shopee')) {
@@ -556,7 +654,7 @@ export function HistoryPage() {
         if (!buyerUsername) {
           throw error
         }
-        job = await prepareShopeeChatSendApi(record.id, null, { buyerUsername })
+        job = await prepareShopeeChatSendApi(record.id, null, { buyerUsername, orderNumber: shopeeOrder?.orderNumber ?? null })
       }
       setChatSendByRecordingId((prev) => {
         const next = new Map(prev)
@@ -822,6 +920,25 @@ export function HistoryPage() {
                           </div>
                           <div className="flex items-center gap-2">
                             <ShippingStatus chatSend={groupChatSend} compact />
+                            {(() => {
+                              const chatAction = getChatActionState(group.latest)
+                              return (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 rounded-full border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"
+                                  disabled={chatAction.disabled}
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    void handlePrepareShopeeChat(group.latest)
+                                  }}
+                                  title={chatAction.title}
+                                >
+                                  {chatAction.label}
+                                </Button>
+                              )
+                            })()}
                             <span className="grid h-7 w-7 place-items-center text-[#a39e98]">›</span>
                           </div>
                         </div>
@@ -842,7 +959,7 @@ export function HistoryPage() {
                         <Th>Operator</Th>
                         <Th>Dokumentasi</Th>
                         <Th>Pengiriman</Th>
-                        <Th className="w-[40px] px-2 text-center"></Th>
+                        <Th className="px-5 text-right">Aksi</Th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#e6e6e6]">
@@ -889,8 +1006,25 @@ export function HistoryPage() {
                               <Td>
                                 <ShippingStatus chatSend={tableGroupChatSend} />
                               </Td>
-                              <Td className="px-2 text-center">
-                                <span className="grid h-7 w-7 place-items-center text-[#a39e98]">›</span>
+                              <Td>
+                                <div className="flex justify-end" onClick={(event) => event.stopPropagation()}>
+                                  {(() => {
+                                    const chatAction = getChatActionState(group.latest)
+                                    return (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 rounded-full border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"
+                                        disabled={chatAction.disabled}
+                                        onClick={() => void handlePrepareShopeeChat(group.latest)}
+                                        title={chatAction.title}
+                                      >
+                                        {chatAction.label}
+                                      </Button>
+                                    )
+                                  })()}
+                                </div>
                               </Td>
                             </tr>
                           )
@@ -997,12 +1131,12 @@ export function HistoryPage() {
                   <div className="grid gap-2">
                     <dl className="grid gap-1.5">
                       {selectedShopeeOrder ? (
-                        <OrderDetailRow order={selectedShopeeOrder} />
-                      ) : (selectedRecord as unknown as { orderSnapshot?: { shippingChannel?: string; items?: Array<{ productName: string; variationName?: string | null; quantity: number }> } }).orderSnapshot ? (
+                        <OrderDetailRow order={selectedShopeeOrder} fallbackItems={selectedOrderSnapshot?.items ?? []} />
+                      ) : selectedOrderSnapshot ? (
                         <DetailRow
                           label="Snapshot order"
                           value={(() => {
-                            const snap = (selectedRecord as unknown as { orderSnapshot: { shippingChannel?: string; items?: OrderItemLike[] } }).orderSnapshot
+                            const snap = selectedOrderSnapshot
                             const items = dedupeOrderItems(snap.items ?? []).map((it) => {
                               const variationName = cleanOrderVariationName(it.variationName)
                               const productName = cleanOrderProductName(it.productName) ?? it.productName
@@ -1452,8 +1586,8 @@ function DetailRow({
   )
 }
 
-function OrderDetailRow({ order }: { order: ShopeeOrder }) {
-  const items = dedupeOrderItems(order.items)
+function OrderDetailRow({ order, fallbackItems = [] }: { order: ShopeeOrder; fallbackItems?: OrderItemLike[] }) {
+  const items = dedupeOrderItems(order.items.length ? order.items : fallbackItems)
 
   return (
     <div className="grid gap-1 rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] px-3 py-2.5">
@@ -1521,7 +1655,7 @@ function cleanOrderProductName(value: string | null | undefined) {
   if (!text) return null
 
   return text
-    .replace(/\s*(?:variasi\s*:|variation\s*:|varian\s*:|pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\b).*$/i, '')
+    .replace(/\s*(?:variasi\s*:|variation\s*:|varian\s*:|pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\s+(?:instan|instant)\b).*$/i, '')
     .replace(/\s*x\s*\d+.+$/i, '')
     .replace(/\s*x\s*\d+\s*$/i, '')
     .trim() || null
@@ -1533,8 +1667,8 @@ function cleanOrderVariationName(value: string | null | undefined) {
 
   return text
     .replace(/\s*x\s*\d+.+$/i, '')
-    .replace(/\s*x\s*\d+\s*(?:pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\b).*$/i, '')
-    .replace(/\s*(?:pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\b).*$/i, '')
+    .replace(/\s*x\s*\d+\s*(?:pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\s+(?:instan|instant)\b).*$/i, '')
+    .replace(/\s*(?:pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\s+(?:instan|instant)\b).*$/i, '')
     .replace(/\s*x\s*\d+\s*$/i, '')
     .trim() || null
 }

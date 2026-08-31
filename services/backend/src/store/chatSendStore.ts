@@ -27,6 +27,7 @@ type ChatSendRow = {
 type RecordingForChatSend = {
   id: string
   resi_number: string
+  order_number: string | null
   task_type: 'qc' | 'packing'
   status: 'recording' | 'completed' | 'error'
   media_type: 'video' | 'photo'
@@ -171,7 +172,7 @@ function mapChatSend(row: ChatSendRow, apiBaseUrl = ''): RecordingChatSend {
 function getRecordingForChatSend(recordingId: string) {
   return db()
     .prepare(
-      `SELECT id, resi_number, task_type, status, media_type
+      `SELECT id, resi_number, order_number, task_type, status, media_type
        FROM recordings
        WHERE id = ?
        LIMIT 1`,
@@ -179,17 +180,28 @@ function getRecordingForChatSend(recordingId: string) {
     .get(recordingId.trim()) as RecordingForChatSend | undefined
 }
 
-function getOrderForResi(resiNumber: string) {
-  return db()
-    .prepare(
-      `SELECT id, order_number, buyer_username
-       FROM orders
-       WHERE source = 'shopee'
-         AND lower(tracking_number) = lower(?)
-       ORDER BY updated_at DESC
-       LIMIT 1`,
-    )
-    .get(resiNumber.trim()) as OrderForChatSend | undefined
+function getOrderForChatSend(recording: RecordingForChatSend, fallbackOrderNumber?: string | null) {
+  const identifiers = [recording.resi_number, recording.order_number, fallbackOrderNumber]
+    .map((value) => normalizeOptionalString(value))
+    .filter((value, index, values): value is string => Boolean(value) && values.indexOf(value) === index)
+  let fallback: OrderForChatSend | undefined
+
+  for (const identifier of identifiers) {
+    const row = db()
+      .prepare(
+        `SELECT id, order_number, buyer_username
+         FROM orders
+         WHERE source = 'shopee'
+           AND (lower(tracking_number) = lower(?) OR lower(order_number) = lower(?))
+         ORDER BY CASE WHEN buyer_username IS NULL OR buyer_username = '' THEN 1 ELSE 0 END ASC, updated_at DESC
+         LIMIT 1`,
+      )
+      .get(identifier, identifier) as OrderForChatSend | undefined
+    if (normalizeOptionalString(row?.buyer_username)) return row
+    fallback ??= row
+  }
+
+  return fallback
 }
 
 function getChatSendRow(id: string) {
@@ -230,7 +242,7 @@ export function prepareRecordingChatSend(input: {
     throw new Error('Video share belum siap.')
   }
 
-  const order = getOrderForResi(recording.resi_number)
+  const order = getOrderForChatSend(recording, input.fallbackOrderNumber)
   const buyerUsername = normalizeOptionalString(order?.buyer_username) ?? normalizeOptionalString(input.fallbackBuyerUsername)
   if (!buyerUsername) {
     if (!order) {

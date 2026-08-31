@@ -54,7 +54,7 @@ function parseQuantity(text) {
 function isOrderMetadataText(value) {
   const text = String(value || '').trim()
   if (!text) return true
-  return /^(?:x\s*\d+|rp\s*[\d.]+|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\b|pesan\s*:|variasi\s*:|variation\s*:|varian\s*:|sku\s*:|no\. pesanan\b|nomor pesanan\b|order id\b|resi\b)/i.test(text)
+  return /^(?:x\s*\d+|rp\s*[\d.]+|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\b|spx\s+instan\b|instant\b|instan\b|pesan\s*:|variasi\s*:|variation\s*:|varian\s*:|sku\s*:|no\. pesanan\b|nomor pesanan\b|order id\b|resi\b|no\. resi\b|jasa kirim\b|kurir\b|ekspedisi\b|username pembeli\b|buyer username\b|pembeli\b|status\b)/i.test(text)
 }
 
 function cleanProductText(value) {
@@ -62,7 +62,7 @@ function cleanProductText(value) {
   if (!text || isOrderMetadataText(text)) return null
 
   return text
-    .replace(/\s*(?:variasi\s*:|variation\s*:|varian\s*:|pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\b).*$/i, '')
+    .replace(/\s*(?:variasi\s*:|variation\s*:|varian\s*:|pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\s+(?:instan|instant)\b).*$/i, '')
     .replace(/\s*x\s*\d+.+$/i, '')
     .replace(/\s*x\s*\d+\s*$/i, '')
     .trim() || null
@@ -90,14 +90,136 @@ function cleanVariationText(value) {
 
   return text
     .replace(/\s*x\s*\d+.+$/i, '')
-    .replace(/\s*x\s*\d+\s*(?:pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\b).*$/i, '')
-    .replace(/\s*(?:pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\b).*$/i, '')
+    .replace(/\s*x\s*\d+\s*(?:pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\s+(?:instan|instant)\b).*$/i, '')
+    .replace(/\s*(?:pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\s+(?:instan|instant)\b).*$/i, '')
     .replace(/\s*x\s*\d+\s*$/i, '')
     .trim() || null
 }
 
 function parseOrderNumber(text) {
   return firstMatch(text, [/(?:No\.\s*Pesanan|Nomor Pesanan|Order ID|Order Number)\s*([A-Z0-9-]{8,})/i])
+}
+
+function parseTrackingNumber(text) {
+  return firstMatch(text, [
+    /(?:no\.\s*resi|nomor resi|resi|tracking number|air waybill)[:\s#-]*([A-Z0-9-]{8,})/i,
+    /\b(SPX[A-Z0-9-]{8,})\b/i,
+  ])
+}
+
+function parseBuyerUsername(text) {
+  const matched = firstMatch(text, [
+    /(?:username pembeli|buyer username)[:\s-]*@?([A-Za-z0-9._-]{3,})/i,
+    /\bpembeli\s*[:\-]\s*@?([A-Za-z0-9._-]{3,})/i,
+    /\b(?:buyer|user|username)[:\s-]*@?([A-Za-z0-9._-]{3,})/i,
+  ])
+  if (matched) return matched
+
+  const standalone = String(text || '').trim().match(/^@?([A-Za-z0-9._-]{3,40})$/)
+  return standalone?.[1] ?? null
+}
+
+function readBuyerLineCandidates(root) {
+  const lines = textLinesOf(root)
+  const result = []
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]
+    const normalized = line.toLowerCase()
+    if (normalized.includes('username pembeli') || normalized.includes('buyer username') || normalized === 'pembeli') {
+      result.push(line)
+      if (lines[index + 1]) result.push(lines[index + 1])
+      if (lines[index + 2]) result.push(lines[index + 2])
+    }
+  }
+
+  return result
+}
+
+function readBuyerUsername(root, fullText) {
+  const candidates = [
+    textOf(root.querySelector('.buyer-username')),
+    ...[...root.querySelectorAll('[class*="buyer" i], [data-testid*="buyer" i], [class*="user" i], [data-testid*="user" i]')].map(textOf),
+    findLabelValue(root, ['username pembeli', 'buyer username', 'pembeli']),
+    ...readBuyerLineCandidates(root),
+    firstMatch(fullText, [/(?:username pembeli|buyer username)[:\s-]*@?([A-Za-z0-9._-]{3,})/i]),
+  ]
+
+  for (const value of candidates) {
+    const username = parseBuyerUsername(value)
+    if (username) return username
+  }
+
+  return null
+}
+
+function uniqueItems(items) {
+  const seen = new Set()
+  return items.filter((item) => {
+    const key = `${item.productName.replace(/\s+/g, ' ').trim().toLowerCase()}|${(item.variationName || '').replace(/\s+/g, ' ').trim().toLowerCase()}|${item.quantity}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+function mergeOrderData(existing, next) {
+  if (!existing) return next
+  return {
+    ...existing,
+    trackingNumber: existing.trackingNumber || next.trackingNumber || null,
+    buyerUsername: existing.buyerUsername || next.buyerUsername || null,
+    shippingChannel: existing.shippingChannel || next.shippingChannel || null,
+    orderStatus: existing.orderStatus || next.orderStatus || null,
+    rawPayload: {
+      ...(typeof existing.rawPayload === 'object' && existing.rawPayload !== null ? existing.rawPayload : {}),
+      ...(typeof next.rawPayload === 'object' && next.rawPayload !== null ? next.rawPayload : {}),
+    },
+    items: uniqueItems([...(existing.items || []), ...(next.items || [])]),
+  }
+}
+
+function extractAttributeItems(root) {
+  const entries = [...root.querySelectorAll('img[alt], img[title], [title], [aria-label]')]
+    .map((element) => {
+      const text = cleanProductText(element.getAttribute('alt') || element.getAttribute('title') || element.getAttribute('aria-label') || '')
+      if (!text || text.length < 3) return null
+      if (/^(?:foto|gambar|image|produk|product|lihat|detail|salin|copy|chat|pesanan|order)$/i.test(text)) return null
+      const containerText = textOf(element.closest('[class*="item" i], [class*="product" i]')) || text
+      return {
+        sku: null,
+        productName: text.slice(0, 220),
+        variationName: null,
+        quantity: parseQuantity(containerText),
+        imageUrl: element instanceof HTMLImageElement ? element.src : element.querySelector('img')?.src || null,
+      }
+    })
+    .filter(Boolean)
+
+  return uniqueItems(entries).slice(0, 20)
+}
+
+function extractLineItems(root) {
+  const lines = textLinesOf(root)
+  const entries = []
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]
+    const productName = cleanProductText(line)
+    if (!productName || productName.length < 8 || productName.length > 220) continue
+    if (/^@?[a-z0-9._-]{3,40}$/i.test(productName)) continue
+    if (/^[A-Z0-9-]{8,}$/i.test(productName)) continue
+    if (/^(?:lihat rincian|rincian|detail|ubah|batalkan|atur pengiriman|cetak|print|kirim|chat|label|invoice|semua|pilih|selesai)$/i.test(productName)) continue
+
+    const nearbyText = [line, lines[index + 1] || '', lines[index + 2] || ''].join(' ')
+    entries.push({
+      sku: firstMatch(nearbyText, [/sku[:\s]+([^|,]+)/i]) || null,
+      productName: productName.slice(0, 220),
+      variationName: cleanVariationText(firstMatch(nearbyText, [/(?:variasi|variation|varian)\s*[:\-]\s*([^|,]+)/i]) || null),
+      quantity: parseQuantity(nearbyText),
+      imageUrl: null,
+    })
+  }
+
+  return uniqueItems(entries).slice(0, 20)
 }
 
 function extractShopeeItems(root) {
@@ -130,19 +252,18 @@ function extractShopeeItems(root) {
     })
     .filter(Boolean)
 
-  const seen = new Set()
-  return shopeeItems.filter((item) => {
-    const key = `${item.productName.replace(/\s+/g, ' ').trim().toLowerCase()}|${(item.variationName || '').replace(/\s+/g, ' ').trim().toLowerCase()}|${item.quantity}`
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
+  return uniqueItems(shopeeItems)
 }
 
 function extractItems(root) {
   const shopeeItems = extractShopeeItems(root)
   if (shopeeItems.length > 0) {
     return shopeeItems
+  }
+
+  const lineItems = extractLineItems(root)
+  if (lineItems.length > 0) {
+    return lineItems
   }
 
   const itemSelectors = [
@@ -167,7 +288,7 @@ function extractItems(root) {
     unique.push(candidate)
   }
 
-  return unique.slice(0, 20).map((candidate) => {
+  const fallbackItems = unique.slice(0, 20).map((candidate) => {
     const image = candidate.element.querySelector('img')
     const productName = deriveProductName(candidate.element) || cleanProductText(candidate.text) || 'Unknown item'
     return {
@@ -177,7 +298,13 @@ function extractItems(root) {
       quantity: parseQuantity(candidate.text),
       imageUrl: image?.src || null,
     }
-  })
+  }).filter((item) => item.productName !== 'Unknown item')
+
+  if (fallbackItems.length > 0) {
+    return uniqueItems(fallbackItems)
+  }
+
+  return extractAttributeItems(root)
 }
 
 function extractOrderFromRoot(root) {
@@ -191,7 +318,7 @@ function extractOrderFromRoot(root) {
   const trackingNumber =
     textOf(root.querySelector('.tracking-number-list .tracking-number, .tracking-number')) ||
     findLabelValue(root, ['no. resi', 'nomor resi', 'resi', 'tracking number', 'air waybill']) ||
-    firstMatch(fullText, [/(?:no\. resi|nomor resi|resi|tracking number|air waybill)[:\s#]*([A-Z0-9-]{8,})/i])
+    parseTrackingNumber(fullText)
 
   if (!orderNumber) {
     return null
@@ -208,30 +335,27 @@ function extractOrderFromRoot(root) {
     source: 'shopee',
     orderNumber,
     trackingNumber,
-    buyerUsername: textOf(root.querySelector('.buyer-username')) || findLabelValue(root, ['username pembeli', 'buyer username', 'pembeli']) || null,
+    buyerUsername: readBuyerUsername(root, fullText),
     shippingChannel,
     orderStatus: firstMatch(fullText, [/(?:status)\s*[:\-]\s*([A-Za-z ]{3,30})/i]) || null,
     rawPayload: { fullText: fullText.slice(0, 4000), orderSnText: orderSnText.slice(0, 200) },
-    items: items.length > 0 ? items : [{ sku: null, productName: 'Unknown item', variationName: null, quantity: 1, imageUrl: null }],
+    items,
   }
 }
 
 function extractOrders() {
   const containers = [
-    ...document.querySelectorAll('[data-testid^="package-card-"], .order-card, [data-testid="order-item"], [class*="OrderCard"], [class*="order-detail"]'),
+    ...document.querySelectorAll('[data-testid^="package-card-"], .order-card, [data-testid="order-item"], [class*="OrderCard"], [class*="order-detail"], [class*="product" i], [class*="item" i]'),
   ]
   const roots = containers.length > 0 ? containers : [document.body]
   const orders = roots.map(extractOrderFromRoot).filter(Boolean)
-  const seen = new Set()
+  const byOrderNumber = new Map()
 
-  return orders.filter((order) => {
-    if (seen.has(order.orderNumber)) {
-      return false
-    }
+  for (const order of orders) {
+    byOrderNumber.set(order.orderNumber, mergeOrderData(byOrderNumber.get(order.orderNumber), order))
+  }
 
-    seen.add(order.orderNumber)
-    return true
-  })
+  return [...byOrderNumber.values()]
 }
 
 function mergeOrdersByNumber(orderGroups) {
@@ -692,22 +816,26 @@ function normalizeText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase()
 }
 
+function normalizeUsername(value) {
+  return normalizeText(value).replace(/^@+/, '')
+}
+
 function findConversationTarget(username) {
   if (!isShopeeWebchatPage()) return null
 
-  const normalizedUsername = username.trim().toLowerCase()
+  const normalizedUsername = normalizeUsername(username)
   const candidates = [
     ...document.querySelectorAll(
-      '[data-testid*="conversation" i], [data-testid*="chat" i], [class*="conversation"], [class*="chat-item"], ' +
-        '[class*="user-item"], [class*="SW7LUhQFDH"], [class*="AxOomp7jNy"], [role="option"], [role="listitem"], li, a, button',
+      '[data-testid*="conversation" i], [data-testid*="chat" i], [class*="conversation" i], [class*="chat-item" i], ' +
+        '[class*="user-item" i], [class*="message-list" i], [class*="SW7LUhQFDH"], [class*="AxOomp7jNy"], [role="option"], [role="listitem"], li, a, button',
     ),
   ]
 
   for (const candidate of candidates) {
     if (!(candidate instanceof HTMLElement) || candidate.offsetParent === null) continue
     if (candidate.matches('input[type="checkbox"], input[type="radio"], [role="checkbox"]')) continue
-    const candidateText = textOf(candidate).toLowerCase()
-    if (!candidateText || candidateText.length > 160 || !candidateText.includes(normalizedUsername)) continue
+    const candidateText = normalizeUsername(textOf(candidate))
+    if (!candidateText || candidateText.length > 320 || !candidateText.includes(normalizedUsername)) continue
 
     const rect = candidate.getBoundingClientRect()
     if (rect.width < 20 || rect.height < 20) continue
@@ -734,7 +862,7 @@ function clickConversationTarget(target) {
 function findActiveConversationHeader(username, composer = null) {
   if (!isShopeeWebchatPage()) return null
 
-  const normalizedUsername = normalizeText(username)
+  const normalizedUsername = normalizeUsername(username)
   const composerRect = composer instanceof HTMLElement ? composer.getBoundingClientRect() : null
   const candidates = [
     ...document.querySelectorAll(
@@ -751,7 +879,7 @@ function findActiveConversationHeader(username, composer = null) {
       const inConversationPane = rect.left >= composerRect.left - 80 && rect.right <= composerRect.right + 80 && rect.bottom <= composerRect.top + 20
       if (!inConversationPane) continue
     }
-    const candidateText = normalizeText(candidate.textContent)
+    const candidateText = normalizeUsername(candidate.textContent)
     if (candidateText && candidateText.length <= 240 && candidateText.includes(normalizedUsername)) {
       return candidate
     }
