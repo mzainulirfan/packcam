@@ -20,10 +20,8 @@ import {
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
-import { readRecentShopeeChatSendsApi, readRecentShopeeOrdersApi, readRecentShippingChatSendsApi, readServerAdminStatusApi, retryShopeeChatSendApi, retryShippingChatSendApi } from '@pakti/api-client'
-import type { ChatSendStatus, RecordingChatSend, ShopeeOrder, ShippingChatSend } from '@pakti/types'
-import { ShopeeInspectionResultCard } from '../components/shopee/ShopeeInspectionResultCard'
-import { navigateTo } from '../app/uiState'
+import { readRecentShopeeChatSendsApi, readRecentShippingChatSendsApi, readServerAdminStatusApi, retryShopeeChatSendApi, retryShippingChatSendApi } from '@pakti/api-client'
+import type { ChatSendStatus, RecordingChatSend, ShippingChatSend } from '@pakti/types'
 
 type AdminStatus = Awaited<ReturnType<typeof readServerAdminStatusApi>>
 type ChatSendFilter = 'all' | ChatSendStatus
@@ -50,7 +48,6 @@ const QUEUE_PAGE_SIZE = 10
 
 export function ShopeePage() {
   const [adminStatus, setAdminStatus] = useState<AdminStatus | null>(null)
-  const [recentShopeeOrders, setRecentShopeeOrders] = useState<ShopeeOrder[]>([])
   const [recentChatSends, setRecentChatSends] = useState<RecordingChatSend[]>([])
   const [recentShippingChatSends, setRecentShippingChatSends] = useState<ShippingChatSend[]>([])
   const [queueMode, setQueueMode] = useState<QueueMode>('all')
@@ -122,15 +119,13 @@ export function ShopeePage() {
   }, [pageCount])
 
   async function loadShopeeData() {
-    const [status, orders, chatSends, shippingSends] = await Promise.all([
+    const [status, chatSends, shippingSends] = await Promise.all([
       readServerAdminStatusApi(),
-      readRecentShopeeOrdersApi(10),
       readRecentShopeeChatSendsApi(50),
       readRecentShippingChatSendsApi(50),
     ])
 
     setAdminStatus(status)
-    setRecentShopeeOrders(orders)
     setRecentChatSends(chatSends)
     setRecentShippingChatSends(shippingSends)
     setError(null)
@@ -145,7 +140,6 @@ export function ShopeePage() {
         .catch(() => {
           if (!active) return
           setAdminStatus(null)
-          setRecentShopeeOrders([])
           setRecentChatSends([])
           setRecentShippingChatSends([])
           setError('Sesi admin diperlukan atau server belum aktif.')
@@ -223,55 +217,25 @@ export function ShopeePage() {
     }
   }
 
-  async function handleCopyShopee(text: string) {
-    try {
-      await navigator.clipboard.writeText(text)
-    } catch {
-      const ta = document.createElement('textarea')
-      ta.value = text
-      ta.style.position = 'fixed'
-      ta.style.opacity = '0'
-      document.body.appendChild(ta)
-      ta.focus()
-      ta.select()
-      try { document.execCommand('copy') } catch { /* ignore */ }
-      ta.remove()
-    }
-  }
-
-  function handleVerifyInPakti(order: ShopeeOrder) {
-    const resi = order.trackingNumber?.trim()
-    if (resi) {
-      try { window.sessionStorage.setItem('pakti.shopeeVerifyResi', resi) } catch { /* ignore */ }
-    }
-    try { window.sessionStorage.setItem('pakti.shopeeVerifyOrder', order.orderNumber) } catch { /* ignore */ }
-    navigateTo('history')
-  }
-
-  function handleOpenShopee(order: ShopeeOrder) {
-    window.open('https://seller.shopee.co.id/portal/sale/order', '_blank', 'noopener,noreferrer')
-    void order
-  }
-
   return (
     <div className="shopee-page mx-auto max-w-[1240px] bg-[#f6f5f4] px-4 py-8 font-['Inter'] sm:px-6 lg:py-10 xl:px-8">
       <section className="mb-7 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div>
           <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Administrasi / Shopee</div>
           <h1 className="mt-2 text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">Shopee automation</h1>
-          <p className="mt-3 max-w-2xl text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Monitor order sync, hasil inspeksi, dan antrean pesan Shopee secara real-time.</p>
+          <p className="mt-3 max-w-2xl text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Monitor order sync dan antrean pesan Shopee secara real-time.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <span className={`inline-flex h-11 items-center justify-center gap-2 rounded-full border px-4 text-[14px] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.035)] ${automation?.extensionWorker ? 'border-[#e6e6e6] bg-white text-[#0075de]' : 'border-[#e6e6e6] bg-white text-[#615d59]'}`}>
+          <span className={`inline-flex h-11 items-center justify-center gap-2 rounded-full border px-4 text-[14px] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.035)] ${automation?.extensionWorker ? 'border-[#dddddd] bg-white text-[#0075de]' : 'border-[#dddddd] bg-white text-[#615d59]'}`}>
             <HugeiconsIcon icon={ShoppingBagCheckIcon} size={18} strokeWidth={1.9} /> {automation?.extensionWorker ? 'Automation Running' : loading ? 'Checking' : 'Automation Idle'}
           </span>
-          <Button type="button" variant="outline" onClick={() => void handleRefresh()} className="h-11 rounded-full border-[#e6e6e6] bg-white px-5 text-[14px] font-medium text-[#615d59] hover:bg-[#fbfaf9]">
+          <Button type="button" variant="outline" onClick={() => void handleRefresh()} className="h-11 rounded-full border-[#dddddd] bg-white px-5 text-[14px] font-medium text-[#615d59] hover:bg-[#fbfaf9]">
             <HugeiconsIcon icon={RefreshIcon} size={18} strokeWidth={1.9} /> Refresh
           </Button>
         </div>
       </section>
 
-      <Alert variant={error ? 'destructive' : 'info'} className="mb-5 rounded-[8px] border-[#e6e6e6] bg-white font-['Inter'] text-[14px]">
+      <Alert variant={error ? 'destructive' : 'info'} className="mb-5 rounded-[4px] border-[#dddddd] bg-white font-['Inter'] text-[14px]">
         <div className="grid gap-1">
           <p className="font-semibold text-[#000000]">Status</p>
           <p className="text-[#31302e]">{error ?? message}</p>
@@ -285,54 +249,25 @@ export function ShopeePage() {
         <ShopeeStat label="Failed" value={String(failedToday)} detail="Failed atau cancelled hari ini" icon={Alert01Icon} />
       </section>
 
-      <section className="mb-5 grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
-        <div className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
+      <section className="mb-5 overflow-hidden rounded-xl border border-[#dddddd] bg-white">
           <PanelHeader icon={Task01Icon} title="System activity" description="Status worker dan queue automation Shopee." />
-          <div className="grid gap-3 p-4 sm:grid-cols-3 sm:p-5 xl:grid-cols-1">
+          <div className="grid gap-3 p-4 sm:grid-cols-3 sm:p-5">
             <ActivityTile label="Webchat Worker" value={automation?.extensionWorker ? 'Active' : 'Offline'} detail={`heartbeat ${formatRelativeTime(automation?.extensionWorker?.updatedAt ?? null)}`} icon={Message01Icon} />
             <ActivityTile label="Video Queue" value={`${chatSendCounts.pending} pending`} detail={`${chatSendCounts.failed} failed`} icon={VideoReplayIcon} />
             <ActivityTile label="Shipping Queue" value={`${shippingChatCounts.pending} pending`} detail={`${shippingChatCounts.failed} failed`} icon={TruckDeliveryIcon} />
           </div>
-        </div>
-
-        <div className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
-          <div className="flex flex-col gap-3 border-b border-[#e6e6e6] p-4 sm:flex-row sm:items-start sm:justify-between sm:p-5">
-            <div className="flex min-w-0 gap-3">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]"><HugeiconsIcon icon={ShoppingBagCheckIcon} size={19} strokeWidth={1.9} /></span>
-              <div className="min-w-0">
-                <h2 className="text-[16px] font-semibold text-[#000000]">Hasil Inspek Shopee</h2>
-                <p className="mt-1 text-[12px] leading-5 text-[#a39e98]">Card hasil inspeksi seller.shopee.co.id yang terverifikasi di DB Pakti.</p>
-              </div>
-            </div>
-            <span className="inline-flex w-fit items-center rounded-full border border-[#e6e6e6] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#0075de]">{recentShopeeOrders.length} order · {automation?.orders.updatedToday ?? 0} hari ini</span>
-          </div>
-          <div className="grid gap-3 bg-[#fbfaf9] p-3 sm:p-4">
-            {recentShopeeOrders.length > 0 ? (
-              <div className="grid gap-3">
-                <ShopeeInspectionResultCard order={recentShopeeOrders[0]} verified updatedAtLabel={recentShopeeOrders[0].updatedAt ? new Date(recentShopeeOrders[0].updatedAt).toLocaleString('id-ID') : null} onCopy={(text) => void handleCopyShopee(text)} onVerify={handleVerifyInPakti} onOpenShopee={handleOpenShopee} />
-                {recentShopeeOrders.length > 1 ? <div className="grid gap-2 sm:grid-cols-2">{recentShopeeOrders.slice(1, 3).map((order) => <ShopeeInspectionResultCard key={order.id ?? order.orderNumber} order={order} variant="compact" verified onCopy={(text) => void handleCopyShopee(text)} onVerify={handleVerifyInPakti} onOpenShopee={handleOpenShopee} />)}</div> : null}
-                {recentShopeeOrders.length > 3 ? <p className="text-center text-[11px] text-[#a39e98]">+{recentShopeeOrders.length - 3} order lain. Buka History untuk grep lengkap.</p> : null}
-              </div>
-            ) : (
-              <div className="grid place-items-center gap-2 rounded-[12px] border border-dashed border-[#e6e6e6] bg-white px-4 py-8 text-center">
-                <p className="text-[14px] font-semibold text-[#000000]">Belum ada order Shopee</p>
-                <p className="max-w-[36ch] text-[12px] leading-5 text-[#615d59]">Buka seller.shopee.co.id, jalankan extension Pakti, lalu Sync. Hasil akan muncul di card ini.</p>
-              </div>
-            )}
-          </div>
-        </div>
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
-        <div className="border-b border-[#e6e6e6] p-4 sm:p-5">
+      <section className="overflow-hidden rounded-xl border border-[#dddddd] bg-white">
+        <div className="border-b border-[#dddddd] p-4 sm:p-5">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
             <label className="relative flex min-w-[240px] flex-1">
               <span className="pointer-events-none absolute inset-y-0 left-0 grid w-10 place-items-center text-[#a39e98]"><HugeiconsIcon icon={Search01Icon} size={18} strokeWidth={1.9} /></span>
-              <Input value={queueSearch} onChange={(event) => setQueueSearch(event.target.value)} placeholder="Cari buyer / order / pesan..." className="h-10 w-full rounded-[8px] border-[#e6e6e6] bg-white pl-10 pr-3 text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#CFCBC7] focus-visible:ring-0" aria-label="Cari buyer, order, atau pesan" />
+              <Input value={queueSearch} onChange={(event) => setQueueSearch(event.target.value)} placeholder="Cari buyer / order / pesan..." className="h-10 w-full rounded-[4px] border-[#dddddd] bg-white pl-10 pr-3 text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#CFCBC7] focus-visible:ring-0" aria-label="Cari buyer, order, atau pesan" />
             </label>
             <div className="flex flex-wrap gap-2">
-              <div className="flex flex-wrap rounded-lg border border-[#e6e6e6] bg-[#f6f5f4] p-1">
-                {QUEUE_MODE_OPTIONS.map((option) => <Button key={option.value} type="button" variant="ghost" size="sm" className={`h-8 rounded-[6px] px-3 text-[13px] font-medium ${queueMode === option.value ? 'bg-white text-[#000000] shadow-sm' : 'text-[#615d59] hover:bg-white/70'}`} onClick={() => setQueueMode(option.value)}>{option.label}</Button>)}
+              <div className="flex flex-wrap rounded-lg border border-[#dddddd] bg-[#f6f5f4] p-1">
+                {QUEUE_MODE_OPTIONS.map((option) => <Button key={option.value} type="button" variant="ghost" size="sm" className={`h-8 rounded-[4px] px-3 text-[13px] font-medium ${queueMode === option.value ? 'bg-white text-[#000000] shadow-sm' : 'text-[#615d59] hover:bg-white/70'}`} onClick={() => setQueueMode(option.value)}>{option.label}</Button>)}
               </div>
               <StatusFilter id="shopee-queue-status-filter" value={queueStatusFilter} counts={queueStatusCounts} total={modeFilteredQueueItems.length} onChange={setQueueStatusFilter} />
               <Button type="button" variant="ghost" size="sm" className="h-10 rounded-lg px-3 text-[13px] font-medium text-[#615d59] hover:bg-[#f6f5f4]" onClick={handleClearQueueFilters} aria-label="Reset filter" title="Reset filter"><HugeiconsIcon icon={Delete02Icon} size={16} strokeWidth={1.9} /> Reset</Button>
@@ -341,7 +276,7 @@ export function ShopeePage() {
         </div>
         <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-5">
           <div><h2 className="text-[16px] font-semibold text-[#000000]">Chat Queue</h2><p className="mt-1 text-[12px] text-[#a39e98]">{activeTotal} jobs dalam antrean filter saat ini.</p></div>
-          <span className="inline-flex items-center rounded-full border border-[#e6e6e6] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#0075de]">{activeTotal} jobs</span>
+          <span className="inline-flex items-center rounded-full border border-[#dddddd] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#0075de]">{activeTotal} jobs</span>
         </div>
         <QueueTable jobs={pagedQueueItems} retryingId={retryingId} onRetryVideo={handleRetryVideoChat} onRetryShipping={handleRetryShippingChat} />
         {activeTotal > QUEUE_PAGE_SIZE ? <PaginationControls page={Math.min(queuePage, pageCount)} pageCount={pageCount} total={activeTotal} pageSize={QUEUE_PAGE_SIZE} onPageChange={setQueuePage} onPrevious={() => setQueuePage((current) => Math.max(1, current - 1))} onNext={() => setQueuePage((current) => Math.min(pageCount, current + 1))} /> : null}
@@ -352,7 +287,7 @@ export function ShopeePage() {
 
 function ShopeeStat({ label, value, detail, icon }: { label: string; value: string; detail: string; icon: typeof ShoppingBag01Icon }) {
   return (
-    <article className="rounded-xl border border-[#e6e6e6] bg-white p-5">
+    <article className="rounded-xl border border-[#dddddd] bg-white p-5">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div>
@@ -367,7 +302,7 @@ function ShopeeStat({ label, value, detail, icon }: { label: string; value: stri
 
 function PanelHeader({ icon, title, description }: { icon: typeof ShoppingBag01Icon; title: string; description: string }) {
   return (
-    <div className="flex items-start gap-3 border-b border-[#e6e6e6] px-4 py-4 sm:px-5">
+    <div className="flex items-start gap-3 border-b border-[#dddddd] px-4 py-4 sm:px-5">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]"><HugeiconsIcon icon={icon} size={19} strokeWidth={1.9} /></span>
       <div className="min-w-0"><h2 className="text-[16px] font-semibold text-[#000000]">{title}</h2><p className="mt-1 text-[12px] leading-5 text-[#a39e98]">{description}</p></div>
     </div>
@@ -375,12 +310,12 @@ function PanelHeader({ icon, title, description }: { icon: typeof ShoppingBag01I
 }
 
 function ActivityTile({ label, value, detail, icon }: { label: string; value: string; detail: string; icon: typeof ShoppingBag01Icon }) {
-  return <div className="rounded-[12px] border border-[#e6e6e6] bg-[#f6f5f4] p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</p><p className="mt-2 text-[16px] font-semibold text-[#000000]">{value}</p><p className="mt-1 text-[12px] text-[#615d59]">{detail}</p></div><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-[#31302e]"><HugeiconsIcon icon={icon} size={17} strokeWidth={1.9} /></span></div></div>
+  return <div className="rounded-[12px] border border-[#dddddd] bg-[#f6f5f4] p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</p><p className="mt-2 text-[16px] font-semibold text-[#000000]">{value}</p><p className="mt-1 text-[12px] text-[#615d59]">{detail}</p></div><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-[#31302e]"><HugeiconsIcon icon={icon} size={17} strokeWidth={1.9} /></span></div></div>
 }
 
 function StatusFilter({ id, value, counts, total, onChange }: { id: string; value: ChatSendFilter; counts: Record<ChatSendStatus, number>; total: number; onChange: (value: ChatSendFilter) => void }) {
   return (
-    <label htmlFor={id} className="relative inline-flex h-10 items-center rounded-lg border border-[#e6e6e6] bg-white text-[#000000]">
+    <label htmlFor={id} className="relative inline-flex h-10 items-center rounded-lg border border-[#dddddd] bg-white text-[#000000]">
       <select id={id} value={value} onChange={(event) => onChange(event.target.value as ChatSendFilter)} className="h-full min-w-[190px] appearance-none rounded-lg bg-transparent px-3 pr-9 text-[13px] font-medium focus:outline-none focus:ring-0">
         <option value="all">Status: All ({total})</option>
         {CHAT_SEND_STATUSES.map((status) => <option key={status} value={status}>{status} ({counts[status]})</option>)}
@@ -426,7 +361,7 @@ function QueueTable({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-8 rounded-lg border-[#e6e6e6] bg-white px-3 text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]"
+                    className="h-8 rounded-lg border-[#dddddd] bg-white px-3 text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]"
                     disabled={retryingId === job.id}
                     onClick={() => void (job.type === 'video' ? onRetryVideo(job.id) : onRetryShipping(job.id))}
                   >
@@ -464,12 +399,12 @@ function PaginationControls({
   const last = Math.min(total, page * pageSize)
 
   return (
-    <div className="flex flex-col gap-3 border-t border-[#e6e6e6] px-5 py-3 text-[13px] text-[#615d59] sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 border-t border-[#dddddd] px-5 py-3 text-[13px] text-[#615d59] sm:flex-row sm:items-center sm:justify-between">
       <span>
         {total === 0 ? '0 job' : <>Menampilkan <span>{first}-{last}</span> dari <span>{total}</span> job</>}
       </span>
       <div className="flex flex-wrap items-center gap-1">
-        <Button type="button" variant="outline" size="sm" className="h-8 min-w-8 rounded-lg border-[#e6e6e6] bg-white px-2" disabled={page <= 1} onClick={onPrevious}>
+        <Button type="button" variant="outline" size="sm" className="h-8 min-w-8 rounded-lg border-[#dddddd] bg-white px-2" disabled={page <= 1} onClick={onPrevious}>
           ‹
         </Button>
         {buildPageItems(page, pageCount).map((item, index) => item === '…' ? (
@@ -480,13 +415,13 @@ function PaginationControls({
             type="button"
             variant={item === page ? 'default' : 'outline'}
             size="sm"
-            className={`h-8 min-w-8 rounded-lg px-2 text-[12px] ${item === page ? 'bg-[#0075de] text-white hover:bg-[#005bab]' : 'border-[#e6e6e6] bg-white text-[#615d59]'}`}
+            className={`h-8 min-w-8 rounded-lg px-2 text-[12px] ${item === page ? 'bg-[#0075de] text-white hover:bg-[#005bab]' : 'border-[#dddddd] bg-white text-[#615d59]'}`}
             onClick={() => onPageChange(item)}
           >
             {item}
           </Button>
         ))}
-        <Button type="button" variant="outline" size="sm" className="h-8 min-w-8 rounded-lg border-[#e6e6e6] bg-white px-2" disabled={page >= pageCount} onClick={onNext}>
+        <Button type="button" variant="outline" size="sm" className="h-8 min-w-8 rounded-lg border-[#dddddd] bg-white px-2" disabled={page >= pageCount} onClick={onNext}>
           ›
         </Button>
       </div>
@@ -512,7 +447,7 @@ function buildPageItems(currentPage: number, pageCount: number) {
 function StatusBadge({ status }: { status: ChatSendStatus }) {
   const isBad = status === 'failed' || status === 'cancelled'
   const isGood = status === 'sent'
-  return <span className={`inline-flex rounded-[5px] border px-2 py-1 text-[12px] font-medium ${isBad ? 'border-[#f2c8a4] bg-[#fff7ed] text-[#dd5b00]' : isGood ? 'border-[#e6e6e6] bg-white text-[#0075de]' : 'border-[#e6e6e6] bg-white text-[#615d59]'}`}>{status}</span>
+  return <span className={`inline-flex rounded-[4px] border px-2 py-1 text-[12px] font-medium ${isBad ? 'border-[#f2c8a4] bg-[#fff7ed] text-[#dd5b00]' : isGood ? 'border-[#dddddd] bg-white text-[#0075de]' : 'border-[#dddddd] bg-white text-[#615d59]'}`}>{status}</span>
 }
 
 function Th({ children, className = '' }: { children: ReactNode; className?: string }) {

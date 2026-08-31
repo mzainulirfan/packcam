@@ -300,7 +300,7 @@ export function SettingsPage() {
           <h1 className="mt-2 text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">Pengaturan sistem</h1>
           <p className="mt-3 max-w-2xl text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Atur folder video, kualitas rekaman, kamera default, dan identitas aplikasi dari satu tempat.</p>
         </div>
-        <span className={`inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full border px-5 text-[14px] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.035)] ${serverStatus === 'online' ? 'border-[#e6e6e6] bg-white text-[#0075de]' : serverStatus === 'offline' ? 'border-[#f2c8a4] bg-[#fff7ed] text-[#dd5b00]' : 'border-[#e6e6e6] bg-white text-[#615d59]'}`}>
+        <span className={`inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full border px-5 text-[14px] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.035)] ${serverStatus === 'online' ? 'border-[#dddddd] bg-white text-[#0075de]' : serverStatus === 'offline' ? 'border-[#f2c8a4] bg-[#fff7ed] text-[#dd5b00]' : 'border-[#dddddd] bg-white text-[#615d59]'}`}>
           <HugeiconsIcon icon={CloudServerIcon} size={18} strokeWidth={1.9} /> {serverStatusLabel}
         </span>
       </section>
@@ -312,7 +312,7 @@ export function SettingsPage() {
       </section>
 
       {shouldShowStatusAlert ? (
-        <Alert variant={statusAlertVariant} className="mb-5 rounded-[8px] border-[#e6e6e6] bg-white font-['Inter'] text-[14px]">
+        <Alert variant={statusAlertVariant} className="mb-5 rounded-[4px] border-[#dddddd] bg-white font-['Inter'] text-[14px]">
           <div className="grid gap-1">
             <p className="font-semibold text-[#000000]">Status pengaturan</p>
             {serverStatus === 'offline' ? <p className="text-[#31302e]">{sourceMessage}</p> : null}
@@ -323,26 +323,26 @@ export function SettingsPage() {
       ) : null}
 
       <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-        <section className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
+        <section className="overflow-hidden rounded-xl border border-[#dddddd] bg-white">
           <PanelHeader icon={VideoReplayIcon} title="Operational" description="Konfigurasi rekaman, folder penyimpanan, dan kamera default." badge={operationalSavedAt || 'Belum tersimpan'} />
           <div className="grid gap-5 p-4 sm:p-5">
-            <div className="rounded-[12px] border border-[#e6e6e6] bg-[#f6f5f4] p-4">
+            <div className="rounded-[12px] border border-[#dddddd] bg-[#f6f5f4] p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Folder video</div>
                   <p className="mt-2 break-all text-[14px] font-medium text-[#000000]">{settings.videoRootPath}</p>
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={() => void handleCopyVideoFolder()} className="h-9 rounded-lg border-[#e6e6e6] bg-white px-3 text-[13px] font-medium text-[#615d59] hover:bg-[#f6f5f4]">
+                  <Button type="button" variant="outline" size="sm" onClick={() => void handleCopyVideoFolder()} className="h-9 rounded-lg border-[#dddddd] bg-white px-3 text-[13px] font-medium text-[#615d59] hover:bg-[#f6f5f4]">
                     <HugeiconsIcon icon={Copy01Icon} size={15} strokeWidth={1.9} /> Copy
                   </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={handleOpenVideoFolder} className="h-9 rounded-lg border-[#e6e6e6] bg-white px-3 text-[13px] font-medium text-[#615d59] hover:bg-[#f6f5f4]">
+                  <Button type="button" variant="outline" size="sm" onClick={handleOpenVideoFolder} className="h-9 rounded-lg border-[#dddddd] bg-white px-3 text-[13px] font-medium text-[#615d59] hover:bg-[#f6f5f4]">
                     <HugeiconsIcon icon={FolderOpenIcon} size={15} strokeWidth={1.9} /> Buka
                   </Button>
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => void handleChooseVideoFolder()} className="h-9 rounded-lg border-[#e6e6e6] bg-white px-3 text-[13px] font-medium text-[#000000] hover:bg-[#fbfaf9]">
+                <Button type="button" variant="outline" size="sm" onClick={() => void handleChooseVideoFolder()} className="h-9 rounded-lg border-[#dddddd] bg-white px-3 text-[13px] font-medium text-[#000000] hover:bg-[#fbfaf9]">
                   <HugeiconsIcon icon={FolderOpenIcon} size={15} strokeWidth={1.9} /> Pilih folder
                 </Button>
                 <Button type="button" variant="ghost" size="sm" onClick={handleResetOperational} className="h-9 rounded-lg px-3 text-[13px] font-medium text-[#615d59] hover:bg-white">
@@ -359,13 +359,13 @@ export function SettingsPage() {
                 </NativeSelect>
               </FieldGroup>
               <FieldGroup controlId="settings-resolution-input" label="Resolusi video">
-                <Input id="settings-resolution-input" value={settings.videoResolution} onChange={(event) => updateField('videoResolution', event.target.value)} placeholder={DEFAULT_VIDEO_RESOLUTION} className="h-10 rounded-[5px] border-[#e6e6e6] bg-white px-3 text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+                <Input id="settings-resolution-input" value={settings.videoResolution} onChange={(event) => updateField('videoResolution', event.target.value)} placeholder={DEFAULT_VIDEO_RESOLUTION} className="h-10 rounded-[4px] border-[#dddddd] bg-white px-3 text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
               </FieldGroup>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <FieldGroup controlId="settings-bitrate-input" label="Bitrate video">
-                <Input id="settings-bitrate-input" value={settings.videoBitrate} onChange={(event) => updateField('videoBitrate', event.target.value)} placeholder={DEFAULT_VIDEO_BITRATE} className="h-10 rounded-[5px] border-[#e6e6e6] bg-white px-3 text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+                <Input id="settings-bitrate-input" value={settings.videoBitrate} onChange={(event) => updateField('videoBitrate', event.target.value)} placeholder={DEFAULT_VIDEO_BITRATE} className="h-10 rounded-[4px] border-[#dddddd] bg-white px-3 text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
               </FieldGroup>
               <FieldGroup controlId="settings-camera-input" label="Kamera default">
                 <NativeSelect id="settings-camera-input" value={settings.cameraDeviceId || '__default__'} onChange={(value) => updateField('cameraDeviceId', value === '__default__' ? '' : value)}>
@@ -377,12 +377,12 @@ export function SettingsPage() {
               </FieldGroup>
             </div>
 
-            <label htmlFor="settings-auto-open-input" className="flex items-start gap-3 rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] p-3 text-[14px] text-[#31302e]">
+            <label htmlFor="settings-auto-open-input" className="flex items-start gap-3 rounded-[4px] border border-[#dddddd] bg-[#f6f5f4] p-3 text-[14px] text-[#31302e]">
               <input id="settings-auto-open-input" type="checkbox" checked={settings.autoOpenFolder} onChange={(event) => updateField('autoOpenFolder', event.target.checked)} className="mt-0.5 size-4 accent-[#0075de]" />
               <span>Aktifkan pembukaan folder otomatis setelah rekaman tersimpan.</span>
             </label>
 
-            <div className="flex justify-end border-t border-[#e6e6e6] pt-4">
+            <div className="flex justify-end border-t border-[#dddddd] pt-4">
               <Button type="button" onClick={handleSave} className="h-10 rounded-full bg-[#0075de] px-5 text-[13px] font-medium text-white hover:bg-[#005bab]">
                 <HugeiconsIcon icon={CheckmarkCircle01Icon} size={16} strokeWidth={1.9} /> Simpan settings
               </Button>
@@ -390,20 +390,20 @@ export function SettingsPage() {
           </div>
         </section>
 
-        <section className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
+        <section className="overflow-hidden rounded-xl border border-[#dddddd] bg-white">
           <PanelHeader icon={Settings01Icon} title="Branding" description="Identitas aplikasi yang tampil di sidebar dan metadata sistem." badge={brandingSavedAt || 'Belum tersimpan'} />
           <div className="grid gap-4 p-4 sm:p-5">
             <FieldGroup controlId="branding-app-name-input" label="Nama aplikasi">
-              <Input id="branding-app-name-input" value={systemConfig.appName} onChange={(event) => updateBrandingField('appName', event.target.value)} placeholder={DEFAULT_SYSTEM_CONFIG.appName} className="h-10 rounded-[5px] border-[#e6e6e6] bg-white px-3 text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+              <Input id="branding-app-name-input" value={systemConfig.appName} onChange={(event) => updateBrandingField('appName', event.target.value)} placeholder={DEFAULT_SYSTEM_CONFIG.appName} className="h-10 rounded-[4px] border-[#dddddd] bg-white px-3 text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
             </FieldGroup>
             <FieldGroup controlId="branding-tagline-input" label="Tagline">
-              <Input id="branding-tagline-input" value={systemConfig.tagline} onChange={(event) => updateBrandingField('tagline', event.target.value)} placeholder={DEFAULT_SYSTEM_CONFIG.tagline} className="h-10 rounded-[5px] border-[#e6e6e6] bg-white px-3 text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+              <Input id="branding-tagline-input" value={systemConfig.tagline} onChange={(event) => updateBrandingField('tagline', event.target.value)} placeholder={DEFAULT_SYSTEM_CONFIG.tagline} className="h-10 rounded-[4px] border-[#dddddd] bg-white px-3 text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
             </FieldGroup>
             <FieldGroup controlId="branding-mark-input" label="Brand mark">
-              <Input id="branding-mark-input" value={systemConfig.brandMark} onChange={(event) => updateBrandingField('brandMark', event.target.value)} placeholder={DEFAULT_SYSTEM_CONFIG.brandMark} className="h-10 rounded-[5px] border-[#e6e6e6] bg-white px-3 text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+              <Input id="branding-mark-input" value={systemConfig.brandMark} onChange={(event) => updateBrandingField('brandMark', event.target.value)} placeholder={DEFAULT_SYSTEM_CONFIG.brandMark} className="h-10 rounded-[4px] border-[#dddddd] bg-white px-3 text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
             </FieldGroup>
 
-            <div className="mt-1 rounded-[12px] border border-[#e6e6e6] bg-[#f6f5f4] p-4">
+            <div className="mt-1 rounded-[12px] border border-[#dddddd] bg-[#f6f5f4] p-4">
               <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Preview</div>
               <div className="mt-3 flex items-center gap-3">
                 <div className="grid h-9 w-9 place-items-center rounded-lg bg-black text-[12px] font-bold text-white">{systemConfig.brandMark || DEFAULT_SYSTEM_CONFIG.brandMark}</div>
@@ -414,8 +414,8 @@ export function SettingsPage() {
               </div>
             </div>
 
-            <div className="flex flex-wrap justify-end gap-2 border-t border-[#e6e6e6] pt-4">
-              <Button type="button" variant="ghost" onClick={handleResetBranding} className="h-10 rounded-lg border border-[#e6e6e6] bg-white px-4 text-[13px] font-medium text-[#615d59] hover:bg-[#f6f5f4]">
+            <div className="flex flex-wrap justify-end gap-2 border-t border-[#dddddd] pt-4">
+              <Button type="button" variant="ghost" onClick={handleResetBranding} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 text-[13px] font-medium text-[#615d59] hover:bg-[#f6f5f4]">
                 <HugeiconsIcon icon={RefreshIcon} size={16} strokeWidth={1.9} /> Reset branding
               </Button>
               <Button type="button" onClick={handleSaveBranding} className="h-10 rounded-full bg-[#0075de] px-5 text-[13px] font-medium text-white hover:bg-[#005bab]">

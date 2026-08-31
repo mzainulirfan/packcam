@@ -752,82 +752,87 @@ export function HistoryPage() {
   }
 
   return (
-    <div className="history-page mx-auto max-w-[1240px] bg-[#f6f5f4] px-4 py-8 font-['Inter'] sm:px-6 lg:py-8 xl:px-8">
-      <section className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <div className="history-page mx-auto max-w-[1240px] bg-[#f6f5f4] px-4 py-8 font-['Inter'] sm:px-6 lg:py-10 xl:px-8">
+      <section className="mb-7 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div>
-          <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Operasional / History</div>
-          <h1 className="mt-2 font-['Inter'] text-[32px] font-bold leading-[1.1] tracking-[-0.7px] text-[#000000] sm:text-[34px]">History Dokumentasi</h1>
-          <p className="mt-2 max-w-2xl font-['Inter'] text-[14px] leading-6 text-[#615d59]">Telusuri dokumentasi QC dan packing berdasarkan resi, pesanan, operator, atau periode.</p>
+          <div className="font-['Inter'] text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Operasional / History</div>
+          <h1 className="mt-2 font-['Inter'] text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">History Dokumentasi</h1>
+          <p className="mt-3 max-w-2xl font-['Inter'] text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Telusuri dokumentasi QC dan packing berdasarkan resi, pesanan, operator, periode, atau status pengiriman.</p>
         </div>
         <div ref={exportRef} className="relative flex shrink-0 items-center gap-2">
-          <span className="hidden font-['Inter'] text-[12px] text-[#a39e98] sm:inline">{groupedRecordings.length} hasil</span>
-          <Button type="button" onClick={() => setIsExportOpen((v) => !v)} className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-[#0075de] px-4 font-['Inter'] text-[13px] font-medium text-white shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.035)] hover:bg-[#005bab] active:scale-[0.98]">
-            <HugeiconsIcon icon={Download01Icon} size={16} strokeWidth={1.9} /> Export <HugeiconsIcon icon={ArrowDown01Icon} size={14} strokeWidth={1.9} />
-          </Button>
-          {isExportOpen ? (
-            <div className="absolute right-0 top-[calc(100%+8px)] z-20 w-[280px] overflow-hidden rounded-xl border border-[#e6e6e6] bg-white shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
-              <div className="border-b border-[#e6e6e6] bg-[#fbfaf9] px-3 py-2">
-                <p className="font-['Inter'] text-[12px] font-semibold text-[#000000]">Export {exportSummaryLabel}</p>
-                <p className="font-['Inter'] text-[11px] text-[#615d59]">Mengikuti filter aktif</p>
+          <Button type="button" onClick={() => setIsExportOpen((v) => !v)} className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-[#0075de] px-5 font-['Inter'] text-[14px] font-medium text-white shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.035)] hover:bg-[#005bab] active:scale-[0.98]">
+              <HugeiconsIcon icon={Download01Icon} size={16} strokeWidth={1.9} /> Export <HugeiconsIcon icon={ArrowDown01Icon} size={14} strokeWidth={1.9} />
+            </Button>
+            {isExportOpen ? (
+              <div className="absolute right-0 top-[calc(100%+8px)] z-20 w-[280px] overflow-hidden rounded-xl border border-[#dddddd] bg-white shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+                <div className="border-b border-[#dddddd] bg-[#fbfaf9] px-3 py-2">
+                  <p className="font-['Inter'] text-[12px] font-semibold text-[#000000]">Export {exportSummaryLabel}</p>
+                  <p className="font-['Inter'] text-[11px] text-[#615d59]">Mengikuti filter aktif</p>
+                </div>
+                <div className="grid gap-1 p-1">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"
+                    onClick={() => {
+                      handleExportCsv()
+                      setIsExportOpen(false)
+                    }}
+                  >
+                    Export CSV <HugeiconsIcon icon={Download01Icon} size={14} strokeWidth={1.9} />
+                  </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"
+                    onClick={() => {
+                      handleExportExcel()
+                      setIsExportOpen(false)
+                    }}
+                  >
+                    Export Excel <HugeiconsIcon icon={Download01Icon} size={14} strokeWidth={1.9} />
+                  </button>
+                </div>
               </div>
-              <div className="grid gap-1 p-1">
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"
-                  onClick={() => {
-                    handleExportCsv()
-                    setIsExportOpen(false)
-                  }}
-                >
-                  Export CSV <HugeiconsIcon icon={Download01Icon} size={14} strokeWidth={1.9} />
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"
-                  onClick={() => {
-                    handleExportExcel()
-                    setIsExportOpen(false)
-                  }}
-                >
-                  Export Excel <HugeiconsIcon icon={Download01Icon} size={14} strokeWidth={1.9} />
-                </button>
-              </div>
-            </div>
-          ) : null}
+            ) : null}
         </div>
       </section>
 
       <section className="grid gap-3 sm:grid-cols-3">
-        <article className="flex h-[96px] flex-col justify-between rounded-xl border border-[#e6e6e6] bg-white p-4">
-          <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Total dokumentasi</div>
-          <div className="flex items-end justify-between">
-            <div className="flex items-baseline gap-1.5">
-              <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{groupedRecordings.length}</span>
-              <span className="font-['Inter'] text-[12px] text-[#615d59]">paket</span>
+        <article className="rounded-xl border border-[#dddddd] bg-white p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Total dokumentasi</div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{groupedRecordings.length}</span>
+                <span className="font-['Inter'] text-[13px] text-[#615d59]">paket</span>
+              </div>
             </div>
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
               <HugeiconsIcon icon={Package01Icon} size={18} strokeWidth={1.9} />
             </span>
           </div>
         </article>
-        <article className="flex h-[96px] flex-col justify-between rounded-xl border border-[#e6e6e6] bg-white p-4">
-          <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Dokumentasi lengkap</div>
-          <div className="flex items-end justify-between">
-            <div className="flex items-baseline gap-1.5">
-              <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{historyMetrics.completed}</span>
-              <span className="font-['Inter'] text-[12px] text-[#615d59]">{groupedRecordings.length ? `${Math.round((historyMetrics.completed / groupedRecordings.length) * 100)}%` : '0%'}</span>
+        <article className="rounded-xl border border-[#dddddd] bg-white p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Dokumentasi lengkap</div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{historyMetrics.completed}</span>
+                <span className="font-['Inter'] text-[13px] text-[#615d59]">{groupedRecordings.length ? `${Math.round((historyMetrics.completed / groupedRecordings.length) * 100)}%` : '0%'}</span>
+              </div>
             </div>
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
               <HugeiconsIcon icon={Tick02Icon} size={18} strokeWidth={1.9} />
             </span>
           </div>
         </article>
-        <article className="flex h-[96px] flex-col justify-between rounded-xl border border-[#e6e6e6] bg-white p-4">
-          <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Perlu perhatian</div>
-          <div className="flex items-end justify-between">
-            <div className="flex items-baseline gap-1.5">
-              <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{historyMetrics.incomplete}</span>
-              <span className="font-['Inter'] text-[12px] text-[#615d59]">paket</span>
+        <article className="rounded-xl border border-[#dddddd] bg-white p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Perlu perhatian</div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{historyMetrics.incomplete}</span>
+                <span className="font-['Inter'] text-[13px] text-[#615d59]">paket</span>
+              </div>
             </div>
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
               <HugeiconsIcon icon={Clock01Icon} size={18} strokeWidth={1.9} />
@@ -836,40 +841,39 @@ export function HistoryPage() {
         </article>
       </section>
 
-        <HistoryFilters
-          searchText={searchText}
-          taskFilter={taskFilter}
-          operatorFilter={operatorFilter}
-          dateFrom={dateFrom}
-          dateTo={dateTo}
-          isAdmin={isAdmin}
-          operatorOptions={operatorOptions}
-          onSearchTextChange={handleTextChange}
-          onTaskFilterChange={handleTaskChange}
-          onOperatorFilterChange={handleOperatorChange}
-          onDateChange={handleDateChange}
-          onClearFilters={clearFilters}
-        />
-
-        {packingSessionFilter ? (
-          <div className="mt-5 flex flex-col gap-3 rounded-xl border border-[#e6e6e6] bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="font-['Inter'] text-[13px] text-[#31302e]">
-              Filter sesi: <span className="font-['Inter'] font-semibold text-[#000000]">{packingSessionFilter.slice(0, 8)}</span> — hanya rekaman packing untuk sesi ini.
-            </p>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setPackingSessionFilter(null)} className="h-8 rounded-full border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">
-              <HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={1.9} /> Clear
-            </Button>
-          </div>
-        ) : null}
+      {packingSessionFilter ? (
+        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-[#dddddd] bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="font-['Inter'] text-[13px] text-[#31302e]">
+            Filter sesi: <span className="font-['Inter'] font-semibold text-[#000000]">{packingSessionFilter.slice(0, 8)}</span> — hanya rekaman packing untuk sesi ini.
+          </p>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setPackingSessionFilter(null)} className="h-8 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">
+            <HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={1.9} /> Clear
+          </Button>
+        </div>
+      ) : null}
 
         <div className="mt-5 grid gap-4 min-w-0">
-          <section className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
-            <div className="flex items-center justify-between gap-4 border-b border-[#e6e6e6] px-4 py-4 sm:px-5">
+          <section className="overflow-hidden rounded-xl border border-[#dddddd] bg-white">
+            <HistoryFilters
+              searchText={searchText}
+              taskFilter={taskFilter}
+              operatorFilter={operatorFilter}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              isAdmin={isAdmin}
+              operatorOptions={operatorOptions}
+              onSearchTextChange={handleTextChange}
+              onTaskFilterChange={handleTaskChange}
+              onOperatorFilterChange={handleOperatorChange}
+              onDateChange={handleDateChange}
+              onClearFilters={clearFilters}
+            />
+            <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-5">
               <div>
                 <h2 className="font-['Inter'] text-[16px] font-semibold text-[#000000]">Dokumentasi paket</h2>
                 <p className="mt-1 font-['Inter'] text-[12px] text-[#a39e98]">{isRefreshingHistory ? 'Memperbarui data terbaru...' : 'Klik nomor resi atau baris untuk melihat detail dokumentasi.'}</p>
               </div>
-              <span className="hidden items-center rounded-full border border-[#e6e6e6] bg-white px-2.5 py-1 font-['Inter'] text-[11px] font-semibold text-[#0075de] sm:inline-flex">{groupedRecordings.length} hasil</span>
+              <span className="inline-flex items-center rounded-full border border-[#dddddd] bg-white px-2.5 py-1 font-['Inter'] text-[11px] font-semibold text-[#0075de]">{groupedRecordings.length} hasil</span>
             </div>
             <div className="min-w-0 p-0">
               {isLoadingHistory ? <HistorySkeleton /> : null}
@@ -886,7 +890,7 @@ export function HistoryPage() {
                 </div>
               ) : null}
 
-              <div className="divide-y divide-[#e6e6e6] md:hidden">
+              <div className="divide-y divide-[#e6e6e6] bg-white md:hidden">
                 {!isLoadingHistory && !historyError && pageItems.length ? (
                   pageItems.map((group) => {
                     const isSelected = group.latest.id === selectedRecord?.id
@@ -895,15 +899,15 @@ export function HistoryPage() {
                       <article
                         key={group.resiNumber}
                         onClick={() => openDetail(group.latest)}
-                        className={`grid cursor-pointer gap-3 p-4 ${isSelected ? 'bg-[#f6f5f4] border-l-[3px] border-l-[#0075de]' : 'bg-white border-l-[3px] border-l-transparent hover:bg-[#fbfaf9]'} border-b border-[#e6e6e6]`}
+                        className={`grid cursor-pointer gap-3 border-l-[3px] p-4 transition-colors ${isSelected ? 'border-l-[#0075de] bg-[#f6f5f4]' : 'border-l-transparent bg-white hover:bg-[#fbfaf9]'}`}
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <div className="grid gap-0.5 min-w-0">
-                            <span className="font-['Inter'] text-[14px] font-semibold leading-none text-[#000000]">{group.resiNumber}</span>
+                          <div className="grid min-w-0 gap-0.5">
+                            <span className="font-['Inter'] text-[14px] font-semibold leading-tight text-[#000000]">{group.resiNumber}</span>
                             {shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())?.orderNumber ? (
-                              <span className="font-['Inter'] text-[12px] font-normal leading-none text-[#615d59]">{shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())!.orderNumber}</span>
+                              <span className="truncate font-['Inter'] text-[12px] text-[#615d59]">{shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())!.orderNumber}</span>
                             ) : null}
-                            <span className="font-['Inter'] text-[11px] font-normal text-[#a39e98]">{formatCompactDateTime(group.latest.updatedAt)}</span>
+                            <span className="font-['Inter'] text-[11px] text-[#a39e98]">{formatCompactDateTime(group.latest.updatedAt)}</span>
                           </div>
                           <div className="flex flex-col items-end gap-1">
                             <DocumentationStatus group={group} />
@@ -914,12 +918,12 @@ export function HistoryPage() {
                         </div>
 
                         <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-black text-[11px] font-semibold text-white">{getInitials(formatOperatorForCurrentSession(group.latest.operatorName, group.latest.operatorCode, currentOperatorName, currentOperatorCode))}</span>
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#000000] text-[11px] font-semibold text-white">{getInitials(formatOperatorForCurrentSession(group.latest.operatorName, group.latest.operatorCode, currentOperatorName, currentOperatorCode))}</span>
                             <span className="truncate font-['Inter'] text-[12px] text-[#615d59]">{formatOperatorForCurrentSession(group.latest.operatorName, group.latest.operatorCode, currentOperatorName, currentOperatorCode)}</span>
+                            <ShippingStatus chatSend={groupChatSend} compact />
                           </div>
                           <div className="flex items-center gap-2">
-                            <ShippingStatus chatSend={groupChatSend} compact />
                             {(() => {
                               const chatAction = getChatActionState(group.latest)
                               return (
@@ -927,7 +931,7 @@ export function HistoryPage() {
                                   type="button"
                                   variant="ghost"
                                   size="sm"
-                                  className="h-8 rounded-full border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"
+                                  className="h-8 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"
                                   disabled={chatAction.disabled}
                                   onClick={(event) => {
                                     event.stopPropagation()
@@ -955,20 +959,20 @@ export function HistoryPage() {
                   <table className="w-full min-w-[760px] border-collapse">
                     <thead className="bg-[#f6f5f4]">
                       <tr className="text-left">
-                        <Th>Paket</Th>
+                        <Th className="px-5">Paket</Th>
                         <Th>Operator</Th>
                         <Th>Dokumentasi</Th>
                         <Th>Pengiriman</Th>
                         <Th className="px-5 text-right">Aksi</Th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#e6e6e6]">
+                    <tbody className="divide-y divide-[#e6e6e6] bg-white">
                       {!isLoadingHistory && !historyError && pageItems.length ? (
                         pageItems.map((group) => {
                           const isSelected = group.latest.id === selectedRecord?.id
                           const tableGroupChatSend = group.records.map((r) => visibleChatSendByRecordingId.get(r.id)).find(Boolean)
                           return (
-                              <tr
+                            <tr
                               key={group.resiNumber}
                               tabIndex={0}
                               onClick={() => openDetail(group.latest)}
@@ -978,15 +982,15 @@ export function HistoryPage() {
                                   openDetail(group.latest)
                                 }
                               }}
-                              className={`cursor-pointer outline-none transition-colors ${isSelected ? 'bg-[#f6f5f4] border-l-[3px] border-l-[#0075de]' : 'bg-white hover:bg-[#fbfaf9] border-l-[3px] border-l-transparent'}`}
+                              className={`cursor-pointer border-l-[3px] outline-none transition-colors ${isSelected ? 'border-l-[#0075de] bg-[#f6f5f4]' : 'border-l-transparent bg-white hover:bg-[#fbfaf9]'}`}
                             >
-                              <Td>
+                              <Td className="px-5 py-4">
                                 <div className="grid gap-0.5">
-                                  <span className="font-['Inter'] text-[14px] font-semibold leading-none text-[#000000]">{group.resiNumber}</span>
+                                  <span className="font-['Inter'] text-[14px] font-semibold leading-tight text-[#000000]">{group.resiNumber}</span>
                                   {shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())?.orderNumber ? (
-                                    <span className="font-['Inter'] text-[12px] font-normal leading-none text-[#615d59]">{shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())!.orderNumber}</span>
+                                    <span className="font-['Inter'] text-[12px] text-[#615d59]">{shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())!.orderNumber}</span>
                                   ) : null}
-                                  <span className="font-['Inter'] text-[11px] font-normal text-[#a39e98]">{formatCompactDateTime(group.latest.updatedAt)}</span>
+                                  <span className="font-['Inter'] text-[11px] text-[#a39e98]">{formatCompactDateTime(group.latest.updatedAt)}</span>
                                 </div>
                               </Td>
                               <Td>
@@ -997,9 +1001,6 @@ export function HistoryPage() {
                                   <DocumentationStatus group={group} />
                                   {group.records.some((record) => isRepeatQcInvalidRecord(record)) ? (
                                     <span className="inline-flex w-fit rounded-full bg-[#fef3c7] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-[#92400e] ring-1 ring-[#fde68a]">Repeat QC</span>
-                                  ) : null}
-                                  {group.records.some((r) => r.taskType === 'packing' && (r as unknown as { packingPayAmount?: number | null }).packingPayAmount != null) ? (
-                                    <span className="font-['Inter'] text-[11px] text-[#a39e98]">Dibayar</span>
                                   ) : null}
                                 </div>
                               </Td>
@@ -1015,7 +1016,7 @@ export function HistoryPage() {
                                         type="button"
                                         variant="ghost"
                                         size="sm"
-                                        className="h-8 rounded-full border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"
+                                        className="h-8 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"
                                         disabled={chatAction.disabled}
                                         onClick={() => void handlePrepareShopeeChat(group.latest)}
                                         title={chatAction.title}
@@ -1042,7 +1043,7 @@ export function HistoryPage() {
               </div>
 
               {groupedRecordings.length > PAGE_SIZE ? (
-                <div className="flex flex-col gap-3 border-t border-[#e6e6e6] bg-white px-4 py-3 font-['Inter'] sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                <div className="flex flex-col gap-3 border-t border-[#dddddd] bg-[#fbfaf9] px-4 py-3 font-['Inter'] sm:flex-row sm:items-center sm:justify-between sm:px-5">
                   <span className="font-['Inter'] text-[13px] text-[#615d59]">
                     <span className="font-semibold text-[#000000]">{(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, groupedRecordings.length)}</span> dari <span className="font-semibold text-[#000000]">{groupedRecordings.length}</span> dokumentasi
                   </span>
@@ -1051,7 +1052,7 @@ export function HistoryPage() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-8 min-w-8 rounded-full border border-[#e6e6e6] bg-white px-2 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]"
+                      className="h-8 min-w-8 rounded-lg border border-[#dddddd] bg-white px-2 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]"
                       onClick={() => setPage((current) => Math.max(1, current - 1))}
                       disabled={currentPage <= 1}
                     >
@@ -1081,8 +1082,8 @@ export function HistoryPage() {
                             size="sm"
                             className={
                               p === currentPage
-                                ? "h-8 min-w-8 rounded-full bg-[#000000] px-2 font-['Inter'] text-[13px] font-semibold text-white hover:bg-[#000000]"
-                                : "h-8 min-w-8 rounded-full border border-[#e6e6e6] bg-white px-2 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]"
+                                ? "h-8 min-w-8 rounded-lg bg-[#000000] px-2 font-['Inter'] text-[13px] font-semibold text-white hover:bg-[#000000]"
+                                : "h-8 min-w-8 rounded-lg border border-[#dddddd] bg-white px-2 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]"
                             }
                             onClick={() => setPage(p as number)}
                           >
@@ -1095,7 +1096,7 @@ export function HistoryPage() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-8 min-w-8 rounded-full border border-[#e6e6e6] bg-white px-2 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]"
+                      className="h-8 min-w-8 rounded-lg border border-[#dddddd] bg-white px-2 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]"
                       onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
                       disabled={currentPage >= totalPages}
                     >
@@ -1496,7 +1497,7 @@ function HistorySkeleton() {
     <div className="grid gap-2 p-4" aria-label="Memuat history">
       {Array.from({ length: 5 }).map((_, index) => (
         <div key={index} className="flex justify-between gap-3 rounded-lg border border-[#e6e6e6] bg-[#f6f5f4] p-3">
-          <span className="h-4 w-20 animate-pulse rounded bg-[#e6e6e6]" />
+          <span className="h-4 w-24 animate-pulse rounded bg-[#e6e6e6]" />
           <span className="h-4 w-32 animate-pulse rounded bg-[#e6e6e6]" />
         </div>
       ))}
@@ -1506,13 +1507,13 @@ function HistorySkeleton() {
 
 function EmptyHistoryState({ hasActiveFilters, onReset }: { hasActiveFilters: boolean; onReset: () => void }) {
   return (
-    <div className="px-6 py-14 text-center">
+    <div className="border-t border-[#dddddd] px-6 py-14 text-center">
       <div className="mx-auto grid h-11 w-11 place-items-center rounded-xl bg-[#f6f5f4] text-[#615d59]">
         <HugeiconsIcon icon={Search01Icon} size={20} strokeWidth={1.9} />
       </div>
       <div className="mt-3 font-['Inter'] text-[14px] font-medium text-[#000000]">{hasActiveFilters ? 'Dokumentasi tidak ditemukan' : 'Belum ada dokumentasi'}</div>
       <p className="mx-auto mt-1 max-w-md font-['Inter'] text-[13px] leading-5 text-[#615d59]">{hasActiveFilters ? 'Tidak ada dokumentasi yang cocok dengan filter atau nomor resi tersebut.' : 'Dokumentasi QC dan packing yang sudah direkam akan muncul di halaman ini.'}</p>
-      <Button type="button" variant="ghost" className={`mt-4 h-9 rounded-full px-4 font-['Inter'] text-[13px] font-medium ${hasActiveFilters ? 'border border-[#e6e6e6] bg-white text-[#31302e] hover:bg-[#f6f5f4]' : 'bg-[#0075de] text-white hover:bg-[#005bab]'}`} onClick={hasActiveFilters ? onReset : () => navigateTo('scan')}>
+      <Button type="button" variant="ghost" className={`mt-4 h-9 rounded-lg px-4 font-['Inter'] text-[13px] font-medium ${hasActiveFilters ? 'border border-[#dddddd] bg-white text-[#31302e] hover:bg-[#f6f5f4]' : 'bg-[#0075de] text-white hover:bg-[#005bab]'}`} onClick={hasActiveFilters ? onReset : () => navigateTo('scan')}>
         {hasActiveFilters ? 'Reset' : 'Scan'}
       </Button>
     </div>
@@ -1521,9 +1522,9 @@ function EmptyHistoryState({ hasActiveFilters, onReset }: { hasActiveFilters: bo
 
 function OperatorCell({ value }: { value: string }) {
   return (
-    <div className="flex min-w-0 items-center gap-2 font-['Inter'] text-[13px] text-[#31302e]">
-      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-black text-[11px] font-semibold text-white">{getInitials(value)}</span>
-      <span className="truncate">{value}</span>
+    <div className="flex min-w-0 items-center gap-2.5 font-['Inter'] text-[13px] text-[#31302e]">
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#000000] text-[11px] font-semibold text-white">{getInitials(value)}</span>
+      <span className="truncate font-medium">{value}</span>
     </div>
   )
 }
@@ -1543,7 +1544,7 @@ function DocumentationStatus({ group }: { group: HistoryRecordingGroup }) {
   const status = getGroupStatus(group)
   const isComplete = status === 'completed'
   return (
-    <span className={`inline-flex flex-col rounded-[8px] border px-2.5 py-1.5 ${isComplete ? 'border-[#e6e6e6] bg-[#f6f5f4] text-[#31302e]' : 'border-[#fde68a] bg-[#fef3c7] text-[#92400e]'}`}>
+    <span className={`inline-flex flex-col rounded-lg border px-2.5 py-1.5 ${isComplete ? 'border-[#e6e6e6] bg-[#f6f5f4] text-[#31302e]' : 'border-[#fde68a] bg-[#fef3c7] text-[#92400e]'}`}>
       <span className="inline-flex items-center gap-1 font-['Inter'] text-[11px] font-semibold leading-none">{isComplete ? <HugeiconsIcon icon={Tick02Icon} size={12} strokeWidth={2} /> : <HugeiconsIcon icon={Clock01Icon} size={12} strokeWidth={1.9} />}{isComplete ? 'Lengkap' : 'Belum lengkap'}</span>
       <span className="font-['Inter'] text-[11px] font-normal leading-none opacity-80">{completed}/{total} dokumentasi</span>
     </span>
@@ -1678,7 +1679,7 @@ function Th({ children, className = '' }: { children?: ReactNode; className?: st
 }
 
 function Td({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <td className={`bg-white px-4 py-3 align-middle font-['Inter'] text-[13px] text-[#31302e] ${className}`}>{children}</td>
+  return <td className={`bg-transparent px-4 py-3 align-middle font-['Inter'] text-[13px] text-[#31302e] ${className}`}>{children}</td>
 }
 
 function formatDateTime(value: string) {

@@ -576,21 +576,21 @@ export function ScanPage() {
           <p className="mt-2 max-w-2xl font-['Inter'] text-[14px] leading-6 text-[#615d59]">{isPackingTask && packingMediaType === 'photo' ? 'Scan resi → auto foto 0.45s → cek preview → Gunakan / Ulangi. Posisikan paket & resi jelas di kamera.' : 'Pindai resi untuk merekam dokumentasi QC / Packing. Video tersimpan otomatis dengan watermark.'}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-['Inter'] text-[12px] font-semibold ${isPackingTask ? 'border-[#e6e6e6] bg-white text-[#000000]' : 'border-[#0075de]/20 bg-[#0075de]/10 text-[#0075de]'}`}>{activeTask.toUpperCase()} {isPackingTask && packingMediaType === 'photo' ? '· Foto' : ''}</span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#e6e6e6] bg-white px-3 py-1.5 font-['Inter'] text-[12px] font-medium text-[#31302e]"><HugeiconsIcon icon={UserGroupIcon} size={14} strokeWidth={1.9} />{operatorSession?.operatorName || operatorSession?.operatorCode || 'operator'}</span>
-          <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-['Inter'] text-[12px] font-semibold ${recordingSession.state.mode === 'recording' ? 'border-[#fecaca] bg-[#fee2e2] text-[#991b1b]' : recordingSession.state.mode === 'saving' ? 'border-[#fde68a] bg-[#fef3c7] text-[#92400e]' : 'border-[#e6e6e6] bg-white text-[#615d59]'}`}>{recordingSession.state.mode}</span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#e6e6e6] bg-[#f6f5f4] px-3 py-1.5 font-['Inter'] text-[12px] font-medium tabular-nums text-[#000000]"><HugeiconsIcon icon={Clock01Icon} size={14} strokeWidth={1.9} />{recordingElapsedLabel}</span>
+          <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-['Inter'] text-[12px] font-semibold ${isPackingTask ? 'border-[#dddddd] bg-white text-[#000000]' : 'border-[#0075de]/20 bg-[#0075de]/10 text-[#0075de]'}`}>{activeTask.toUpperCase()} {isPackingTask && packingMediaType === 'photo' ? '· Foto' : ''}</span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#dddddd] bg-white px-3 py-1.5 font-['Inter'] text-[12px] font-medium text-[#31302e]"><HugeiconsIcon icon={UserGroupIcon} size={14} strokeWidth={1.9} />{operatorSession?.operatorName || operatorSession?.operatorCode || 'operator'}</span>
+          <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-['Inter'] text-[12px] font-semibold ${recordingSession.state.mode === 'recording' ? 'border-[#fecaca] bg-[#fee2e2] text-[#991b1b]' : recordingSession.state.mode === 'saving' ? 'border-[#fde68a] bg-[#fef3c7] text-[#92400e]' : 'border-[#dddddd] bg-white text-[#615d59]'}`}>{recordingSession.state.mode}</span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#dddddd] bg-[#f6f5f4] px-3 py-1.5 font-['Inter'] text-[12px] font-medium tabular-nums text-[#000000]"><HugeiconsIcon icon={Clock01Icon} size={14} strokeWidth={1.9} />{recordingElapsedLabel}</span>
         </div>
       </section>
 
-      {scanAlert ? <Alert variant={scanAlert.kind === 'error' ? 'destructive' : scanAlert.kind === 'success' ? 'success' : 'info'} className="mb-4 rounded-[8px] border-[#e6e6e6] bg-white font-['Inter'] text-[13px]"><p className={scanAlert.kind === 'error' ? 'text-[#991b1b]' : scanAlert.kind === 'success' ? 'text-[#065f46]' : 'text-[#31302e]'}>{scanAlert.message}</p></Alert> : null}
-      {isPackingTask && packingMediaType === 'photo' && !activePackingSession ? <Alert variant="info" className="mb-4 rounded-[8px] border-[#e6e6e6] bg-[#fff7ed] font-['Inter'] text-[13px]"><p className="text-[#92400e]">Foto packing butuh sesi aktif. Pilih petugas di panel sesi packing.</p></Alert> : null}
+      {scanAlert ? <Alert variant={scanAlert.kind === 'error' ? 'destructive' : scanAlert.kind === 'success' ? 'success' : 'info'} className="mb-4 rounded-[4px] border-[#dddddd] bg-white font-['Inter'] text-[13px]"><p className={scanAlert.kind === 'error' ? 'text-[#991b1b]' : scanAlert.kind === 'success' ? 'text-[#065f46]' : 'text-[#31302e]'}>{scanAlert.message}</p></Alert> : null}
+      {isPackingTask && packingMediaType === 'photo' && !activePackingSession ? <Alert variant="info" className="mb-4 rounded-[4px] border-[#dddddd] bg-[#fff7ed] font-['Inter'] text-[13px]"><p className="text-[#92400e]">Foto packing butuh sesi aktif. Pilih petugas di panel sesi packing.</p></Alert> : null}
 
       <div className={isPhotoPackingMode ? 'flex flex-col gap-4' : 'grid gap-5 lg:grid-cols-[380px_minmax(0,1fr)]'}>
         {!isPhotoPackingMode ? (
           <section className="grid gap-4 self-start">
-            <div className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
-              <div className="border-b border-[#e6e6e6] bg-[#fbfaf9] px-4 py-3">
+            <div className="overflow-hidden rounded-xl border border-[#dddddd] bg-white">
+              <div className="border-b border-[#dddddd] bg-[#fbfaf9] px-4 py-3">
                 <h2 className="font-['Inter'] text-[13px] font-semibold text-[#000000]">Input resi</h2>
                 <p className="mt-0.5 font-['Inter'] text-[12px] text-[#a39e98]">Scan barcode atau ketik manual lalu Enter</p>
               </div>
@@ -611,33 +611,33 @@ export function ScanPage() {
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
-              <div className="flex items-center justify-between gap-3 border-b border-[#e6e6e6] bg-[#fbfaf9] px-4 py-3">
+            <div className="overflow-hidden rounded-xl border border-[#dddddd] bg-white">
+              <div className="flex items-center justify-between gap-3 border-b border-[#dddddd] bg-[#fbfaf9] px-4 py-3">
                 <h2 className="font-['Inter'] text-[13px] font-semibold text-[#000000]">Status</h2>
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-black px-2.5 py-1 font-['Inter'] text-[11px] font-semibold tabular-nums text-white"><HugeiconsIcon icon={Clock01Icon} size={12} strokeWidth={1.9} />{recordingElapsedLabel}</span>
               </div>
               <div className="grid gap-3 p-4">
-                <p className="rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] px-3 py-2 font-['Inter'] text-[13px] leading-5 text-[#31302e]">{recordingSession.state.message}</p>
-                <div className="grid gap-1 rounded-[8px] border border-[#e6e6e6] bg-white px-3 py-2.5">
+                <p className="rounded-[4px] border border-[#dddddd] bg-[#f6f5f4] px-3 py-2 font-['Inter'] text-[13px] leading-5 text-[#31302e]">{recordingSession.state.message}</p>
+                <div className="grid gap-1 rounded-[4px] border border-[#dddddd] bg-white px-3 py-2.5">
                   <span className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.06em] text-[#a39e98]">Resi aktif</span>
                   <span className="truncate font-['Inter'] text-[13px] font-medium text-[#000000]">{currentProcessingResi ?? 'Belum ada resi aktif.'}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] px-3 py-2">
+                  <div className="rounded-[4px] border border-[#dddddd] bg-[#f6f5f4] px-3 py-2">
                     <span className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.06em] text-[#a39e98]">Selesai</span>
                     <p className="mt-1 truncate font-['Inter'] text-[12px] font-medium text-[#000000]">{taskProgress?.done.length ? taskProgress.done.join(', ') : '-'}</p>
                   </div>
-                  <div className="rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] px-3 py-2">
+                  <div className="rounded-[4px] border border-[#dddddd] bg-[#f6f5f4] px-3 py-2">
                     <span className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.06em] text-[#a39e98]">Berikutnya</span>
                     <p className="mt-1 truncate font-['Inter'] text-[12px] font-medium text-[#000000]">{taskProgress?.pending.length ? taskProgress.pending.join(', ') : '-'}</p>
                   </div>
                 </div>
                 {canSwitchTask ? (
-                  <div className="flex flex-wrap gap-1.5 border-t border-[#e6e6e6] pt-3">
+                  <div className="flex flex-wrap gap-1.5 border-t border-[#dddddd] pt-3">
                     {(['qc', 'packing'] as const).map((taskType) => {
                       const isActive = activeTask === taskType
                       return (
-                        <Button key={taskType} type="button" variant={isActive ? 'default' : 'outline'} size="sm" className={`h-8 rounded-full px-4 font-['Inter'] text-[12px] font-medium ${isActive ? 'bg-black text-white hover:bg-black' : 'border-[#e6e6e6] bg-white text-[#615d59] hover:bg-[#f6f5f4]'}`} disabled={isTaskSwitchLocked || isActive} onClick={() => handleTaskSwitch(taskType)}>
+                        <Button key={taskType} type="button" variant={isActive ? 'default' : 'outline'} size="sm" className={`h-8 rounded-full px-4 font-['Inter'] text-[12px] font-medium ${isActive ? 'bg-black text-white hover:bg-black' : 'border-[#dddddd] bg-white text-[#615d59] hover:bg-[#f6f5f4]'}`} disabled={isTaskSwitchLocked || isActive} onClick={() => handleTaskSwitch(taskType)}>
                           {isActive ? '●' : '○'} {taskType.toUpperCase()}
                         </Button>
                       )
@@ -645,7 +645,7 @@ export function ScanPage() {
                   </div>
                 ) : null}
                 {repeatQcResi ? (
-                  <div className="flex items-center justify-between gap-3 rounded-[8px] border border-[#fde68a] bg-[#fef3c7] px-3 py-2">
+                  <div className="flex items-center justify-between gap-3 rounded-[4px] border border-[#fde68a] bg-[#fef3c7] px-3 py-2">
                     <p className="font-['Inter'] text-[12px] font-semibold text-[#92400e]">Ulangi QC: {repeatQcResi}</p>
                     <Button type="button" variant="ghost" size="sm" className="h-7 rounded-full bg-white px-3 text-[12px] font-medium text-[#92400e] hover:bg-white" onClick={() => { clearRepeatQcResi(); setRepeatQcResi(null); barcodeScanner.setValue(''); barcodeScanner.focusInput() }}>Batal</Button>
                   </div>
@@ -654,8 +654,8 @@ export function ScanPage() {
             </div>
 
             {isPackingTask ? (
-              <div className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
-                <div className="border-b border-[#e6e6e6] bg-[#fbfaf9] px-4 py-3">
+              <div className="overflow-hidden rounded-xl border border-[#dddddd] bg-white">
+                <div className="border-b border-[#dddddd] bg-[#fbfaf9] px-4 py-3">
                   <h2 className="font-['Inter'] text-[13px] font-semibold text-[#000000]">Sesi Packing {activePackingSession ? '· Aktif' : '· Perlu sesi'}</h2>
                   <p className="mt-0.5 font-['Inter'] text-[12px] text-[#a39e98]">{activePackingSession ? packingSessionLabel : 'Scan packing diblokir sampai sesi dimulai.'}</p>
                 </div>
@@ -663,19 +663,19 @@ export function ScanPage() {
                   {activePackingSession ? (
                     <div className="grid gap-3">
                       <div className="grid gap-2">
-                        <Button type="button" variant="outline" size="sm" className="h-8 rounded-full border-[#e6e6e6] bg-white font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]" disabled={packingSessionLoading} onClick={() => void handleClosePackingSession()}>
+                        <Button type="button" variant="outline" size="sm" className="h-8 rounded-full border-[#dddddd] bg-white font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]" disabled={packingSessionLoading} onClick={() => void handleClosePackingSession()}>
                           {packingSessionLoading ? 'Proses...' : 'Akhiri sesi'}
                         </Button>
-                        <div className="flex gap-1 rounded-lg border border-[#e6e6e6] bg-[#f6f5f4] p-1">
+                        <div className="flex gap-1 rounded-lg border border-[#dddddd] bg-[#f6f5f4] p-1">
                           <Button type="button" variant={packingMediaType === 'video' ? 'default' : 'ghost'} size="sm" className={`flex-1 h-7 rounded-md font-['Inter'] text-[12px] font-medium ${packingMediaType === 'video' ? 'bg-black text-white' : 'text-[#615d59]'}`} onClick={() => setPackingMediaType('video')}>Video</Button>
                           <Button type="button" variant={packingMediaType === 'photo' ? 'default' : 'ghost'} size="sm" className={`flex-1 h-7 rounded-md font-['Inter'] text-[12px] font-medium ${packingMediaType === 'photo' ? 'bg-black text-white' : 'text-[#615d59]'}`} onClick={() => setPackingMediaType('photo')}>Foto</Button>
                         </div>
                       </div>
-                      <div className="grid gap-2 border-t border-dashed border-[#e6e6e6] pt-3">
+                      <div className="grid gap-2 border-t border-dashed border-[#dddddd] pt-3">
                         <Label className="font-['Inter'] text-[12px] font-medium text-[#000000]">Ganti sesi</Label>
                         <div className="flex gap-2">
                           <Select value={selectedPackerKey} onValueChange={setSelectedPackerKey}>
-                            <SelectTrigger className="h-8 flex-1 rounded-[8px] border-[#e6e6e6] bg-white font-['Inter'] text-[12px]">
+                            <SelectTrigger className="h-8 flex-1 rounded-[4px] border-[#dddddd] bg-white font-['Inter'] text-[12px]">
                               <SelectValue placeholder="Pilih petugas baru" />
                             </SelectTrigger>
                             <SelectContent>
@@ -695,7 +695,7 @@ export function ScanPage() {
                     <div className="grid gap-3">
                       <Label className="font-['Inter'] text-[12px] font-medium text-[#000000]">Petugas Packing</Label>
                       <Select value={selectedPackerKey} onValueChange={setSelectedPackerKey}>
-                        <SelectTrigger className="h-8 w-full rounded-[8px] border-[#e6e6e6] bg-white font-['Inter'] text-[12px]">
+                        <SelectTrigger className="h-8 w-full rounded-[4px] border-[#dddddd] bg-white font-['Inter'] text-[12px]">
                           <SelectValue placeholder="Pilih petugas packing" />
                         </SelectTrigger>
                         <SelectContent>
@@ -710,7 +710,7 @@ export function ScanPage() {
                         {packingSessionLoading ? 'Membuat...' : 'Mulai sesi packing'}
                       </Button>
                       {!isPhotoPackingMode ? (
-                        <div className="flex gap-1 rounded-lg border border-[#e6e6e6] bg-[#f6f5f4] p-1">
+                        <div className="flex gap-1 rounded-lg border border-[#dddddd] bg-[#f6f5f4] p-1">
                           <Button type="button" size="sm" className={`flex-1 h-7 rounded-md font-['Inter'] text-[12px] font-medium ${packingMediaType === 'video' ? 'bg-black text-white' : 'bg-transparent text-[#615d59]'}`} onClick={() => setPackingMediaType('video')}>Video</Button>
                           <Button type="button" size="sm" className={`flex-1 h-7 rounded-md font-['Inter'] text-[12px] font-medium ${packingMediaType === 'photo' ? 'bg-black text-white' : 'bg-transparent text-[#615d59]'}`} onClick={() => setPackingMediaType('photo')}>Foto</Button>
                         </div>
@@ -725,7 +725,7 @@ export function ScanPage() {
             {photoStaging && !isPhotoPackingMode ? (
               <div className="overflow-hidden rounded-xl border border-[#fde68a] bg-[#fffbeb] p-3">
                 <p className="font-['Inter'] text-[13px] font-semibold text-[#92400e]">Preview foto — cek sebelum simpan</p>
-                <div className="mt-2 overflow-hidden rounded-lg border border-[#e6e6e6] bg-black">
+                <div className="mt-2 overflow-hidden rounded-lg border border-[#dddddd] bg-black">
                   <img src={photoStaging.previewUrl} alt={`Preview ${photoStaging.resi}`} className="block max-h-[28vh] w-full object-contain" />
                 </div>
                 <p className="mt-2 font-['Inter'] text-[12px] text-[#615d59]">Resi {photoStaging.resi} · {packingPreview ? `Rp${new Intl.NumberFormat('id-ID').format(packingPreview.pay.amount)}` : ''}</p>
@@ -733,32 +733,32 @@ export function ScanPage() {
                   <Button type="button" size="sm" className="h-8 rounded-full bg-black font-['Inter'] text-[12px] font-medium text-white hover:bg-black" disabled={packingCaptureLoading} onClick={() => void confirmPhotoStaging()}>
                     {packingCaptureLoading ? 'Menyimpan...' : 'Gunakan foto ✓'}
                   </Button>
-                  <Button type="button" variant="outline" size="sm" className="h-8 rounded-full border-[#e6e6e6] bg-white font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]" disabled={packingCaptureLoading} onClick={() => { setSkipAutoPhoto(true); clearPhotoStaging(); setScanAlert({ kind: 'info', message: 'Ulangi foto — posisikan paket lalu klik Foto manual, tidak otomatis.' }) }}>
+                  <Button type="button" variant="outline" size="sm" className="h-8 rounded-full border-[#dddddd] bg-white font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]" disabled={packingCaptureLoading} onClick={() => { setSkipAutoPhoto(true); clearPhotoStaging(); setScanAlert({ kind: 'info', message: 'Ulangi foto — posisikan paket lalu klik Foto manual, tidak otomatis.' }) }}>
                     Ulangi
                   </Button>
                 </div>
                 <Button type="button" variant="ghost" size="sm" className="mt-1 h-7 w-full rounded-full font-['Inter'] text-[11px] text-[#615d59] hover:bg-[#f6f5f4]" disabled={packingCaptureLoading} onClick={() => void stagePhotoCapture()}>Foto manual lagi</Button>
               </div>
             ) : isPackingTask && packingMediaType === 'photo' && lastPhotoResi ? (
-              <div className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white p-4">
+              <div className="overflow-hidden rounded-xl border border-[#dddddd] bg-white p-4">
                 <p className="font-['Inter'] text-[13px] text-[#31302e]">Foto terakhir: <strong className="font-semibold text-[#000000]">{lastPhotoResi}</strong> tersimpan</p>
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  <Button type="button" variant="outline" size="sm" className="h-8 rounded-full border-[#e6e6e6] bg-white font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]" disabled={packingCaptureLoading} onClick={() => { setSkipAutoPhoto(true); clearPhotoStaging(); barcodeScanner.setValue(lastPhotoResi ?? ''); setScanAlert({ kind: 'info', message: `Siap foto ulang ${lastPhotoResi} — posisikan paket lalu klik Foto manual.` }) }}>
+                  <Button type="button" variant="outline" size="sm" className="h-8 rounded-full border-[#dddddd] bg-white font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]" disabled={packingCaptureLoading} onClick={() => { setSkipAutoPhoto(true); clearPhotoStaging(); barcodeScanner.setValue(lastPhotoResi ?? ''); setScanAlert({ kind: 'info', message: `Siap foto ulang ${lastPhotoResi} — posisikan paket lalu klik Foto manual.` }) }}>
                     Foto ulang
                   </Button>
-                  <Button type="button" variant="outline" size="sm" className="h-8 rounded-full border-[#e6e6e6] bg-white font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]" disabled={packingCaptureLoading || !currentProcessingResi} onClick={() => void stagePhotoCapture()}>Foto manual</Button>
+                  <Button type="button" variant="outline" size="sm" className="h-8 rounded-full border-[#dddddd] bg-white font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]" disabled={packingCaptureLoading || !currentProcessingResi} onClick={() => void stagePhotoCapture()}>Foto manual</Button>
                 </div>
               </div>
             ) : isPackingTask && packingMediaType === 'photo' ? (
-              <div className="overflow-hidden rounded-xl border border-dashed border-[#e6e6e6] bg-white p-4">
+              <div className="overflow-hidden rounded-xl border border-dashed border-[#dddddd] bg-white p-4">
                 <p className="font-['Inter'] text-[12px] leading-5 text-[#615d59]">Otomatis foto saat scan berhasil. Jika gagal, gunakan tombol Foto manual di preview kamera atau di sini.</p>
-                <Button type="button" variant="outline" size="sm" className="mt-3 h-8 w-full rounded-full border-[#e6e6e6] bg-white font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]" disabled={packingCaptureLoading || !currentProcessingResi} onClick={() => void stagePhotoCapture()}>Foto manual</Button>
+                <Button type="button" variant="outline" size="sm" className="mt-3 h-8 w-full rounded-full border-[#dddddd] bg-white font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]" disabled={packingCaptureLoading || !currentProcessingResi} onClick={() => void stagePhotoCapture()}>Foto manual</Button>
               </div>
             ) : null}
           </section>
         ) : null}
 
-        <div className={`overflow-hidden rounded-xl border border-[#e6e6e6] bg-black ${isPhotoPackingMode ? 'flex h-[calc(100vh-160px)] min-h-[480px] flex-col lg:h-[calc(100vh-180px)]' : 'lg:sticky lg:top-4'}`}>
+        <div className={`overflow-hidden rounded-xl border border-[#dddddd] bg-black ${isPhotoPackingMode ? 'flex h-[calc(100vh-160px)] min-h-[480px] flex-col lg:h-[calc(100vh-180px)]' : 'lg:sticky lg:top-4'}`}>
           <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-black px-4 py-3">
             <h2 className="font-['Inter'] text-[13px] font-semibold text-white">Preview kamera</h2>
             <span className={`inline-flex items-center rounded-full border px-2.5 py-1 font-['Inter'] text-[11px] font-semibold ${scanMode === 'full-frame' ? 'border-white/20 bg-white/10 text-white' : 'border-white/20 bg-white text-black'}`}>{scanMode === 'full-frame' ? 'Full-frame' : 'Center-first'}</span>
@@ -769,7 +769,7 @@ export function ScanPage() {
               <div className="grid gap-1.5">
                 <Label className="font-['Inter'] text-[11px] font-medium text-[#000000]">Kamera</Label>
                 <Select value={settings.cameraDeviceId || '__default__'} onValueChange={handleCameraChange}>
-                  <SelectTrigger className="h-8 rounded-[8px] border-[#e6e6e6] bg-white font-['Inter'] text-[12px]">
+                  <SelectTrigger className="h-8 rounded-[4px] border-[#dddddd] bg-white font-['Inter'] text-[12px]">
                     <SelectValue placeholder="Default camera" />
                   </SelectTrigger>
                   <SelectContent>
@@ -780,7 +780,7 @@ export function ScanPage() {
               </div>
               <div className="grid gap-1.5">
                 <Label className="font-['Inter'] text-[11px] font-medium text-[#000000]">Mode scan</Label>
-                <div className="flex gap-1 rounded-lg border border-[#e6e6e6] bg-[#f6f5f4] p-1">
+                <div className="flex gap-1 rounded-lg border border-[#dddddd] bg-[#f6f5f4] p-1">
                   <Button type="button" variant={scanMode === 'center-first' ? 'default' : 'ghost'} size="sm" className={`flex-1 h-7 rounded-md font-['Inter'] text-[12px] font-medium ${scanMode === 'center-first' ? 'bg-black text-white' : 'text-[#615d59]'}`} onClick={() => setScanMode('center-first')}>Cepat</Button>
                   <Button type="button" variant={scanMode === 'full-frame' ? 'default' : 'ghost'} size="sm" className={`flex-1 h-7 rounded-md font-['Inter'] text-[12px] font-medium ${scanMode === 'full-frame' ? 'bg-black text-white' : 'text-[#615d59]'}`} onClick={() => setScanMode('full-frame')}>Longgar</Button>
                 </div>
@@ -960,18 +960,18 @@ function ShopeeOrderPanel({
   packingPreview?: { order: ShopeeOrder; pay: { amount: number; quantity: number; breakdown: unknown } } | null
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
-      <div className="border-b border-[#e6e6e6] bg-[#fbfaf9] px-4 py-3">
+    <div className="overflow-hidden rounded-xl border border-[#dddddd] bg-white">
+      <div className="border-b border-[#dddddd] bg-[#fbfaf9] px-4 py-3">
         <h2 className="font-['Inter'] text-[13px] font-semibold text-[#000000]">Order Shopee</h2>
         <p className="mt-0.5 font-['Inter'] text-[12px] text-[#a39e98]">{loading ? 'Memuat...' : message}</p>
       </div>
       <div className="grid gap-3 p-4">
-        <div className={`flex items-center gap-2 rounded-full border px-3 py-1.5 font-['Inter'] text-[12px] font-medium ${order ? 'border-[#dcfce7] bg-[#f0fdf4] text-[#166534]' : 'border-[#e6e6e6] bg-[#f6f5f4] text-[#615d59]'}`}>
+        <div className={`flex items-center gap-2 rounded-full border px-3 py-1.5 font-['Inter'] text-[12px] font-medium ${order ? 'border-[#dcfce7] bg-[#f0fdf4] text-[#166534]' : 'border-[#dddddd] bg-[#f6f5f4] text-[#615d59]'}`}>
           <HugeiconsIcon icon={order ? QrCodeIcon : Search01Icon} size={14} strokeWidth={1.9} />{loading ? 'Mencari...' : order ? 'Ditemukan' : 'Belum ada'}
         </div>
         {order ? (
           <div className="grid gap-3">
-            <div className="grid gap-2 rounded-xl border border-[#e6e6e6] bg-[#f6f5f4] p-3">
+            <div className="grid gap-2 rounded-xl border border-[#dddddd] bg-[#f6f5f4] p-3">
               <InfoPair label="No. Pesanan" value={order.orderNumber} />
               <InfoPair label="No. Resi" value={order.trackingNumber ?? '-'} />
               <InfoPair label="Pembeli" value={order.buyerUsername ?? '-'} />
@@ -980,7 +980,7 @@ function ShopeeOrderPanel({
             <div className="grid gap-2">
               <p className="font-['Inter'] text-[12px] font-semibold text-[#000000]">Produk</p>
               {order.items.map((item) => (
-                <div key={item.id ?? `${item.productName}-${item.variationName}-${item.sku}`} className="grid gap-1 rounded-xl border border-[#e6e6e6] bg-white px-3 py-2">
+                <div key={item.id ?? `${item.productName}-${item.variationName}-${item.sku}`} className="grid gap-1 rounded-xl border border-[#dddddd] bg-white px-3 py-2">
                   <div className="flex items-start justify-between gap-3">
                     <span className="min-w-0 flex-1 font-['Inter'] text-[13px] font-medium leading-snug text-[#000000] line-clamp-2">{item.productName}</span>
                     <strong className="shrink-0 rounded-full bg-[#f6f5f4] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-[#000000] ring-1 ring-[#e6e6e6]">×{item.quantity}</strong>

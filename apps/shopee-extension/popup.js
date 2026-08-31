@@ -24,9 +24,14 @@ function normalizeBaseUrl(value) {
 }
 
 function isShopeeShippingOrderUrl(value) {
+  return isShopeeOrderUrl(value, 'shipping')
+}
+
+function isShopeeOrderUrl(value, expectedType = null) {
   try {
     const url = new URL(value || '')
-    return isShopeeSellerHostname(url.hostname) && url.pathname === '/portal/sale/order' && url.searchParams.get('type') === 'shipping'
+    if (!isShopeeSellerHostname(url.hostname) || url.pathname !== '/portal/sale/order') return false
+    return expectedType ? url.searchParams.get('type') === expectedType : true
   } catch {
     return false
   }
@@ -60,7 +65,8 @@ function getShopeeWebchatUrl(value) {
 
 function getPageMode(value) {
   if (isShopeeWebchatUrl(value)) return '[x] webchat worker'
-  if (isShopeeShippingOrderUrl(value)) return '[x] order sync'
+  if (isShopeeShippingOrderUrl(value)) return '[x] order sync + shipping queue'
+  if (isShopeeOrderUrl(value)) return '[x] order auto-sync'
   try {
     const url = new URL(value || '')
     if (isShopeeSellerHostname(url.hostname)) return '[~] seller page'

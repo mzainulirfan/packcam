@@ -6,7 +6,6 @@ import {
   AddCircleIcon,
   ArrowRight01Icon,
   Cancel01Icon,
-  CloudServerIcon,
   Database02Icon,
   Delete02Icon,
   DollarCircleIcon,
@@ -204,8 +203,8 @@ export function AdminPage() {
           <p className="mt-3 max-w-2xl text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Pantau status server, aktivitas terbaru, sesi packing payroll, dan variasi aturan upah.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <span className={`inline-flex h-11 items-center justify-center rounded-full border px-4 text-[14px] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.035)] ${error ? 'border-[#f2c8a4] bg-[#fff7ed] text-[#dd5b00]' : 'border-[#e6e6e6] bg-white text-[#0075de]'}`}>{loading ? 'Loading' : error ? 'Error' : 'Ready'}</span>
-          <Button type="button" variant="outline" onClick={() => void handleRefresh()} className="h-11 rounded-full border-[#e6e6e6] bg-white px-5 text-[14px] font-medium text-[#615d59] hover:bg-[#fbfaf9]">
+          <span className={`inline-flex h-11 items-center justify-center rounded-full border px-4 text-[14px] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.035)] ${error ? 'border-[#f2c8a4] bg-[#fff7ed] text-[#dd5b00]' : 'border-[#dddddd] bg-white text-[#0075de]'}`}>{loading ? 'Loading' : error ? 'Error' : 'Ready'}</span>
+          <Button type="button" variant="outline" onClick={() => void handleRefresh()} className="h-11 rounded-full border-[#dddddd] bg-white px-5 text-[14px] font-medium text-[#615d59] hover:bg-[#fbfaf9]">
             <HugeiconsIcon icon={RefreshIcon} size={18} strokeWidth={1.9} /> Refresh
           </Button>
         </div>
@@ -217,30 +216,14 @@ export function AdminPage() {
         <AdminStat label="Sessions" value={String(adminStatus?.counts.sessions ?? packingSessions.length)} detail={`${payRules.length} pay rule`} icon={Package01Icon} />
       </section>
 
-      <Alert variant={error ? 'destructive' : 'info'} className="mb-5 rounded-[8px] border-[#e6e6e6] bg-white font-['Inter'] text-[14px]">
+      <Alert variant={error ? 'destructive' : 'info'} className="mb-5 rounded-[4px] border-[#dddddd] bg-white font-['Inter'] text-[14px]">
         <div className="grid gap-1">
           <p className="font-semibold text-[#000000]">Status</p>
           <p className="text-[#31302e]">{message}</p>
         </div>
       </Alert>
 
-      <section className="mb-5 overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
-        <PanelHeader icon={CloudServerIcon} title="System overview" description="Ringkasan status server dan database utama." />
-        {loading ? <EmptyState>Memuat status server...</EmptyState> : error ? <EmptyState>Status server belum tersedia.</EmptyState> : adminStatus ? (
-          <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-4">
-            <Metric label="Bootstrap" value={adminStatus.bootstrap.needsSetup ? 'needed' : 'ready'} />
-            <Metric label="Operators" value={String(adminStatus.bootstrap.operatorCount)} />
-            <Metric label="Admins" value={String(adminStatus.bootstrap.adminCount)} />
-            <Metric label="Recordings" value={String(adminStatus.counts.recordings)} />
-            <Metric label="Scan logs" value={String(adminStatus.counts.scanLogs)} />
-            <Metric label="Sessions" value={String(adminStatus.counts.sessions)} />
-            <Metric label="Last error" value={adminStatus.lastError ? 'ada' : 'clear'} />
-            <Metric label="Database" value={adminStatus.health ? 'online' : 'unknown'} />
-          </div>
-        ) : null}
-      </section>
-
-      <section className="mb-5 overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
+      <section className="mb-5 overflow-hidden rounded-xl border border-[#dddddd] bg-white">
         <PanelHeader icon={Activity01Icon} title="Recent activity" description="Aktivitas recording dan scan log terbaru dari server." />
         <div className="grid gap-4 p-4 md:grid-cols-2 sm:p-5">
           <ActivityBlock title="Recent recordings" emptyText="Belum ada recording di server.">
@@ -252,19 +235,19 @@ export function AdminPage() {
         </div>
       </section>
 
-      <section className="mb-5 overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
-        <div className="flex flex-col gap-3 border-b border-[#e6e6e6] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+      <section className="mb-5 overflow-hidden rounded-xl border border-[#dddddd] bg-white">
+        <div className="flex flex-col gap-3 border-b border-[#dddddd] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div>
             <h2 className="text-[16px] font-semibold text-[#000000]">Packing sessions payroll</h2>
             <p className="mt-1 text-[12px] text-[#a39e98]">Ringkasan sesi packing dan nominal upah.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" size="sm" className="h-9 rounded-lg border-[#e6e6e6] bg-white px-3 text-[13px] font-medium text-[#615d59]" onClick={() => navigateTo('packing-sessions')}><HugeiconsIcon icon={ArrowRight01Icon} size={15} strokeWidth={1.9} /> Buka sesi</Button>
+            <Button type="button" variant="outline" size="sm" className="h-9 rounded-lg border-[#dddddd] bg-white px-3 text-[13px] font-medium text-[#615d59]" onClick={() => navigateTo('packing-sessions')}><HugeiconsIcon icon={ArrowRight01Icon} size={15} strokeWidth={1.9} /> Buka sesi</Button>
             <label className="relative">
               <HugeiconsIcon icon={Search01Icon} size={15} strokeWidth={1.9} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#a39e98]" />
-              <Input placeholder="Filter packer..." value={sessionFilterText} onChange={(e) => setSessionFilterText(e.target.value)} className="h-9 w-[190px] rounded-lg border-[#e6e6e6] bg-white pl-9 text-[13px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+              <Input placeholder="Filter packer..." value={sessionFilterText} onChange={(e) => setSessionFilterText(e.target.value)} className="h-9 w-[190px] rounded-lg border-[#dddddd] bg-white pl-9 text-[13px] focus-visible:border-[#0075de] focus-visible:ring-0" />
             </label>
-            <Button type="button" variant="outline" size="sm" className="h-9 rounded-lg border-[#e6e6e6] bg-white px-3 text-[13px] font-medium text-[#615d59]" onClick={() => handleExportPayroll(null, 'all')}><HugeiconsIcon icon={Download01Icon} size={15} strokeWidth={1.9} /> Export CSV</Button>
+            <Button type="button" variant="outline" size="sm" className="h-9 rounded-lg border-[#dddddd] bg-white px-3 text-[13px] font-medium text-[#615d59]" onClick={() => handleExportPayroll(null, 'all')}><HugeiconsIcon icon={Download01Icon} size={15} strokeWidth={1.9} /> Export CSV</Button>
           </div>
         </div>
         {packingSessions.length === 0 ? <EmptyState>Belum ada sesi packing.</EmptyState> : (
@@ -281,10 +264,10 @@ export function AdminPage() {
         )}
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
+      <section className="overflow-hidden rounded-xl border border-[#dddddd] bg-white">
         <PanelHeader icon={DollarCircleIcon} title="Pay rules" description="Aturan variasi upah packing berdasarkan default, produk, SKU, atau channel pengiriman." />
         <div className="grid gap-4 p-4 sm:p-5">
-          <div className="grid gap-3 rounded-[12px] border border-[#e6e6e6] bg-[#f6f5f4] p-4">
+          <div className="grid gap-3 rounded-[12px] border border-[#dddddd] bg-[#f6f5f4] p-4">
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
               <AdminInput placeholder="Nama rule" value={payForm.name} onChange={(e) => setPayForm((p) => ({ ...p, name: e.target.value }))} />
               <AdminSelect value={payForm.matchType} onChange={(e) => setPayForm((p) => ({ ...p, matchType: e.target.value as PackingPayRule['matchType'] }))}><option value="default">default</option><option value="product_contains">product_contains</option><option value="variation_contains">variation_contains</option><option value="sku_contains">sku_contains</option><option value="shipping_channel">shipping_channel</option></AdminSelect>
@@ -293,15 +276,15 @@ export function AdminPage() {
               <AdminInput placeholder="Amount" type="number" value={payForm.amount} onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))} />
               <AdminInput placeholder="Priority" type="number" value={payForm.priority} onChange={(e) => setPayForm((p) => ({ ...p, priority: e.target.value }))} />
             </div>
-            <Button type="button" variant="outline" size="sm" className="h-9 w-fit rounded-lg border-[#e6e6e6] bg-white px-3 text-[13px] font-medium text-[#000000]" onClick={() => void handleCreatePayRule()}><HugeiconsIcon icon={AddCircleIcon} size={15} strokeWidth={1.9} /> Tambah rule</Button>
+            <Button type="button" variant="outline" size="sm" className="h-9 w-fit rounded-lg border-[#dddddd] bg-white px-3 text-[13px] font-medium text-[#000000]" onClick={() => void handleCreatePayRule()}><HugeiconsIcon icon={AddCircleIcon} size={15} strokeWidth={1.9} /> Tambah rule</Button>
           </div>
 
-          <div className="overflow-x-auto scrollbar-thin rounded-xl border border-[#e6e6e6]">
+          <div className="overflow-x-auto scrollbar-thin rounded-xl border border-[#dddddd]">
             <table className="w-full min-w-[860px] border-collapse">
               <thead className="bg-[#f6f5f4]"><tr className="text-left"><Th>Nama</Th><Th>Match</Th><Th>Pay</Th><Th>Amount</Th><Th>Priority</Th><Th>Aktif</Th><Th className="text-right">Aksi</Th></tr></thead>
               <tbody className="divide-y divide-[#e6e6e6]">
                 {payRules.map((r) => (
-                  <tr key={r.id} className="bg-white hover:bg-[#fbfaf9]"><Td className="font-medium text-[#000000]">{r.name}</Td><Td>{r.matchType}{r.matchValue ? `:${r.matchValue}` : ''}</Td><Td>{r.payType}</Td><Td><InlineNumber defaultValue={r.amount} className="w-[90px]" onCommit={(v) => { if (v !== r.amount && Number.isFinite(v) && v > 0) void handleInlineUpdateRule(r, { amount: v }) }} /></Td><Td><InlineNumber defaultValue={r.priority} className="w-[70px]" onCommit={(v) => { if (v !== r.priority && Number.isFinite(v)) void handleInlineUpdateRule(r, { priority: v }) }} /></Td><Td><Button type="button" variant={r.active ? 'default' : 'outline'} size="sm" className={`h-8 rounded-full px-3 text-[12px] font-medium ${r.active ? 'bg-[#0075de] text-white hover:bg-[#005bab]' : 'border-[#e6e6e6] bg-white text-[#615d59]'}`} onClick={() => void handleToggleRuleActive(r)}>{r.active ? 'Aktif' : 'Nonaktif'}</Button></Td><Td className="text-right"><SmallAction onClick={() => void handleDeletePayRule(r.id)}><HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={1.9} /></SmallAction></Td></tr>
+                  <tr key={r.id} className="bg-white hover:bg-[#fbfaf9]"><Td className="font-medium text-[#000000]">{r.name}</Td><Td>{r.matchType}{r.matchValue ? `:${r.matchValue}` : ''}</Td><Td>{r.payType}</Td><Td><InlineNumber defaultValue={r.amount} className="w-[90px]" onCommit={(v) => { if (v !== r.amount && Number.isFinite(v) && v > 0) void handleInlineUpdateRule(r, { amount: v }) }} /></Td><Td><InlineNumber defaultValue={r.priority} className="w-[70px]" onCommit={(v) => { if (v !== r.priority && Number.isFinite(v)) void handleInlineUpdateRule(r, { priority: v }) }} /></Td><Td><Button type="button" variant={r.active ? 'default' : 'outline'} size="sm" className={`h-8 rounded-full px-3 text-[12px] font-medium ${r.active ? 'bg-[#0075de] text-white hover:bg-[#005bab]' : 'border-[#dddddd] bg-white text-[#615d59]'}`} onClick={() => void handleToggleRuleActive(r)}>{r.active ? 'Aktif' : 'Nonaktif'}</Button></Td><Td className="text-right"><SmallAction onClick={() => void handleDeletePayRule(r.id)}><HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={1.9} /></SmallAction></Td></tr>
                 ))}
                 {payRules.length === 0 ? <tr><td colSpan={7} className="px-6 py-10 text-center text-[14px] text-[#615d59]">Belum ada rule.</td></tr> : null}
               </tbody>
@@ -311,10 +294,10 @@ export function AdminPage() {
       </section>
 
       {selectedSession ? (
-        <ModalOverlay onClose={() => setSelectedSession(null)} contentClassName="admin-modal max-w-3xl gap-0 overflow-hidden rounded-2xl border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+        <ModalOverlay onClose={() => setSelectedSession(null)} contentClassName="admin-modal max-w-3xl gap-0 overflow-hidden rounded-2xl border-[#dddddd] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
           <div>
-            <div className="border-b border-[#e6e6e6] p-6"><div className="flex items-start justify-between gap-5"><div className="grid gap-1"><p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Detail sesi packing</p><h3 className="text-[18px] font-semibold text-[#000000]">{selectedSession.packerNameSnapshot} ({selectedSession.packerCodeSnapshot}) · {selectedSession.status}</h3><p className="text-[13px] leading-5 text-[#615d59]">{formatDateTime(selectedSession.startedAt)} {'->'} {selectedSession.endedAt ? formatDateTime(selectedSession.endedAt) : 'masih aktif'} · {selectedSession.completedPackingCount} paket · {formatCurrency(selectedSession.totalPayAmount)}</p></div><Button type="button" variant="ghost" size="icon" onClick={() => setSelectedSession(null)} className="h-9 w-9 shrink-0 rounded-lg text-[#615d59] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.9} /></Button></div></div>
-            <div className="flex flex-wrap gap-2 p-4"><Button type="button" variant="outline" size="sm" className="h-9 rounded-lg border-[#e6e6e6] bg-white px-3 text-[13px]" onClick={() => handleExportPayroll(selectedSession, 'session')}><HugeiconsIcon icon={Download01Icon} size={15} strokeWidth={1.9} /> Export CSV sesi</Button>{selectedSession.status === 'active' ? <Button type="button" variant="outline" size="sm" className="h-9 rounded-lg border-[#e6e6e6] bg-white px-3 text-[13px]" onClick={() => void handleCloseSession(selectedSession.id)}>Tutup sesi</Button> : null}</div>
+            <div className="border-b border-[#dddddd] p-6"><div className="flex items-start justify-between gap-5"><div className="grid gap-1"><p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Detail sesi packing</p><h3 className="text-[18px] font-semibold text-[#000000]">{selectedSession.packerNameSnapshot} ({selectedSession.packerCodeSnapshot}) · {selectedSession.status}</h3><p className="text-[13px] leading-5 text-[#615d59]">{formatDateTime(selectedSession.startedAt)} {'->'} {selectedSession.endedAt ? formatDateTime(selectedSession.endedAt) : 'masih aktif'} · {selectedSession.completedPackingCount} paket · {formatCurrency(selectedSession.totalPayAmount)}</p></div><Button type="button" variant="ghost" size="icon" onClick={() => setSelectedSession(null)} className="h-9 w-9 shrink-0 rounded-lg text-[#615d59] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.9} /></Button></div></div>
+            <div className="flex flex-wrap gap-2 p-4"><Button type="button" variant="outline" size="sm" className="h-9 rounded-lg border-[#dddddd] bg-white px-3 text-[13px]" onClick={() => handleExportPayroll(selectedSession, 'session')}><HugeiconsIcon icon={Download01Icon} size={15} strokeWidth={1.9} /> Export CSV sesi</Button>{selectedSession.status === 'active' ? <Button type="button" variant="outline" size="sm" className="h-9 rounded-lg border-[#dddddd] bg-white px-3 text-[13px]" onClick={() => void handleCloseSession(selectedSession.id)}>Tutup sesi</Button> : null}</div>
             {sessionDetailLoading ? <EmptyState>Memuat detail sesi...</EmptyState> : sessionRecords.length === 0 ? <EmptyState>Belum ada paket completed di sesi ini.</EmptyState> : <SessionRecordsTable records={sessionRecords} />}
           </div>
         </ModalOverlay>
@@ -327,7 +310,7 @@ function ActivityBlock({ title, emptyText, children }: { title: string; emptyTex
   const hasChildren = Array.isArray(children) ? children.length > 0 : Boolean(children)
 
   return (
-    <div className="rounded-[12px] border border-[#e6e6e6] bg-[#f6f5f4] p-4">
+    <div className="rounded-[12px] border border-[#dddddd] bg-[#f6f5f4] p-4">
       <p className="text-[13px] font-semibold text-[#000000]">{title}</p>
       <div className="mt-3 grid gap-2 text-[13px]">
         {hasChildren ? children : <p className="text-[#615d59]">{emptyText}</p>}
@@ -338,7 +321,7 @@ function ActivityBlock({ title, emptyText, children }: { title: string; emptyTex
 
 function AdminStat({ label, value, detail, icon }: { label: string; value: string; detail: string; icon: typeof Activity01Icon }) {
   return (
-    <article className="rounded-xl border border-[#e6e6e6] bg-white p-5">
+    <article className="rounded-xl border border-[#dddddd] bg-white p-5">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div>
@@ -353,23 +336,24 @@ function AdminStat({ label, value, detail, icon }: { label: string; value: strin
 
 function PanelHeader({ icon, title, description }: { icon: typeof Activity01Icon; title: string; description: string }) {
   return (
-    <div className="flex items-start gap-3 border-b border-[#e6e6e6] px-4 py-4 sm:px-5">
+    <div className="flex items-start gap-3 border-b border-[#dddddd] px-4 py-4 sm:px-5">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]"><HugeiconsIcon icon={icon} size={19} strokeWidth={1.9} /></span>
       <div className="min-w-0"><h2 className="text-[16px] font-semibold text-[#000000]">{title}</h2><p className="mt-1 text-[12px] leading-5 text-[#a39e98]">{description}</p></div>
     </div>
   )
 }
 
+// @ts-ignore TS6133 - kept for future use
 function Metric({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] p-3"><div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div><div className="mt-2 text-[18px] font-semibold text-[#000000]">{value}</div></div>
+  return <div className="rounded-[4px] border border-[#dddddd] bg-[#f6f5f4] p-3"><div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div><div className="mt-2 text-[18px] font-semibold text-[#000000]">{value}</div></div>
 }
 
 function ActivityRow({ primary, secondary }: { primary: string; secondary: string }) {
-  return <div className="flex items-center justify-between gap-3 rounded-[8px] border border-[#e6e6e6] bg-white px-3 py-2"><span className="truncate font-medium text-[#000000]">{primary}</span><span className="shrink-0 rounded-full border border-[#e6e6e6] px-2 py-0.5 text-[11px] font-semibold text-[#0075de]">{secondary}</span></div>
+  return <div className="flex items-center justify-between gap-3 rounded-[4px] border border-[#dddddd] bg-white px-3 py-2"><span className="truncate font-medium text-[#000000]">{primary}</span><span className="shrink-0 rounded-full border border-[#dddddd] px-2 py-0.5 text-[11px] font-semibold text-[#0075de]">{secondary}</span></div>
 }
 
 function StatusBadge({ value }: { value: string }) {
-  return <span className="inline-flex rounded-[5px] border border-[#e6e6e6] bg-white px-2 py-1 text-[12px] font-medium text-[#615d59]">{value}</span>
+  return <span className="inline-flex rounded-[4px] border border-[#dddddd] bg-white px-2 py-1 text-[12px] font-medium text-[#615d59]">{value}</span>
 }
 
 function Th({ children, className = '' }: { children: ReactNode; className?: string }) {
@@ -381,19 +365,19 @@ function Td({ children, className = '' }: { children: ReactNode; className?: str
 }
 
 function SmallAction({ children, onClick }: { children: ReactNode; onClick: () => void }) {
-  return <Button type="button" variant="outline" size="sm" className="h-8 rounded-lg border-[#e6e6e6] bg-white px-3 text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]" onClick={onClick}>{children}</Button>
+  return <Button type="button" variant="outline" size="sm" className="h-8 rounded-lg border-[#dddddd] bg-white px-3 text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]" onClick={onClick}>{children}</Button>
 }
 
 function AdminInput(props: React.ComponentProps<typeof Input>) {
-  return <Input {...props} className={`h-10 rounded-[5px] border-[#e6e6e6] bg-white px-3 text-[13px] focus-visible:border-[#0075de] focus-visible:ring-0 ${props.className ?? ''}`} />
+  return <Input {...props} className={`h-10 rounded-[4px] border-[#dddddd] bg-white px-3 text-[13px] focus-visible:border-[#0075de] focus-visible:ring-0 ${props.className ?? ''}`} />
 }
 
 function AdminSelect({ children, ...props }: React.ComponentProps<'select'>) {
-  return <select {...props} className={`h-10 rounded-[5px] border border-[#e6e6e6] bg-white px-3 text-[13px] focus:border-[#0075de] focus:outline-none ${props.className ?? ''}`}>{children}</select>
+  return <select {...props} className={`h-10 rounded-[4px] border border-[#dddddd] bg-white px-3 text-[13px] focus:border-[#0075de] focus:outline-none ${props.className ?? ''}`}>{children}</select>
 }
 
 function InlineNumber({ defaultValue, className, onCommit }: { defaultValue: number; className?: string; onCommit: (value: number) => void }) {
-  return <Input className={`h-8 rounded-[5px] border-[#e6e6e6] bg-white px-2 text-[13px] focus-visible:border-[#0075de] focus-visible:ring-0 ${className ?? ''}`} type="number" defaultValue={defaultValue} onBlur={(e) => onCommit(Number(e.target.value))} />
+  return <Input className={`h-8 rounded-[4px] border-[#dddddd] bg-white px-2 text-[13px] focus-visible:border-[#0075de] focus-visible:ring-0 ${className ?? ''}`} type="number" defaultValue={defaultValue} onBlur={(e) => onCommit(Number(e.target.value))} />
 }
 
 function EmptyState({ children }: { children: ReactNode }) {
@@ -402,7 +386,7 @@ function EmptyState({ children }: { children: ReactNode }) {
 
 function SessionRecordsTable({ records }: { records: Awaited<ReturnType<typeof readServerHistoryRecordingsApi>>['records'] }) {
   return (
-    <div className="overflow-x-auto scrollbar-thin border-t border-[#e6e6e6]">
+    <div className="overflow-x-auto scrollbar-thin border-t border-[#dddddd]">
       <table className="w-full min-w-[640px] border-collapse"><thead className="bg-[#f6f5f4]"><tr><Th>Resi</Th><Th>Order</Th><Th>Media</Th><Th>Upah</Th><Th>Breakdown</Th></tr></thead><tbody className="divide-y divide-[#e6e6e6]">
         {records.map((rec) => {
           const r = rec as unknown as { resiNumber: string; orderNumber?: string | null; mediaType?: string; packingPayAmount?: number | null; packingPayBreakdown?: { ruleName?: string; payType?: string; amount?: number; quantity?: number } | null; orderSnapshot?: { items?: Array<{ productName: string; quantity: number }> } | null }

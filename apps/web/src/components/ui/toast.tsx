@@ -35,10 +35,10 @@ export function ToastViewport() {
   }
 
   return (
-    <div className="pointer-events-none fixed right-4 top-4 z-[80] grid w-[min(26rem,calc(100vw-2rem))] gap-2">
+    <div className="pointer-events-none fixed right-4 top-4 z-[80] grid w-[min(26rem,calc(100vw-2rem))] gap-3">
       {toasts.map((toast) => (
-        <Card key={toast.id} className="toast-opencode pointer-events-auto" data-variant={toast.variant}>
-          <CardContent className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 p-3">
+        <Card key={toast.id} className="toast-opencode pointer-events-auto overflow-hidden" data-variant={toast.variant}>
+          <CardContent className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 px-4 py-3">
             <span className="toast-opencode__marker">{getToastMarker(toast.variant)}</span>
             <div className="min-w-0">
               <div className="toast-opencode__meta">{getToastLabel(toast.variant)}</div>

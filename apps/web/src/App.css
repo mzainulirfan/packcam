@@ -631,12 +631,12 @@
 }
 
 .toast-opencode {
-  border: 1px solid rgba(15, 0, 0, 0.18) !important;
-  border-radius: 4px !important;
-  background: #fdfcfc !important;
-  color: #201d1d !important;
-  box-shadow: none !important;
-  font-family: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  border: 1px solid #e6e6e6 !important;
+  border-radius: 16px !important;
+  background: #ffffff !important;
+  color: #000000 !important;
+  box-shadow: 0 0.175px 1.041px rgba(0,0,0,0.01), 0 0.8px 2.925px rgba(0,0,0,0.02), 0 2.025px 7.847px rgba(0,0,0,0.027), 0 4px 18px rgba(0,0,0,0.04) !important;
+  font-family: Inter, 'Geist Variable', ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .toast-opencode[data-variant='destructive'] {
@@ -650,52 +650,62 @@
 .toast-opencode__marker,
 .toast-opencode__close,
 .toast-opencode__meta {
-  color: #646262;
-  font-size: 0.75rem;
-  line-height: 1.5;
+  color: #615d59;
+  font-family: Inter, 'Geist Variable', ui-sans-serif, system-ui, sans-serif !important;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.33;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .toast-opencode__marker {
-  color: #201d1d;
+  color: #000000;
   font-weight: 700;
 }
 
 .toast-opencode__meta {
-  text-transform: uppercase;
+  color: #a39e98;
 }
 
 .toast-opencode__title,
 .toast-opencode__description {
   margin: 0;
   overflow-wrap: anywhere;
+  font-family: Inter, 'Geist Variable', ui-sans-serif, system-ui, sans-serif !important;
 }
 
 .toast-opencode__title {
-  color: #201d1d;
-  font-size: 0.875rem;
-  font-weight: 700;
-  line-height: 1.5;
+  color: #000000;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.125px;
 }
 
 .toast-opencode__description {
   margin-top: 2px;
-  color: #646262;
-  font-size: 0.8rem;
-  line-height: 1.55;
+  color: #615d59;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
 }
 
 .toast-opencode__close {
   border: 0;
-  border-radius: 4px;
+  border-radius: 8px;
   background: transparent;
-  padding: 2px 4px;
-  font-family: inherit;
+  padding: 4px 8px;
+  font-family: Inter, 'Geist Variable', ui-sans-serif, system-ui, sans-serif !important;
+  font-size: 12px;
+  font-weight: 500;
+  color: #615d59;
   cursor: pointer;
 }
 
 .toast-opencode__close:hover {
-  background: rgba(15, 0, 0, 0.06);
-  color: #201d1d;
+  background: #f6f5f4;
+  color: #000000;
 }
 
 @media (max-width: 960px) {

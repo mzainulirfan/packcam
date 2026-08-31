@@ -204,13 +204,6 @@ export function HealthPage() {
         <HealthStat label="Bootstrap" value={serverHealth?.bootstrap?.needsSetup ? 'needed' : serverHealth ? 'ready' : '-'} detail={`${serverHealth?.bootstrap?.adminCount ?? 0} admin · ${serverHealth?.bootstrap?.operatorCount ?? 0} operator`} icon={Shield01Icon} />
       </section>
 
-      <Alert variant={serverHealth ? 'info' : 'destructive'} className="mb-5 rounded-[8px] border-[#e6e6e6] bg-white font-['Inter'] text-[14px]">
-        <div className="grid gap-1">
-          <p className="font-semibold text-[#000000]">Status server</p>
-          <p className="text-[#31302e]">{loading ? 'Memuat ringkasan server...' : message}</p>
-        </div>
-      </Alert>
-
       {serverHealth?.lastError ? (
         <Alert variant="destructive" className="mb-5 rounded-[8px] border-[#f2c8a4] bg-[#fff7ed] font-['Inter'] text-[14px]">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -225,24 +218,6 @@ export function HealthPage() {
           </div>
         </Alert>
       ) : null}
-
-      <section className="mb-5 overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
-        <PanelHeader icon={Activity01Icon} title="System overview" description="Ringkasan status backend dan penyimpanan data." />
-        {loading && !serverHealth ? (
-          <EmptyState>Memuat status server...</EmptyState>
-        ) : (
-          <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-4">
-            <Metric label="Status" value={serverHealth?.status ?? 'offline'} />
-            <Metric label="Bootstrap" value={serverHealth?.bootstrap?.needsSetup ? 'needed' : serverHealth ? 'ready' : '-'} />
-            <Metric label="Operators" value={String(serverHealth?.storage?.counts?.operatorProfiles ?? 0)} />
-            <Metric label="Sessions" value={String(serverHealth?.storage?.counts?.sessions ?? 0)} />
-            <Metric label="Recordings" value={String(serverHealth?.storage?.counts?.recordings ?? 0)} />
-            <Metric label="Scan logs" value={String(serverHealth?.storage?.counts?.scanLogs ?? 0)} />
-            <Metric label="Last error" value={serverHealth?.lastError ? 'ada' : 'clear'} />
-            <Metric label="Secure context" value={typeof window !== 'undefined' && window.isSecureContext ? 'ready' : 'missing'} />
-          </div>
-        )}
-      </section>
 
       <section className="grid gap-5 lg:grid-cols-2">
         <div className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
@@ -412,6 +387,7 @@ function PanelHeader({ icon, title, description }: { icon: typeof Activity01Icon
   )
 }
 
+// @ts-ignore TS6133 - kept for future use
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] p-3">
@@ -421,6 +397,7 @@ function Metric({ label, value }: { label: string; value: string }) {
   )
 }
 
+// @ts-ignore TS6133 - kept for future use
 function EmptyState({ children }: { children: ReactNode }) {
   return <div className="p-6 text-center text-[14px] font-medium text-[#615d59]">{children}</div>
 }

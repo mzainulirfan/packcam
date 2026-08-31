@@ -19,8 +19,8 @@ Jika `SHOPEE_EXTENSION_API_KEY` tidak diset di backend, endpoint import tetap bi
 ## Cara Pakai
 
 1. Buka halaman order/detail order di Shopee Seller.
-2. Klik extension `Pakti Shopee Sync`.
-3. Klik `Extract & Sync`.
+2. Extension otomatis membaca order yang terlihat di halaman `/portal/sale/order` dan sync ke Pakti.
+3. Tombol `Extract & Sync` tetap tersedia untuk sync manual jika dibutuhkan.
 
 Extractor saat ini memakai heuristic DOM umum. Mapping final perlu disesuaikan setelah ada contoh DOM/screenshot dari halaman Shopee Seller yang dipakai operasional.
 
@@ -38,7 +38,7 @@ Pengiriman chat hanya berjalan di tab Shopee Webchat (`/new-webchat/conversation
 ## Shipping Chat
 
 1. Buka halaman `https://seller.shopee.co.id/portal/sale/order?type=shipping`.
-2. Extension otomatis sync order yang terlihat dan menyiapkan antrean shipping chat saat halaman terbuka.
+2. Extension otomatis sync order yang terlihat dan menyiapkan antrean shipping chat saat halaman terbuka atau tab kembali aktif.
 3. Jika perlu menjalankan manual, klik extension lalu klik `Prepare Shipping Chats`.
 4. Buka `https://seller.shopee.co.id/new-webchat/conversations`.
 5. Biarkan tab Webchat terbuka. Extension akan memproses antrean shipping chat dari tab ini.
@@ -53,7 +53,7 @@ Pengiriman chat hanya berjalan di tab Shopee Webchat (`/new-webchat/conversation
 
 Popup menampilkan mode tab aktif:
 
-- `[x] order sync`: halaman order shipping, extension dapat sync order dan prepare shipping queue.
+- `[x] order sync`: halaman order shipping, extension dapat sync order dan prepare shipping queue. Halaman order lain tetap auto-sync order yang terlihat.
 - `[x] webchat worker`: halaman Webchat, extension dapat auto-prepare dan mengirim antrean chat.
 - `[~] seller page`: halaman Seller Center lain, bukan halaman utama automation.
 - `[!] unsupported`: tab bukan Shopee Seller.
@@ -62,4 +62,4 @@ Tombol `[auto-prepare-video]` dapat dipakai untuk memaksa backend mengecek recor
 
 Job `failed` atau `cancelled` bisa dipantau dan di-retry manual dari Admin Console Pakti. Job `sent` tidak akan di-reset oleh auto-prepare maupun retry otomatis.
 
-Saat tab Webchat terbuka, extension mengirim heartbeat ke backend agar Admin Console bisa menampilkan status worker terakhir. Di halaman order shipping, extension melakukan scan konservatif: membaca order yang terlihat, scroll ringan satu layar untuk menangkap kartu tambahan, lalu kembali ke posisi awal.
+Saat tab Webchat terbuka, extension mengirim heartbeat ke backend agar Admin Console bisa menampilkan status worker terakhir. Di halaman order Shopee, extension melakukan scan konservatif saat halaman terbuka, tab kembali aktif, dan tiap 10 menit: membaca order yang terlihat, scroll ringan satu layar untuk menangkap kartu tambahan, lalu kembali ke posisi awal. Untuk halaman shipping, hasil scan juga dipakai untuk menyiapkan antrean chat pengiriman.

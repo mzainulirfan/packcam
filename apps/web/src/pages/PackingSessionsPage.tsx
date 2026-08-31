@@ -550,8 +550,8 @@ export function PackingSessionsPage() {
     return (
       <>
         <Dialog open={Boolean(shareDraft)} onOpenChange={(open) => !open && setShareDraft(null)}>
-          <DialogContent showCloseButton={false} className="packing-modal max-w-lg gap-0 overflow-hidden rounded-2xl border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
-            <div className="border-b border-[#e6e6e6] p-6">
+          <DialogContent showCloseButton={false} className="packing-modal max-w-lg gap-0 overflow-hidden rounded-2xl border-[#dddddd] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+            <div className="border-b border-[#dddddd] p-6">
               <div className="flex items-start justify-between gap-5">
                 <div className="grid gap-1">
                   <DialogTitle className="font-['Inter'] text-[18px] font-semibold text-[#000000]">{shareDraft?.title ?? 'Bagikan rincian'}</DialogTitle>
@@ -564,15 +564,15 @@ export function PackingSessionsPage() {
             </div>
             {shareDraft ? (
               <div className="grid gap-4 p-6">
-                <pre className="max-h-[50vh] overflow-auto whitespace-pre-wrap break-words rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] p-4 font-['Inter'] text-[13px] leading-6 text-[#31302e]">{shareDraft.text}</pre>
+                <pre className="max-h-[50vh] overflow-auto whitespace-pre-wrap break-words rounded-[4px] border border-[#dddddd] bg-[#f6f5f4] p-4 font-['Inter'] text-[13px] leading-6 text-[#31302e]">{shareDraft.text}</pre>
                 <div className="flex flex-wrap justify-end gap-2">
-                  <Button type="button" variant="ghost" onClick={() => void copyText(shareDraft.text, 'draft')} className="h-9 rounded-full border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">
+                  <Button type="button" variant="ghost" onClick={() => void copyText(shareDraft.text, 'draft')} className="h-9 rounded-full border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">
                     <HugeiconsIcon icon={Copy01Icon} size={16} strokeWidth={1.9} /> {copiedKey === 'draft' ? 'Copied' : 'Copy'}
                   </Button>
-                  <Button type="button" variant="ghost" onClick={() => shareToWhatsApp(shareDraft.text)} className="h-9 rounded-full border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">
+                  <Button type="button" variant="ghost" onClick={() => shareToWhatsApp(shareDraft.text)} className="h-9 rounded-full border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">
                     <HugeiconsIcon icon={SentIcon} size={16} strokeWidth={1.9} /> WhatsApp
                   </Button>
-                  <Button type="button" variant="ghost" onClick={() => downloadTextFile(`${shareDraft.title.replace(/[^a-zA-Z0-9-_]+/g, '_')}.txt`, shareDraft.text, 'text/plain;charset=utf-8')} className="h-9 rounded-full border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">
+                  <Button type="button" variant="ghost" onClick={() => downloadTextFile(`${shareDraft.title.replace(/[^a-zA-Z0-9-_]+/g, '_')}.txt`, shareDraft.text, 'text/plain;charset=utf-8')} className="h-9 rounded-full border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">
                     <HugeiconsIcon icon={Download01Icon} size={16} strokeWidth={1.9} /> TXT
                   </Button>
                 </div>
@@ -582,8 +582,8 @@ export function PackingSessionsPage() {
         </Dialog>
 
         <Dialog open={showPayDialog} onOpenChange={setShowPayDialog}>
-          <DialogContent showCloseButton={false} className="packing-modal max-w-md gap-0 overflow-hidden rounded-2xl border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
-            <div className="border-b border-[#e6e6e6] p-6">
+          <DialogContent showCloseButton={false} className="packing-modal max-w-md gap-0 overflow-hidden rounded-2xl border-[#dddddd] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+            <div className="border-b border-[#dddddd] p-6">
               <div className="flex items-start justify-between gap-5">
                 <div className="grid gap-1">
                   <DialogTitle className="font-['Inter'] text-[18px] font-semibold text-[#000000]">Bayar upah packing</DialogTitle>
@@ -596,10 +596,10 @@ export function PackingSessionsPage() {
             </div>
             {payPreview ? (
               <div className="grid gap-4 p-6">
-                <div className="rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] p-4">
+                <div className="rounded-[4px] border border-[#dddddd] bg-[#f6f5f4] p-4">
                   <p className="font-['Inter'] text-[13px] font-semibold text-[#000000]">{payPreview.packerLabel}</p>
                   <p className="mt-1 font-['Inter'] text-[12px] text-[#615d59]">{payPreview.count} sesi · {payPreview.totalPaket} paket · {formatCurrency(payPreview.totalUpah)}</p>
-                  <ul className="mt-3 max-h-[18vh] divide-y divide-[#e6e6e6] overflow-y-auto rounded-[8px] border border-[#e6e6e6] bg-white">
+                  <ul className="mt-3 max-h-[18vh] divide-y divide-[#e6e6e6] overflow-y-auto rounded-[4px] border border-[#dddddd] bg-white">
                     {payPreview.sessions.map((s) => (
                       <li key={s.id} className="flex justify-between gap-2 px-3 py-2 font-['Inter'] text-[12px]">
                         <span className="truncate text-[#31302e]" title={s.id}>{new Date(s.startedAt).toLocaleDateString('id-ID')} · {s.id.slice(0, 8)}</span>
@@ -614,11 +614,11 @@ export function PackingSessionsPage() {
                 </div>
                 <div className="grid gap-1.5">
                   <Label className="font-['Inter'] text-[12px] font-medium text-[#000000]">Catatan (opsional)</Label>
-                  <Input className="h-10 rounded-[8px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#0075de] focus-visible:ring-0" value={payNote} onChange={(e) => setPayNote(e.target.value)} placeholder="mis: periode 1-7 Agu, tunai" />
+                  <Input className="h-10 rounded-[4px] border-[#dddddd] bg-white px-3 font-['Inter'] text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#0075de] focus-visible:ring-0" value={payNote} onChange={(e) => setPayNote(e.target.value)} placeholder="mis: periode 1-7 Agu, tunai" />
                 </div>
                 {payError ? <Alert variant="destructive" className="font-['Inter'] text-[13px]"><p>{payError}</p></Alert> : null}
                 <div className="flex justify-end gap-2 pt-1">
-                  <Button type="button" variant="ghost" onClick={() => setShowPayDialog(false)} disabled={payBusy} className="h-10 rounded-full border border-[#e6e6e6] bg-white px-5 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">Batal</Button>
+                  <Button type="button" variant="ghost" onClick={() => setShowPayDialog(false)} disabled={payBusy} className="h-10 rounded-full border border-[#dddddd] bg-white px-5 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">Batal</Button>
                   <Button type="button" onClick={() => void handleConfirmPay()} disabled={payBusy || !payPreview.valid} className="h-10 rounded-full bg-[#0075de] px-6 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#005bab] disabled:opacity-40">{payBusy ? 'Memproses...' : 'Konfirmasi Bayar'}</Button>
                 </div>
               </div>
@@ -633,45 +633,50 @@ export function PackingSessionsPage() {
   if (selected) {
     const selectedIsPaid = Boolean(selected.paidAt)
     const selectedCanDelete = canDeleteSession(selected)
+    const paymentLabel = selectedIsPaid ? formatCurrency(selected.paidAmount ?? selected.totalPayAmount) : 'Belum dibayar'
 
     return (
       <div className="packing-page mx-auto max-w-[1240px] bg-[#f6f5f4] px-4 py-8 font-['Inter'] sm:px-6 lg:py-10 xl:px-8">
-        <section className="mb-6 flex flex-col gap-4">
-          <button type="button" onClick={() => setSelected(null)} className="inline-flex w-fit items-center gap-1.5 rounded-full border border-[#e6e6e6] bg-white px-3 py-1.5 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">
+        <section className="mb-6 grid gap-4">
+          <button type="button" onClick={() => setSelected(null)} className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-[#dddddd] bg-white px-3 py-2 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-white">
             <HugeiconsIcon icon={ArrowLeft01Icon} size={16} strokeWidth={1.9} /> Riwayat Sesi Packing
           </button>
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <h1 className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000] sm:text-[32px]">{selected.packerNameSnapshot}</h1>
-              <p className="mt-2 font-['Inter'] text-[13px] leading-5 text-[#615d59]">{selected.id.slice(0, 12)} · {formatPeriode(selected.startedAt, selected.endedAt)} · dibuat oleh {selected.createdByOperatorName ? `${selected.createdByOperatorName} (${selected.createdByOperatorCode ?? '-'})` : '-'}</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className={`inline-flex rounded-full border px-2.5 py-1 font-['Inter'] text-[12px] font-medium ${selected.status === 'closed' ? 'border-[#000000] bg-[#000000] text-white' : selected.status === 'active' ? 'border-[#e6e6e6] bg-white text-[#0075de]' : 'border-[#e6e6e6] bg-white text-[#615d59]'}`}>{selected.status}</span>
-                <span className={`inline-flex rounded-full border px-2.5 py-1 font-['Inter'] text-[12px] font-medium ${selectedIsPaid ? 'border-[#000000] bg-[#000000] text-white' : 'border-[#e6e6e6] bg-white text-[#615d59]'}`}>{selectedIsPaid ? 'Dibayar' : 'Belum dibayar'}</span>
-                <span className="inline-flex rounded-full border border-[#e6e6e6] bg-[#f6f5f4] px-2.5 py-1 font-['Inter'] text-[12px] font-medium text-[#31302e]">{selected.packerCodeSnapshot}</span>
+          <div className="overflow-hidden rounded-2xl border border-[#dddddd] bg-white">
+            <div className="flex flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-end lg:justify-between">
+              <div className="min-w-0">
+                <div className="inline-flex rounded-full border border-[#dddddd] bg-white px-2.5 py-1 font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#0075de]">Detail sesi</div>
+                <h1 className="mt-3 max-w-3xl truncate font-['Inter'] text-[34px] font-bold leading-[1.05] tracking-[-1px] text-[#000000] sm:text-[40px]">{selected.packerNameSnapshot}</h1>
+                <p className="mt-3 max-w-3xl font-['Inter'] text-[15px] leading-6 text-[#615d59]">{formatPeriode(selected.startedAt, selected.endedAt)} · dibuat oleh {selected.createdByOperatorName ? `${selected.createdByOperatorName} (${selected.createdByOperatorCode ?? '-'})` : '-'}</p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className={`inline-flex rounded-full border px-2.5 py-1 font-['Inter'] text-[12px] font-semibold ${selected.status === 'closed' ? 'border-[#000000] bg-[#000000] text-white' : selected.status === 'active' ? 'border-[#dddddd] bg-[#f6f5f4] text-[#0075de]' : 'border-[#dddddd] bg-white text-[#615d59]'}`}>{selected.status}</span>
+                  <span className={`inline-flex rounded-full border px-2.5 py-1 font-['Inter'] text-[12px] font-semibold ${selectedIsPaid ? 'border-[#000000] bg-[#000000] text-white' : 'border-[#dddddd] bg-white text-[#615d59]'}`}>{selectedIsPaid ? 'Dibayar' : 'Belum dibayar'}</span>
+                  <span className="inline-flex rounded-full border border-[#dddddd] bg-[#f6f5f4] px-2.5 py-1 font-['Inter'] text-[12px] font-medium text-[#31302e]">{selected.packerCodeSnapshot}</span>
+                  <span className="inline-flex rounded-full border border-[#dddddd] bg-white px-2.5 py-1 font-['Inter'] text-[12px] font-medium text-[#615d59]">{selected.id.slice(0, 12)}</span>
+                </div>
               </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="ghost" onClick={handleExportDetail} disabled={records.length === 0} className="h-10 rounded-full border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={Download01Icon} size={16} strokeWidth={1.9} /> Export</Button>
-              <Button type="button" variant="ghost" onClick={() => { window.sessionStorage.setItem('pakti.historyPackingSessionId', selected.id); navigateTo('history') }} className="h-10 rounded-full border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">History</Button>
-              {selected.status === 'active' ? <Button type="button" variant="ghost" onClick={() => void handleClose(selected.id)} className="h-10 rounded-full border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Tutup</Button> : null}
-              {selectedCanDelete ? <Button type="button" variant="ghost" onClick={() => void handleDeleteSession(selected)} className="h-10 rounded-full border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#a50016] hover:bg-[#fff1f2]"><HugeiconsIcon icon={Delete02Icon} size={16} strokeWidth={1.9} /> Hapus</Button> : null}
+              <div className="flex flex-wrap gap-2 lg:justify-end">
+                <Button type="button" variant="ghost" onClick={handleExportDetail} disabled={records.length === 0} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={Download01Icon} size={16} strokeWidth={1.9} /> Export</Button>
+                <Button type="button" variant="ghost" onClick={() => { window.sessionStorage.setItem('pakti.historyPackingSessionId', selected.id); navigateTo('history') }} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">History</Button>
+                {selected.status === 'active' ? <Button type="button" variant="ghost" onClick={() => void handleClose(selected.id)} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Tutup</Button> : null}
+                {selectedCanDelete ? <Button type="button" variant="ghost" onClick={() => void handleDeleteSession(selected)} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#a50016] hover:bg-[#fff1f2]"><HugeiconsIcon icon={Delete02Icon} size={16} strokeWidth={1.9} /> Hapus</Button> : null}
+              </div>
             </div>
           </div>
         </section>
 
         <section className="grid gap-3 sm:grid-cols-3">
-          <StatCard label="Paket" value={String(selected.completedPackingCount)} icon={Package01Icon} />
-          <StatCard label="Upah" value={formatCurrency(selected.totalPayAmount)} icon={DollarCircleIcon} />
-          <StatCard label="Payment" value={selectedIsPaid ? formatCurrency(selected.paidAmount ?? selected.totalPayAmount) : '-'} icon={DollarCircleIcon} />
+          <StatCard label="Paket" value={String(selected.completedPackingCount)} subLabel="completed" icon={Package01Icon} />
+          <StatCard label="Upah" value={formatCurrency(selected.totalPayAmount)} subLabel="total sesi" icon={DollarCircleIcon} />
+          <StatCard label="Payment" value={paymentLabel} subLabel={selectedIsPaid ? 'sudah dibayar' : 'menunggu'} icon={DollarCircleIcon} />
         </section>
 
-        <section className="mt-5 overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
-          <div className="flex flex-col gap-2 border-b border-[#e6e6e6] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <section className="mt-5 overflow-hidden rounded-xl border border-[#dddddd] bg-white">
+          <div className="flex flex-col gap-3 border-b border-[#dddddd] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div>
-              <h2 className="font-['Inter'] text-[16px] font-semibold text-[#000000]">Detail paket sesi</h2>
-              <p className="mt-1 font-['Inter'] text-[12px] text-[#a39e98]">Daftar paket completed yang masuk ke sesi ini. Produk dibersihkan dari metadata Shopee.</p>
+              <h2 className="font-['Inter'] text-[20px] font-semibold leading-snug tracking-[-0.125px] text-[#000000]">Detail paket sesi</h2>
+              <p className="mt-1 font-['Inter'] text-[13px] leading-5 text-[#615d59]">Daftar paket completed yang masuk ke sesi ini. Produk dibersihkan dari metadata Shopee.</p>
             </div>
-            <span className="inline-flex w-fit items-center rounded-full border border-[#e6e6e6] bg-[#f6f5f4] px-2.5 py-1 font-['Inter'] text-[11px] font-semibold text-[#615d59]">{detailLoading ? 'Loading...' : `${records.length} record`}</span>
+            <span className="inline-flex w-fit items-center rounded-full border border-[#dddddd] bg-white px-2.5 py-1 font-['Inter'] text-[11px] font-semibold text-[#0075de]">{detailLoading ? 'Loading...' : `${records.length} record`}</span>
           </div>
           {detailLoading ? (
             <div className="grid gap-2 p-6">
@@ -681,12 +686,12 @@ export function PackingSessionsPage() {
             </div>
           ) : records.length === 0 ? (
             <div className="px-6 py-14 text-center">
-              <div className="mx-auto grid h-11 w-11 place-items-center rounded-xl bg-[#f6f5f4] text-[#615d59]">
+              <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[#f6f5f4] text-[#615d59]">
                 <HugeiconsIcon icon={Package01Icon} size={20} strokeWidth={1.9} />
               </div>
-              <div className="mt-3 font-['Inter'] text-[14px] font-medium text-[#000000]">Belum ada paket completed di sesi ini</div>
-              <div className="mt-1 font-['Inter'] text-[12px] text-[#a39e98]">Sesi kosong yang sudah closed bisa dihapus dari halaman ini.</div>
-              {selectedCanDelete ? <Button type="button" variant="ghost" onClick={() => void handleDeleteSession(selected)} className="mt-4 h-9 rounded-full border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">Hapus sesi kosong</Button> : null}
+              <div className="mt-3 font-['Inter'] text-[15px] font-semibold text-[#000000]">Belum ada paket completed di sesi ini</div>
+              <div className="mt-1 font-['Inter'] text-[13px] text-[#615d59]">Sesi kosong yang sudah closed bisa dihapus dari halaman ini.</div>
+              {selectedCanDelete ? <Button type="button" variant="ghost" onClick={() => void handleDeleteSession(selected)} className="mt-4 h-9 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">Hapus sesi kosong</Button> : null}
             </div>
           ) : (
             <div className="overflow-x-auto scrollbar-thin">
@@ -700,7 +705,7 @@ export function PackingSessionsPage() {
                     <Th>Waktu</Th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#e6e6e6]">
+                <tbody className="divide-y divide-[#e6e6e6] bg-white">
                   {records.map((rec, index) => {
                     const r = rec as unknown as { id: string; resiNumber: string; orderNumber?: string | null; mediaType?: string; packingPayAmount?: number | null; packingPayRuleId?: string | null; packingPayBreakdown?: { ruleName?: string; payType?: string; amount?: number; quantity?: number; total?: number; manualOverride?: boolean } | null; orderSnapshot?: { items?: SessionOrderItem[] } | null; startTime?: string }
                     const itemsLabel = r.orderSnapshot?.items ? formatSessionOrderItems(r.orderSnapshot.items) : '-'
@@ -720,7 +725,7 @@ export function PackingSessionsPage() {
                           <p className="max-w-[56rem] font-['Inter'] text-[13px] leading-5 text-[#31302e] [overflow-wrap:anywhere]">{itemsLabel}</p>
                           <div className="mt-2 inline-flex items-center gap-1.5">
                             <span className="rounded-full bg-[#f6f5f4] px-2 py-0.5 font-['Inter'] text-[12px] font-medium text-[#31302e] ring-1 ring-[#e6e6e6]">{currentRuleName}</span>
-                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-full text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" onClick={() => openPayRuleEdit({ id: r.id, resiNumber: r.resiNumber, packingPayRuleId: r.packingPayRuleId, packingPayBreakdown: r.packingPayBreakdown, packingPayAmount: r.packingPayAmount })} disabled={!canEditRule || payRuleBusyId === r.id} title={selectedIsPaid ? 'Terkunci: sudah dibayar' : !canEditRule ? 'Tidak ada pay rule' : 'Ubah pay rule'} aria-label={`Ubah pay rule ${r.resiNumber}`}>
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" onClick={() => openPayRuleEdit({ id: r.id, resiNumber: r.resiNumber, packingPayRuleId: r.packingPayRuleId, packingPayBreakdown: r.packingPayBreakdown, packingPayAmount: r.packingPayAmount })} disabled={!canEditRule || payRuleBusyId === r.id} title={selectedIsPaid ? 'Terkunci: sudah dibayar' : !canEditRule ? 'Tidak ada pay rule' : 'Ubah pay rule'} aria-label={`Ubah pay rule ${r.resiNumber}`}>
                               {payRuleBusyId === r.id ? <span className="font-['Inter'] text-[11px]">...</span> : <HugeiconsIcon icon={selectedIsPaid ? LockPasswordIcon : Edit02Icon} size={14} strokeWidth={1.9} />}
                             </Button>
                             {payRuleBusyId === r.id ? <span className="font-['Inter'] text-[11px] text-[#a39e98]">menyimpan...</span> : null}
@@ -738,8 +743,8 @@ export function PackingSessionsPage() {
         </section>
 
         <Dialog open={Boolean(payRuleEditTarget)} onOpenChange={(open) => { if (!open) closePayRuleEdit() }}>
-          <DialogContent showCloseButton={false} className="packing-modal max-w-md gap-0 overflow-hidden rounded-2xl border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
-            <div className="border-b border-[#e6e6e6] p-6">
+          <DialogContent showCloseButton={false} className="packing-modal max-w-md gap-0 overflow-hidden rounded-2xl border-[#dddddd] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+            <div className="border-b border-[#dddddd] p-6">
               <div className="flex items-start justify-between gap-5">
                 <div className="grid gap-1">
                   <DialogTitle className="font-['Inter'] text-[18px] font-semibold text-[#000000]">Ubah Pay Rule</DialogTitle>
@@ -752,7 +757,7 @@ export function PackingSessionsPage() {
             </div>
             {payRuleEditTarget ? (
               <div className="grid gap-4 p-6">
-                <div className="rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] px-3 py-3">
+                <div className="rounded-[4px] border border-[#dddddd] bg-[#f6f5f4] px-3 py-3">
                   <p className="font-['Inter'] text-[13px] font-semibold text-[#000000]">{payRuleEditTarget.resiNumber}</p>
                   <p className="mt-1 font-['Inter'] text-[12px] leading-5 text-[#615d59]">Saat ini: {payRuleEditTarget.packingPayBreakdown?.ruleName ?? '-'} · {payRuleEditTarget.packingPayBreakdown?.payType ?? '-'} · {payRuleEditTarget.packingPayAmount != null ? formatCurrency(payRuleEditTarget.packingPayAmount) : '-'}{payRuleEditTarget.packingPayBreakdown?.manualOverride ? ' · manual' : ''}</p>
                 </div>
@@ -762,7 +767,7 @@ export function PackingSessionsPage() {
                   <p className="font-['Inter'] text-[12px] text-[#a39e98]">Rule aktif dengan prioritas lebih tinggi akan dipakai otomatis untuk paket baru; pilihan di sini overrides manual.</p>
                 </div>
                 <div className="flex justify-end gap-2 pt-1">
-                  <Button type="button" variant="ghost" onClick={closePayRuleEdit} disabled={Boolean(payRuleBusyId)} className="h-10 rounded-full border border-[#e6e6e6] bg-white px-5 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">Batal</Button>
+                  <Button type="button" variant="ghost" onClick={closePayRuleEdit} disabled={Boolean(payRuleBusyId)} className="h-10 rounded-full border border-[#dddddd] bg-white px-5 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">Batal</Button>
                   <Button type="button" onClick={() => void handleConfirmPayRuleEdit()} disabled={Boolean(payRuleBusyId) || !payRuleEditSelectedId || payRuleEditSelectedId === (payRuleEditTarget.packingPayRuleId ?? '')} className="h-10 rounded-full bg-[#0075de] px-6 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#005bab] disabled:opacity-40">{payRuleBusyId ? 'Menyimpan...' : 'Simpan'}</Button>
                 </div>
               </div>
@@ -779,17 +784,17 @@ export function PackingSessionsPage() {
         <div>
           <div className="font-['Inter'] text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Operasional / Sesi Packing</div>
           <h1 className="mt-2 font-['Inter'] text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">Riwayat Sesi Packing</h1>
-          <p className="mt-3 max-w-2xl font-['Inter'] text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Filter per petugas dan status bayar, centang untuk hitung total, bayar, export, atau share ringkasan ke WhatsApp.</p>
+          <p className="mt-3 max-w-2xl font-['Inter'] text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Kelola sesi packing per petugas, hitung total upah, lalu bayar atau share ringkasan.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className={`inline-flex items-center rounded-full border px-2.5 py-1 font-['Inter'] text-[11px] font-semibold ${loading ? 'border-[#e6e6e6] bg-white text-[#a39e98]' : 'border-[#0075de]/15 bg-[#0075de]/10 text-[#0075de]'}`}>{loading ? 'Loading' : 'Ready'}</span>
-          <Button type="button" variant="ghost" onClick={() => void load()} className="h-10 rounded-full border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={RefreshIcon} size={16} strokeWidth={1.9} /> Refresh</Button>
-          <Button type="button" variant="ghost" onClick={handleExportAll} className="h-10 rounded-full border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Download01Icon} size={16} strokeWidth={1.9} /> Export Sesi</Button>
-          <Button type="button" variant="ghost" onClick={handleExportPayments} className="h-10 rounded-full border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Download01Icon} size={16} strokeWidth={1.9} /> Export Bayar</Button>
+          <span className={`inline-flex items-center rounded-full border px-2.5 py-1 font-['Inter'] text-[11px] font-semibold ${loading ? 'border-[#dddddd] bg-white text-[#a39e98]' : 'border-[#0075de]/15 bg-[#0075de]/10 text-[#0075de]'}`}>{loading ? 'Loading' : 'Ready'}</span>
+          <Button type="button" variant="ghost" onClick={() => void load()} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={RefreshIcon} size={16} strokeWidth={1.9} /> Refresh</Button>
+          <Button type="button" variant="ghost" onClick={handleExportAll} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Download01Icon} size={16} strokeWidth={1.9} /> Export Sesi</Button>
+          <Button type="button" variant="ghost" onClick={handleExportPayments} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Download01Icon} size={16} strokeWidth={1.9} /> Export Bayar</Button>
         </div>
       </section>
 
-      {error ? <Alert variant="destructive" className="mb-5 font-['Inter'] text-[13px]"><p>{error}</p></Alert> : null}
+      {error ? <Alert variant="destructive" className="mb-5 rounded-[4px] border-[#f2c8a4] bg-[#fff7ed] font-['Inter'] text-[13px]"><p className="text-[#31302e]">{error}</p></Alert> : null}
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Sesi" value={String(totals.selectedSessions.length)} subLabel={`${selectedSessionIds.size > 0 ? 'terpilih' : 'terfilter'}`} icon={UserGroupIcon} />
@@ -798,14 +803,14 @@ export function PackingSessionsPage() {
         <StatCard label="Belum / sudah" value={`${totals.unpaidSessions} / ${totals.paidSessions}`} subLabel="sesi" icon={DollarCircleIcon} />
       </section>
 
-      <section className="mt-5 overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
-        <div className="border-b border-[#e6e6e6] p-4 sm:p-5">
+      <section className="mt-5 overflow-hidden rounded-xl border border-[#dddddd] bg-white">
+        <div className="border-b border-[#dddddd] p-4 sm:p-5">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
             <label className="relative flex flex-1 min-w-[240px]">
               <span className="pointer-events-none absolute inset-y-0 left-0 grid w-10 place-items-center text-[#a39e98]">
                 <HugeiconsIcon icon={Search01Icon} size={18} strokeWidth={1.9} />
               </span>
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari packer / kode / ID sesi..." className="h-10 w-full rounded-[8px] border-[#e6e6e6] bg-white pl-10 pr-3 font-['Inter'] text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#CFCBC7] focus-visible:ring-0" aria-label="Cari sesi" />
+              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari packer / kode / ID sesi..." className="h-10 w-full rounded-[4px] border-[#dddddd] bg-white pl-10 pr-3 font-['Inter'] text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#CFCBC7] focus-visible:ring-0" aria-label="Cari sesi" />
             </label>
             <div className="flex flex-wrap gap-2">
               <NativeSelect value={packerFilter} onChange={setPackerFilter} options={packerOptions.map((op) => ({ value: `${op.name}::${op.code}`, label: op.label }))} placeholder="Semua petugas" icon={UserGroupIcon} />
@@ -814,29 +819,35 @@ export function PackingSessionsPage() {
               <Button type="button" variant="ghost" onClick={() => { setSearch(''); setStatusFilter('all'); setPackerFilter('all'); setPaidFilter('all'); setShowStaleOnly(false) }} className="h-10 inline-flex items-center gap-2 rounded-lg px-3 font-['Inter'] text-[13px] font-medium text-[#615d59] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={RefreshIcon} size={16} strokeWidth={1.9} /> Reset</Button>
             </div>
           </div>
-          <label className="mt-3 flex items-center gap-2 font-['Inter'] text-[13px] text-[#31302e]">
-            <input type="checkbox" checked={showStaleOnly} onChange={(e) => setShowStaleOnly(e.target.checked)} className="h-4 w-4 rounded border-[#e6e6e6] accent-[#0075de]" />
+          <label className="mt-3 inline-flex items-center gap-2 rounded-lg border border-[#dddddd] bg-[#f6f5f4] px-3 py-2 font-['Inter'] text-[13px] text-[#31302e]">
+            <input type="checkbox" checked={showStaleOnly} onChange={(e) => setShowStaleOnly(e.target.checked)} className="h-4 w-4 rounded border-[#dddddd] accent-[#0075de]" />
             <span>Hanya menggantung (active tanpa device) · {sessions.filter((s) => s.status === 'active' && !s.createdBySessionId).length} sesi</span>
           </label>
         </div>
-        <div className="flex flex-wrap items-center gap-2 border-t border-[#e6e6e6] bg-[#f6f5f4] px-4 py-3 sm:px-5">
+        <div className="flex flex-wrap items-center gap-2 border-t border-[#dddddd] bg-[#f6f5f4] px-4 py-3 sm:px-5">
           <span className="font-['Inter'] text-[12px] text-[#615d59]">{selectedSessionIds.size > 0 ? `${totals.selectedSessions.length} terpilih` : `${filtered.length} terfilter`} · {loading ? 'memuat' : 'siap'}</span>
           <span className="ml-auto font-['Inter'] text-[12px] text-[#a39e98]">{filtered.length} sesi · {selectedSessionIds.size} terpilih</span>
         </div>
       </section>
 
-      <section className="mt-5 overflow-hidden rounded-xl border border-[#e6e6e6] bg-white p-4 sm:p-5">
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="ghost" onClick={() => { const t = buildSelectionShareText(); if (t) void copyText(t, 'selection') }} disabled={totals.selectedSessions.length === 0} className="h-9 rounded-full border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={Copy01Icon} size={16} strokeWidth={1.9} /> {copiedKey === 'selection' ? 'Copied' : 'Copy Ringkasan'}</Button>
-          <Button type="button" variant="ghost" onClick={() => { const t = buildSelectionShareText(); if (t) setShareDraft({ title: 'Ringkasan packing', text: t }) }} disabled={totals.selectedSessions.length === 0} className="h-9 rounded-full border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={SentIcon} size={16} strokeWidth={1.9} /> Share WA</Button>
-          <Button type="button" onClick={openPayDialog} disabled={payPreview ? !payPreview.valid : true} className="h-9 rounded-full bg-[#0075de] px-5 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#005bab] disabled:opacity-40"><HugeiconsIcon icon={DollarCircleIcon} size={16} strokeWidth={1.9} /> Bayar Terpilih</Button>
-          <Button type="button" variant="ghost" onClick={() => void handleDeleteSelectedSessions()} disabled={deleteBusy || deletePreview.deletable.length === 0} className="h-9 rounded-full border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={Delete02Icon} size={16} strokeWidth={1.9} /> {deleteBusy ? 'Menghapus...' : 'Hapus Kosong'}</Button>
+      <section className="mt-5 overflow-hidden rounded-xl border border-[#dddddd] bg-white p-4 sm:p-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="font-['Inter'] text-[14px] font-semibold text-[#000000]">Aksi terpilih</h2>
+            <p className="mt-1 font-['Inter'] text-[12px] text-[#a39e98]">{totals.selectedSessions.length} sesi · {totals.totalPaket} paket · {formatCurrency(totals.totalUpah)}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="ghost" onClick={() => { const t = buildSelectionShareText(); if (t) void copyText(t, 'selection') }} disabled={totals.selectedSessions.length === 0} className="h-9 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={Copy01Icon} size={16} strokeWidth={1.9} /> {copiedKey === 'selection' ? 'Copied' : 'Copy'}</Button>
+            <Button type="button" variant="ghost" onClick={() => { const t = buildSelectionShareText(); if (t) setShareDraft({ title: 'Ringkasan packing', text: t }) }} disabled={totals.selectedSessions.length === 0} className="h-9 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={SentIcon} size={16} strokeWidth={1.9} /> WA</Button>
+            <Button type="button" onClick={openPayDialog} disabled={payPreview ? !payPreview.valid : true} className="h-9 rounded-lg bg-[#0075de] px-5 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#005bab] disabled:opacity-40"><HugeiconsIcon icon={DollarCircleIcon} size={16} strokeWidth={1.9} /> Bayar</Button>
+            <Button type="button" variant="ghost" onClick={() => void handleDeleteSelectedSessions()} disabled={deleteBusy || deletePreview.deletable.length === 0} className="h-9 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={Delete02Icon} size={16} strokeWidth={1.9} /> {deleteBusy ? 'Menghapus...' : 'Hapus Kosong'}</Button>
+          </div>
         </div>
         <p className="mt-3 min-h-[18px] font-['Inter'] text-[12px] text-[#a39e98]">{payPreview && !payPreview.valid ? (payPreview.mixedPacker ? 'Pilih 1 petugas saja.' : payPreview.notClosedCount > 0 ? `${payPreview.notClosedCount} sesi belum closed.` : payPreview.alreadyPaidCount > 0 ? `${payPreview.alreadyPaidCount} sesi sudah dibayar.` : '') : deletePreview.selected.length > 0 && deletePreview.invalidCount > 0 ? `${deletePreview.deletable.length} bisa dihapus · ${deletePreview.invalidCount} dilewati.` : deletePreview.deletable.length > 0 ? `${deletePreview.deletable.length} sesi kosong bisa dihapus.` : selectedSessionIds.size === 0 && totals.selectedSessions.length > 0 ? 'Centang sesi untuk bayar.' : ''}</p>
       </section>
 
       {lastPayment ? (
-        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-[#e6e6e6] bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-[#dddddd] bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="font-['Inter'] text-[13px] leading-5 text-[#31302e]">
             <span className="font-semibold text-[#000000]">{lastPayment.paymentNo}</span>
             <span className="mx-1 text-[#a39e98]">·</span>
@@ -844,22 +855,22 @@ export function PackingSessionsPage() {
             <span className="ml-2 inline-flex rounded-full bg-[#000000] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-white">barusan dibayar</span>
           </p>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="ghost" onClick={() => void copyText(buildPaymentShareText(lastPayment), `last-${lastPayment.id}`)} className="h-9 rounded-full border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">{copiedKey === `last-${lastPayment.id}` ? 'Copied' : 'Copy'}</Button>
-            <Button type="button" variant="ghost" onClick={() => setShareDraft({ title: `Pembayaran ${lastPayment.paymentNo}`, text: buildPaymentShareText(lastPayment) })} className="h-9 rounded-full border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">WA</Button>
+            <Button type="button" variant="ghost" onClick={() => void copyText(buildPaymentShareText(lastPayment), `last-${lastPayment.id}`)} className="h-9 rounded-full border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">{copiedKey === `last-${lastPayment.id}` ? 'Copied' : 'Copy'}</Button>
+            <Button type="button" variant="ghost" onClick={() => setShareDraft({ title: `Pembayaran ${lastPayment.paymentNo}`, text: buildPaymentShareText(lastPayment) })} className="h-9 rounded-full border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">WA</Button>
             <Button type="button" variant="ghost" onClick={() => setLastPayment(null)} className="h-9 rounded-full px-4 font-['Inter'] text-[13px] text-[#615d59] hover:bg-[#f6f5f4]">Tutup</Button>
           </div>
         </div>
       ) : null}
 
-      <section className="mt-5 overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
-        <div className="flex flex-col gap-3 border-b border-[#e6e6e6] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+      <section className="mt-5 overflow-hidden rounded-xl border border-[#dddddd] bg-white">
+        <div className="flex flex-col gap-3 border-b border-[#dddddd] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div>
             <h2 className="font-['Inter'] text-[16px] font-semibold text-[#000000]">Daftar sesi</h2>
             <p className="mt-1 font-['Inter'] text-[12px] text-[#a39e98]">{filtered.length} sesi terfilter · {selectedSessionIds.size} terpilih</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="ghost" onClick={selectAllFilteredSessions} disabled={filtered.length === 0} className="h-9 rounded-full border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40">Pilih semua</Button>
-            <Button type="button" variant="ghost" onClick={() => setSelectedSessionIds(new Set())} disabled={selectedSessionIds.size === 0} className="h-9 rounded-full border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40">Kosongkan</Button>
+            <Button type="button" variant="ghost" onClick={selectAllFilteredSessions} disabled={filtered.length === 0} className="h-9 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40">Pilih semua</Button>
+            <Button type="button" variant="ghost" onClick={() => setSelectedSessionIds(new Set())} disabled={selectedSessionIds.size === 0} className="h-9 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40">Kosongkan</Button>
           </div>
         </div>
         {loading ? (
@@ -875,51 +886,54 @@ export function PackingSessionsPage() {
             </div>
             <div className="mt-3 font-['Inter'] text-[14px] font-medium text-[#000000]">Tidak ada sesi sesuai filter</div>
             <div className="mt-1 font-['Inter'] text-[12px] text-[#a39e98]">Coba ubah petugas, status bayar, atau kata kunci pencarian.</div>
-            <Button type="button" variant="ghost" onClick={() => { setSearch(''); setStatusFilter('all'); setPackerFilter('all'); setPaidFilter('all') }} className="mt-4 h-9 rounded-full border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">Reset filter</Button>
+            <Button type="button" variant="ghost" onClick={() => { setSearch(''); setStatusFilter('all'); setPackerFilter('all'); setPaidFilter('all') }} className="mt-4 h-9 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">Reset filter</Button>
           </div>
         ) : (
           <div className="overflow-x-auto scrollbar-thin">
-            <table className="w-full min-w-[1080px] border-collapse">
+            <table className="w-full min-w-[860px] border-collapse">
               <thead className="bg-[#f6f5f4]">
                 <tr className="text-left">
                   <Th className="w-[48px] px-4">Pilih</Th>
-                  <Th>Packer</Th>
-                  <Th>Status</Th>
-                  <Th>Bayar</Th>
-                  <Th className="text-right">Paket</Th>
-                  <Th className="text-right">Upah</Th>
+                  <Th>Sesi</Th>
+                  <Th>Progress</Th>
+                  <Th className="text-right">Total</Th>
                   <Th>Periode</Th>
-                  <Th>Dibuat oleh</Th>
                   <Th className="px-5 text-right">Aksi</Th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#e6e6e6]">
                 {filtered.map((s) => (
                   <tr key={s.id} className="bg-white transition-colors hover:bg-[#fbfaf9]">
-                    <Td className="px-4"><input type="checkbox" className="h-4 w-4 rounded border-[#e6e6e6] accent-[#0075de]" checked={selectedSessionIds.has(s.id)} onChange={() => toggleSessionSelection(s.id)} aria-label={`Pilih sesi ${s.packerNameSnapshot}`} /></Td>
+                    <Td className="px-4"><input type="checkbox" className="h-4 w-4 rounded border-[#dddddd] accent-[#0075de]" checked={selectedSessionIds.has(s.id)} onChange={() => toggleSessionSelection(s.id)} aria-label={`Pilih sesi ${s.packerNameSnapshot}`} /></Td>
                     <Td>
-                      <div className="grid gap-0.5">
+                      <div className="grid gap-1">
                         <span className="font-['Inter'] text-[14px] font-medium text-[#000000]">{s.packerNameSnapshot}</span>
                         <span className="font-['Inter'] text-[12px] text-[#a39e98]">{s.packerCodeSnapshot} · {s.id.slice(0, 8)}</span>
+                        {s.createdByOperatorName && (s.createdByOperatorName !== s.packerOperatorName || s.createdByOperatorCode !== s.packerOperatorCode) ? (
+                          <span className="font-['Inter'] text-[11px] text-[#615d59]">Atas nama: {s.createdByOperatorName} ({s.createdByOperatorCode})</span>
+                        ) : null}
                       </div>
                     </Td>
                     <Td>
                       <div className="flex flex-wrap gap-1.5">
-                        <span className={`inline-flex rounded-full border px-2 py-0.5 font-['Inter'] text-[12px] font-medium ${s.status === 'closed' ? 'border-[#e6e6e6] bg-white text-[#31302e]' : s.status === 'active' ? 'border-[#e6e6e6] bg-[#f6f5f4] text-[#0075de]' : 'border-[#e6e6e6] bg-white text-[#615d59]'}`}>{s.status}</span>
+                        <span className={`inline-flex rounded-lg border px-2 py-0.5 font-['Inter'] text-[12px] font-medium ${s.status === 'closed' ? 'border-[#dddddd] bg-white text-[#31302e]' : s.status === 'active' ? 'border-[#dddddd] bg-[#f6f5f4] text-[#0075de]' : 'border-[#dddddd] bg-white text-[#615d59]'}`}>{s.status}</span>
+                        {s.paidAt ? <span className="inline-flex rounded-lg bg-[#000000] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-white">Dibayar</span> : <span className="inline-flex rounded-lg border border-[#dddddd] bg-white px-2 py-0.5 font-['Inter'] text-[11px] font-medium text-[#615d59]">Belum</span>}
                         {s.status === 'active' && !s.createdBySessionId ? <span className="inline-flex rounded-full bg-[#fff7ed] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-[#a65000] ring-1 ring-[#fed7aa]">Menggantung</span> : null}
                       </div>
                     </Td>
-                    <Td>{s.paidAt ? <span className="inline-flex rounded-full bg-[#000000] px-2.5 py-1 font-['Inter'] text-[11px] font-semibold text-white">Dibayar</span> : <span className="inline-flex rounded-full border border-[#e6e6e6] bg-white px-2.5 py-1 font-['Inter'] text-[11px] font-medium text-[#615d59]">Belum</span>}</Td>
-                    <Td className="text-right font-['Inter'] text-[13px] tabular-nums text-[#000000]">{s.completedPackingCount}</Td>
-                    <Td className="text-right font-['Inter'] text-[13px] font-medium tabular-nums text-[#000000]">{formatCurrency(s.totalPayAmount)}</Td>
+                    <Td className="text-right">
+                      <div className="grid gap-0.5">
+                        <span className="font-['Inter'] text-[13px] font-medium tabular-nums text-[#000000]">{formatCurrency(s.totalPayAmount)}</span>
+                        <span className="font-['Inter'] text-[12px] tabular-nums text-[#a39e98]">{s.completedPackingCount} paket</span>
+                      </div>
+                    </Td>
                     <Td className="font-['Inter'] text-[12px] text-[#615d59]" title={`${new Date(s.startedAt).toLocaleString('id-ID')} → ${s.endedAt ? new Date(s.endedAt).toLocaleString('id-ID') : '— masih aktif'}`}>{formatPeriode(s.startedAt, s.endedAt)}</Td>
-                    <Td className="font-['Inter'] text-[12px] text-[#615d59]">{s.createdByOperatorName ? <span className={s.createdByOperatorName !== s.packerOperatorName || s.createdByOperatorCode !== s.packerOperatorCode ? 'font-medium text-[#000000]' : ''}>{s.createdByOperatorName} ({s.createdByOperatorCode}){s.createdByOperatorName !== s.packerOperatorName || s.createdByOperatorCode !== s.packerOperatorCode ? ' · atas nama' : ''}</span> : <span className="text-[#a39e98]">—</span>}</Td>
                     <Td className="px-5">
                       <div className="flex justify-end gap-1">
-                        <Button type="button" variant="ghost" size="sm" onClick={() => { window.sessionStorage.setItem('pakti.historyPackingSessionId', s.id); navigateTo('history') }} className="h-8 rounded-full border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">History</Button>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => void handleOpenDetail(s)} className="h-8 rounded-full border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Detail</Button>
-                        {s.status === 'active' ? <Button type="button" variant="ghost" size="sm" onClick={() => void handleClose(s.id)} className="h-8 rounded-full border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Tutup</Button> : null}
-                        {canDeleteSession(s) ? <Button type="button" variant="ghost" size="sm" onClick={() => void handleDeleteSession(s)} className="h-8 rounded-full border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#a50016] hover:bg-[#fff1f2]">Hapus</Button> : null}
+                        <Button type="button" variant="ghost" size="sm" onClick={() => { window.sessionStorage.setItem('pakti.historyPackingSessionId', s.id); navigateTo('history') }} className="h-8 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">History</Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => void handleOpenDetail(s)} className="h-8 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Detail</Button>
+                        {s.status === 'active' ? <Button type="button" variant="ghost" size="sm" onClick={() => void handleClose(s.id)} className="h-8 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Tutup</Button> : null}
+                        {canDeleteSession(s) ? <Button type="button" variant="ghost" size="sm" onClick={() => void handleDeleteSession(s)} className="h-8 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#a50016] hover:bg-[#fff1f2]">Hapus</Button> : null}
                       </div>
                     </Td>
                   </tr>
@@ -928,16 +942,16 @@ export function PackingSessionsPage() {
             </table>
           </div>
         )}
-        {filtered.length > 0 ? <p className="border-t border-[#e6e6e6] bg-[#fbfaf9] px-4 py-3 font-['Inter'] text-[12px] text-[#a39e98] sm:px-5">Menampilkan {filtered.length} dari {sessions.length} sesi · Centang untuk hitung total & share.</p> : null}
+        {filtered.length > 0 ? <p className="border-t border-[#dddddd] bg-[#fbfaf9] px-4 py-3 font-['Inter'] text-[12px] text-[#a39e98] sm:px-5">Menampilkan {filtered.length} dari {sessions.length} sesi · Centang untuk hitung total & share.</p> : null}
       </section>
 
-      <section className="mt-5 overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
-        <div className="flex flex-col gap-3 border-b border-[#e6e6e6] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+      <section className="mt-5 overflow-hidden rounded-xl border border-[#dddddd] bg-white">
+        <div className="flex flex-col gap-3 border-b border-[#dddddd] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div>
             <h2 className="font-['Inter'] text-[16px] font-semibold text-[#000000]">Riwayat Pembayaran</h2>
             <p className="mt-1 font-['Inter'] text-[12px] text-[#a39e98]">{payments.length} pembayaran · terbaru di atas</p>
           </div>
-          <Button type="button" variant="ghost" onClick={() => void loadPayments()} disabled={paymentsLoading} className="h-9 rounded-full border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={RefreshIcon} size={16} strokeWidth={1.9} /> {paymentsLoading ? 'Memuat...' : 'Refresh'}</Button>
+          <Button type="button" variant="ghost" onClick={() => void loadPayments()} disabled={paymentsLoading} className="h-9 rounded-full border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={RefreshIcon} size={16} strokeWidth={1.9} /> {paymentsLoading ? 'Memuat...' : 'Refresh'}</Button>
         </div>
         {payments.length === 0 ? (
           <div className="px-6 py-14 text-center">
@@ -975,13 +989,13 @@ export function PackingSessionsPage() {
                     <Td className="text-center font-['Inter'] text-[13px] tabular-nums text-[#000000]">{p.totalSessions}</Td>
                     <Td className="text-right font-['Inter'] text-[13px] tabular-nums text-[#000000]">{p.totalPackages}</Td>
                     <Td className="text-right font-['Inter'] text-[13px] font-semibold tabular-nums text-[#000000]">{formatCurrency(p.totalAmount)}</Td>
-                    <Td><span className="inline-flex rounded-full border border-[#e6e6e6] bg-[#f6f5f4] px-2 py-0.5 font-['Inter'] text-[12px] font-medium text-[#31302e]">{p.paymentMethod}</span></Td>
+                    <Td><span className="inline-flex rounded-full border border-[#dddddd] bg-[#f6f5f4] px-2 py-0.5 font-['Inter'] text-[12px] font-medium text-[#31302e]">{p.paymentMethod}</span></Td>
                     <Td className="font-['Inter'] text-[12px] text-[#615d59]">{new Date(p.paidAt).toLocaleString('id-ID')}</Td>
                     <Td className="px-5">
                       <div className="flex justify-end gap-1">
-                        <Button type="button" variant="ghost" size="sm" onClick={() => { const t = buildPaymentShareText(p); void copyText(t, `pay-${p.id}`) }} className="h-8 rounded-full border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] text-[#31302e] hover:bg-[#f6f5f4]">{copiedKey === `pay-${p.id}` ? 'Copied' : 'Copy'}</Button>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => { const t = buildPaymentShareText(p); setShareDraft({ title: `Pembayaran ${p.paymentNo}`, text: t }) }} className="h-8 rounded-full border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] text-[#31302e] hover:bg-[#f6f5f4]">WA</Button>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => downloadTextFile(`pembayaran-${p.paymentNo}.txt`, buildPaymentShareText(p), 'text/plain;charset=utf-8')} className="h-8 rounded-full border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] text-[#31302e] hover:bg-[#f6f5f4]">TXT</Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => { const t = buildPaymentShareText(p); void copyText(t, `pay-${p.id}`) }} className="h-8 rounded-full border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] text-[#31302e] hover:bg-[#f6f5f4]">{copiedKey === `pay-${p.id}` ? 'Copied' : 'Copy'}</Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => { const t = buildPaymentShareText(p); setShareDraft({ title: `Pembayaran ${p.paymentNo}`, text: t }) }} className="h-8 rounded-full border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] text-[#31302e] hover:bg-[#f6f5f4]">WA</Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => downloadTextFile(`pembayaran-${p.paymentNo}.txt`, buildPaymentShareText(p), 'text/plain;charset=utf-8')} className="h-8 rounded-full border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] text-[#31302e] hover:bg-[#f6f5f4]">TXT</Button>
                       </div>
                     </Td>
                   </tr>
@@ -1028,7 +1042,7 @@ function formatSessionOrderItems(items: SessionOrderItem[]) {
 
 function StatCard({ label, value, subLabel, icon }: { label: string; value: string; subLabel?: string; icon: typeof Package01Icon }) {
   return (
-    <article className="rounded-xl border border-[#e6e6e6] bg-white p-5">
+    <article className="rounded-xl border border-[#dddddd] bg-white p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div>
@@ -1055,7 +1069,7 @@ function Td({ children, className = '', title }: { children: ReactNode; classNam
 
 function NativeSelect({ value, onChange, options, placeholder, placeholderValue = 'all', icon }: { value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }>; placeholder?: string; placeholderValue?: string; icon?: typeof UserGroupIcon }) {
   return (
-    <label className="relative inline-flex h-10 items-center rounded-lg border border-[#e6e6e6] bg-white text-[#000000]">
+    <label className="relative inline-flex h-10 items-center rounded-lg border border-[#dddddd] bg-white text-[#000000]">
       {icon ? (
         <span className="pointer-events-none absolute left-3 grid place-items-center text-[#31302e]">
           <HugeiconsIcon icon={icon} size={17} strokeWidth={1.9} />

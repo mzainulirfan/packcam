@@ -403,7 +403,7 @@ export function UsersPage() {
       </section>
 
       <section className="grid gap-3 sm:grid-cols-3">
-        <article className="rounded-xl border border-[#e6e6e6] bg-white p-5">
+        <article className="rounded-xl border border-[#dddddd] bg-white p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Total user</div>
@@ -417,7 +417,7 @@ export function UsersPage() {
             </span>
           </div>
         </article>
-        <article className="rounded-xl border border-[#e6e6e6] bg-white p-5">
+        <article className="rounded-xl border border-[#dddddd] bg-white p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Admin</div>
@@ -431,7 +431,7 @@ export function UsersPage() {
             </span>
           </div>
         </article>
-        <article className="rounded-xl border border-[#e6e6e6] bg-white p-5">
+        <article className="rounded-xl border border-[#dddddd] bg-white p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Operator</div>
@@ -447,17 +447,17 @@ export function UsersPage() {
         </article>
       </section>
 
-      <section className="mt-5 overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
-        <div className="border-b border-[#e6e6e6] p-4 sm:p-5">
+      <section className="mt-5 overflow-hidden rounded-xl border border-[#dddddd] bg-white">
+        <div className="border-b border-[#dddddd] p-4 sm:p-5">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
             <label className="relative flex flex-1 min-w-[240px]">
               <span className="pointer-events-none absolute inset-y-0 left-0 grid w-10 place-items-center text-[#a39e98]">
                 <HugeiconsIcon icon={Search01Icon} size={18} strokeWidth={1.9} />
               </span>
-              <Input id="users-search" value={searchText} onChange={(e) => setSearchText(e.target.value)} placeholder="Cari nama, username, atau kode..." className="h-10 w-full rounded-[8px] border-[#e6e6e6] bg-white pl-10 pr-3 font-['Inter'] text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#CFCBC7] focus-visible:ring-0" aria-label="Cari user" />
+              <Input id="users-search" value={searchText} onChange={(e) => setSearchText(e.target.value)} placeholder="Cari nama, username, atau kode..." className="h-10 w-full rounded-[4px] border-[#dddddd] bg-white pl-10 pr-3 font-['Inter'] text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#CFCBC7] focus-visible:ring-0" aria-label="Cari user" />
             </label>
             <div className="flex flex-wrap gap-2">
-              <label className="relative inline-flex h-10 items-center rounded-lg border border-[#e6e6e6] bg-[#f6f5f4] text-[#000000]">
+              <label className="relative inline-flex h-10 items-center rounded-lg border border-[#dddddd] bg-[#f6f5f4] text-[#000000]">
                 <span className="pointer-events-none absolute left-3 grid place-items-center text-[#31302e]">
                   <HugeiconsIcon icon={UserCircleIcon} size={17} strokeWidth={1.9} />
                 </span>
@@ -470,7 +470,7 @@ export function UsersPage() {
                   <HugeiconsIcon icon={ArrowDown01Icon} size={15} strokeWidth={1.9} />
                 </span>
               </label>
-              <label className="relative inline-flex h-10 items-center rounded-lg border border-[#e6e6e6] bg-white text-[#000000]">
+              <label className="relative inline-flex h-10 items-center rounded-lg border border-[#dddddd] bg-white text-[#000000]">
                 <span className="pointer-events-none absolute left-3 grid place-items-center text-[#31302e]">
                   <HugeiconsIcon icon={Task01Icon} size={17} strokeWidth={1.9} />
                 </span>
@@ -489,7 +489,7 @@ export function UsersPage() {
             </div>
           </div>
           {shouldShowStatusAlert ? (
-            <Alert variant={messageTone === 'error' ? 'destructive' : 'default'} className="mt-3 rounded-[8px] border-[#e6e6e6] bg-[#f6f5f4] font-['Inter'] text-[14px]">
+            <Alert variant={messageTone === 'error' ? 'destructive' : 'default'} className="mt-3 rounded-[4px] border-[#dddddd] bg-[#f6f5f4] font-['Inter'] text-[14px]">
               <p className="font-semibold text-[#000000]">{messageTone === 'error' ? 'Perlu perhatian' : 'Status'}</p>
               <p className="text-[#31302e]">{message}</p>
             </Alert>
@@ -501,7 +501,7 @@ export function UsersPage() {
             <h2 className="font-['Inter'] text-[16px] font-semibold text-[#000000]">Daftar pengguna</h2>
             <p className="mt-1 font-['Inter'] text-[12px] text-[#a39e98]">Klik nama untuk melihat atau mengubah detail akun.</p>
           </div>
-          <span className="inline-flex items-center rounded-full border border-[#e6e6e6] bg-white px-2.5 py-1 font-['Inter'] text-[11px] font-semibold text-[#0075de]">{filteredProfiles.length} hasil</span>
+          <span className="inline-flex items-center rounded-full border border-[#dddddd] bg-white px-2.5 py-1 font-['Inter'] text-[11px] font-semibold text-[#0075de]">{filteredProfiles.length} hasil</span>
         </div>
 
         <div className="overflow-x-auto scrollbar-thin">
@@ -533,10 +533,10 @@ export function UsersPage() {
                       </Td>
                       <Td className="py-4 font-['Inter'] text-[13px] text-[#615d59]">{profile.operatorCode}</Td>
                       <Td>
-                        <span className={`inline-flex rounded-[5px] border px-2 py-1 font-['Inter'] text-[12px] font-medium ${profile.role === 'admin' ? 'border-[#e6e6e6] bg-white text-[#000000]' : 'border-[#e6e6e6] bg-white text-[#615d59]'}`}>{profile.role === 'admin' ? 'Admin' : 'Operator'}</span>
+                        <span className={`inline-flex rounded-[4px] border px-2 py-1 font-['Inter'] text-[12px] font-medium ${profile.role === 'admin' ? 'border-[#dddddd] bg-white text-[#000000]' : 'border-[#dddddd] bg-white text-[#615d59]'}`}>{profile.role === 'admin' ? 'Admin' : 'Operator'}</span>
                       </Td>
                       <Td>
-                        <span className="inline-flex rounded-[5px] bg-[#f6f5f4] px-2 py-1 font-['Inter'] text-[12px] font-medium text-[#000000] ring-1 ring-[#e6e6e6]">{profile.taskType === 'qc' ? 'QC' : 'Packing'}</span>
+                        <span className="inline-flex rounded-[4px] bg-[#f6f5f4] px-2 py-1 font-['Inter'] text-[12px] font-medium text-[#000000] ring-1 ring-[#e6e6e6]">{profile.taskType === 'qc' ? 'QC' : 'Packing'}</span>
                       </Td>
                       <Td>
                         <DateTimeCell value={profile.lastUsedAt} />
@@ -563,7 +563,7 @@ export function UsersPage() {
         </div>
 
         {!filteredProfiles.length ? (
-          <div className="border-t border-[#e6e6e6] px-6 py-14 text-center">
+          <div className="border-t border-[#dddddd] px-6 py-14 text-center">
             <div className="mx-auto grid h-11 w-11 place-items-center rounded-xl bg-[#f6f5f4] text-[#615d59]">
               <HugeiconsIcon icon={Search01Icon} size={20} strokeWidth={1.9} />
             </div>
@@ -576,8 +576,8 @@ export function UsersPage() {
       <p className="font-['Inter'] text-[12px] text-[#a39e98]">Catatan: hapus/nonaktifkan akun dipindahkan ke menu lanjutan untuk mengurangi risiko klik tidak sengaja.</p>
 
       <Dialog open={dialogState === 'form'} onOpenChange={(open) => !open && closeFormModal()}>
-        <DialogContent showCloseButton={false} className="users-modal max-w-[520px] gap-0 overflow-hidden rounded-2xl border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
-          <div className="border-b border-[#e6e6e6] p-6">
+        <DialogContent showCloseButton={false} className="users-modal max-w-[520px] gap-0 overflow-hidden rounded-2xl border-[#dddddd] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+          <div className="border-b border-[#dddddd] p-6">
             <div className="flex items-start justify-between gap-5">
               <div className="grid gap-1">
                 <h3 className="font-['Inter'] text-[20px] font-semibold tracking-[-0.2px] text-[#000000]">{formMode === 'edit' ? `Edit ${formSourceProfile?.operatorName ?? 'user'}` : 'Tambah user'}</h3>
@@ -591,32 +591,32 @@ export function UsersPage() {
           <div className="max-h-[64vh] overflow-y-auto p-6">
             <div className="grid gap-4">
               {formMode === 'edit' && formSourceProfile && (
-                <div className="rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] px-3 py-3">
+                <div className="rounded-[4px] border border-[#dddddd] bg-[#f6f5f4] px-3 py-3">
                   <p className="font-['Inter'] text-[13px] font-semibold text-[#000000]">{isEditingCurrentSession ? 'Akun aktif sedang diedit' : 'Mode edit aktif'}</p>
                   <p className="mt-1 font-['Inter'] text-[13px] leading-5 text-[#615d59]">{isEditingCurrentSession ? 'Akun ini sedang dipakai pada sesi login saat ini.' : `Perubahan akan diterapkan ke ${formatOperator(formSourceProfile.operatorName, formSourceProfile.operatorCode)}.`}</p>
                 </div>
               )}
               <div className="grid gap-1.5">
                 <Label className="font-['Inter'] text-[12px] font-medium text-[#000000]">Nama</Label>
-                <Input id="user-fullname" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Contoh: Sani" className="h-10 rounded-[5px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#0075de] focus-visible:ring-0" />
+                <Input id="user-fullname" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Contoh: Sani" className="h-10 rounded-[4px] border-[#dddddd] bg-white px-3 font-['Inter'] text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#0075de] focus-visible:ring-0" />
                 <p className="font-['Inter'] text-[12px] text-[#615d59]">Nama lengkap wajib diisi.</p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="grid gap-1.5">
                   <Label htmlFor="user-username" className="font-['Inter'] text-[12px] font-medium text-[#000000]">Username</Label>
-                  <Input id="user-username" value={operatorName} onChange={(e) => setOperatorName(e.target.value.replace(/\s+/g, ''))} placeholder="sani" readOnly={formMode === 'edit'} className={`h-10 rounded-[5px] border bg-white px-3 font-['Inter'] text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#0075de] focus-visible:ring-0 ${nameConflict ? 'border-[#dd5b00] bg-[#fff7ed]' : 'border-[#e6e6e6]'}`} />
+                  <Input id="user-username" value={operatorName} onChange={(e) => setOperatorName(e.target.value.replace(/\s+/g, ''))} placeholder="sani" readOnly={formMode === 'edit'} className={`h-10 rounded-[4px] border bg-white px-3 font-['Inter'] text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#0075de] focus-visible:ring-0 ${nameConflict ? 'border-[#dd5b00] bg-[#fff7ed]' : 'border-[#dddddd]'}`} />
                   <p className={`font-['Inter'] text-[12px] ${nameConflict ? 'text-[#dd5b00]' : 'text-[#a39e98]'}`}>{nameFieldHelp}</p>
                 </div>
                 {formMode === 'edit' ? (
                   <div className="grid gap-1.5">
                     <Label htmlFor="user-code" className="font-['Inter'] text-[12px] font-medium text-[#000000]">Kode</Label>
-                    <Input id="user-code" value={operatorCode} onChange={(e) => setOperatorCode(e.target.value)} placeholder="001" readOnly className={`h-10 rounded-[5px] border bg-white px-3 font-['Inter'] text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#0075de] focus-visible:ring-0 ${codeConflict ? 'border-[#dd5b00] bg-[#fff7ed]' : 'border-[#e6e6e6]'}`} />
+                    <Input id="user-code" value={operatorCode} onChange={(e) => setOperatorCode(e.target.value)} placeholder="001" readOnly className={`h-10 rounded-[4px] border bg-white px-3 font-['Inter'] text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#0075de] focus-visible:ring-0 ${codeConflict ? 'border-[#dd5b00] bg-[#fff7ed]' : 'border-[#dddddd]'}`} />
                     <p className={`font-['Inter'] text-[12px] ${codeConflict ? 'text-[#dd5b00]' : 'text-[#a39e98]'}`}>{codeFieldHelp}</p>
                   </div>
                 ) : (
                   <div className="grid gap-1.5">
                     <Label className="font-['Inter'] text-[12px] font-medium text-[#000000]">Kode</Label>
-                    <div className="flex h-10 items-center justify-between rounded-[5px] border border-[#e6e6e6] bg-[#f6f5f4] px-3 font-['Inter'] text-[14px]">
+                    <div className="flex h-10 items-center justify-between rounded-[4px] border border-[#dddddd] bg-[#f6f5f4] px-3 font-['Inter'] text-[14px]">
                       <span className="font-['Inter'] font-semibold text-[#000000]">{nextCreateCode}</span>
                       <span className="rounded-full bg-white px-2 py-0.5 font-['Inter'] text-[11px] font-medium text-[#615d59] ring-1 ring-[#e6e6e6]">pass: user123</span>
                     </div>
@@ -626,7 +626,7 @@ export function UsersPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="grid gap-1.5">
                   <Label className="font-['Inter'] text-[12px] font-medium text-[#000000]">Role</Label>
-                  <select value={operatorRole} onChange={(e) => setOperatorRole(e.target.value as OperatorRole)} className="h-10 w-full rounded-[5px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[14px] focus:border-[#0075de] focus:outline-none">
+                  <select value={operatorRole} onChange={(e) => setOperatorRole(e.target.value as OperatorRole)} className="h-10 w-full rounded-[4px] border border-[#dddddd] bg-white px-3 font-['Inter'] text-[14px] focus:border-[#0075de] focus:outline-none">
                     {ROLE_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
@@ -636,7 +636,7 @@ export function UsersPage() {
                 </div>
                 <div className="grid gap-1.5">
                   <Label className="font-['Inter'] text-[12px] font-medium text-[#000000]">Tugas</Label>
-                  <select value={operatorTaskType} onChange={(e) => setOperatorTaskType(e.target.value as WorkTask)} className="h-10 w-full rounded-[5px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[14px] focus:border-[#0075de] focus:outline-none">
+                  <select value={operatorTaskType} onChange={(e) => setOperatorTaskType(e.target.value as WorkTask)} className="h-10 w-full rounded-[4px] border border-[#dddddd] bg-white px-3 font-['Inter'] text-[14px] focus:border-[#0075de] focus:outline-none">
                     {TASK_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
@@ -647,16 +647,16 @@ export function UsersPage() {
               </div>
             </div>
           </div>
-          <div className="flex items-center justify-end gap-2 border-t border-[#e6e6e6] bg-white p-4">
-            <Button type="button" variant="ghost" onClick={closeFormModal} className="h-10 rounded-lg border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px] font-medium hover:bg-[#f6f5f4]">Batal</Button>
+          <div className="flex items-center justify-end gap-2 border-t border-[#dddddd] bg-white p-4">
+            <Button type="button" variant="ghost" onClick={closeFormModal} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium hover:bg-[#f6f5f4]">Batal</Button>
             <Button type="button" onClick={() => void handleSaveForm()} disabled={!!nameConflict || !!codeConflict || !fullName.trim() || !operatorName.trim()} className="h-10 rounded-full bg-[#0075de] px-5 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#005bab] disabled:opacity-40">Simpan user</Button>
           </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={dialogState === 'confirm-save' && !!pendingSaveAction} onOpenChange={(open) => !open && closeConfirmSaveModal()}>
-        <DialogContent showCloseButton={false} className="users-modal max-w-md gap-0 overflow-hidden rounded-2xl border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
-          <div className="border-b border-[#e6e6e6] p-6">
+        <DialogContent showCloseButton={false} className="users-modal max-w-md gap-0 overflow-hidden rounded-2xl border-[#dddddd] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+          <div className="border-b border-[#dddddd] p-6">
             <div className="flex items-start justify-between gap-5">
               <div className="grid gap-1">
                 <h3 className="font-['Inter'] text-[18px] font-semibold text-[#000000]">{pendingSaveAction?.isEditMode ? `Simpan perubahan ${pendingSaveAction?.name}` : `Buat ${pendingSaveAction?.name}`}</h3>
@@ -668,11 +668,11 @@ export function UsersPage() {
             </div>
           </div>
           <div className="grid gap-4 p-6">
-            <div className="rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] px-3 py-3">
+            <div className="rounded-[4px] border border-[#dddddd] bg-[#f6f5f4] px-3 py-3">
               <p className="font-['Inter'] text-[13px] font-semibold text-[#000000]">Alasan konfirmasi</p>
               <p className="mt-1 font-['Inter'] text-[13px] leading-5 text-[#615d59]">{[isEditingCurrentSession ? 'Akun ini sedang dipakai pada sesi login aktif.' : null, pendingSaveAction?.role === 'admin' && pendingSaveAction?.sourceProfile?.role !== 'admin' ? `Perubahan ini akan mempromosikan ${pendingSaveAction?.sourceProfile?.operatorName ?? 'user'} menjadi admin.` : null].filter(Boolean).join(' ') || 'Tidak ada catatan khusus.'}</p>
             </div>
-            <dl className="grid gap-2 rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] p-3 font-['Inter'] text-[13px] md:grid-cols-2">
+            <dl className="grid gap-2 rounded-[4px] border border-[#dddddd] bg-[#f6f5f4] p-3 font-['Inter'] text-[13px] md:grid-cols-2">
               <DetailRow label="Nama lengkap" value={pendingSaveAction?.fullNameValue} />
               <DetailRow label="Username" value={pendingSaveAction?.name} />
               <DetailRow label="Kode" value={pendingSaveAction?.code} />
@@ -680,16 +680,16 @@ export function UsersPage() {
               <DetailRow label="Tugas" value={pendingSaveAction?.taskType} />
             </dl>
           </div>
-          <div className="flex items-center justify-end gap-2 border-t border-[#e6e6e6] bg-white p-4">
-            <Button type="button" variant="ghost" onClick={closeConfirmSaveModal} className="h-9 rounded-full border border-[#e6e6e6] bg-white px-5 font-['Inter'] text-[13px]">Kembali</Button>
+          <div className="flex items-center justify-end gap-2 border-t border-[#dddddd] bg-white p-4">
+            <Button type="button" variant="ghost" onClick={closeConfirmSaveModal} className="h-9 rounded-full border border-[#dddddd] bg-white px-5 font-['Inter'] text-[13px]">Kembali</Button>
             <Button type="button" onClick={() => { if (!pendingSaveAction) return; void commitSaveAction(pendingSaveAction) }} className="h-9 rounded-full bg-[#0075de] px-6 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#005bab]">Simpan sekarang</Button>
           </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={dialogState === 'reset' && !!resetTarget} onOpenChange={(open) => !open && (setResetTarget(null), setDialogState(null))}>
-        <DialogContent showCloseButton={false} className="users-modal max-w-[420px] gap-0 overflow-hidden rounded-2xl border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
-          <div className="border-b border-[#e6e6e6] p-6">
+        <DialogContent showCloseButton={false} className="users-modal max-w-[420px] gap-0 overflow-hidden rounded-2xl border-[#dddddd] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+          <div className="border-b border-[#dddddd] p-6">
             <div className="flex items-start justify-between gap-5">
               <div className="grid gap-1">
                 <h3 className="font-['Inter'] text-[20px] font-semibold tracking-[-0.2px] text-[#000000]">Reset password</h3>
@@ -704,28 +704,28 @@ export function UsersPage() {
             <div className="grid gap-1.5">
               <Label className="font-['Inter'] text-[12px] font-medium text-[#000000]">Password baru</Label>
               <div className="relative">
-                <Input id="reset-password" type={resetShowPassword ? 'text' : 'password'} value={resetPassword} onChange={(e) => setResetPassword(e.target.value)} placeholder="Password baru" className="h-10 rounded-[5px] border-[#e6e6e6] bg-white pr-20 font-['Inter'] text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
-                <button type="button" onClick={() => setResetShowPassword((v) => !v)} className="absolute right-1 top-1/2 h-7 -translate-y-1/2 rounded-[6px] bg-white px-2 font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]">{resetShowPassword ? 'Sembunyi' : 'Lihat'}</button>
+                <Input id="reset-password" type={resetShowPassword ? 'text' : 'password'} value={resetPassword} onChange={(e) => setResetPassword(e.target.value)} placeholder="Password baru" className="h-10 rounded-[4px] border-[#dddddd] bg-white pr-20 font-['Inter'] text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+                <button type="button" onClick={() => setResetShowPassword((v) => !v)} className="absolute right-1 top-1/2 h-7 -translate-y-1/2 rounded-[4px] bg-white px-2 font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]">{resetShowPassword ? 'Sembunyi' : 'Lihat'}</button>
               </div>
             </div>
             <div className="grid gap-1.5">
               <Label className="font-['Inter'] text-[12px] font-medium text-[#000000]">Konfirmasi password</Label>
               <div className="relative">
-                <Input id="reset-password-confirm" type={resetShowPassword ? 'text' : 'password'} value={resetPasswordConfirm} onChange={(e) => setResetPasswordConfirm(e.target.value)} placeholder="Ulangi password baru" className="h-10 rounded-[5px] border-[#e6e6e6] bg-white pr-20 font-['Inter'] text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
-                <button type="button" onClick={() => setResetShowPassword((v) => !v)} className="absolute right-1 top-1/2 h-7 -translate-y-1/2 rounded-[6px] bg-white px-2 font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]">{resetShowPassword ? 'Sembunyi' : 'Lihat'}</button>
+                <Input id="reset-password-confirm" type={resetShowPassword ? 'text' : 'password'} value={resetPasswordConfirm} onChange={(e) => setResetPasswordConfirm(e.target.value)} placeholder="Ulangi password baru" className="h-10 rounded-[4px] border-[#dddddd] bg-white pr-20 font-['Inter'] text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+                <button type="button" onClick={() => setResetShowPassword((v) => !v)} className="absolute right-1 top-1/2 h-7 -translate-y-1/2 rounded-[4px] bg-white px-2 font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]">{resetShowPassword ? 'Sembunyi' : 'Lihat'}</button>
               </div>
             </div>
           </div>
-          <div className="flex items-center justify-end gap-2 border-t border-[#e6e6e6] bg-white p-4">
-            <Button type="button" variant="ghost" onClick={() => (setResetTarget(null), setDialogState(null))} disabled={isResetting} className="h-9 rounded-full border border-[#e6e6e6] bg-white px-5 font-['Inter'] text-[13px]">Batal</Button>
+          <div className="flex items-center justify-end gap-2 border-t border-[#dddddd] bg-white p-4">
+            <Button type="button" variant="ghost" onClick={() => (setResetTarget(null), setDialogState(null))} disabled={isResetting} className="h-9 rounded-full border border-[#dddddd] bg-white px-5 font-['Inter'] text-[13px]">Batal</Button>
             <Button type="button" onClick={() => void handleResetPassword()} disabled={isResetting} className="h-9 rounded-full bg-[#0075de] px-6 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#005bab] disabled:opacity-40">{isResetting ? 'Menyimpan...' : 'Simpan password'}</Button>
           </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={dialogState === 'delete' && !!deleteTarget} onOpenChange={(open) => !open && (setDeleteTarget(null), setDialogState(null))}>
-        <DialogContent showCloseButton={false} className="users-modal max-w-[420px] gap-0 overflow-hidden rounded-2xl border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
-          <div className="border-b border-[#e6e6e6] p-6">
+        <DialogContent showCloseButton={false} className="users-modal max-w-[420px] gap-0 overflow-hidden rounded-2xl border-[#dddddd] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+          <div className="border-b border-[#dddddd] p-6">
             <div className="flex items-start justify-between gap-5">
               <div className="grid gap-1">
                 <h3 className="font-['Inter'] text-[18px] font-semibold text-[#000000]">Hapus user</h3>
@@ -737,13 +737,13 @@ export function UsersPage() {
             </div>
           </div>
           <div className="p-6">
-            <div className="rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] px-3 py-3">
+            <div className="rounded-[4px] border border-[#dddddd] bg-[#f6f5f4] px-3 py-3">
               <p className="font-['Inter'] text-[13px] font-semibold text-[#000000]">Konfirmasi hapus</p>
               <p className="mt-1 font-['Inter'] text-[13px] leading-5 text-[#615d59]">Data user ini akan dihapus dari daftar operator. Tindakan tidak bisa dibatalkan.</p>
             </div>
           </div>
-          <div className="flex items-center justify-end gap-2 border-t border-[#e6e6e6] bg-white p-4">
-            <Button type="button" variant="ghost" onClick={() => (setDeleteTarget(null), setDialogState(null))} className="h-9 rounded-full border border-[#e6e6e6] bg-white px-5 font-['Inter'] text-[13px]">Batal</Button>
+          <div className="flex items-center justify-end gap-2 border-t border-[#dddddd] bg-white p-4">
+            <Button type="button" variant="ghost" onClick={() => (setDeleteTarget(null), setDialogState(null))} className="h-9 rounded-full border border-[#dddddd] bg-white px-5 font-['Inter'] text-[13px]">Batal</Button>
             <Button type="button" onClick={() => deleteTarget && void handleDeleteProfile(deleteTarget)} className="h-9 rounded-full bg-black px-6 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]">Hapus user</Button>
           </div>
         </DialogContent>
@@ -781,7 +781,7 @@ function getInitials(value: string) {
 
 function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="grid gap-1 rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] px-3 py-2.5">
+    <div className="grid gap-1 rounded-[4px] border border-[#dddddd] bg-[#f6f5f4] px-3 py-2.5">
       <dt className="font-['Inter'] text-[12px] font-medium text-[#615d59]">{label}</dt>
       <dd className="font-['Inter'] text-[13px] font-medium text-[#000000]">{value ?? '-'}</dd>
     </div>

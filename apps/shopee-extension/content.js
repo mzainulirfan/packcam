@@ -382,7 +382,7 @@ function findScrollableOrderContainer() {
 }
 
 async function extractOrdersWithLightScroll() {
-  if (!isShopeeShippingOrderPage()) return extractOrders()
+  if (!isShopeeOrderPage()) return extractOrders()
 
   const scrollTarget = findScrollableOrderContainer()
   const beforeTop = scrollTarget?.scrollTop ?? window.scrollY
@@ -406,12 +406,23 @@ function isShopeeSellerHostname(hostname) {
 }
 
 function isShopeeShippingOrderPage() {
+  return isShopeeOrderPage('shipping')
+}
+
+function getShopeeOrderPageType() {
   try {
     const url = new URL(location.href)
-    return isShopeeSellerHostname(url.hostname) && url.pathname === '/portal/sale/order' && url.searchParams.get('type') === 'shipping'
+    if (!isShopeeSellerHostname(url.hostname) || url.pathname !== '/portal/sale/order') return null
+    return url.searchParams.get('type') || 'unknown'
   } catch {
-    return false
+    return null
   }
+}
+
+function isShopeeOrderPage(expectedType = null) {
+  const pageType = getShopeeOrderPageType()
+  if (!pageType) return false
+  return expectedType ? pageType === expectedType : true
 }
 
 function isShopeeWebchatPage() {
@@ -485,6 +496,42 @@ async function prepareVisibleShippingChats() {
   })
   sessionStorage.setItem('pakti:lastShippingScan', signature)
   console.info('[Pakti] shipping orders synced and chat queue prepared', result)
+}
+
+async function syncVisibleShopeeOrdersAndMaybePrepareShipping() {
+  if (!isShopeeOrderPage()) return null
+
+  const orders = await extractOrdersWithLightScroll()
+  const orderInputs = orders
+    .filter((order) => order.orderNumber)
+    .map((order) => ({
+      orderNumber: order.orderNumber,
+      trackingNumber: order.trackingNumber || null,
+      buyerUsername: order.buyerUsername || null,
+    }))
+  if (orderInputs.length === 0) return { imported: null, shipping: null, visibleOrderCount: 0 }
+
+  const pageType = getShopeeOrderPageType() || 'unknown'
+  const signature = orderInputs.map((o) => [o.orderNumber, o.trackingNumber || '', o.buyerUsername || ''].join(':')).join('|')
+  const signatureKey = `pakti:lastOrderScan:${pageType}`
+  if (sessionStorage.getItem(signatureKey) === signature) return null
+
+  const config = await readExtensionConfig()
+  const imported = await requestPaktiApi('/api/import/shopee/orders', config, {
+    method: 'POST',
+    body: JSON.stringify({ orders }),
+  })
+  let shipping = null
+  if (pageType === 'shipping') {
+    shipping = await requestPaktiApi('/api/shopee/shipping-chat/prepare', config, {
+      method: 'POST',
+      body: JSON.stringify({ orders: orderInputs }),
+    })
+    sessionStorage.setItem('pakti:lastShippingScan', signature)
+  }
+  sessionStorage.setItem(signatureKey, signature)
+  console.info('[Pakti] Shopee orders auto synced', { pageType, visibleOrderCount: orderInputs.length, imported, shipping })
+  return { imported, shipping, visibleOrderCount: orderInputs.length }
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -845,18 +892,106 @@ function findConversationTarget(username) {
   return null
 }
 
+function getVisibleElementRect(element) {
+  if (!(element instanceof HTMLElement) || element.offsetParent === null) return null
+  const rect = element.getBoundingClientRect()
+  if (rect.width < 20 || rect.height < 18) return null
+  if (rect.bottom < 0 || rect.top > window.innerHeight || rect.right < 0 || rect.left > window.innerWidth) return null
+  return rect
+}
+
+function findSearchSuggestionTarget(username, input, allowFirstResult = false) {
+  if (!isShopeeWebchatPage() || !(input instanceof HTMLElement)) return null
+
+  const inputRect = input.getBoundingClientRect()
+  const normalizedUsername = normalizeUsername(username)
+  const candidates = [
+    ...document.querySelectorAll(
+      '[role="option"], [role="listitem"], li, a, button, ' +
+        '[class*="conversation" i], [class*="chat-item" i], [class*="user-item" i], [class*="result" i], [class*="item" i], div',
+    ),
+  ]
+
+  return candidates
+    .map((candidate) => {
+      if (!(candidate instanceof HTMLElement)) return null
+      if (candidate === input || candidate.contains(input)) return null
+      if (candidate.closest('.RtZKVef1GL, .yKlwrqauc8')) return null
+      if (candidate.matches('input, textarea, [contenteditable="true"], [contenteditable="plaintext-only"], input[type="checkbox"], input[type="radio"], [role="checkbox"]')) return null
+
+      const rect = getVisibleElementRect(candidate)
+      if (!rect) return null
+      if (rect.top < inputRect.bottom - 12) return null
+      if (rect.left > inputRect.right + 520 || rect.right < inputRect.left - 24) return null
+      if (rect.height > 120 || rect.width > Math.max(720, inputRect.width + 420)) return null
+
+      const candidateText = normalizeUsername(textOf(candidate))
+      if (!candidateText || candidateText.length > 320) return null
+      if (!allowFirstResult && !candidateText.includes(normalizedUsername)) return null
+
+      const clickable = candidate.closest('button, a, [role="option"], [role="listitem"], li, [class*="item" i], [class*="conversation" i], [class*="chat" i]') || candidate
+      if (!(clickable instanceof HTMLElement)) return null
+      const clickableRect = getVisibleElementRect(clickable)
+      if (!clickableRect) return null
+
+      return {
+        element: clickable,
+        top: clickableRect.top,
+        left: clickableRect.left,
+        area: clickableRect.width * clickableRect.height,
+        exact: candidateText.split(/\s+/).includes(normalizedUsername),
+      }
+    })
+    .filter(Boolean)
+    .sort((left, right) => Number(right.exact) - Number(left.exact) || left.top - right.top || left.left - right.left || left.area - right.area)[0]?.element || null
+}
+
 function clickConversationTarget(target) {
   const rect = target.getBoundingClientRect()
-  const clientX = Math.min(rect.right - 12, rect.left + Math.max(30, rect.width * 0.65))
-  const clientY = rect.top + rect.height / 2
-  const clickTarget = document.elementFromPoint(clientX, clientY)
-  const safeTarget = clickTarget instanceof HTMLElement && !clickTarget.matches('input[type="checkbox"], input[type="radio"], [role="checkbox"]')
-    ? clickTarget
-    : target
+  const clickPoints = [0.35, 0.55, 0.75]
 
-  safeTarget.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX, clientY }))
-  safeTarget.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, clientX, clientY }))
-  safeTarget.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX, clientY }))
+  for (const ratio of clickPoints) {
+    const clientX = Math.min(rect.right - 12, rect.left + Math.max(24, rect.width * ratio))
+    const clientY = rect.top + rect.height / 2
+    const clickTarget = document.elementFromPoint(clientX, clientY)
+    const safeTarget = clickTarget instanceof HTMLElement && !clickTarget.matches('input[type="checkbox"], input[type="radio"], [role="checkbox"]')
+      ? clickTarget
+      : target
+
+    safeTarget.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, clientX, clientY, pointerId: 1, pointerType: 'mouse', isPrimary: true }))
+    safeTarget.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX, clientY }))
+    safeTarget.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, clientX, clientY, pointerId: 1, pointerType: 'mouse', isPrimary: true }))
+    safeTarget.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, clientX, clientY }))
+    safeTarget.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX, clientY }))
+  }
+
+  try { target.click() } catch (error) {}
+}
+
+async function openConversationFromSearch(username, input) {
+  const startedAt = Date.now()
+  let lastTarget = null
+
+  while (Date.now() - startedAt < 9000) {
+    const target = findConversationTarget(username) || findSearchSuggestionTarget(username, input) || findSearchSuggestionTarget(username, input, true)
+    if (target) {
+      lastTarget = target
+      target.scrollIntoView?.({ block: 'center', inline: 'nearest' })
+      await new Promise((resolve) => setTimeout(resolve, 120))
+      clickConversationTarget(target)
+
+      const composer = await waitForCondition(() => {
+        const activeComposer = findComposerInput()
+        if (!activeComposer) return null
+        return findActiveConversationHeader(username, activeComposer) ? activeComposer : null
+      }, 1800, 150)
+      if (composer) return composer
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, lastTarget ? 450 : 250))
+  }
+
+  return null
 }
 
 function findActiveConversationHeader(username, composer = null) {
@@ -1050,18 +1185,8 @@ async function fillWebchatSearchAndAttach(job) {
   input.dispatchEvent(new Event('change', { bubbles: true }))
   input.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }))
   input.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'Enter' }))
-  const target = await waitForCondition(() => findConversationTarget(job.buyerUsername), 15000, 300)
-  let clicked = false
-  if (target) {
-    clickConversationTarget(target)
-    clicked = true
-  }
-  if (!clicked) throw new Error(`Percakapan Shopee untuk ${job.buyerUsername} tidak ditemukan.`)
-  if (clicked) {
-    await new Promise((r) => setTimeout(r, 1500))
-  }
-  const composer = await waitForComposerReady(15000)
-  await waitForActiveConversation(job.buyerUsername, composer)
+  const composer = await openConversationFromSearch(job.buyerUsername, input)
+  if (!composer) throw new Error(`Percakapan Shopee untuk ${job.buyerUsername} tidak ditemukan atau chatbox belum terbuka.`)
   const attachments = getJobAttachments(job)
   if (attachments.length > 0) {
     try {
@@ -1097,12 +1222,13 @@ async function fillWebchatSearchAndAttach(job) {
 }
 
 // Kirim chat otomatis hanya dari tab Shopee Webchat, bukan sidebar/minichat Seller Center.
-if (isShopeeWebchatPage()) {
+{
   let lastAutoJobId = ''
   let lastShippingAutoJobId = ''
   let autoRunBusy = false
   let autoRunStartTimer = null
   let autoRunInterval = null
+  let webchatAutoRunStarted = false
 
   function getErrorText(error) {
     if (error instanceof Error) return `${error.name} ${error.message} ${error.stack || ''}`
@@ -1215,6 +1341,7 @@ if (isShopeeWebchatPage()) {
   }
 
   async function autoRunPending() {
+    if (!isShopeeWebchatPage()) return
     if (autoRunBusy) return
     autoRunBusy = true
     let activeAutoJob = null
@@ -1305,18 +1432,48 @@ if (isShopeeWebchatPage()) {
       autoRunBusy = false
     }
   }
-  autoRunStartTimer = setTimeout(autoRunPending, 1800)
-  autoRunInterval = setInterval(autoRunPending, 5000)
+  function startWebchatAutoRun() {
+    if (webchatAutoRunStarted || !isShopeeWebchatPage()) return
+    webchatAutoRunStarted = true
+    autoRunStartTimer = setTimeout(autoRunPending, 1800)
+    autoRunInterval = setInterval(autoRunPending, 5000)
+  }
+
+  startWebchatAutoRun()
+  setInterval(startWebchatAutoRun, 2500)
+  window.addEventListener('focus', startWebchatAutoRun)
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) startWebchatAutoRun()
+  })
 }
 
-if (isShopeeShippingOrderPage()) {
-  let lastShippingScanError = ''
-  const scanShippingChats = () => prepareVisibleShippingChats().catch((error) => {
-    const message = error instanceof Error ? error.message : 'Shipping scan gagal.'
-    if (message === lastShippingScanError) return
-    lastShippingScanError = message
-    console.warn('[Pakti] shipping scan gagal', error)
+if (isShopeeSellerHostname(location.hostname)) {
+  let lastOrderScanError = ''
+  let orderScanBusy = false
+
+  const scanShopeeOrders = () => {
+    if (!isShopeeOrderPage() || orderScanBusy) return
+    orderScanBusy = true
+    syncVisibleShopeeOrdersAndMaybePrepareShipping()
+      .then(() => {
+        lastOrderScanError = ''
+      })
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : 'Shopee order auto scan gagal.'
+        if (message !== lastOrderScanError) {
+          lastOrderScanError = message
+          console.warn('[Pakti] Shopee order auto scan gagal', error)
+        }
+      })
+      .finally(() => {
+        orderScanBusy = false
+      })
+  }
+
+  setTimeout(scanShopeeOrders, 2500)
+  setInterval(scanShopeeOrders, 10 * 60 * 1000)
+  window.addEventListener('focus', scanShopeeOrders)
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) scanShopeeOrders()
   })
-  setTimeout(scanShippingChats, 2500)
-  setInterval(scanShippingChats, 15000)
 }
