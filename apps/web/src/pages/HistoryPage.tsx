@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Cancel01Icon, Copy01Icon, Delete02Icon, Download01Icon, Package01Icon, RefreshIcon, Search01Icon, Tick02Icon, Clock01Icon } from '@hugeicons/core-free-icons'
+import { ArrowDown01Icon, Cancel01Icon, Copy01Icon, Delete02Icon, Download01Icon, Package01Icon, RefreshIcon, Search01Icon, Tick02Icon, Clock01Icon } from '@hugeicons/core-free-icons'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 
 import { useOperatorSession } from '../app/operatorSession'
@@ -9,7 +9,6 @@ import { navigateTo } from '../app/uiState'
 import { setRepeatQcResi } from '../app/repeatQcState'
 import { Button } from '../components/ui/button'
 import { ModalOverlay } from '../components/ui/ModalOverlay'
-import { Dialog, DialogContent } from '../components/ui/dialog'
 import { DialogDescription, DialogTitle } from '../components/ui/dialog'
 import { notify } from '../app/notify'
 import { buildServerFileUrl, deleteServerRecordingApi, openServerSettingsFolderApi, prepareServerRecordingShareFileApi, prepareShopeeChatSendApi, readRecentShopeeOrdersApi, readServerHistoryRecordingsApi, readShopeeChatSendsByRecordingIdsApi } from '@pakti/api-client'
@@ -108,6 +107,7 @@ export function HistoryPage() {
   const [dateFrom, setDateFrom] = useState(initialHistoryFilters.dateFrom)
   const [dateTo, setDateTo] = useState(initialHistoryFilters.dateTo)
   const [isExportOpen, setIsExportOpen] = useState(false)
+  const exportRef = useRef<HTMLDivElement>(null)
   const [page, setPage] = useState(1)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
@@ -267,6 +267,14 @@ export function HistoryPage() {
       dateTo,
     })
   }, [dateFrom, dateTo, operatorFilter, searchText, taskFilter])
+
+  useEffect(() => {
+    function handlePointerDown(e: PointerEvent) {
+      if (!exportRef.current?.contains(e.target as Node)) setIsExportOpen(false)
+    }
+    if (isExportOpen) document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [isExportOpen])
 
   useEffect(() => {
     if (packingSessionFilter) {
@@ -646,58 +654,85 @@ export function HistoryPage() {
   }
 
   return (
-    <div className="history-page mx-auto max-w-[1240px] bg-[#f6f5f4] px-4 py-8 font-['Inter'] sm:px-6 lg:py-10 xl:px-8">
-      <section className="mb-7 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+    <div className="history-page mx-auto max-w-[1240px] bg-[#f6f5f4] px-4 py-8 font-['Inter'] sm:px-6 lg:py-8 xl:px-8">
+      <section className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <div className="font-['Inter'] text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Operasional / Riwayat</div>
-          <h1 className="mt-2 font-['Inter'] text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">History Dokumentasi</h1>
-          <p className="mt-3 max-w-2xl font-['Inter'] text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Pantau dokumentasi QC dan packing berdasarkan nomor resi dan nomor pesanan. Klik baris untuk detail.</p>
+          <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Operasional / History</div>
+          <h1 className="mt-2 font-['Inter'] text-[32px] font-bold leading-[1.1] tracking-[-0.7px] text-[#000000] sm:text-[34px]">History Dokumentasi</h1>
+          <p className="mt-2 max-w-2xl font-['Inter'] text-[14px] leading-6 text-[#615d59]">Telusuri dokumentasi QC dan packing berdasarkan resi, pesanan, operator, atau periode.</p>
         </div>
-        <Button type="button" onClick={() => setIsExportOpen(true)} className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-[#0075de] px-5 font-['Inter'] text-[14px] font-medium text-white shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.035)] hover:bg-[#005bab] active:scale-[0.98]">
-          <HugeiconsIcon icon={Download01Icon} size={18} strokeWidth={1.9} /> Export
-        </Button>
+        <div ref={exportRef} className="relative flex shrink-0 items-center gap-2">
+          <span className="hidden font-['Inter'] text-[12px] text-[#a39e98] sm:inline">{groupedRecordings.length} hasil</span>
+          <Button type="button" onClick={() => setIsExportOpen((v) => !v)} className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-[#0075de] px-4 font-['Inter'] text-[13px] font-medium text-white shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.035)] hover:bg-[#005bab] active:scale-[0.98]">
+            <HugeiconsIcon icon={Download01Icon} size={16} strokeWidth={1.9} /> Export <HugeiconsIcon icon={ArrowDown01Icon} size={14} strokeWidth={1.9} />
+          </Button>
+          {isExportOpen ? (
+            <div className="absolute right-0 top-[calc(100%+8px)] z-20 w-[280px] overflow-hidden rounded-xl border border-[#e6e6e6] bg-white shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+              <div className="border-b border-[#e6e6e6] bg-[#fbfaf9] px-3 py-2">
+                <p className="font-['Inter'] text-[12px] font-semibold text-[#000000]">Export {exportSummaryLabel}</p>
+                <p className="font-['Inter'] text-[11px] text-[#615d59]">Mengikuti filter aktif</p>
+              </div>
+              <div className="grid gap-1 p-1">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"
+                  onClick={() => {
+                    handleExportCsv()
+                    setIsExportOpen(false)
+                  }}
+                >
+                  Export CSV <HugeiconsIcon icon={Download01Icon} size={14} strokeWidth={1.9} />
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"
+                  onClick={() => {
+                    handleExportExcel()
+                    setIsExportOpen(false)
+                  }}
+                >
+                  Export Excel <HugeiconsIcon icon={Download01Icon} size={14} strokeWidth={1.9} />
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
       </section>
 
       <section className="grid gap-3 sm:grid-cols-3">
-        <article className="rounded-xl border border-[#e6e6e6] bg-white p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Total dokumentasi</div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{groupedRecordings.length}</span>
-                <span className="font-['Inter'] text-[13px] text-[#615d59]">paket</span>
-              </div>
+        <article className="flex h-[96px] flex-col justify-between rounded-xl border border-[#e6e6e6] bg-white p-4">
+          <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Total dokumentasi</div>
+          <div className="flex items-end justify-between">
+            <div className="flex items-baseline gap-1.5">
+              <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{groupedRecordings.length}</span>
+              <span className="font-['Inter'] text-[12px] text-[#615d59]">paket</span>
             </div>
-            <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
-              <HugeiconsIcon icon={Package01Icon} size={19} strokeWidth={1.9} />
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
+              <HugeiconsIcon icon={Package01Icon} size={18} strokeWidth={1.9} />
             </span>
           </div>
         </article>
-        <article className="rounded-xl border border-[#e6e6e6] bg-white p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Lengkap</div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{historyMetrics.completed}</span>
-                <span className="font-['Inter'] text-[13px] text-[#615d59]">paket</span>
-              </div>
+        <article className="flex h-[96px] flex-col justify-between rounded-xl border border-[#e6e6e6] bg-white p-4">
+          <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Dokumentasi lengkap</div>
+          <div className="flex items-end justify-between">
+            <div className="flex items-baseline gap-1.5">
+              <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{historyMetrics.completed}</span>
+              <span className="font-['Inter'] text-[12px] text-[#615d59]">{groupedRecordings.length ? `${Math.round((historyMetrics.completed / groupedRecordings.length) * 100)}%` : '0%'}</span>
             </div>
-            <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
-              <HugeiconsIcon icon={Tick02Icon} size={19} strokeWidth={1.9} />
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
+              <HugeiconsIcon icon={Tick02Icon} size={18} strokeWidth={1.9} />
             </span>
           </div>
         </article>
-        <article className="rounded-xl border border-[#e6e6e6] bg-white p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Belum lengkap</div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{historyMetrics.incomplete}</span>
-                <span className="font-['Inter'] text-[13px] text-[#615d59]">paket</span>
-              </div>
+        <article className="flex h-[96px] flex-col justify-between rounded-xl border border-[#e6e6e6] bg-white p-4">
+          <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Perlu perhatian</div>
+          <div className="flex items-end justify-between">
+            <div className="flex items-baseline gap-1.5">
+              <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{historyMetrics.incomplete}</span>
+              <span className="font-['Inter'] text-[12px] text-[#615d59]">paket</span>
             </div>
-            <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
-              <HugeiconsIcon icon={Clock01Icon} size={19} strokeWidth={1.9} />
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
+              <HugeiconsIcon icon={Clock01Icon} size={18} strokeWidth={1.9} />
             </span>
           </div>
         </article>
@@ -759,66 +794,35 @@ export function HistoryPage() {
                     const isSelected = group.latest.id === selectedRecord?.id
                     const groupChatSend = group.records.map((r) => visibleChatSendByRecordingId.get(r.id)).find(Boolean)
                     return (
-                      <article key={group.resiNumber} className={`grid gap-3 p-4 ${isSelected ? 'bg-[#f6f5f4]' : 'bg-white'}`}>
+                      <article
+                        key={group.resiNumber}
+                        onClick={() => openDetail(group.latest)}
+                        className={`grid cursor-pointer gap-3 p-4 ${isSelected ? 'bg-[#f6f5f4] border-l-[3px] border-l-[#0075de]' : 'bg-white border-l-[3px] border-l-transparent hover:bg-[#fbfaf9]'} border-b border-[#e6e6e6]`}
+                      >
                         <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <button type="button" className="truncate text-left font-['Inter'] text-[14px] font-semibold text-[#000000] hover:underline" onClick={() => openDetail(group.latest)}>
-                              {group.resiNumber}
-                            </button>
+                          <div className="grid gap-0.5 min-w-0">
+                            <span className="font-['Inter'] text-[14px] font-semibold leading-none text-[#000000]">{group.resiNumber}</span>
                             {shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())?.orderNumber ? (
-                              <p className="truncate font-['Inter'] text-[11px] text-[#a39e98]">No. Pesanan {shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())!.orderNumber}</p>
+                              <span className="font-['Inter'] text-[12px] font-normal leading-none text-[#615d59]">{shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())!.orderNumber}</span>
                             ) : null}
-                            <p className="font-['Inter'] text-[12px] text-[#a39e98]">{formatCompactDateTime(group.latest.updatedAt)}</p>
+                            <span className="font-['Inter'] text-[11px] font-normal text-[#a39e98]">{formatCompactDateTime(group.latest.updatedAt)}</span>
                           </div>
-                          <div className="flex flex-col items-end gap-1.5">
-                            <StatusPill status={getGroupStatus(group)} />
-                            {groupChatSend ? (
-                              <span className="inline-flex rounded-full border border-[#e6e6e6] bg-[#f6f5f4] px-2 py-0.5 font-['Inter'] text-[11px] font-medium text-[#31302e]">
-                                {groupChatSend.status === 'sent' ? 'Terkirim' : groupChatSend.status === 'prepared' ? 'Siap kirim' : 'Antri'} {groupChatSend.buyerUsername ? `· ${groupChatSend.buyerUsername}` : ''}
-                              </span>
-                            ) : null}
+                          <div className="flex flex-col items-end gap-1">
+                            <DocumentationStatus group={group} />
                             {group.records.some((record) => isRepeatQcInvalidRecord(record)) ? (
                               <span className="inline-flex rounded-full bg-[#fef3c7] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-[#92400e] ring-1 ring-[#fde68a]">Repeat QC</span>
-                            ) : null}
-                            {group.records.some((r) => r.taskType === 'packing' && (r as unknown as { packingPayAmount?: number | null }).packingPayAmount != null) ? (
-                              <span className="inline-flex rounded-full bg-[#000000] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-white">Dibayar</span>
                             ) : null}
                           </div>
                         </div>
 
                         <div className="flex items-center justify-between gap-3">
-                          <span className="truncate font-['Inter'] text-[12px] text-[#615d59]">{formatOperatorForCurrentSession(group.latest.operatorName, group.latest.operatorCode, currentOperatorName, currentOperatorCode)}</span>
-                          <div className="flex gap-1.5">
-                            {(() => {
-                              const latestChatSend = visibleChatSendByRecordingId.get(group.latest.id)
-                              const label =
-                                preparingChatSendId === group.latest.id
-                                  ? '...'
-                                  : latestChatSend?.status === 'sent'
-                                    ? 'Terkirim'
-                                    : latestChatSend?.status === 'prepared'
-                                      ? 'Siap'
-                                      : latestChatSend?.status === 'pending'
-                                        ? 'Antri'
-                                        : 'Kirim'
-                              const disabled = preparingChatSendId === group.latest.id || group.latest.status !== 'completed' || latestChatSend?.status === 'sent'
-                              return (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 rounded-full border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"
-                                  disabled={disabled}
-                                  onClick={() => void handlePrepareShopeeChat(group.latest)}
-                                  title={latestChatSend?.status === 'sent' ? `Sudah terkirim ke ${latestChatSend.buyerUsername}` : 'Kirim video ke pembeli via Shopee Chat'}
-                                >
-                                  {label}
-                                </Button>
-                              )
-                            })()}
-                            <Button type="button" variant="ghost" size="sm" className="h-8 rounded-full border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]" onClick={() => openDetail(group.latest)}>
-                              Detail
-                            </Button>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-black text-[11px] font-semibold text-white">{getInitials(formatOperatorForCurrentSession(group.latest.operatorName, group.latest.operatorCode, currentOperatorName, currentOperatorCode))}</span>
+                            <span className="truncate font-['Inter'] text-[12px] text-[#615d59]">{formatOperatorForCurrentSession(group.latest.operatorName, group.latest.operatorCode, currentOperatorName, currentOperatorCode)}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <ShippingStatus chatSend={groupChatSend} compact />
+                            <span className="grid h-7 w-7 place-items-center text-[#a39e98]">›</span>
                           </div>
                         </div>
                       </article>
@@ -831,14 +835,14 @@ export function HistoryPage() {
 
               <div className="hidden overflow-x-auto md:block">
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[720px] border-collapse">
+                  <table className="w-full min-w-[760px] border-collapse">
                     <thead className="bg-[#f6f5f4]">
                       <tr className="text-left">
-                        <Th>Resi</Th>
+                        <Th>Paket</Th>
                         <Th>Operator</Th>
-                        <Th>Status</Th>
-                        <Th>Terkirim</Th>
-                        <Th className="px-5 text-right">Aksi</Th>
+                        <Th>Dokumentasi</Th>
+                        <Th>Pengiriman</Th>
+                        <Th className="w-[40px] px-2 text-center"></Th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#e6e6e6]">
@@ -847,7 +851,7 @@ export function HistoryPage() {
                           const isSelected = group.latest.id === selectedRecord?.id
                           const tableGroupChatSend = group.records.map((r) => visibleChatSendByRecordingId.get(r.id)).find(Boolean)
                           return (
-                            <tr
+                              <tr
                               key={group.resiNumber}
                               tabIndex={0}
                               onClick={() => openDetail(group.latest)}
@@ -857,77 +861,36 @@ export function HistoryPage() {
                                   openDetail(group.latest)
                                 }
                               }}
-                              className={`cursor-pointer outline-none transition-colors ${isSelected ? 'bg-[#f6f5f4]' : 'bg-white hover:bg-[#fbfaf9]'}`}
+                              className={`cursor-pointer outline-none transition-colors ${isSelected ? 'bg-[#f6f5f4] border-l-[3px] border-l-[#0075de]' : 'bg-white hover:bg-[#fbfaf9] border-l-[3px] border-l-transparent'}`}
                             >
                               <Td>
-                                <button
-                                  type="button"
-                                  className="text-left font-['Inter'] text-[14px] font-semibold text-[#000000] hover:underline"
-                                  onClick={(event) => {
-                                    event.stopPropagation()
-                                    openDetail(group.latest)
-                                  }}
-                                >
-                                  {group.resiNumber}
-                                </button>
-                                {shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())?.orderNumber ? (
-                                  <div className="font-['Inter'] text-[11px] text-[#a39e98]">No. Pesanan {shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())!.orderNumber}</div>
-                                ) : null}
-                                <div className="font-['Inter'] text-[11px] text-[#a39e98]">{formatCompactDateTime(group.latest.updatedAt)}</div>
+                                <div className="grid gap-0.5">
+                                  <span className="font-['Inter'] text-[14px] font-semibold leading-none text-[#000000]">{group.resiNumber}</span>
+                                  {shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())?.orderNumber ? (
+                                    <span className="font-['Inter'] text-[12px] font-normal leading-none text-[#615d59]">{shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())!.orderNumber}</span>
+                                  ) : null}
+                                  <span className="font-['Inter'] text-[11px] font-normal text-[#a39e98]">{formatCompactDateTime(group.latest.updatedAt)}</span>
+                                </div>
                               </Td>
                               <Td>
                                 <OperatorCell value={formatOperatorForCurrentSession(group.latest.operatorName, group.latest.operatorCode, currentOperatorName, currentOperatorCode)} />
                               </Td>
                               <Td>
-                                <div className="flex flex-col gap-1">
-                                  <StatusPill status={getGroupStatus(group)} />
+                                <div className="grid gap-1">
+                                  <DocumentationStatus group={group} />
                                   {group.records.some((record) => isRepeatQcInvalidRecord(record)) ? (
-                                    <span className="inline-flex rounded-full bg-[#fef3c7] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-[#92400e] ring-1 ring-[#fde68a]">Repeat QC</span>
+                                    <span className="inline-flex w-fit rounded-full bg-[#fef3c7] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-[#92400e] ring-1 ring-[#fde68a]">Repeat QC</span>
                                   ) : null}
                                   {group.records.some((r) => r.taskType === 'packing' && (r as unknown as { packingPayAmount?: number | null }).packingPayAmount != null) ? (
-                                    <span className="inline-flex rounded-full bg-[#000000] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-white">Dibayar</span>
+                                    <span className="font-['Inter'] text-[11px] text-[#a39e98]">Dibayar</span>
                                   ) : null}
                                 </div>
                               </Td>
                               <Td>
-                                {tableGroupChatSend ? (
-                                  <span className="inline-flex rounded-full border border-[#e6e6e6] bg-[#f6f5f4] px-2 py-0.5 font-['Inter'] text-[11px] font-medium text-[#31302e]">
-                                    {tableGroupChatSend.status === 'sent' ? 'Terkirim' : tableGroupChatSend.status === 'prepared' ? 'Siap kirim' : 'Antri'} {tableGroupChatSend.buyerUsername ? `· ${tableGroupChatSend.buyerUsername}` : ''}
-                                  </span>
-                                ) : (
-                                  <span className="font-['Inter'] text-[13px] text-[#a39e98]">—</span>
-                                )}
+                                <ShippingStatus chatSend={tableGroupChatSend} />
                               </Td>
-                              <Td>
-                                <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
-                                  {(() => {
-                                    const latestChatSend = visibleChatSendByRecordingId.get(group.latest.id)
-                                    const label =
-                                      preparingChatSendId === group.latest.id
-                                        ? '...'
-                                        : latestChatSend?.status === 'sent'
-                                          ? 'Terkirim'
-                                          : latestChatSend?.status === 'prepared'
-                                            ? 'Siap'
-                                            : latestChatSend?.status === 'pending'
-                                              ? 'Antri'
-                                              : 'Kirim'
-                                    const disabled = preparingChatSendId === group.latest.id || group.latest.status !== 'completed' || latestChatSend?.status === 'sent'
-                                    return (
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 rounded-full border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"
-                                        disabled={disabled}
-                                        onClick={() => void handlePrepareShopeeChat(group.latest)}
-                                        title={latestChatSend?.status === 'sent' ? `Sudah terkirim ke ${latestChatSend.buyerUsername}` : group.latest.status !== 'completed' ? 'Hanya untuk rekaman selesai' : 'Kirim video ke pembeli via Shopee Chat'}
-                                      >
-                                        {label}
-                                      </Button>
-                                    )
-                                  })()}
-                                </div>
+                              <Td className="px-2 text-center">
+                                <span className="grid h-7 w-7 place-items-center text-[#a39e98]">›</span>
                               </Td>
                             </tr>
                           )
@@ -947,7 +910,7 @@ export function HistoryPage() {
               {groupedRecordings.length > PAGE_SIZE ? (
                 <div className="flex flex-col gap-3 border-t border-[#e6e6e6] bg-white px-4 py-3 font-['Inter'] sm:flex-row sm:items-center sm:justify-between sm:px-5">
                   <span className="font-['Inter'] text-[13px] text-[#615d59]">
-                    Menampilkan <span className="font-semibold text-[#000000]">{(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, groupedRecordings.length)}</span> dari <span className="font-semibold text-[#000000]">{groupedRecordings.length}</span> dokumentasi
+                    <span className="font-semibold text-[#000000]">{(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, groupedRecordings.length)}</span> dari <span className="font-semibold text-[#000000]">{groupedRecordings.length}</span> dokumentasi
                   </span>
                   <div className="flex flex-wrap items-center gap-1">
                     <Button
@@ -1011,56 +974,6 @@ export function HistoryPage() {
           </section>
         </div>
 
-        {isExportOpen ? (
-          <Dialog open={isExportOpen} onOpenChange={(open) => !open && setIsExportOpen(false)}>
-            <DialogContent showCloseButton={false} className="history-modal max-w-lg gap-0 overflow-hidden rounded-2xl border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
-              <div className="border-b border-[#e6e6e6] p-6">
-                <div className="flex items-start justify-between gap-5">
-                  <div className="grid gap-1">
-                    <p className="font-['Inter'] text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Export data</p>
-                    <DialogTitle className="font-['Inter'] text-[20px] font-semibold tracking-[-0.2px] text-[#000000]">Pilih format export</DialogTitle>
-                    <DialogDescription className="font-['Inter'] text-[13px] leading-5 text-[#615d59]">Pilih format file untuk mengunduh history yang sedang tampil.</DialogDescription>
-                  </div>
-                  <Button type="button" variant="ghost" size="icon" onClick={() => setIsExportOpen(false)} className="h-9 w-9 shrink-0 rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]">
-                    <HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.9} />
-                  </Button>
-                </div>
-              </div>
-              <div className="grid gap-4 p-6">
-                <div className="rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] p-4">
-                  <p className="font-['Inter'] text-[13px] font-semibold text-[#000000]">Data siap diexport</p>
-                  <p className="mt-1 font-['Inter'] text-[13px] leading-5 text-[#615d59]">{exportSummaryLabel}. Export akan mengikuti filter aktif saat ini.</p>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Button
-                    type="button"
-                    className="h-12 justify-between rounded-full bg-[#0075de] px-5 font-['Inter'] text-[14px] font-medium text-white hover:bg-[#005bab]"
-                    onClick={() => {
-                      handleExportCsv()
-                      setIsExportOpen(false)
-                    }}
-                  >
-                    <span>Export CSV</span>
-                    <HugeiconsIcon icon={Download01Icon} size={16} strokeWidth={1.9} />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="h-12 justify-between rounded-full border border-[#e6e6e6] bg-white px-5 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"
-                    onClick={() => {
-                      handleExportExcel()
-                      setIsExportOpen(false)
-                    }}
-                  >
-                    <span>Export Excel</span>
-                    <HugeiconsIcon icon={Download01Icon} size={16} strokeWidth={1.9} />
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        ) : null}
-
         {selectedRecord ? (
           <HistoryDetailDialog
             open={isDetailModalOpen}
@@ -1074,15 +987,15 @@ export function HistoryPage() {
             onCopyResi={() => void handleCopyText(selectedRecord.resiNumber, 'Resi')}
             onClose={closeDetail}
           >
-                <div className="grid gap-4">
+                <div className="space-y-3">
                   {selectedGroup?.records.some((record) => isRepeatQcInvalidRecord(record)) ? (
-                    <div className="rounded-[8px] border border-[#fde68a] bg-[#fef3c7] px-3 py-3">
-                      <p className="font-['Inter'] text-[13px] font-semibold text-[#92400e]">Ada rekaman lama tidak valid karena repeat QC.</p>
+                    <div className="rounded-[8px] border border-[#fde68a] bg-[#fef3c7] px-3 py-2.5">
+                      <p className="font-['Inter'] text-[12px] font-semibold text-[#92400e]">Ada rekaman lama tidak valid karena repeat QC.</p>
                     </div>
                   ) : null}
 
-                  <div className="grid gap-3">
-                    <dl className="grid gap-2">
+                  <div className="grid gap-2">
+                    <dl className="grid gap-1.5">
                       {selectedShopeeOrder ? (
                         <OrderDetailRow order={selectedShopeeOrder} />
                       ) : (selectedRecord as unknown as { orderSnapshot?: { shippingChannel?: string; items?: Array<{ productName: string; variationName?: string | null; quantity: number }> } }).orderSnapshot ? (
@@ -1119,17 +1032,17 @@ export function HistoryPage() {
                     </dl>
                   </div>
 
-                  <div className="grid gap-3 rounded-[8px] border border-[#e6e6e6] bg-white p-4">
+                  <div className="grid gap-2 rounded-[8px] border border-[#e6e6e6] bg-white p-3">
                     <div className="border-b border-[#e6e6e6] pb-2">
-                      <p className="font-['Inter'] text-[13px] font-semibold text-[#000000]">Aksi cepat</p>
-                      <span className="font-['Inter'] text-[12px] text-[#a39e98]">Pilih tindakan lanjutan untuk dokumentasi resi ini.</span>
+                      <p className="font-['Inter'] text-[12px] font-semibold text-[#000000]">Aksi cepat</p>
+                      <span className="font-['Inter'] text-[11px] text-[#a39e98]">Pilih tindakan lanjutan.</span>
                     </div>
-                    <div className="grid gap-2">
+                    <div className="grid gap-1.5">
                       {selectedGroup && canRepeatQc(selectedGroup) ? (
                         <Button
                           type="button"
                           variant="ghost"
-                          className="h-auto justify-between rounded-[8px] border border-[#000000] bg-[#000000] px-4 py-3 text-left font-['Inter'] text-white hover:bg-[#31302e]"
+                          className="h-auto justify-between rounded-[8px] border border-[#000000] bg-[#000000] px-3 py-2.5 text-left font-['Inter'] text-white hover:bg-[#31302e]"
                           onClick={() => {
                             setRepeatQcResi(selectedGroup.resiNumber)
                             navigateTo('scan')
@@ -1139,14 +1052,14 @@ export function HistoryPage() {
                           <HugeiconsIcon icon={RefreshIcon} size={16} strokeWidth={1.9} />
                         </Button>
                       ) : null}
-                      <Button type="button" variant="ghost" className="h-auto justify-between rounded-[8px] border border-[#e6e6e6] bg-white px-4 py-3 text-left font-['Inter'] hover:bg-[#f6f5f4]" onClick={() => void handleOpenVideoFolder()}>
+                      <Button type="button" variant="ghost" className="h-auto justify-between rounded-[8px] border border-[#e6e6e6] bg-white px-3 py-2.5 text-left font-['Inter'] hover:bg-[#f6f5f4]" onClick={() => void handleOpenVideoFolder()}>
                         <span className="grid text-left"><span className="font-['Inter'] text-[13px] font-semibold text-[#000000]">Buka folder</span><span className="font-['Inter'] text-[11px] text-[#615d59]">Lihat lokasi file video</span></span>
                         <HugeiconsIcon icon={Package01Icon} size={16} strokeWidth={1.9} />
                       </Button>
                       <Button
                         type="button"
                         variant="ghost"
-                        className="h-auto justify-between rounded-[8px] border border-[#e6e6e6] bg-white px-4 py-3 text-left font-['Inter'] hover:bg-[#f6f5f4]"
+                        className="h-auto justify-between rounded-[8px] border border-[#e6e6e6] bg-white px-3 py-2.5 text-left font-['Inter'] hover:bg-[#f6f5f4]"
                         disabled={disableSelectedChatAction}
                         onClick={() => void handlePrepareShopeeChat(selectedRecord)}
                       >
@@ -1481,10 +1394,43 @@ function OperatorCell({ value }: { value: string }) {
   )
 }
 
+// @ts-ignore TS6133 - kept for future use, now replaced by DocumentationStatus subtle pill
 function StatusPill({ status }: { status: LocalRecordingRecord['status'] | 'idle' | 'partial' }) {
   const label = status === 'completed' ? 'Lengkap' : status === 'recording' ? 'Recording' : status === 'error' ? 'Error' : status === 'partial' ? 'Belum lengkap' : 'Belum ada'
-  const tone = status === 'completed' ? 'bg-[#000000] text-white' : status === 'error' ? 'bg-[#fee2e2] text-[#991b1b] ring-1 ring-[#fecaca]' : status === 'recording' ? 'bg-[#fef3c7] text-[#92400e] ring-1 ring-[#fde68a]' : 'border border-[#e6e6e6] bg-white text-[#615d59]'
-  return <span className={`inline-flex rounded-full px-2.5 py-1 font-['Inter'] text-[11px] font-semibold ${tone}`}>{label}</span>
+  const tone = status === 'completed' ? 'border border-[#e6e6e6] bg-[#f6f5f4] text-[#31302e]' : status === 'error' ? 'bg-[#fee2e2] text-[#991b1b] ring-1 ring-[#fecaca]' : status === 'recording' ? 'bg-[#fef3c7] text-[#92400e] ring-1 ring-[#fde68a]' : 'border border-[#e6e6e6] bg-white text-[#615d59]'
+  return <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-['Inter'] text-[11px] font-semibold ${tone}`}>{status === 'completed' ? <HugeiconsIcon icon={Tick02Icon} size={12} strokeWidth={2} /> : null}{label}</span>
+}
+
+function DocumentationStatus({ group }: { group: HistoryRecordingGroup }) {
+  const qc = group.records.find((r) => r.taskType === 'qc' && r.status === 'completed')
+  const packing = group.records.find((r) => r.taskType === 'packing' && r.status === 'completed')
+  const completed = (qc ? 1 : 0) + (packing ? 1 : 0)
+  const total = 2
+  const status = getGroupStatus(group)
+  const isComplete = status === 'completed'
+  return (
+    <span className={`inline-flex flex-col rounded-[8px] border px-2.5 py-1.5 ${isComplete ? 'border-[#e6e6e6] bg-[#f6f5f4] text-[#31302e]' : 'border-[#fde68a] bg-[#fef3c7] text-[#92400e]'}`}>
+      <span className="inline-flex items-center gap-1 font-['Inter'] text-[11px] font-semibold leading-none">{isComplete ? <HugeiconsIcon icon={Tick02Icon} size={12} strokeWidth={2} /> : <HugeiconsIcon icon={Clock01Icon} size={12} strokeWidth={1.9} />}{isComplete ? 'Lengkap' : 'Belum lengkap'}</span>
+      <span className="font-['Inter'] text-[11px] font-normal leading-none opacity-80">{completed}/{total} dokumentasi</span>
+    </span>
+  )
+}
+
+function ShippingStatus({ chatSend, compact = false }: { chatSend?: import('@pakti/types').RecordingChatSend | null; compact?: boolean }) {
+  if (!chatSend) {
+    return <span className="font-['Inter'] text-[12px] text-[#a39e98]">—</span>
+  }
+  const isSent = chatSend.status === 'sent'
+  const label = isSent ? 'Terkirim' : chatSend.status === 'prepared' ? 'Siap kirim' : 'Dalam antrean'
+  const dot = isSent ? '✓' : chatSend.status === 'prepared' ? '○' : '○'
+  return (
+    <span className={`grid gap-0.5 ${compact ? '' : ''}`}>
+      <span className={`inline-flex items-center gap-1 font-['Inter'] text-[12px] font-medium ${isSent ? 'text-[#31302e]' : 'text-[#92400e]'}`}>
+        <span className="text-[11px]">{dot}</span> {label}
+      </span>
+      {chatSend.buyerUsername ? <span className="font-['Inter'] text-[11px] font-normal text-[#a39e98]">@{chatSend.buyerUsername}</span> : null}
+    </span>
+  )
 }
 
 function DetailRow({
@@ -1525,15 +1471,18 @@ function OrderDetailRow({ order }: { order: ShopeeOrder }) {
           {items.length ? (
             items.map((item, index) => {
               const productName = cleanOrderProductName(item.productName) ?? item.productName
+              const variation = cleanOrderVariationName(item.variationName)
               return (
                 <span
                   key={item.id ?? `${productName}-${index}`}
-                  className="flex items-center justify-between gap-2 rounded-[8px] border border-[#e6e6e6] bg-white px-2.5 py-1.5"
-                  title={productName}
+                  className="flex items-start justify-between gap-2 rounded-[8px] border border-[#e6e6e6] bg-white px-2.5 py-2"
+                  title={`${productName}${variation ? ` • ${variation}` : ''}`}
                 >
-                  <span className="min-w-0 flex-1 truncate font-['Inter'] text-[13px] text-[#000000]">{productName}</span>
-                  {cleanOrderVariationName(item.variationName) ? <span className="truncate font-['Inter'] text-[11px] text-[#615d59]">{cleanOrderVariationName(item.variationName)}</span> : null}
-                  <span className="rounded-full bg-[#f6f5f4] px-1.5 py-0.5 font-['Inter'] text-[11px] font-semibold text-[#000000] ring-1 ring-[#e6e6e6]">x{item.quantity}</span>
+                  <span className="grid min-w-0 flex-1 gap-0.5">
+                    <span className="font-['Inter'] text-[13px] font-medium leading-snug text-[#000000] line-clamp-2 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden">{productName}</span>
+                    {variation ? <span className="truncate font-['Inter'] text-[11px] leading-tight text-[#615d59]">{variation}</span> : null}
+                  </span>
+                  <span className="shrink-0 rounded-full bg-[#f6f5f4] px-2 py-1 font-['Inter'] text-[11px] font-semibold leading-none text-[#000000] ring-1 ring-[#e6e6e6]">×{item.quantity}</span>
                 </span>
               )
             })
@@ -1590,7 +1539,7 @@ function cleanOrderVariationName(value: string | null | undefined) {
     .trim() || null
 }
 
-function Th({ children, className = '' }: { children: ReactNode; className?: string }) {
+function Th({ children, className = '' }: { children?: ReactNode; className?: string }) {
   return <th className={`bg-[#f6f5f4] px-4 py-3 text-left font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98] ${className}`}>{children}</th>
 }
 

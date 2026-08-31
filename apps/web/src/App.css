@@ -757,6 +757,8 @@
 .history-page *,
 .history-modal,
 .history-modal *,
+.scan-page,
+.scan-page *,
 .users-modal,
 .users-modal * {
   font-family: Inter, 'Geist Variable', ui-sans-serif, system-ui, sans-serif !important;

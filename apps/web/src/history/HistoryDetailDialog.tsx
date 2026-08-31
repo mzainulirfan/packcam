@@ -35,31 +35,33 @@ export function HistoryDetailDialog({ open, record, operatorLabel, onCopyResi, o
   return (
     <ModalOverlay
       onClose={onClose}
-      contentClassName="w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] p-0 sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] lg:w-[90rem] lg:max-w-[90rem] overflow-hidden rounded-2xl border-[#e6e6e6] bg-white font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]"
+      contentClassName="!w-[98vw] !max-w-[1120px] !max-h-[90vh] overflow-hidden rounded-2xl border border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.12)]"
       staticBackdrop
     >
-      <div className="flex max-h-[88vh] flex-col overflow-hidden bg-white font-['Inter']">
-        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[#e6e6e6] bg-white p-6 text-left">
-          <div className="grid min-w-0 gap-1">
-            <p className="font-['Inter'] text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Detail dokumentasi</p>
-            <div className="flex flex-wrap items-center gap-2">
-              <DialogTitle className="truncate font-['Inter'] text-[20px] font-bold tracking-[-0.2px] text-[#000000]">{record.resiNumber}</DialogTitle>
+      <div className="flex max-h-[90vh] flex-col overflow-hidden bg-white font-['Inter']">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[#e6e6e6] bg-white px-6 py-5 text-left">
+          <div className="grid min-w-0 gap-1.5">
+            <p className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Detail dokumentasi</p>
+            <div className="flex items-center gap-2">
+              <DialogTitle className="truncate font-['Inter'] text-[18px] font-bold tracking-[-0.2px] text-[#000000]">{record.resiNumber}</DialogTitle>
               {onCopyResi ? (
-                <Button type="button" variant="ghost" size="sm" className="h-7 rounded-full border border-[#e6e6e6] bg-white px-2.5 font-['Inter'] text-[11px] font-medium text-[#31302e] hover:bg-[#f6f5f4]" onClick={onCopyResi}>
-                  <HugeiconsIcon icon={Copy01Icon} size={14} strokeWidth={1.9} /> Salin resi
+                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-full border border-[#e6e6e6] bg-white text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" onClick={onCopyResi} title="Salin resi">
+                  <HugeiconsIcon icon={Copy01Icon} size={14} strokeWidth={1.9} />
                 </Button>
               ) : null}
             </div>
-            <DialogDescription className="truncate font-['Inter'] text-[13px] text-[#615d59]">
-              {taskLabel} · {statusLabel} · {formatHeaderDate(record.startTime)} · {operatorLabel}
+            <DialogDescription className="flex flex-wrap gap-1.5 font-['Inter'] text-[11px] text-[#a39e98]">
+              <span className="inline-flex rounded-full border border-[#e6e6e6] bg-[#f6f5f4] px-2 py-0.5 font-medium text-[#31302e]">{taskLabel}</span>
+              <span className="inline-flex rounded-full border border-[#e6e6e6] bg-white px-2 py-0.5">{statusLabel}</span>
+              <span className="truncate">{formatHeaderDate(record.startTime)} · {operatorLabel}</span>
             </DialogDescription>
           </div>
-          <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-9 w-9 shrink-0 rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]">
-            <HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.9} />
+          <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 shrink-0 rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]">
+            <HugeiconsIcon icon={Cancel01Icon} size={18} strokeWidth={1.9} />
           </Button>
         </div>
 
-        <div className="grid flex-1 items-start gap-4 overflow-y-auto bg-[#f6f5f4] p-4 lg:grid-cols-[320px_minmax(0,1fr)] lg:gap-6 lg:p-6">{children}</div>
+        <div className="grid flex-1 gap-6 overflow-y-auto bg-[#f6f5f4] p-6 lg:grid-cols-[360px_minmax(0,1fr)]">{children}</div>
       </div>
     </ModalOverlay>
   )

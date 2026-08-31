@@ -294,7 +294,7 @@ function App() {
             </button>
           </header>
 
-          <main className={activePage === 'users' || activePage === 'settings' || activePage === 'health' || activePage === 'admin' || activePage === 'shopee' || activePage === 'shopee-inspection' || activePage === 'packing-sessions' || activePage === 'history' ? 'dashboard-content dashboard-content--notion' : 'dashboard-content'}>{pageContent}</main>
+          <main className={activePage === 'users' || activePage === 'settings' || activePage === 'health' || activePage === 'admin' || activePage === 'shopee' || activePage === 'shopee-inspection' || activePage === 'packing-sessions' || activePage === 'history' || activePage === 'scan' ? 'dashboard-content dashboard-content--notion' : 'dashboard-content'}>{pageContent}</main>
         </section>
       </div>
     )

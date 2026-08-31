@@ -11,7 +11,6 @@ import {
   RefreshIcon,
   Search01Icon,
   ShoppingBag01Icon,
-  TruckDeliveryIcon,
 } from '@hugeicons/core-free-icons'
 
 import { Alert } from '../components/ui/alert'
@@ -32,9 +31,9 @@ export function ShopeeInspectionPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-  const [channelFilter, setChannelFilter] = useState<string>('all')
-  const [verifiedFilter, setVerifiedFilter] = useState<'all' | 'verified' | 'unverified'>('all')
-  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'yesterday' | '7days' | 'custom'>('all')
+  const [channelFilter] = useState<string>('all')
+  const [verifiedFilter] = useState<'all' | 'verified' | 'unverified'>('all')
+  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'yesterday' | '7days' | 'custom'>('today')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
   const [page, setPage] = useState(1)
@@ -62,6 +61,7 @@ export function ShopeeInspectionPage() {
     queueMicrotask(() => setPage(1))
   }, [search, channelFilter, verifiedFilter, dateFilter, customFrom, customTo])
 
+  // @ts-ignore TS6133 - kept for future use
   const channelOptions = useMemo(() => {
     const set = new Set<string>()
     for (const o of orders) if (o.shippingChannel?.trim()) set.add(o.shippingChannel.trim())
@@ -177,13 +177,11 @@ export function ShopeeInspectionPage() {
     return `${Math.floor(s / 3600)}j lalu`
   }
 
-  const hasActiveFilters = Boolean(search.trim()) || channelFilter !== 'all' || verifiedFilter !== 'all' || dateFilter !== 'all' || Boolean(customFrom) || Boolean(customTo)
+  const hasActiveFilters = Boolean(search.trim()) || dateFilter !== 'today' || Boolean(customFrom) || Boolean(customTo)
 
   function clearFilters() {
     setSearch('')
-    setChannelFilter('all')
-    setVerifiedFilter('all')
-    setDateFilter('all')
+    setDateFilter('today')
     setCustomFrom('')
     setCustomTo('')
   }
@@ -216,44 +214,26 @@ export function ShopeeInspectionPage() {
         <InspectionStat label="Last sync" value={formatRelativeTime(adminStatus?.shopeeAutomation.orders.latestUpdatedAt ?? null)} detail="Sinkronisasi terakhir" icon={Calendar03Icon} />
       </section>
 
-      <section className="mb-5 overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
-        <div className="border-b border-[#e6e6e6] p-4 sm:p-5">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-            <label className="relative flex min-w-[240px] flex-1">
-              <span className="pointer-events-none absolute inset-y-0 left-0 grid w-10 place-items-center text-[#a39e98]"><HugeiconsIcon icon={Search01Icon} size={18} strokeWidth={1.9} /></span>
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari buyer / order / resi / produk / SKU..." className="h-10 w-full rounded-[8px] border-[#e6e6e6] bg-white pl-10 pr-3 text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#CFCBC7] focus-visible:ring-0" />
-            </label>
-            <div className="flex flex-wrap gap-2">
-              <NativeSelect value={channelFilter} onChange={setChannelFilter} icon={TruckDeliveryIcon}>
-                <option value="all">Semua channel</option>
-                {channelOptions.map((ch) => <option key={ch} value={ch}>{ch}</option>)}
-              </NativeSelect>
-              <NativeSelect value={verifiedFilter} onChange={(v) => setVerifiedFilter(v as typeof verifiedFilter)} icon={ShoppingBag01Icon}>
-                <option value="all">Semua status</option>
-                <option value="verified">Terverifikasi</option>
-                <option value="unverified">Belum</option>
-              </NativeSelect>
-              <Button type="button" variant="ghost" onClick={clearFilters} disabled={!hasActiveFilters} className="h-10 rounded-lg px-3 text-[13px] font-medium text-[#615d59] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={Delete02Icon} size={16} strokeWidth={1.9} /> Reset</Button>
-            </div>
-          </div>
-          <div className="mt-3 flex flex-col gap-3 border-t border-[#e6e6e6] pt-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1 text-[13px] font-medium text-[#615d59]"><HugeiconsIcon icon={Calendar03Icon} size={16} strokeWidth={1.9} /> Tanggal:</span>
-              <div className="inline-flex flex-wrap rounded-lg border border-[#e6e6e6] bg-[#f6f5f4] p-1">
-                {[
-                  { v: 'all' as const, l: 'Semua' },
-                  { v: 'today' as const, l: 'Hari ini' },
-                  { v: 'yesterday' as const, l: 'Kemarin' },
-                  { v: '7days' as const, l: '7 Hari' },
-                  { v: 'custom' as const, l: 'Custom' },
-                ].map((opt) => <button key={opt.v} type="button" onClick={() => setDateFilter(opt.v)} className={`h-8 rounded-[6px] px-3 text-[13px] font-medium transition-colors ${dateFilter === opt.v ? 'bg-white text-[#000000] shadow-sm' : 'text-[#615d59] hover:bg-white/70'}`}>{opt.l}</button>)}
+      <section className="relative z-20 mt-5 overflow-visible rounded-xl border border-[#e6e6e6] bg-white">
+        <div className="flex flex-wrap items-center gap-2 p-2 sm:p-2.5 lg:flex-nowrap">
+          <label className="relative flex min-w-[180px] max-w-[360px] flex-1">
+            <span className="pointer-events-none absolute inset-y-0 left-0 grid w-8 place-items-center text-[#a39e98]"><HugeiconsIcon icon={Search01Icon} size={16} strokeWidth={1.9} /></span>
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari buyer / order / resi..." className="h-8 w-full rounded-[8px] border-[#e6e6e6] bg-white pl-8 pr-3 text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#CFCBC7] focus-visible:ring-0" />
+          </label>
+          <div className="ml-auto flex shrink-0 items-center gap-1 rounded-lg border border-[#e6e6e6] bg-[#f6f5f4] p-1">
+            <PeriodeDropdown value={dateFilter} onChange={setDateFilter} />
+            {dateFilter === 'custom' ? (
+              <div className="flex items-center gap-1">
+                <Input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="h-7 rounded-[6px] border-[#e6e6e6] bg-white px-2 text-[12px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+                <span className="text-[11px] text-[#a39e98]">—</span>
+                <Input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="h-7 rounded-[6px] border-[#e6e6e6] bg-white px-2 text-[12px] focus-visible:border-[#0075de] focus-visible:ring-0" />
               </div>
-            </div>
-            {dateFilter === 'custom' ? <div className="flex flex-wrap items-center gap-2"><Input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="h-9 w-[148px] rounded-lg border-[#e6e6e6] bg-white text-[13px]" /><span className="text-[13px] text-[#a39e98]">s.d.</span><Input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="h-9 w-[148px] rounded-lg border-[#e6e6e6] bg-white text-[13px]" /></div> : <span className="text-[12px] text-[#a39e98]">{filtered.length} hasil</span>}
+            ) : null}
+            <Button type="button" variant="ghost" onClick={clearFilters} disabled={!hasActiveFilters} className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md bg-white px-2.5 text-[12px] font-medium text-[#615d59] hover:bg-white disabled:opacity-40"><HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={1.9} /> Reset</Button>
           </div>
         </div>
-        <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-5">
-          <div><h2 className="text-[16px] font-semibold text-[#000000]">Daftar hasil inspek</h2><p className="mt-1 text-[12px] text-[#a39e98]">{filtered.length} dari {orders.length} · halaman {currentPage}/{totalPages}</p></div>
+        <div className="flex items-center justify-between gap-4 border-t border-[#e6e6e6] bg-[#fbfaf9] px-4 py-3 sm:px-5">
+          <div><h2 className="text-[14px] font-semibold text-[#000000]">Daftar hasil inspek</h2><p className="mt-0.5 text-[12px] text-[#a39e98]">{filtered.length} dari {orders.length} · halaman {currentPage}/{totalPages}</p></div>
           <span className="inline-flex items-center rounded-full border border-[#e6e6e6] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#0075de]">{filtered.length} hasil</span>
         </div>
       </section>
@@ -287,14 +267,31 @@ function InspectionStat({ label, value, detail, icon }: { label: string; value: 
   )
 }
 
-function NativeSelect({ value, onChange, icon, children }: { value: string; onChange: (value: string) => void; icon: typeof ShoppingBag01Icon; children: ReactNode }) {
+// @ts-ignore TS6133 - kept for future use
+function NativeSelect({ value, onChange, icon, children, compact = false }: { value: string; onChange: (value: string) => void; icon: typeof ShoppingBag01Icon; children: ReactNode; compact?: boolean }) {
   return (
-    <label className="relative inline-flex h-10 items-center rounded-lg border border-[#e6e6e6] bg-white text-[#000000]">
-      <span className="pointer-events-none absolute left-3 grid place-items-center text-[#31302e]"><HugeiconsIcon icon={icon} size={17} strokeWidth={1.9} /></span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} className="h-full min-w-[180px] appearance-none rounded-lg bg-transparent pl-9 pr-9 text-[13px] font-medium focus:outline-none focus:ring-0">
+    <label className={`relative inline-flex items-center rounded-lg border border-[#e6e6e6] bg-white text-[#000000] ${compact ? 'h-8' : 'h-10'}`}>
+      <span className={`pointer-events-none absolute left-3 grid place-items-center text-[#31302e] ${compact ? '[&>svg]:h-[15px] [&>svg]:w-[15px]' : ''}`}><HugeiconsIcon icon={icon} size={compact ? 15 : 17} strokeWidth={1.9} /></span>
+      <select value={value} onChange={(event) => onChange(event.target.value)} className={`h-full appearance-none rounded-lg bg-transparent pr-9 font-medium focus:outline-none focus:ring-0 ${compact ? 'min-w-[130px] pl-8 text-[12px]' : 'min-w-[180px] pl-9 text-[13px]'}`}>
         {children}
       </select>
-      <span className="pointer-events-none absolute right-3 grid place-items-center text-[#a39e98]"><HugeiconsIcon icon={ArrowDown01Icon} size={15} strokeWidth={1.9} /></span>
+      <span className="pointer-events-none absolute right-3 grid place-items-center text-[#a39e98]"><HugeiconsIcon icon={ArrowDown01Icon} size={compact ? 13 : 15} strokeWidth={1.9} /></span>
+    </label>
+  )
+}
+
+function PeriodeDropdown({ value, onChange }: { value: string; onChange: (v: any) => void }) {
+  return (
+    <label className="relative inline-flex h-8 items-center rounded-lg border border-[#e6e6e6] bg-white text-[#000000]">
+      <span className="pointer-events-none absolute left-2.5 grid place-items-center text-[#31302e]"><HugeiconsIcon icon={Calendar03Icon} size={15} strokeWidth={1.9} /></span>
+      <select value={value} onChange={(e) => onChange(e.target.value)} className="h-full min-w-[130px] appearance-none rounded-lg bg-transparent pl-8 pr-7 text-[12px] font-medium focus:outline-none focus:ring-0">
+        <option value="all">Semua tanggal</option>
+        <option value="today">Hari ini</option>
+        <option value="yesterday">Kemarin</option>
+        <option value="7days">7 hari</option>
+        <option value="custom">Custom</option>
+      </select>
+      <span className="pointer-events-none absolute right-2 grid place-items-center text-[#a39e98]"><HugeiconsIcon icon={ArrowDown01Icon} size={13} strokeWidth={1.9} /></span>
     </label>
   )
 }
