@@ -266,7 +266,6 @@ function App() {
   useEffect(() => {
     if (!showSwitchDialog) return
     queueMicrotask(() => {
-      setConfirmSwitchTarget(null)
       setShowOtherResume(false)
       if (resumablePackingSessions.length > 0) setSwitchModalTab('resume')
       else setSwitchModalTab('switch')
@@ -1439,7 +1438,8 @@ function App() {
     const resiNumber = rawResi
     if (session.taskType === 'packing') {
       const progress = await resolveLatestTaskProgress(resiNumber)
-      if (progress?.qc?.status !== 'completed') {
+      const qcCompleted = progress?.qc?.status === 'completed' || recordings.some((r) => r.resiNumber.trim() === resiNumber.trim() && r.taskType === 'qc' && r.status === 'completed')
+      if (!qcCompleted) {
         showScanNotice({ kind: 'warning', title: 'QC belum selesai', message: getPackingQcMessage(progress?.qc?.status) })
         return
       }
@@ -1490,19 +1490,24 @@ function App() {
     } finally {
       setPhotoCaptureBusy(false)
     }
-  }, [activePackingSession, canUsePackingFlow, findRecordingByResi, lastPhotoId, packingMediaType, packingPreview, photoCaptureBusy, refreshActivePackingSession, refreshHistory, resolveLatestTaskProgress, scanResi, scanVideoElement, session, settings, showScanNotice])
+  }, [activePackingSession, canUsePackingFlow, findRecordingByResi, lastPhotoId, packingMediaType, packingPreview, photoCaptureBusy, recordings, refreshActivePackingSession, refreshHistory, resolveLatestTaskProgress, scanResi, scanVideoElement, session, settings, showScanNotice])
 
   // Otomatis ambil dan simpan foto ketika scan berhasil di mode foto.
   useEffect(() => {
     if (skipAutoPhoto) { queueMicrotask(() => setSkipAutoPhoto(false)); return }
     if (!isPackingMode || packingMediaType !== 'photo' || !scanResi.trim() || photoCaptureBusy || scanBusy || !canUsePackingFlow || recordingSession.state.mode !== 'idle' || !scanVideoElement) return
     const resi = scanResi.trim()
-    if (lastPhotoResi === resi && lastPhotoId) return
+    if (lastPhotoResi === resi && lastPhotoId) {
+      const stillExists = recordings.some((r) => r.id === lastPhotoId && r.resiNumber.trim() === resi)
+      if (stillExists) return
+      setLastPhotoResi(null)
+      setLastPhotoId(null)
+    }
     const timer = window.setTimeout(() => {
       void stagePhotoCapture(resi)
     }, 450)
     return () => window.clearTimeout(timer)
-  }, [scanResi, packingMediaType, isPackingMode, photoCaptureBusy, scanBusy, canUsePackingFlow, recordingSession.state.mode, scanVideoElement, lastPhotoId, lastPhotoResi, skipAutoPhoto, stagePhotoCapture])
+  }, [scanResi, packingMediaType, isPackingMode, photoCaptureBusy, scanBusy, canUsePackingFlow, recordingSession.state.mode, scanVideoElement, lastPhotoId, lastPhotoResi, skipAutoPhoto, stagePhotoCapture, recordings])
 
   async function handleDeleteRecording(record: RecordingRow) {
     if (deletingRecordId) {
@@ -1515,6 +1520,16 @@ function App() {
     try {
       await deleteServerRecordingApi(record.id)
       setRecordings((current) => current.filter((item) => item.id !== record.id))
+      if (record.resiNumber.trim() === lastPhotoResi?.trim()) {
+        setLastPhotoResi(null)
+        setLastPhotoId(null)
+      }
+      if (record.resiNumber.trim() === scanResi.trim()) {
+        setScanResi('')
+      }
+      setWatermarkResi((current) => (current === record.resiNumber ? null : current))
+      clearRejectedResi(record.resiNumber)
+      setSkipAutoPhoto(false)
       await refreshHistory()
       showScanNotice({
         kind: 'success',
