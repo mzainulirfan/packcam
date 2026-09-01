@@ -1,6 +1,7 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
+  ArrowDataTransferVerticalIcon,
   Camera01Icon,
   Copy01Icon,
   EyeIcon,
@@ -170,7 +171,6 @@ function App() {
   const [switchModalTab, setSwitchModalTab] = useState<'resume' | 'switch'>('resume')
   const [resumeSearch, setResumeSearch] = useState('')
   const [operatorSearch, setOperatorSearch] = useState('')
-  const [confirmSwitchTarget, setConfirmSwitchTarget] = useState<string | null>(null)
   const [showOtherResume, setShowOtherResume] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
     if (typeof window === 'undefined') {
@@ -827,6 +827,9 @@ function App() {
     try {
       const payload = await updateServerSessionTaskApi(nextTask)
       setSession(payload.session)
+      if (nextTask === 'packing' && !activePackingSession) {
+        setShowSwitchDialog(true)
+      }
     } catch (error) {
       setBootError(normalizeError(error))
     } finally {
@@ -1276,6 +1279,7 @@ function App() {
         packerOperatorCode: selected.operatorCode,
       })
       setActivePackingSession(packingSession)
+      setShowSwitchDialog(false)
       void readPackingSessionsApi(20).then(setRecentPackingSessions).catch(() => undefined)
       showScanNotice({
         kind: 'success',
@@ -1436,13 +1440,11 @@ function App() {
     if (session.taskType === 'packing') {
       const progress = await resolveLatestTaskProgress(resiNumber)
       if (progress?.qc?.status !== 'completed') {
-        playScanFeedback('warning')
         showScanNotice({ kind: 'warning', title: 'QC belum selesai', message: getPackingQcMessage(progress?.qc?.status) })
         return
       }
       const existing = await findRecordingByResi(resiNumber, 'packing')
       if (existing && !(lastPhotoId && existing.id === lastPhotoId)) {
-        playScanFeedback('warning')
         const notice = getDuplicateScanNotice({ existing, taskType: 'packing', taskProgressQcStatus: progress?.qc?.status, formatTask })
         showScanNotice({ kind: 'warning', title: notice.title, message: notice.message })
         return
@@ -1476,7 +1478,6 @@ function App() {
       })
       await appendServerRecordingChunkApi(draft.id, blob)
       await finalizeServerRecordingApi(draft.id, { endTime: new Date().toISOString(), fileSizeBytes: blob.size })
-      playScanFeedback('success')
       showScanNotice({ kind: 'success', title: 'Foto packing tersimpan', message: `Resi ${resiNumber} · ${packingPreview ? formatRupiah((packingPreview.pay as unknown as { amount: number }).amount) : formatRupiah(1500)}` })
       setLastPhotoResi(resiNumber)
       setLastPhotoId(draft.id)
@@ -1489,7 +1490,7 @@ function App() {
     } finally {
       setPhotoCaptureBusy(false)
     }
-  }, [activePackingSession, canUsePackingFlow, findRecordingByResi, lastPhotoId, packingMediaType, packingPreview, photoCaptureBusy, playScanFeedback, refreshActivePackingSession, refreshHistory, resolveLatestTaskProgress, scanResi, scanVideoElement, session, settings, showScanNotice])
+  }, [activePackingSession, canUsePackingFlow, findRecordingByResi, lastPhotoId, packingMediaType, packingPreview, photoCaptureBusy, refreshActivePackingSession, refreshHistory, resolveLatestTaskProgress, scanResi, scanVideoElement, session, settings, showScanNotice])
 
   // Otomatis ambil dan simpan foto ketika scan berhasil di mode foto.
   useEffect(() => {
@@ -1845,54 +1846,41 @@ function App() {
                         ) : filteredPackingOperators.map((op) => {
                           const packerKey = makePackerKey(op.operatorName, op.operatorCode)
                           const isActivePacker = activePackingSession?.packerOperatorName === op.operatorName && activePackingSession.packerOperatorCode === op.operatorCode
-                          const isConfirming = confirmSwitchTarget === packerKey
                           return (
-                            <div key={packerKey} className={isActivePacker ? 'rounded-[4px] border border-[var(--op-ink)] bg-[var(--op-surface-card)] px-3 py-3' : 'rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 py-3'}>
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="min-w-0">
-                                  <p className="m-0 truncate text-sm font-bold leading-none">{op.fullName || op.operatorName}</p>
-                                  <p className="m-0 mt-1 text-xs text-muted-foreground">{op.operatorCode}</p>
-                                </div>
-                                {isActivePacker ? <span className="shrink-0 rounded bg-[var(--op-ink)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--op-canvas)]">Aktif</span> : null}
+                            <div
+                              key={packerKey}
+                              role={isActivePacker ? undefined : 'button'}
+                              tabIndex={isActivePacker ? undefined : 0}
+                              onClick={() => {
+                                if (packingSessionBusy || isActivePacker) return
+                                setSelectedPackerKey(packerKey)
+                                if (!activePackingSession) {
+                                  void handleStartPackingSession(packerKey)
+                                  return
+                                }
+                                void handleSwitchPackingSession(packerKey)
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key !== 'Enter' && e.key !== ' ') return
+                                e.preventDefault()
+                                if (packingSessionBusy || isActivePacker) return
+                                setSelectedPackerKey(packerKey)
+                                if (!activePackingSession) {
+                                  void handleStartPackingSession(packerKey)
+                                  return
+                                }
+                                void handleSwitchPackingSession(packerKey)
+                              }}
+                              className={isActivePacker ? 'flex items-center justify-between gap-2 rounded-[4px] border border-[var(--op-ink)] bg-[var(--op-surface-card)] px-3 py-2.5' : 'flex cursor-pointer items-center justify-between gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 py-2.5 hover:bg-[var(--op-surface-soft)]'}
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="m-0 truncate text-sm font-bold leading-none">{op.fullName || op.operatorName}</p>
+                                <p className="m-0 mt-1 text-xs text-muted-foreground">{op.operatorCode}</p>
                               </div>
-                              {isConfirming ? (
-                                <div className="mt-2 rounded-[4px] border border-amber-500/30 bg-amber-500/10 px-2.5 py-2">
-                                  <p className="m-0 text-xs leading-snug">Lepas <span className="font-bold">{activePackingSession?.packerNameSnapshot}</span> dan mulai <span className="font-bold">{op.fullName || op.operatorName}</span>?</p>
-                                  <div className="mt-2 flex gap-1.5">
-                                    <Button type="button" variant="ghost" size="sm" className="h-7 flex-1 rounded-[4px] text-xs" onClick={() => setConfirmSwitchTarget(null)} disabled={packingSessionBusy}>Batal</Button>
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      className="h-7 flex-1 rounded-[4px] bg-[var(--op-ink)] text-xs font-bold text-[var(--op-canvas)] hover:bg-[var(--op-ink)]/90"
-                                      disabled={packingSessionBusy}
-                                      onClick={() => {
-                                        setConfirmSwitchTarget(null)
-                                        setSelectedPackerKey(packerKey)
-                                        void handleSwitchPackingSession(packerKey)
-                                      }}
-                                    >
-                                      Ganti
-                                    </Button>
-                                  </div>
-                                </div>
+                              {isActivePacker ? (
+                                <span className="shrink-0 rounded bg-[var(--op-ink)] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[var(--op-canvas)]">Aktif</span>
                               ) : (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant={isActivePacker ? 'ghost' : 'outline'}
-                                  className="mt-2 h-7 w-full rounded-[4px] text-xs"
-                                  disabled={packingSessionBusy || isActivePacker}
-                                  onClick={() => {
-                                    if (activePackingSession && !isActivePacker) {
-                                      setConfirmSwitchTarget(packerKey)
-                                      return
-                                    }
-                                    setSelectedPackerKey(packerKey)
-                                    void handleSwitchPackingSession(packerKey)
-                                  }}
-                                >
-                                  {isActivePacker ? 'Sedang aktif' : activePackingSession ? `Ganti ke ${op.fullName?.split(' ')[0] ?? op.operatorName}` : 'Mulai Sesi'}
-                                </Button>
+                                <span className="shrink-0 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 py-1 text-xs font-medium">{activePackingSession ? `Ganti` : 'Mulai'}</span>
                               )}
                             </div>
                           )
@@ -1915,15 +1903,25 @@ function App() {
               <div className="min-w-0">
                 <p className="packing-scan-eyebrow">{isPackingMode ? 'Sedang packing' : 'Sedang QC'}</p>
                 <div className="packing-scan-title-row">
-                  {isPackingMode && activePackingSession ? (
-                    <button type="button" className="packing-scan-chip" onClick={() => setShowSwitchDialog(true)} aria-label="Ganti petugas packing">
-                      <HugeiconsIcon icon={UserSwitchIcon} size={14} />
-                    </button>
-                  ) : null}
                   {isPackingMode ? (
-                    <button type="button" className="packing-scan-title-button" onClick={() => { if (activePackingSession) setShowSwitchDialog(true) }} disabled={!activePackingSession}>
-                      {activePackingSession ? activePackingSession.packerNameSnapshot : 'Pilih petugas'}
-                    </button>
+                    activePackingSession ? (
+                      <button
+                        type="button"
+                        className="packing-scan-packer-button"
+                        onClick={() => setShowSwitchDialog(true)}
+                        aria-label="Ganti petugas packing"
+                      >
+                        <span className="packing-scan-packer-icon" aria-hidden="true">
+                          <HugeiconsIcon icon={UserSwitchIcon} size={14} strokeWidth={1.9} />
+                        </span>
+                        <span className="packing-scan-packer-name">{activePackingSession.packerNameSnapshot}</span>
+                        <span className="packing-scan-packer-chevron" aria-hidden="true">
+                          <HugeiconsIcon icon={ArrowDataTransferVerticalIcon} size={14} strokeWidth={1.9} />
+                        </span>
+                      </button>
+                    ) : (
+                      <p className="packing-scan-title">Belum ada sesi</p>
+                    )
                   ) : (
                     <p className="packing-scan-title">{session.operatorName || session.operatorCode || '-'}</p>
                   )}
@@ -1957,9 +1955,24 @@ function App() {
                   </button>
                 ) : null}
                 {isAdmin ? (
-                  <button type="button" className="packing-scan-chip packing-scan-chip--text" onClick={() => void handleTaskChange(session.taskType === 'qc' ? 'packing' : 'qc')} disabled={taskBusy} aria-label="Ganti mode QC atau packing">
-                    {session.taskType === 'packing' ? 'Package' : 'QC'}
-                  </button>
+                  <div className="grid h-[30px] w-[82px] shrink-0 grid-cols-2 gap-0 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-[2px]">
+                    <button
+                      type="button"
+                      onClick={() => void handleTaskChange('qc')}
+                      disabled={taskBusy || session.taskType === 'qc'}
+                      className={session.taskType === 'qc' ? 'grid place-items-center rounded-[3px] bg-[var(--op-ink)] text-[10px] font-bold text-[var(--op-canvas)]' : 'grid place-items-center text-[10px] font-bold text-[var(--op-mute)]'}
+                    >
+                      QC
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleTaskChange('packing')}
+                      disabled={taskBusy || session.taskType === 'packing'}
+                      className={session.taskType === 'packing' ? 'grid place-items-center rounded-[3px] bg-[var(--op-ink)] text-[10px] font-bold text-[var(--op-canvas)]' : 'grid place-items-center text-[10px] font-bold text-[var(--op-mute)]'}
+                    >
+                      Pack
+                    </button>
+                  </div>
                 ) : null}
                 {isPackingMode && activePackingSession ? (
                   <button type="button" className="packing-scan-chip" disabled={packingSessionBusy} onClick={() => void handleClosePackingSession()} aria-label="Akhiri sesi packing">
@@ -1969,6 +1982,17 @@ function App() {
               </div>
             </div>
           </div>
+
+          {isPackingMode && !activePackingSession ? (
+            <div className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-4 text-[var(--op-ink)]" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+              <p className="m-0 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">[ Sesi Packing ]</p>
+              <p className="m-0 mt-1 text-sm font-bold leading-tight text-[var(--op-ink)]">Mulai atau lanjutkan sesi</p>
+              <p className="m-0 mt-1 text-xs leading-snug text-muted-foreground">Pilih petugas untuk mulai scan packing. Ketuk nama di atas untuk ganti.</p>
+              <Button type="button" size="sm" className="mt-3 h-8 w-full rounded-[4px] text-xs" onClick={() => setShowSwitchDialog(true)} disabled={packingSessionBusy}>
+                Pilih petugas
+              </Button>
+            </div>
+          ) : null}
 
           <div className="relative">
             {scanNotice ? (
@@ -1996,166 +2020,11 @@ function App() {
               emptyMessage="Arahkan kamera ke area kerja."
               topSlot={null}
               centerSlot={
-                isPackingMode && !activePackingSession ? (
-                  <div className="flex w-full max-w-[92%] max-h-[68vh] flex-col overflow-hidden rounded-[8px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-0 text-[var(--op-ink)] shadow-xl" style={{ fontFamily: '"JetBrains Mono", monospace' }}>
-                    <div className="shrink-0 border-b border-[var(--op-hairline)] bg-[var(--op-canvas)] px-4 pb-3 pt-4 text-left">
-                      <p className="m-0 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">[ Sesi Packing ]</p>
-                      <p className="m-0 mt-1 text-sm font-bold leading-tight text-[var(--op-ink)]">Mulai atau lanjutkan sesi</p>
-                      <p className="m-0 mt-1 text-xs leading-snug text-muted-foreground">{isOperatorPacking ? 'Lanjutkan sesi milikmu atau mulai sesi baru untuk dirimu.' : 'Pilih sesi aktif yang belum diakhiri, atau mulai sesi baru.'}</p>
-                    </div>
-                    {!isOperatorPacking ? (
-                      <div className="shrink-0 bg-[var(--op-canvas)] px-4 pt-3">
-                        <div className="grid grid-cols-2 gap-1 rounded-[4px] bg-[var(--op-surface-soft)] p-1">
-                          <button
-                            type="button"
-                            onClick={() => setSwitchModalTab('resume')}
-                            className={switchModalTab === 'resume' ? 'rounded-[4px] bg-[var(--op-ink)] px-3 py-1.5 text-xs font-bold text-[var(--op-canvas)]' : 'rounded-[4px] px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-[var(--op-ink)]'}
-                          >
-                            Lanjutkan ({resumablePackingSessions.length})
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setSwitchModalTab('switch')}
-                            className={switchModalTab === 'switch' ? 'rounded-[4px] bg-[var(--op-ink)] px-3 py-1.5 text-xs font-bold text-[var(--op-canvas)]' : 'rounded-[4px] px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-[var(--op-ink)]'}
-                          >
-                            Baru
-                          </button>
-                        </div>
-                      </div>
-                    ) : null}
-                    <div className="flex-1 overflow-y-auto bg-[var(--op-canvas)] px-4 py-3">
-                      {isOperatorPacking ? (
-                        <div className="grid gap-3">
-                          {resumablePackingSessions.length > 0 ? (
-                            <div className="grid gap-2">
-                              <p className="m-0 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Lanjutkan sesi</p>
-                              {(() => {
-                                const latest = filteredResumablePackingSessions[0] ?? resumablePackingSessions[0]
-                                if (!latest) return null
-                                return (
-                                  <button
-                                    type="button"
-                                    className="rounded-[4px] border-2 border-[var(--op-ink)] bg-[var(--op-canvas)] px-3 py-3 text-left shadow-sm disabled:opacity-45"
-                                    disabled={packingSessionBusy}
-                                    onClick={() => void handleReopenPackingSession(latest)}
-                                  >
-                                    <span className="flex items-center justify-between gap-2 text-sm font-bold leading-tight text-[var(--op-ink)]">
-                                      <span className="truncate">{latest.packerNameSnapshot}</span>
-                                      <span className="shrink-0 rounded bg-[var(--op-ink)] px-2 py-1 text-xs font-bold text-[var(--op-canvas)]">▶ Lanjutkan</span>
-                                    </span>
-                                    <span className="mt-1 block text-xs text-muted-foreground">{latest.completedPackingCount} paket · {formatRupiah(latest.totalPayAmount)} · {formatDateTime(latest.startedAt)}</span>
-                                  </button>
-                                )
-                              })()}
-                              {filteredResumablePackingSessions.length > 1 ? (
-                                <>
-                                  <button type="button" onClick={() => setShowOtherResume((v) => !v)} className="text-left text-xs font-medium text-muted-foreground hover:text-[var(--op-ink)]">
-                                    {showOtherResume ? 'Sembunyikan sesi lain ▴' : `Cari sesi lain (${filteredResumablePackingSessions.length - 1}) ▾`}
-                                  </button>
-                                  {showOtherResume ? (
-                                    <div className="grid gap-1.5">
-                                      <Input value={resumeSearch} onChange={(e) => setResumeSearch(e.target.value)} placeholder="Cari sesi..." className="h-8 rounded-[4px] border-[var(--op-hairline)] bg-[var(--op-surface-soft)] text-xs text-[var(--op-ink)]" />
-                                      {filteredResumablePackingSessions.slice(1).map((packingSession) => (
-                                        <button
-                                          key={packingSession.id}
-                                          type="button"
-                                          className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 py-2.5 text-left hover:bg-[var(--op-surface-soft)] disabled:opacity-45"
-                                          disabled={packingSessionBusy}
-                                          onClick={() => void handleReopenPackingSession(packingSession)}
-                                        >
-                                          <span className="block truncate text-sm font-bold text-[var(--op-ink)]">{packingSession.packerNameSnapshot}</span>
-                                          <span className="mt-1 block text-xs text-muted-foreground">{packingSession.completedPackingCount} paket · {formatRupiah(packingSession.totalPayAmount)} · {formatDateTime(packingSession.startedAt)}</span>
-                                        </button>
-                                      ))}
-                                    </div>
-                                  ) : null}
-                                </>
-                              ) : null}
-                            </div>
-                          ) : null}
-                          <div className="grid gap-2">
-                            <p className="m-0 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{resumablePackingSessions.length > 0 ? 'Atau mulai baru' : 'Mulai sesi'}</p>
-                            <Button
-                              type="button"
-                              className="h-10 w-full rounded-[4px] bg-[var(--op-ink)] text-sm font-bold text-[var(--op-canvas)] hover:bg-[var(--op-ink)]/90 disabled:opacity-45"
-                              disabled={packingSessionBusy}
-                              onClick={() => {
-                                if (!session) return
-                                const key = makePackerKey(session.operatorName, session.operatorCode)
-                                setSelectedPackerKey(key)
-                                void handleStartPackingSession(key)
-                              }}
-                            >
-                              ＋ Mulai Sesi Baru — {session?.operatorName ?? 'Saya'}
-                            </Button>
-                            <p className="m-0 text-center text-[11px] text-muted-foreground">Sesi baru untuk {session?.operatorName ?? 'kamu'} ({session?.operatorCode ?? '-'})</p>
-                          </div>
-                        </div>
-                      ) : switchModalTab === 'resume' ? (
-                        <div className="grid gap-2">
-                          <Input value={resumeSearch} onChange={(e) => setResumeSearch(e.target.value)} placeholder="Cari Sani, PK01..." className="h-8 rounded-[4px] border-[var(--op-hairline)] bg-[var(--op-surface-soft)] text-xs text-[var(--op-ink)]" />
-                          <div className="grid gap-1.5">
-                            {filteredResumablePackingSessions.length === 0 ? (
-                              <div className="rounded-[4px] border border-dashed border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-3 py-6 text-center">
-                                <p className="m-0 text-sm font-medium text-muted-foreground">Belum ada sesi untuk dilanjutkan</p>
-                                <p className="m-0 mt-1 text-xs text-muted-foreground">Pindah ke tab Baru untuk mulai sesi.</p>
-                              </div>
-                            ) : filteredResumablePackingSessions.map((packingSession) => (
-                              <button
-                                key={packingSession.id}
-                                type="button"
-                                className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 py-2.5 text-left text-[var(--op-ink)] hover:bg-[var(--op-surface-soft)] disabled:opacity-45"
-                                disabled={packingSessionBusy}
-                                onClick={() => void handleReopenPackingSession(packingSession)}
-                              >
-                                <span className="flex items-center justify-between gap-2 text-sm font-bold leading-tight text-[var(--op-ink)]">
-                                  <span className="truncate">{packingSession.packerNameSnapshot}</span>
-                                  <span className="shrink-0 rounded bg-[var(--op-ink)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--op-canvas)]">Lanjutkan</span>
-                                </span>
-                                <span className="mt-1 block text-xs text-[var(--op-ink)]">{packingSession.packerCodeSnapshot}</span>
-                                <span className="mt-1 block text-xs text-muted-foreground">{packingSession.completedPackingCount} paket · {formatRupiah(packingSession.totalPayAmount)} · {formatDateTime(packingSession.startedAt)}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="grid gap-2">
-                          <Input value={operatorSearch} onChange={(e) => setOperatorSearch(e.target.value)} placeholder="Cari petugas, kode..." className="h-8 rounded-[4px] border-[var(--op-hairline)] bg-[var(--op-surface-soft)] text-xs text-[var(--op-ink)]" />
-                          <div className="grid gap-1.5">
-                            {filteredPackingOperators.length === 0 ? (
-                              <p className="rounded-[4px] border border-dashed border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-3 py-6 text-center text-sm text-muted-foreground">
-                                {packingOperators.length === 0 ? 'Belum ada petugas packing. Hubungi admin.' : 'Tidak ada petugas sesuai pencarian.'}
-                              </p>
-                            ) : filteredPackingOperators.map((op) => {
-                              const packerKey = makePackerKey(op.operatorName, op.operatorCode)
-                              return (
-                                <button
-                                  key={packerKey}
-                                  type="button"
-                                  className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 py-2.5 text-left text-[var(--op-ink)] hover:bg-[var(--op-surface-soft)] disabled:opacity-45"
-                                  disabled={packingSessionBusy}
-                                  onClick={() => { setSelectedPackerKey(packerKey); void handleStartPackingSession(packerKey) }}
-                                >
-                                  <span className="block truncate text-sm font-bold leading-tight text-[var(--op-ink)]">{op.fullName || op.operatorName}</span>
-                                  <span className="mt-1 block text-xs text-muted-foreground">{op.operatorCode}</span>
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <div className="shrink-0 border-t border-[var(--op-hairline)] bg-[var(--op-canvas)] px-4 py-2.5">
-                      <p className="m-0 text-center text-[11px] leading-snug text-muted-foreground">Butuh kelola lebih? Buka dialog via tombol nama di atas saat sesi aktif.</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="packing-scan-viewfinder-status">
-                    <div className="packing-scan-dot" />
-                    <p className="packing-scan-viewfinder-title">{currentRecordingResi ? `Resi ${currentRecordingResi}` : scanStatusLabel}</p>
-                    <p className="packing-scan-viewfinder-sub">{scanStatusDescription}</p>
-                  </div>
-                )
+                <div className="packing-scan-viewfinder-status">
+                  <div className="packing-scan-dot" />
+                  <p className="packing-scan-viewfinder-title">{currentRecordingResi ? `Resi ${currentRecordingResi}` : scanStatusLabel}</p>
+                  <p className="packing-scan-viewfinder-sub">{scanStatusDescription}</p>
+                </div>
               }
               bottomSlot={null}
             />

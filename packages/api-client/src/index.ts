@@ -517,6 +517,12 @@ export function readRecentShopeeOrdersApi(limit = 50) {
   return requestApi<ShopeeOrder[]>(`/api/orders/recent?limit=${encodeURIComponent(String(limit))}`)
 }
 
+export function deleteShopeeOrderByOrderNumberApi(orderNumber: string) {
+  return requestApi<{ deleted: boolean; orderNumber: string }>(`/api/orders/by-order/${encodeURIComponent(orderNumber)}`, {
+    method: 'DELETE',
+  })
+}
+
 export function readPackingPreviewByResiApi(resiNumber: string) {
   return requestApi<{ order: ShopeeOrder; pay: { amount: number; quantity: number; breakdown: unknown; rule: import('@pakti/types').PackingPayRule } }>(`/api/shopee/orders/by-resi/${encodeURIComponent(resiNumber)}/packing-preview`)
 }

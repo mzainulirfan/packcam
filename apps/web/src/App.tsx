@@ -3,6 +3,7 @@ import type { ReactElement } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Activity01Icon,
+  ArrowRightFromLineIcon,
   Clock01Icon,
   Package01Icon,
   QrCodeIcon,
@@ -241,7 +242,10 @@ function App() {
                           <span className="nav-tab__icon" aria-hidden="true">
                             <HugeiconsIcon icon={PAGE_ICONS[item.id]} size={18} strokeWidth={1.9} />
                           </span>
-                          <span className="nav-tab__label">{item.label}</span>
+                          <span className="nav-tab__text">
+                            <span className="nav-tab__label">{item.label}</span>
+                            <span className="nav-tab__hint">{item.hint}</span>
+                          </span>
                         </button>
                       </li>
                     ))}
@@ -256,6 +260,7 @@ function App() {
                 className="sidebar-session__button"
                 onClick={() => {
                   logoutOperator()
+                  setIsMobileSidebarOpen(false)
                 }}
                 title="Keluar"
               >
@@ -266,7 +271,9 @@ function App() {
                   <div>{operatorSession.operatorName}</div>
                   <span>{operatorSession.role}{operatorSession.operatorCode ? ` · ${operatorSession.operatorCode}` : ''}</span>
                 </div>
-                <span className="sidebar-session__logout" aria-hidden="true">[x]</span>
+                <span className="sidebar-session__logout" aria-hidden="true">
+                  <HugeiconsIcon icon={ArrowRightFromLineIcon} size={14} strokeWidth={1.9} />
+                </span>
               </button>
             </div>
           </div>

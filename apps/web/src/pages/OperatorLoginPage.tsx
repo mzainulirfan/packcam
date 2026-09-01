@@ -5,7 +5,7 @@ import { navigateTo } from '../app/uiState'
 import { AuthShell } from '../components/auth/AuthShell'
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
+import { Card, CardContent } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { useSystemConfig } from '@pakti/shared/systemConfig'
@@ -14,17 +14,17 @@ type MessageTone = 'info' | 'error'
 
 const LOGIN_HIGHLIGHTS = [
   {
-    marker: '[+]',
+    marker: '01',
     title: 'Akses operator terkontrol',
     description: 'Hanya akun yang sudah terdaftar yang bisa masuk ke dashboard Pakti.',
   },
   {
-    marker: '[x]',
+    marker: '02',
     title: 'Masuk lalu scan',
     description: 'Begitu login berhasil, operator langsung diarahkan ke alur kerja scan resi.',
   },
   {
-    marker: '[-]',
+    marker: '03',
     title: 'Workflow tetap ringkas',
     description: 'Tampilan fokus ke proses kerja, bukan ke dekorasi yang mengganggu.',
   },
@@ -74,22 +74,7 @@ export function OperatorLoginPage() {
       footerNote="Login aman untuk desktop operasional"
     >
       <Card className="auth-opencode__card w-full max-w-xl">
-        <CardHeader className="space-y-4 p-6 pb-0">
-          <div className="flex items-center gap-3">
-            <div className="auth-opencode__mark grid size-12 place-items-center">
-              {systemConfig.brandMark || systemConfig.appName.charAt(0).toUpperCase()}
-            </div>
-            <div className="min-w-0">
-              <p className="auth-opencode__app-name">{systemConfig.appName}</p>
-              <CardTitle>Login operator</CardTitle>
-            </div>
-          </div>
-          <CardDescription>
-            Masuk dengan username dan password yang sudah dibuat untuk operator ini.
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="space-y-5 pt-6">
+        <CardContent className="space-y-5 p-5 sm:p-6">
           <form
             className="space-y-4"
             onSubmit={(event) => {
@@ -99,7 +84,7 @@ export function OperatorLoginPage() {
           >
             <div className="auth-opencode__field space-y-2">
               <Label htmlFor="operator-username">
-                username
+                Username
               </Label>
               <Input
                 id="operator-username"
@@ -116,7 +101,7 @@ export function OperatorLoginPage() {
 
             <div className="auth-opencode__field space-y-2">
               <Label htmlFor="operator-password">
-                password
+                Password
               </Label>
               <div className="relative">
                 <Input
@@ -139,7 +124,7 @@ export function OperatorLoginPage() {
                   onClick={() => setShowPassword((current) => !current)}
                   aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
                 >
-                  {showPassword ? '[hide]' : '[show]'}
+                  {showPassword ? 'Sembunyikan' : 'Tampilkan'}
                 </Button>
               </div>
             </div>
@@ -151,8 +136,8 @@ export function OperatorLoginPage() {
               </Alert>
             ) : null}
 
-            <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? '[processing]' : '[login]'}
+            <Button type="submit" size="lg" className="h-10 w-full rounded-lg bg-[#000000] font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]" disabled={isSubmitting}>
+              {isSubmitting ? 'Memproses...' : 'Masuk'}
             </Button>
           </form>
         </CardContent>

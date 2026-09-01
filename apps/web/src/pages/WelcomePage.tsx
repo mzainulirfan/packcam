@@ -4,7 +4,7 @@ import type { InputHTMLAttributes } from 'react'
 import { AuthShell } from '../components/auth/AuthShell'
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
+import { Card, CardContent } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Separator } from '../components/ui/separator'
@@ -15,22 +15,22 @@ type MessageTone = 'info' | 'error'
 
 const SETUP_HIGHLIGHTS = [
   {
-    marker: '[+]',
+    marker: '01',
     title: 'Buat identitas admin',
     description: 'Isi nama lengkap agar profil admin pertama punya identitas yang jelas.',
   },
   {
-    marker: '[x]',
+    marker: '02',
     title: 'Tentukan username dan kode',
     description: 'Username dipakai saat login, sementara kode user membantu identifikasi internal.',
   },
   {
-    marker: '[-]',
+    marker: '03',
     title: 'Set password login',
     description: 'Buat password yang aman agar akses awal ke aplikasi tetap terjaga.',
   },
   {
-    marker: '[~]',
+    marker: '04',
     title: 'Langsung siap dipakai',
     description: 'Sesudah akun dibuat, kamu bisa langsung masuk ke dashboard Pakti.',
   },
@@ -38,12 +38,12 @@ const SETUP_HIGHLIGHTS = [
 
 const NEXT_STEP_HIGHLIGHTS = [
   {
-    marker: '[x]',
+    marker: '01',
     title: 'Login dengan akun baru',
     description: 'Gunakan username dan password yang baru dibuat untuk masuk ke sistem.',
   },
   {
-    marker: '[+]',
+    marker: '02',
     title: 'Lanjut ke scan resi',
     description: 'Setelah login, alur kerja berikutnya langsung ke halaman Scan.',
   },
@@ -159,22 +159,7 @@ export function WelcomePage() {
         footerNote="Buka kembali layar login untuk masuk"
       >
         <Card className="auth-opencode__card w-full max-w-xl">
-          <CardHeader className="space-y-3 p-6 pb-0">
-            <div className="flex items-center gap-3">
-              <div className="auth-opencode__mark grid size-12 place-items-center">
-                [x]
-              </div>
-              <div className="min-w-0">
-                <p className="auth-opencode__app-name">{systemConfig.appName}</p>
-                <CardTitle>Setup selesai</CardTitle>
-              </div>
-            </div>
-            <CardDescription>
-              Akun admin pertama berhasil dibuat. Klik tombol di bawah untuk kembali ke halaman login.
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent className="space-y-5 pt-6">
+          <CardContent className="space-y-5 p-5 sm:p-6">
             <Alert variant="success">
               <AlertTitle>Akun berhasil dibuat</AlertTitle>
               <AlertDescription>
@@ -182,8 +167,8 @@ export function WelcomePage() {
               </AlertDescription>
             </Alert>
 
-            <Button type="button" size="lg" className="w-full" onClick={() => window.location.reload()}>
-              [login]
+            <Button type="button" size="lg" className="h-10 w-full rounded-lg bg-[#000000] font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]" onClick={() => window.location.reload()}>
+              Masuk
             </Button>
           </CardContent>
         </Card>
@@ -202,20 +187,7 @@ export function WelcomePage() {
       footerNote="Setup awal hanya perlu dilakukan sekali"
     >
       <Card className="auth-opencode__card w-full max-w-xl">
-        <CardHeader className="space-y-4 p-6 pb-0">
-          <div className="flex items-center gap-3">
-            <div className="auth-opencode__mark grid size-12 place-items-center">
-              {systemConfig.brandMark || systemConfig.appName.charAt(0).toUpperCase()}
-            </div>
-            <div className="min-w-0">
-              <p className="auth-opencode__app-name">{systemConfig.appName}</p>
-              <CardTitle>Setup admin</CardTitle>
-            </div>
-          </div>
-          <CardDescription>{systemConfig.tagline}</CardDescription>
-        </CardHeader>
-
-          <CardContent className="space-y-5 pt-6">
+          <CardContent className="space-y-5 p-5 sm:p-6">
             {serverReady === false ? (
               <Alert variant="destructive">
                 <AlertTitle>Server belum aktif</AlertTitle>
@@ -239,8 +211,8 @@ export function WelcomePage() {
                 <div className="auth-opencode__note">
                   Bootstrap sudah selesai. Masuk ke halaman login untuk menggunakan akun admin yang sudah ada.
                 </div>
-                <Button type="button" size="lg" className="w-full" onClick={() => window.location.reload()}>
-                  [login]
+                <Button type="button" size="lg" className="h-10 w-full rounded-lg bg-[#000000] font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]" onClick={() => window.location.reload()}>
+                  Masuk
                 </Button>
               </div>
             ) : (
@@ -254,7 +226,7 @@ export function WelcomePage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <Field
                     id="admin-full-name"
-                    label="full_name"
+                    label="Nama lengkap"
                     value={fullName}
                     onChange={(event) => setFullName(event.target.value)}
                     placeholder="Nama lengkap admin"
@@ -264,7 +236,7 @@ export function WelcomePage() {
 
                   <Field
                     id="admin-username"
-                    label="username"
+                    label="Username"
                     value={operatorName}
                     onChange={(event) => setOperatorName(event.target.value.replace(/\s+/g, ''))}
                     placeholder="Username login"
@@ -275,7 +247,7 @@ export function WelcomePage() {
 
                 <Field
                   id="admin-code"
-                  label="operator_code"
+                  label="Kode operator"
                   value={operatorCode}
                   onChange={(event) => setOperatorCode(event.target.value)}
                   placeholder="001"
@@ -285,7 +257,7 @@ export function WelcomePage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <PasswordField
                     id="admin-password"
-                    label="password"
+                    label="Password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     placeholder="Password admin"
@@ -297,7 +269,7 @@ export function WelcomePage() {
 
                   <PasswordField
                     id="admin-confirm-password"
-                    label="confirm_password"
+                    label="Konfirmasi password"
                     value={confirmPassword}
                     onChange={(event) => setConfirmPassword(event.target.value)}
                     placeholder="Ulangi password"
@@ -317,8 +289,8 @@ export function WelcomePage() {
                   </Alert>
                 ) : null}
 
-                <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? '[creating]' : '[create_admin]'}
+                <Button type="submit" size="lg" className="h-10 w-full rounded-lg bg-[#000000] font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]" disabled={isSubmitting}>
+                  {isSubmitting ? 'Membuat akun...' : 'Buat admin'}
                 </Button>
               </form>
             )}
@@ -383,7 +355,7 @@ function PasswordField({
           onClick={onToggle}
           aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
         >
-          {showPassword ? '[hide]' : '[show]'}
+          {showPassword ? 'Sembunyikan' : 'Tampilkan'}
         </Button>
       </div>
       {helpText ? <p>{helpText}</p> : null}

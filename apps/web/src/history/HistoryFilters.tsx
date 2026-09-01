@@ -79,8 +79,8 @@ export function HistoryFilters({
 
   return (
     <div className="relative z-20 overflow-visible border-b border-[#dddddd] p-4 sm:p-5">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-        <label className="relative flex flex-1 min-w-[240px]">
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="relative flex min-w-[240px] flex-1">
           <span className="pointer-events-none absolute inset-y-0 left-0 grid w-10 place-items-center text-[#a39e98]">
             <HugeiconsIcon icon={Search01Icon} size={18} strokeWidth={1.9} />
           </span>
@@ -98,7 +98,7 @@ export function HistoryFilters({
           ) : null}
         </label>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <TaskDropdown value={taskFilter} onChange={onTaskFilterChange} />
           {isAdmin ? <OperatorSearchSelect value={operatorFilter} options={operatorOptions} onChange={onOperatorFilterChange} compact /> : null}
           <PeriodeDropdown
@@ -110,8 +110,8 @@ export function HistoryFilters({
             onCustomToggle={() => setShowCustomRange(true)}
             onDateChange={onDateChange}
           />
-          <Button type="button" variant="ghost" onClick={handleClearFilters} disabled={!hasActiveFilters} className="h-10 inline-flex items-center gap-2 rounded-lg px-3 font-['Inter'] text-[13px] font-medium text-[#615d59] hover:bg-[#f6f5f4] disabled:opacity-40" title="Reset filter">
-            <HugeiconsIcon icon={RefreshIcon} size={16} strokeWidth={1.9} /> Reset
+          <Button type="button" variant="ghost" onClick={handleClearFilters} disabled={!hasActiveFilters} className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#dddddd] bg-white p-0 text-[#615d59] hover:bg-[#f6f5f4] disabled:opacity-40" title="Reset filter" aria-label="Reset filter">
+            <HugeiconsIcon icon={RefreshIcon} size={16} strokeWidth={1.9} />
           </Button>
         </div>
       </div>

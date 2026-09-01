@@ -54,22 +54,31 @@ function parseQuantity(text) {
 function isOrderMetadataText(value) {
   const text = String(value || '').trim()
   if (!text) return true
-  return /^(?:x\s*\d+|rp\s*[\d.]+|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\b|spx\s+instan\b|instant\b|instan\b|pesan\s*:|variasi\s*:|variation\s*:|varian\s*:|sku\s*:|no\. pesanan\b|nomor pesanan\b|order id\b|resi\b|no\. resi\b|jasa kirim\b|kurir\b|ekspedisi\b|username pembeli\b|buyer username\b|pembeli\b|status\b)/i.test(text)
+  return /^(?:\(?cod\)?|x\s*\d+|rp\s*[\d.]+|perlu dikirim\b|menunggu\b|hemat kargo\b|drop\s*off\b|pickup\b|atur pengiriman\b|rincian pengiriman\b|lihat rincian pengiriman\b|lihat rincian\b|spx\b|spx\s+instan\b|instant\b|instan\b|pesan\s*:|variasi\s*:|variation\s*:|varian\s*:|sku\s*:|no\. pesanan\b|nomor pesanan\b|order id\b|resi\b|no\. resi\b|jasa kirim\b|kurir\b|ekspedisi\b|username pembeli\b|buyer username\b|pembeli\b|status\b)$/i.test(text)
+}
+
+function isShippingOrActionText(value) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim()
+  if (!text) return true
+  return /(?:\bdrop\s*off\b|\bpickup\b|lihat rincian pengiriman|rincian pengiriman|atur pengiriman|buat no\. resi|cetak label|print label|label pengiriman|jasa kirim|kurir|ekspedisi|no\. resi|nomor resi)/i.test(text)
 }
 
 function cleanProductText(value) {
-  const text = String(value || '').replace(/\s+/g, ' ').trim()
+  const text = String(value || '').replace(/\s+/g, ' ').trim().replace(/^\(?\s*cod\s*\)?\s*/i, '')
   if (!text || isOrderMetadataText(text)) return null
 
-  return text
+  const cleaned = text
     .replace(/\s*(?:variasi\s*:|variation\s*:|varian\s*:|pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\s+(?:instan|instant)\b).*$/i, '')
     .replace(/\s*x\s*\d+.+$/i, '')
     .replace(/\s*x\s*\d+\s*$/i, '')
-    .trim() || null
+    .trim()
+
+  if (cleaned.length < 3 || /^[\W_]+$/.test(cleaned) || /^\(?\s*(?:sesuai gambar|warna|ukuran|size)\b/i.test(cleaned)) return null
+  return cleaned
 }
 
 function deriveProductName(element) {
-  const selectorText = textOf(element.querySelector('.item-name, [class*="item-name" i], [class*="product-name" i], [data-testid*="product-name" i], [data-testid*="item-name" i], [title]'))
+  const selectorText = textOf(element.matches?.('.item-name, [class*="item-name" i], [class*="product-name" i], [data-testid*="product-name" i], [data-testid*="item-name" i], [title]') ? element : element.querySelector('.item-name, [class*="item-name" i], [class*="product-name" i], [data-testid*="product-name" i], [data-testid*="item-name" i], [title]'))
   const fromSelector = cleanProductText(selectorText)
   if (fromSelector) return fromSelector
 
@@ -89,6 +98,7 @@ function cleanVariationText(value) {
   if (!text) return null
 
   return text
+    .replace(/^(?:variasi|variation|varian)\s*[:\-]\s*/i, '')
     .replace(/\s*x\s*\d+.+$/i, '')
     .replace(/\s*x\s*\d+\s*(?:pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\s+(?:instan|instant)\b).*$/i, '')
     .replace(/\s*(?:pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\s+(?:instan|instant)\b).*$/i, '')
@@ -205,6 +215,7 @@ function extractLineItems(root) {
     const line = lines[index]
     const productName = cleanProductText(line)
     if (!productName || productName.length < 8 || productName.length > 220) continue
+    if (isShippingOrActionText(productName)) continue
     if (/^@?[a-z0-9._-]{3,40}$/i.test(productName)) continue
     if (/^[A-Z0-9-]{8,}$/i.test(productName)) continue
     if (/^(?:lihat rincian|rincian|detail|ubah|batalkan|atur pengiriman|cetak|print|kirim|chat|label|invoice|semua|pilih|selesai)$/i.test(productName)) continue
@@ -223,18 +234,18 @@ function extractLineItems(root) {
 }
 
 function extractShopeeItems(root) {
-  const itemElements = [...root.querySelectorAll('.order-item-infos .item-list .item, [data-testid="order-item-infos"] .item-list .item, [class*="item" i][class*="product" i], .shopee-order-item, [data-testid*="item" i]')]
+  const itemElements = [...root.querySelectorAll('.order-item-infos .item-list .item, [data-testid="order-item-infos"] .item-list .item, .shopee-order-item')]
 
   const shopeeItems = itemElements
     .map((element) => {
       const productName = deriveProductName(element)
-      if (!productName || productName.length < 3) {
+      if (!productName || productName.length < 3 || isShippingOrActionText(productName)) {
         return null
       }
 
-      const amountText = textOf(element.querySelector('.item-amount, [class*="amount" i], [class*="quantity" i], [class*="qty" i]'))
+      const amountText = textOf(element.querySelector('.item-amount, [class*="item-amount" i], [class*="quantity" i], [class*="qty" i]'))
       const variationText = cleanVariationText(
-        textOf(element.querySelector('.item-variation, [class*="variation" i], [class*="variant" i], [data-testid*="variation" i]')) ||
+        textOf(element.querySelector('.item-description, .item-variation, [class*="item-description" i], [class*="variation" i], [class*="variant" i], [data-testid*="variation" i]')) ||
         firstMatch(textOf(element), [/(?:variasi|variation|varian)\s*[:\-]\s*([^|\n]+)/i]) ||
         null,
       )
@@ -274,7 +285,7 @@ function extractItems(root) {
   ]
   const candidates = [...root.querySelectorAll(itemSelectors.join(','))]
     .map((element) => ({ element, text: textOf(element) }))
-    .filter((entry) => entry.text.length > 8 && !/nomor pesanan|order id|no\. pesanan/i.test(entry.text))
+    .filter((entry) => entry.text.length > 8 && !/nomor pesanan|order id|no\. pesanan/i.test(entry.text) && !isShippingOrActionText(entry.text))
 
   const unique = []
   const seen = new Set()
@@ -291,6 +302,7 @@ function extractItems(root) {
   const fallbackItems = unique.slice(0, 20).map((candidate) => {
     const image = candidate.element.querySelector('img')
     const productName = deriveProductName(candidate.element) || cleanProductText(candidate.text) || 'Unknown item'
+    if (isShippingOrActionText(productName)) return null
     return {
       sku: firstMatch(candidate.text, [/sku[:\s]+([^|,]+)/i]) || null,
       productName: productName.slice(0, 220),
@@ -409,14 +421,30 @@ function isShopeeShippingOrderPage() {
   return isShopeeOrderPage('shipping')
 }
 
-function getShopeeOrderPageType() {
+function isShopeeProcessedToShipOrderPage() {
+  const info = getShopeeOrderPageInfo()
+  return info?.type === 'toship' && info.source === 'processed'
+}
+
+function isSupportedShopeeOrderAutomationPage() {
+  return isShopeeProcessedToShipOrderPage() || isShopeeShippingOrderPage()
+}
+
+function getShopeeOrderPageInfo() {
   try {
     const url = new URL(location.href)
     if (!isShopeeSellerHostname(url.hostname) || url.pathname !== '/portal/sale/order') return null
-    return url.searchParams.get('type') || 'unknown'
+    return {
+      type: url.searchParams.get('type') || 'unknown',
+      source: url.searchParams.get('source') || '',
+    }
   } catch {
     return null
   }
+}
+
+function getShopeeOrderPageType() {
+  return getShopeeOrderPageInfo()?.type || null
 }
 
 function isShopeeOrderPage(expectedType = null) {
@@ -486,20 +514,16 @@ async function prepareVisibleShippingChats() {
   if (sessionStorage.getItem('pakti:lastShippingScan') === signature) return
 
   const config = await readExtensionConfig()
-  await requestPaktiApi('/api/import/shopee/orders', config, {
-    method: 'POST',
-    body: JSON.stringify({ orders }),
-  })
   const result = await requestPaktiApi('/api/shopee/shipping-chat/prepare', config, {
     method: 'POST',
     body: JSON.stringify({ orders: orderInputs }),
   })
   sessionStorage.setItem('pakti:lastShippingScan', signature)
-  console.info('[Pakti] shipping orders synced and chat queue prepared', result)
+  console.info('[Pakti] shipping chat queue prepared', result)
 }
 
 async function syncVisibleShopeeOrdersAndMaybePrepareShipping() {
-  if (!isShopeeOrderPage()) return null
+  if (!isSupportedShopeeOrderAutomationPage()) return null
 
   const orders = await extractOrdersWithLightScroll()
   const orderInputs = orders
@@ -511,16 +535,21 @@ async function syncVisibleShopeeOrdersAndMaybePrepareShipping() {
     }))
   if (orderInputs.length === 0) return { imported: null, shipping: null, visibleOrderCount: 0 }
 
-  const pageType = getShopeeOrderPageType() || 'unknown'
+  const pageInfo = getShopeeOrderPageInfo()
+  const pageType = pageInfo?.type || 'unknown'
+  const pageSource = pageInfo?.source || ''
   const signature = orderInputs.map((o) => [o.orderNumber, o.trackingNumber || '', o.buyerUsername || ''].join(':')).join('|')
-  const signatureKey = `pakti:lastOrderScan:${pageType}`
+  const signatureKey = `pakti:lastOrderScan:${pageType}:${pageSource}`
   if (sessionStorage.getItem(signatureKey) === signature) return null
 
   const config = await readExtensionConfig()
-  const imported = await requestPaktiApi('/api/import/shopee/orders', config, {
-    method: 'POST',
-    body: JSON.stringify({ orders }),
-  })
+  let imported = null
+  if (isShopeeProcessedToShipOrderPage()) {
+    imported = await requestPaktiApi('/api/import/shopee/orders', config, {
+      method: 'POST',
+      body: JSON.stringify({ orders }),
+    })
+  }
   let shipping = null
   if (pageType === 'shipping') {
     shipping = await requestPaktiApi('/api/shopee/shipping-chat/prepare', config, {
@@ -530,7 +559,7 @@ async function syncVisibleShopeeOrdersAndMaybePrepareShipping() {
     sessionStorage.setItem('pakti:lastShippingScan', signature)
   }
   sessionStorage.setItem(signatureKey, signature)
-  console.info('[Pakti] Shopee orders auto synced', { pageType, visibleOrderCount: orderInputs.length, imported, shipping })
+  console.info('[Pakti] Shopee automation finished', { pageType, pageSource, visibleOrderCount: orderInputs.length, imported, shipping })
   return { imported, shipping, visibleOrderCount: orderInputs.length }
 }
 
@@ -566,10 +595,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         }
 
         const config = await readExtensionConfig()
-        await requestPaktiApi('/api/import/shopee/orders', config, {
-          method: 'POST',
-          body: JSON.stringify({ orders }),
-        })
         const result = await requestPaktiApi('/api/shopee/shipping-chat/prepare', config, {
           method: 'POST',
           body: JSON.stringify({ orders: orderInputs }),
@@ -1452,7 +1477,7 @@ if (isShopeeSellerHostname(location.hostname)) {
   let orderScanBusy = false
 
   const scanShopeeOrders = () => {
-    if (!isShopeeOrderPage() || orderScanBusy) return
+    if (!isSupportedShopeeOrderAutomationPage() || orderScanBusy) return
     orderScanBusy = true
     syncVisibleShopeeOrdersAndMaybePrepareShipping()
       .then(() => {

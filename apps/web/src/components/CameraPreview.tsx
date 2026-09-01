@@ -86,7 +86,7 @@ function Overlay({ children, tone }: { children: string; tone: 'default' | 'erro
           : 'scan-opencode__camera-overlay absolute inset-x-3 bottom-3 z-10'
       }
     >
-      {tone === 'error' ? '[!]' : '[~]'} {children}
+      {children}
     </div>
   )
 }

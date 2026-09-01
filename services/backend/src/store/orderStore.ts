@@ -52,16 +52,24 @@ function normalizeOptionalString(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : null
 }
 
-function cleanProductName(value: unknown) {
-  const text = normalizeOptionalString(value)
-  if (!text) return null
+function isShippingOrActionText(value: string) {
+  return /(?:\bdrop\s*off\b|\bpickup\b|lihat rincian pengiriman|rincian pengiriman|atur pengiriman|buat no\. resi|cetak label|print label|label pengiriman|jasa kirim|kurir|ekspedisi|no\. resi|nomor resi)/i.test(value)
+}
 
-  return normalizeOptionalString(
+function cleanProductName(value: unknown) {
+  const text = normalizeOptionalString(String(value || '').replace(/^\(?\s*cod\s*\)?\s*/i, ''))
+  if (!text) return null
+  if (isShippingOrActionText(text)) return null
+
+  const cleaned = normalizeOptionalString(
     text
-      .replace(/\s*(?:variasi\s*:|variation\s*:|varian\s*:|pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\s+(?:instan|instant)\b).*$/i, '')
+      .replace(/\s*(?:variasi\s*:|variation\s*:|varian\s*:|pesan\s*:|rp\s*\d|perlu dikirim\b|menunggu\b|hemat kargo\b|drop\s*off\b|pickup\b|lihat rincian pengiriman\b|rincian pengiriman\b|spx\s+(?:instan|instant)\b).*$/i, '')
       .replace(/\s*x\s*\d+.+$/i, '')
       .replace(/\s*x\s*\d+\s*$/i, ''),
   )
+
+  if (!cleaned || cleaned.length < 3 || /^[\W_]+$/.test(cleaned) || /^\(?\s*(?:sesuai gambar|warna|ukuran|size)\b/i.test(cleaned)) return null
+  return cleaned
 }
 
 function cleanVariationName(value: unknown) {
@@ -70,6 +78,7 @@ function cleanVariationName(value: unknown) {
 
   return normalizeOptionalString(
     text
+      .replace(/^(?:variasi|variation|varian)\s*[:\-]\s*/i, '')
       .replace(/\s*x\s*\d+.+$/i, '')
       .replace(/\s*x\s*\d+\s*(?:pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\s+(?:instan|instant)\b).*$/i, '')
       .replace(/\s*(?:pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\s+(?:instan|instant)\b).*$/i, '')
@@ -314,6 +323,35 @@ export function getShopeeOrderByOrderNumber(orderNumber: string) {
     .get(normalizedOrderNumber) as OrderRow | undefined
 
   return getOrderByRow(row)
+}
+
+export function deleteShopeeOrderByOrderNumber(orderNumber: string) {
+  const normalizedOrderNumber = orderNumber.trim()
+  if (!normalizedOrderNumber) {
+    throw new Error('Nomor pesanan wajib diisi.')
+  }
+
+  const database = db()
+  const row = database
+    .prepare(`SELECT id FROM orders WHERE source = 'shopee' AND order_number = ? LIMIT 1`)
+    .get(normalizedOrderNumber) as { id: string } | undefined
+
+  if (!row) {
+    throw new Error('Order tidak ditemukan.')
+  }
+
+  database.exec('BEGIN')
+  try {
+    database.prepare(`DELETE FROM order_items WHERE order_id = ?`).run(row.id)
+    database.prepare(`DELETE FROM orders WHERE id = ? AND source = 'shopee'`).run(row.id)
+    database.exec('COMMIT')
+  } catch (error) {
+    database.exec('ROLLBACK')
+    throw error
+  }
+
+  broadcastBackendEvent('orders-updated', { deleted: 1, orderNumber: normalizedOrderNumber })
+  return { deleted: true, orderNumber: normalizedOrderNumber }
 }
 
 export function listShopeeOrderResisByOrderNumberSearch(searchText: string) {

@@ -14,6 +14,8 @@ const pageModeText = document.querySelector('#pageModeText')
 const statusText = document.querySelector('#statusText')
 let lastPreparedChatJob = null
 let pendingChatJobs = []
+const SHOPEE_ORDER_SYNC_URL = 'https://seller.shopee.co.id/portal/sale/order?type=toship&source=processed'
+const SHOPEE_SHIPPING_CHAT_URL = 'https://seller.shopee.co.id/portal/sale/order?type=shipping'
 
 function setStatus(value) {
   statusText.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2)
@@ -25,6 +27,20 @@ function normalizeBaseUrl(value) {
 
 function isShopeeShippingOrderUrl(value) {
   return isShopeeOrderUrl(value, 'shipping')
+}
+
+function isShopeeProcessedToShipOrderUrl(value) {
+  try {
+    const url = new URL(value || '')
+    return (
+      isShopeeSellerHostname(url.hostname) &&
+      url.pathname === '/portal/sale/order' &&
+      url.searchParams.get('type') === 'toship' &&
+      url.searchParams.get('source') === 'processed'
+    )
+  } catch {
+    return false
+  }
 }
 
 function isShopeeOrderUrl(value, expectedType = null) {
@@ -65,8 +81,9 @@ function getShopeeWebchatUrl(value) {
 
 function getPageMode(value) {
   if (isShopeeWebchatUrl(value)) return '[x] webchat worker'
-  if (isShopeeShippingOrderUrl(value)) return '[x] order sync + shipping queue'
-  if (isShopeeOrderUrl(value)) return '[x] order auto-sync'
+  if (isShopeeShippingOrderUrl(value)) return '[x] shipping chat queue'
+  if (isShopeeProcessedToShipOrderUrl(value)) return '[x] order auto-sync'
+  if (isShopeeOrderUrl(value)) return '[~] order page unsupported'
   try {
     const url = new URL(value || '')
     if (isShopeeSellerHostname(url.hostname)) return '[~] seller page'
@@ -184,6 +201,12 @@ async function syncOrders() {
   syncButton.disabled = true
   try {
     const config = await saveConfig()
+    const tab = await getActiveTab()
+    if (!isShopeeProcessedToShipOrderUrl(tab.url)) {
+      setStatus(`Buka tab Shopee Siap Dikirim terlebih dulu: ${SHOPEE_ORDER_SYNC_URL}`)
+      return
+    }
+
     setStatus('Extracting orders from current tab...')
 
     const orders = await extractOrdersFromPage()
@@ -233,7 +256,7 @@ async function prepareShippingChats() {
     await saveConfig()
     const tab = await getActiveTab()
     if (!isShopeeShippingOrderUrl(tab.url)) {
-      setStatus('Buka tab Shopee Pesanan Dikirim terlebih dulu: https://seller.shopee.co.id/portal/sale/order?type=shipping')
+      setStatus(`Buka tab Shopee Pesanan Dikirim terlebih dulu: ${SHOPEE_SHIPPING_CHAT_URL}`)
       return
     }
 

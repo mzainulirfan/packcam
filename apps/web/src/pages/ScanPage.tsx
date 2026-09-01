@@ -576,15 +576,15 @@ export function ScanPage() {
           <p className="mt-2 max-w-2xl font-['Inter'] text-[14px] leading-6 text-[#615d59]">{isPackingTask && packingMediaType === 'photo' ? 'Scan resi → auto foto 0.45s → cek preview → Gunakan / Ulangi. Posisikan paket & resi jelas di kamera.' : 'Pindai resi untuk merekam dokumentasi QC / Packing. Video tersimpan otomatis dengan watermark.'}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-['Inter'] text-[12px] font-semibold ${isPackingTask ? 'border-[#dddddd] bg-white text-[#000000]' : 'border-[#0075de]/20 bg-[#0075de]/10 text-[#0075de]'}`}>{activeTask.toUpperCase()} {isPackingTask && packingMediaType === 'photo' ? '· Foto' : ''}</span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#dddddd] bg-white px-3 py-1.5 font-['Inter'] text-[12px] font-semibold text-[#000000]">{activeTask.toUpperCase()} {isPackingTask && packingMediaType === 'photo' ? '· Foto' : ''}</span>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-[#dddddd] bg-white px-3 py-1.5 font-['Inter'] text-[12px] font-medium text-[#31302e]"><HugeiconsIcon icon={UserGroupIcon} size={14} strokeWidth={1.9} />{operatorSession?.operatorName || operatorSession?.operatorCode || 'operator'}</span>
-          <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-['Inter'] text-[12px] font-semibold ${recordingSession.state.mode === 'recording' ? 'border-[#fecaca] bg-[#fee2e2] text-[#991b1b]' : recordingSession.state.mode === 'saving' ? 'border-[#fde68a] bg-[#fef3c7] text-[#92400e]' : 'border-[#dddddd] bg-white text-[#615d59]'}`}>{recordingSession.state.mode}</span>
+          <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-['Inter'] text-[12px] font-semibold ${recordingSession.state.mode === 'recording' || recordingSession.state.mode === 'saving' ? 'border-[#000000] bg-[#000000] text-white' : 'border-[#dddddd] bg-white text-[#615d59]'}`}>{recordingSession.state.mode}</span>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-[#dddddd] bg-[#f6f5f4] px-3 py-1.5 font-['Inter'] text-[12px] font-medium tabular-nums text-[#000000]"><HugeiconsIcon icon={Clock01Icon} size={14} strokeWidth={1.9} />{recordingElapsedLabel}</span>
         </div>
       </section>
 
-      {scanAlert ? <Alert variant={scanAlert.kind === 'error' ? 'destructive' : scanAlert.kind === 'success' ? 'success' : 'info'} className="mb-4 rounded-[4px] border-[#dddddd] bg-white font-['Inter'] text-[13px]"><p className={scanAlert.kind === 'error' ? 'text-[#991b1b]' : scanAlert.kind === 'success' ? 'text-[#065f46]' : 'text-[#31302e]'}>{scanAlert.message}</p></Alert> : null}
-      {isPackingTask && packingMediaType === 'photo' && !activePackingSession ? <Alert variant="info" className="mb-4 rounded-[4px] border-[#dddddd] bg-[#fff7ed] font-['Inter'] text-[13px]"><p className="text-[#92400e]">Foto packing butuh sesi aktif. Pilih petugas di panel sesi packing.</p></Alert> : null}
+      {scanAlert ? <Alert variant={scanAlert.kind === 'error' ? 'destructive' : scanAlert.kind === 'success' ? 'success' : 'info'} className="mb-4 rounded-lg border-[#dddddd] bg-white font-['Inter'] text-[13px]"><p className="text-[#31302e]">{scanAlert.message}</p></Alert> : null}
+      {isPackingTask && packingMediaType === 'photo' && !activePackingSession ? <Alert variant="info" className="mb-4 rounded-lg border-[#dddddd] bg-white font-['Inter'] text-[13px]"><p className="text-[#31302e]">Foto packing butuh sesi aktif. Pilih petugas di panel sesi packing.</p></Alert> : null}
 
       <div className={isPhotoPackingMode ? 'flex flex-col gap-4' : 'grid gap-5 lg:grid-cols-[380px_minmax(0,1fr)]'}>
         {!isPhotoPackingMode ? (
@@ -645,9 +645,9 @@ export function ScanPage() {
                   </div>
                 ) : null}
                 {repeatQcResi ? (
-                  <div className="flex items-center justify-between gap-3 rounded-[4px] border border-[#fde68a] bg-[#fef3c7] px-3 py-2">
-                    <p className="font-['Inter'] text-[12px] font-semibold text-[#92400e]">Ulangi QC: {repeatQcResi}</p>
-                    <Button type="button" variant="ghost" size="sm" className="h-7 rounded-full bg-white px-3 text-[12px] font-medium text-[#92400e] hover:bg-white" onClick={() => { clearRepeatQcResi(); setRepeatQcResi(null); barcodeScanner.setValue(''); barcodeScanner.focusInput() }}>Batal</Button>
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-[#dddddd] bg-[#f6f5f4] px-3 py-2">
+                    <p className="font-['Inter'] text-[12px] font-semibold text-[#31302e]">Ulangi QC: {repeatQcResi}</p>
+                    <Button type="button" variant="ghost" size="sm" className="h-7 rounded-lg bg-white px-3 text-[12px] font-medium text-[#615d59] hover:bg-white" onClick={() => { clearRepeatQcResi(); setRepeatQcResi(null); barcodeScanner.setValue(''); barcodeScanner.focusInput() }}>Batal</Button>
                   </div>
                 ) : null}
               </div>
@@ -706,7 +706,7 @@ export function ScanPage() {
                           })}
                         </SelectContent>
                       </Select>
-                      <Button type="button" size="sm" className="h-9 rounded-full bg-[#0075de] font-['Inter'] text-[13px] font-medium text-white hover:bg-[#005bab]" disabled={packingSessionLoading || !selectedPackerKey} onClick={() => void handleCreatePackingSession()}>
+                      <Button type="button" size="sm" className="h-9 rounded-lg bg-[#000000] font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]" disabled={packingSessionLoading || !selectedPackerKey} onClick={() => void handleCreatePackingSession()}>
                         {packingSessionLoading ? 'Membuat...' : 'Mulai sesi packing'}
                       </Button>
                       {!isPhotoPackingMode ? (
@@ -723,8 +723,8 @@ export function ScanPage() {
 
             <ShopeeOrderPanel order={isPackingTask && packingPreview ? packingPreview.order : shopeeOrder} loading={isPackingTask ? packingPreviewLoading : shopeeOrderLoading} message={isPackingTask && packingPreview ? `Estimasi upah: Rp${new Intl.NumberFormat('id-ID').format(packingPreview.pay.amount)} · ${packingPreview.pay.quantity} item` : shopeeOrderMessage} packingPreview={isPackingTask ? packingPreview : null} />
             {photoStaging && !isPhotoPackingMode ? (
-              <div className="overflow-hidden rounded-xl border border-[#fde68a] bg-[#fffbeb] p-3">
-                <p className="font-['Inter'] text-[13px] font-semibold text-[#92400e]">Preview foto — cek sebelum simpan</p>
+              <div className="overflow-hidden rounded-xl border border-[#dddddd] bg-white p-3">
+                <p className="font-['Inter'] text-[13px] font-semibold text-[#000000]">Preview foto — cek sebelum simpan</p>
                 <div className="mt-2 overflow-hidden rounded-lg border border-[#dddddd] bg-black">
                   <img src={photoStaging.previewUrl} alt={`Preview ${photoStaging.resi}`} className="block max-h-[28vh] w-full object-contain" />
                 </div>
@@ -876,7 +876,15 @@ export function ScanPage() {
                   {packingPreview ? (
                     <div className="grid gap-1 rounded-lg bg-white/10 p-2 font-['Inter'] text-[12px] text-white">
                       <div className="flex justify-between gap-2"><span className="text-white/60">Jasa kirim</span><strong className="text-white">{packingPreview.order.shippingChannel ?? '-'}</strong></div>
-                      <div className="truncate text-white/80">{packingPreview.order.items.slice(0,2).map((it) => `${it.productName}${it.variationName ? ` · ${it.variationName}` : ''} x${it.quantity}`).join(', ')}{packingPreview.order.items.length>2 ? ` +${packingPreview.order.items.length-2} lain` : ''}</div>
+                      <div className="grid gap-1 text-white/80">
+                        {packingPreview.order.items.slice(0, 2).map((it, index) => (
+                          <div key={it.id ?? `${it.productName}-${it.variationName ?? ''}-${index}`} className="grid min-w-0 gap-0.5">
+                            <span className="truncate">{it.productName} x{it.quantity}</span>
+                            {it.variationName ? <span className="truncate text-[11px] text-white/60">{it.variationName}</span> : null}
+                          </div>
+                        ))}
+                        {packingPreview.order.items.length > 2 ? <span className="text-[11px] text-white/60">+{packingPreview.order.items.length - 2} lain</span> : null}
+                      </div>
                       <div className="flex justify-between"><span className="text-white/60">Upah</span><strong className="text-white">Rp{new Intl.NumberFormat('id-ID').format(packingPreview.pay.amount)}</strong></div>
                     </div>
                   ) : null}
@@ -966,7 +974,7 @@ function ShopeeOrderPanel({
         <p className="mt-0.5 font-['Inter'] text-[12px] text-[#a39e98]">{loading ? 'Memuat...' : message}</p>
       </div>
       <div className="grid gap-3 p-4">
-        <div className={`flex items-center gap-2 rounded-full border px-3 py-1.5 font-['Inter'] text-[12px] font-medium ${order ? 'border-[#dcfce7] bg-[#f0fdf4] text-[#166534]' : 'border-[#dddddd] bg-[#f6f5f4] text-[#615d59]'}`}>
+        <div className={`flex items-center gap-2 rounded-full border px-3 py-1.5 font-['Inter'] text-[12px] font-medium ${order ? 'border-[#000000] bg-[#000000] text-white' : 'border-[#dddddd] bg-[#f6f5f4] text-[#615d59]'}`}>
           <HugeiconsIcon icon={order ? QrCodeIcon : Search01Icon} size={14} strokeWidth={1.9} />{loading ? 'Mencari...' : order ? 'Ditemukan' : 'Belum ada'}
         </div>
         {order ? (
@@ -991,9 +999,9 @@ function ShopeeOrderPanel({
               ))}
             </div>
             {packingPreview ? (
-              <div className="flex items-center justify-between gap-3 rounded-xl border border-[#fde68a] bg-[#fef3c7] px-3 py-2.5">
-                <span className="font-['Inter'] text-[12px] font-medium text-[#92400e]">Estimasi upah</span>
-                <span className="font-['Inter'] text-[13px] font-bold text-[#92400e]">Rp{new Intl.NumberFormat('id-ID').format(packingPreview.pay.amount)} · {packingPreview.pay.quantity} item</span>
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-[#dddddd] bg-[#f6f5f4] px-3 py-2.5">
+                <span className="font-['Inter'] text-[12px] font-medium text-[#615d59]">Estimasi upah</span>
+                <span className="font-['Inter'] text-[13px] font-bold text-[#000000]">Rp{new Intl.NumberFormat('id-ID').format(packingPreview.pay.amount)} · {packingPreview.pay.quantity} item</span>
               </div>
             ) : null}
           </div>

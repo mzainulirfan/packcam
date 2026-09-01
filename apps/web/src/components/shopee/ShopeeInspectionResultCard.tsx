@@ -22,8 +22,7 @@ function formatItemsSummary(items: ShopeeOrder['items']) {
     const key = `${it.productName}-${it.variationName ?? ''}-${it.quantity}`
     if (seen.has(key)) continue
     seen.add(key)
-    const varName = it.variationName?.trim() ? ` (${it.variationName})` : ''
-    labels.push(`${it.productName}${varName} x${it.quantity}`)
+    labels.push(`${it.productName}${it.variationName?.trim() ? ` | ${it.variationName.trim()}` : ''} x${it.quantity}`)
   }
   if (items.length > 3) labels.push(`+${items.length - 3} item lagi`)
   return labels.join(' · ')
@@ -97,11 +96,20 @@ export function ShopeeInspectionResultCard({
           {updatedAtLabel ? <span className="text-[11px] text-[#a39e98]">{updatedAtLabel}</span> : null}
         </div>
 
-        <div className={isCompact ? 'line-clamp-2 text-xs leading-relaxed text-[#31302e] [overflow-wrap:anywhere]' : 'grid gap-1.5'}>
+        <div className={isCompact ? 'grid gap-1' : 'grid gap-1.5'}>
           {isCompact ? (
-            <p className="text-xs leading-relaxed text-[#31302e] [overflow-wrap:anywhere]" title={formatItemsSummary(order.items)}>
-              {formatItemsSummary(order.items)}
-            </p>
+            <div className="grid gap-1" title={formatItemsSummary(order.items)}>
+              {(order.items ?? []).slice(0, 2).map((it, idx) => (
+                <div key={`${it.sku ?? it.productName}-${it.variationName ?? ''}-${idx}`} className="flex items-start justify-between gap-2 text-xs leading-relaxed text-[#31302e]">
+                  <span className="grid min-w-0 gap-0.5">
+                    <span className="line-clamp-1 font-medium text-[#000000]">{it.productName}</span>
+                    {it.variationName ? <span className="truncate text-[11px] leading-tight text-[#615d59]">{it.variationName}</span> : null}
+                  </span>
+                  <span className="shrink-0 text-[11px] font-semibold text-[#615d59]">x{it.quantity}</span>
+                </div>
+              ))}
+              {(order.items?.length ?? 0) > 2 ? <span className="text-[11px] text-[#a39e98]">+{order.items.length - 2} item lagi</span> : null}
+            </div>
           ) : (
             (order.items ?? []).slice(0, 6).map((it, idx) => (
               <div key={`${it.sku ?? it.productName}-${idx}`} className="flex items-start justify-between gap-2 rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] px-2.5 py-2">

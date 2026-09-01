@@ -16,13 +16,14 @@ import {
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
-import { readRecentShopeeOrdersApi, readServerAdminStatusApi } from '@pakti/api-client'
+import { deleteShopeeOrderByOrderNumberApi, readRecentShopeeOrdersApi, readServerAdminStatusApi } from '@pakti/api-client'
 import type { ShopeeOrder } from '@pakti/types'
 import { navigateTo } from '../app/uiState'
 
 type AdminStatus = Awaited<ReturnType<typeof readServerAdminStatusApi>>
 
 const PAGE_SIZE = 12
+const SHOPEE_ORDER_SYNC_URL = 'https://seller.shopee.co.id/portal/sale/order?type=toship&source=processed'
 
 export function ShopeeInspectionPage() {
   const [orders, setOrders] = useState<ShopeeOrder[]>([])
@@ -37,6 +38,8 @@ export function ShopeeInspectionPage() {
   const [customTo, setCustomTo] = useState('')
   const [page, setPage] = useState(1)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  const [deletingOrderNumber, setDeletingOrderNumber] = useState<string | null>(null)
+  const [actionMessage, setActionMessage] = useState<string | null>(null)
 
   async function load() {
     setLoading(true)
@@ -163,7 +166,42 @@ export function ShopeeInspectionPage() {
   }
 
   function handleOpenShopee() {
-    window.open('https://seller.shopee.co.id/portal/sale/order', '_blank', 'noopener,noreferrer')
+    window.open(SHOPEE_ORDER_SYNC_URL, '_blank', 'noopener,noreferrer')
+  }
+
+  async function handleDeleteOrder(order: ShopeeOrder) {
+    const orderNumber = order.orderNumber?.trim()
+    if (!orderNumber) {
+      setError('Nomor pesanan tidak valid, data tidak bisa dihapus.')
+      return
+    }
+
+    const confirmed = window.confirm(`Hapus data Shopee lokal untuk order ${orderNumber}? Data bisa masuk lagi saat extension sync ulang dari Shopee.`)
+    if (!confirmed) return
+
+    setDeletingOrderNumber(orderNumber)
+    setError(null)
+    setActionMessage(null)
+    try {
+      await deleteShopeeOrderByOrderNumberApi(orderNumber)
+      setOrders((current) => current.filter((item) => item.orderNumber !== orderNumber))
+      setActionMessage(`Order ${orderNumber} dihapus dari Pakti. Buka Shopee lalu jalankan sync ulang dari extension.`)
+      void load()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal menghapus order Shopee.')
+    } finally {
+      setDeletingOrderNumber(null)
+    }
+  }
+
+  function handleResyncOrder(order: ShopeeOrder) {
+    if (order.orderNumber?.trim()) {
+      try {
+        window.sessionStorage.setItem('pakti.shopeeResyncOrder', order.orderNumber.trim())
+      } catch {}
+    }
+    setActionMessage('Shopee Siap Dikirim dibuka. Jalankan sync dari extension di halaman type=toship&source=processed untuk mengambil ulang data terbaru.')
+    handleOpenShopee()
   }
 
   function formatRelativeTime(value: string | null | undefined) {
@@ -205,6 +243,7 @@ export function ShopeeInspectionPage() {
       </section>
 
       {error ? <Alert variant="destructive" className="mb-5 rounded-[4px] border-[#f2c8a4] bg-[#fff7ed] font-['Inter'] text-[14px]"><p className="text-[#31302e]">{error}</p></Alert> : null}
+      {actionMessage ? <Alert variant="info" className="mb-5 rounded-lg border-[#dddddd] bg-white font-['Inter'] text-[14px]"><p className="text-[#31302e]">{actionMessage}</p></Alert> : null}
 
       <section className="mb-5 grid gap-3 sm:grid-cols-4">
         <InspectionStat label="Total order" value={String(orders.length)} detail="Order tersimpan" icon={ShoppingBag01Icon} />
@@ -253,7 +292,6 @@ export function ShopeeInspectionPage() {
               <tbody className="divide-y divide-[#e6e6e6] bg-white">
                 {pageItems.map((order) => {
                   const verified = Boolean(order.orderNumber && order.trackingNumber)
-                  const totalQty = order.items?.reduce((acc, item) => acc + (item.quantity ?? 0), 0) ?? 0
                   return (
                     <tr key={order.id ?? order.orderNumber} className="transition-colors hover:bg-[#fbfaf9]">
                       <Td className="px-5 py-4">
@@ -264,9 +302,8 @@ export function ShopeeInspectionPage() {
                         </div>
                       </Td>
                       <Td>
-                        <div className="flex max-w-[460px] items-start gap-2">
-                          <span className="line-clamp-2 min-w-0 font-['Inter'] text-[13px] leading-5 text-[#31302e]" title={formatItemsSummary(order.items)}>{formatItemsSummary(order.items)}</span>
-                          <span className="shrink-0 rounded-lg bg-[#f6f5f4] px-2 py-0.5 font-['Inter'] text-[11px] font-medium text-[#615d59] ring-1 ring-[#e6e6e6]">{totalQty}</span>
+                        <div className="flex max-w-[520px] items-start gap-2">
+                          <OrderItemsSummary items={order.items} />
                         </div>
                       </Td>
                       <Td>
@@ -279,6 +316,12 @@ export function ShopeeInspectionPage() {
                         <div className="flex justify-end gap-1.5">
                           <Button type="button" variant="ghost" size="sm" className="h-8 rounded-lg border border-[#dddddd] bg-white px-3 text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]" onClick={() => handleVerify(order)}>
                             Verifikasi
+                          </Button>
+                          <Button type="button" variant="ghost" size="sm" className="h-8 rounded-lg border border-[#dddddd] bg-white px-3 text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]" onClick={() => handleResyncOrder(order)}>
+                            Sync ulang
+                          </Button>
+                          <Button type="button" variant="ghost" size="sm" className="h-8 rounded-lg border border-[#dddddd] bg-white px-3 text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4] disabled:opacity-40" disabled={deletingOrderNumber === order.orderNumber} onClick={() => void handleDeleteOrder(order)}>
+                            {deletingOrderNumber === order.orderNumber ? 'Menghapus...' : 'Hapus'}
                           </Button>
                         </div>
                       </Td>
@@ -299,14 +342,33 @@ export function ShopeeInspectionPage() {
   )
 }
 
-function formatItemsSummary(items: ShopeeOrder['items']) {
+function formatItemsTitle(items: ShopeeOrder['items']) {
   if (!items || items.length === 0) return '-'
-  const labels = items.slice(0, 2).map((item) => {
-    const variation = item.variationName?.trim() ? ` (${item.variationName.trim()})` : ''
-    return `${item.productName}${variation} x${item.quantity}`
-  })
+  const labels = items.slice(0, 2).map((item) => `${item.productName}${item.variationName?.trim() ? ` | ${item.variationName.trim()}` : ''} x${item.quantity}`)
   if (items.length > 2) labels.push(`+${items.length - 2} item lagi`)
   return labels.join(' · ')
+}
+
+function OrderItemsSummary({ items }: { items: ShopeeOrder['items'] }) {
+  if (!items || items.length === 0) return <span className="font-['Inter'] text-[13px] text-[#a39e98]">-</span>
+
+  return (
+    <div className="grid min-w-0 flex-1 gap-1" title={formatItemsTitle(items)}>
+      {items.slice(0, 2).map((item, index) => {
+        const variation = item.variationName?.trim()
+        return (
+          <div key={item.id ?? `${item.productName}-${variation ?? ''}-${index}`} className="flex min-w-0 items-start justify-between gap-2">
+            <span className="grid min-w-0 gap-0.5">
+              <span className="line-clamp-2 font-['Inter'] text-[13px] font-medium leading-5 text-[#31302e]">{item.productName}</span>
+              {variation ? <span className="truncate font-['Inter'] text-[11px] leading-4 text-[#615d59]">{variation}</span> : null}
+            </span>
+            <span className="shrink-0 rounded-md bg-[#f6f5f4] px-1.5 py-0.5 font-['Inter'] text-[11px] font-semibold text-[#31302e] ring-1 ring-[#e6e6e6]">x{item.quantity}</span>
+          </div>
+        )
+      })}
+      {items.length > 2 ? <span className="font-['Inter'] text-[11px] text-[#a39e98]">+{items.length - 2} item lagi</span> : null}
+    </div>
+  )
 }
 
 function CopyValue({ value, label, copyKey, onCopy }: { value: string; label: string; copyKey: string; onCopy: (text: string, key: string) => Promise<void> }) {

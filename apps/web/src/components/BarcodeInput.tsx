@@ -26,9 +26,7 @@ export function BarcodeInput({
   return (
     <div className="scan-opencode__barcode grid gap-4">
       <div className="scan-opencode__field grid gap-2">
-        <Label htmlFor="barcode-input">
-          Barcode scanner
-        </Label>
+        <Label htmlFor="barcode-input">Nomor resi</Label>
         <Input
           id="barcode-input"
           ref={inputRef}
@@ -47,10 +45,10 @@ export function BarcodeInput({
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button type="button" className="scan-opencode__button flex-1" onClick={onSubmit}>
-          [process-scan]
+          Proses scan
         </Button>
         <Button type="button" variant="outline" className="scan-opencode__button flex-1" onClick={onClear}>
-          [clear]
+          Bersihkan
         </Button>
       </div>
     </div>

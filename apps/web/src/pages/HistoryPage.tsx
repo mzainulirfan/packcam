@@ -496,29 +496,6 @@ export function HistoryPage() {
             : 'Siapkan pesan ke pembeli'
   const disableSelectedChatAction = preparingChatSendId === selectedRecord?.id || selectedRecord?.status !== 'completed' || selectedChatSend?.status === 'sent' || selectedChatSend?.status === 'pending'
 
-  function getChatActionState(record: LocalRecordingRecord) {
-    const chatSend = visibleChatSendByRecordingId.get(record.id) ?? null
-    const label = preparingChatSendId === record.id
-      ? '...'
-      : chatSend?.status === 'sent'
-        ? 'Terkirim'
-        : chatSend?.status === 'prepared'
-          ? 'Siap'
-          : chatSend?.status === 'pending'
-            ? 'Antri'
-            : chatSend?.status === 'failed' || chatSend?.status === 'cancelled'
-              ? 'Ulang'
-              : 'Kirim'
-    const disabled = preparingChatSendId === record.id || record.status !== 'completed' || chatSend?.status === 'sent' || chatSend?.status === 'pending'
-    const title = chatSend?.status === 'sent'
-      ? `Sudah terkirim ke ${chatSend.buyerUsername}`
-      : record.status !== 'completed'
-        ? 'Hanya untuk rekaman selesai'
-        : 'Kirim video ke pembeli via Shopee Chat'
-
-    return { label, disabled, title }
-  }
-
   function handleTaskChange(nextFilter: HistoryTaskFilter) {
     setTaskFilter(nextFilter)
     setPage(1)
@@ -899,7 +876,7 @@ export function HistoryPage() {
                       <article
                         key={group.resiNumber}
                         onClick={() => openDetail(group.latest)}
-                        className={`grid cursor-pointer gap-3 border-l-[3px] p-4 transition-colors ${isSelected ? 'border-l-[#0075de] bg-[#f6f5f4]' : 'border-l-transparent bg-white hover:bg-[#fbfaf9]'}`}
+                        className={`grid cursor-pointer gap-3 p-4 transition-colors ${isSelected ? 'bg-[#f6f5f4]' : 'bg-white hover:bg-[#fbfaf9]'}`}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="grid min-w-0 gap-0.5">
@@ -921,28 +898,15 @@ export function HistoryPage() {
                           <div className="flex min-w-0 items-center gap-2">
                             <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#000000] text-[11px] font-semibold text-white">{getInitials(formatOperatorForCurrentSession(group.latest.operatorName, group.latest.operatorCode, currentOperatorName, currentOperatorCode))}</span>
                             <span className="truncate font-['Inter'] text-[12px] text-[#615d59]">{formatOperatorForCurrentSession(group.latest.operatorName, group.latest.operatorCode, currentOperatorName, currentOperatorCode)}</span>
-                            <ShippingStatus chatSend={groupChatSend} compact />
+                            <ChatDeliveryStatusAction
+                              chatSend={groupChatSend}
+                              record={group.latest}
+                              preparing={preparingChatSendId === group.latest.id}
+                              onSend={() => void handlePrepareShopeeChat(group.latest)}
+                              compact
+                            />
                           </div>
                           <div className="flex items-center gap-2">
-                            {(() => {
-                              const chatAction = getChatActionState(group.latest)
-                              return (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"
-                                  disabled={chatAction.disabled}
-                                  onClick={(event) => {
-                                    event.stopPropagation()
-                                    void handlePrepareShopeeChat(group.latest)
-                                  }}
-                                  title={chatAction.title}
-                                >
-                                  {chatAction.label}
-                                </Button>
-                              )
-                            })()}
                             <span className="grid h-7 w-7 place-items-center text-[#a39e98]">›</span>
                           </div>
                         </div>
@@ -963,7 +927,7 @@ export function HistoryPage() {
                         <Th>Operator</Th>
                         <Th>Dokumentasi</Th>
                         <Th>Pengiriman</Th>
-                        <Th className="px-5 text-right">Aksi</Th>
+                        <Th className="px-5 text-right">Status</Th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#e6e6e6] bg-white">
@@ -982,7 +946,7 @@ export function HistoryPage() {
                                   openDetail(group.latest)
                                 }
                               }}
-                              className={`cursor-pointer border-l-[3px] outline-none transition-colors ${isSelected ? 'border-l-[#0075de] bg-[#f6f5f4]' : 'border-l-transparent bg-white hover:bg-[#fbfaf9]'}`}
+                              className={`cursor-pointer outline-none transition-colors ${isSelected ? 'bg-[#f6f5f4]' : 'bg-white hover:bg-[#fbfaf9]'}`}
                             >
                               <Td className="px-5 py-4">
                                 <div className="grid gap-0.5">
@@ -1007,24 +971,14 @@ export function HistoryPage() {
                               <Td>
                                 <ShippingStatus chatSend={tableGroupChatSend} />
                               </Td>
-                              <Td>
+                              <Td className="px-5 py-4">
                                 <div className="flex justify-end" onClick={(event) => event.stopPropagation()}>
-                                  {(() => {
-                                    const chatAction = getChatActionState(group.latest)
-                                    return (
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"
-                                        disabled={chatAction.disabled}
-                                        onClick={() => void handlePrepareShopeeChat(group.latest)}
-                                        title={chatAction.title}
-                                      >
-                                        {chatAction.label}
-                                      </Button>
-                                    )
-                                  })()}
+                                  <ChatDeliveryStatusAction
+                                    chatSend={tableGroupChatSend}
+                                    record={group.latest}
+                                    preparing={preparingChatSendId === group.latest.id}
+                                    onSend={() => void handlePrepareShopeeChat(group.latest)}
+                                  />
                                 </div>
                               </Td>
                             </tr>
@@ -1139,9 +1093,8 @@ export function HistoryPage() {
                           value={(() => {
                             const snap = selectedOrderSnapshot
                             const items = dedupeOrderItems(snap.items ?? []).map((it) => {
-                              const variationName = cleanOrderVariationName(it.variationName)
                               const productName = cleanOrderProductName(it.productName) ?? it.productName
-                              return `${productName}${variationName ? ` (${variationName})` : ''} x${it.quantity}`
+                              return `${productName} x${it.quantity}`
                             }).join(', ')
                             return `${snap.shippingChannel ?? '-'} · ${items || '-'}`
                           })()}
@@ -1544,10 +1497,57 @@ function DocumentationStatus({ group }: { group: HistoryRecordingGroup }) {
   const status = getGroupStatus(group)
   const isComplete = status === 'completed'
   return (
-    <span className={`inline-flex flex-col rounded-lg border px-2.5 py-1.5 ${isComplete ? 'border-[#e6e6e6] bg-[#f6f5f4] text-[#31302e]' : 'border-[#fde68a] bg-[#fef3c7] text-[#92400e]'}`}>
-      <span className="inline-flex items-center gap-1 font-['Inter'] text-[11px] font-semibold leading-none">{isComplete ? <HugeiconsIcon icon={Tick02Icon} size={12} strokeWidth={2} /> : <HugeiconsIcon icon={Clock01Icon} size={12} strokeWidth={1.9} />}{isComplete ? 'Lengkap' : 'Belum lengkap'}</span>
-      <span className="font-['Inter'] text-[11px] font-normal leading-none opacity-80">{completed}/{total} dokumentasi</span>
+    <span className={`inline-flex items-center gap-1 font-['Inter'] text-[12px] font-medium ${isComplete ? 'text-[#31302e]' : 'text-[#615d59]'}`}>
+      {isComplete ? <HugeiconsIcon icon={Tick02Icon} size={13} strokeWidth={2} /> : <HugeiconsIcon icon={Clock01Icon} size={13} strokeWidth={1.9} />}
+      {completed}/{total} dokumentasi
     </span>
+  )
+}
+
+function ChatDeliveryStatusAction({
+  chatSend,
+  record,
+  preparing,
+  onSend,
+  compact = false,
+}: {
+  chatSend?: import('@pakti/types').RecordingChatSend | null
+  record: LocalRecordingRecord
+  preparing: boolean
+  onSend: () => void
+  compact?: boolean
+}) {
+  if (chatSend?.status === 'sent') {
+    return (
+      <span className={`inline-flex items-center gap-1 rounded-lg border border-[#dddddd] bg-white px-2.5 py-1 font-['Inter'] font-medium text-[#31302e] ${compact ? 'text-[11px]' : 'text-[12px]'}`}>
+        <HugeiconsIcon icon={Tick02Icon} size={13} strokeWidth={2} /> Terkirim{chatSend.buyerUsername ? ` ke @${chatSend.buyerUsername}` : ''}
+      </span>
+    )
+  }
+
+  const disabled = preparing || record.status !== 'completed' || chatSend?.status === 'pending'
+  const label = preparing ? 'Menyiapkan...' : chatSend?.status === 'pending' ? 'Dalam antrean' : 'Kirim sekarang'
+  const title = record.status !== 'completed'
+    ? 'Hanya untuk rekaman selesai'
+    : chatSend?.status === 'pending'
+      ? 'Menunggu dikirim ke pembeli'
+      : 'Kirim video ke pembeli via Shopee Chat'
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className={`rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] font-medium text-[#31302e] hover:bg-[#f6f5f4] ${compact ? 'h-8 text-[11px]' : 'h-8 text-[12px]'} disabled:text-[#615d59]`}
+      disabled={disabled}
+      onClick={(event) => {
+        event.stopPropagation()
+        onSend()
+      }}
+      title={title}
+    >
+      {label}
+    </Button>
   )
 }
 
