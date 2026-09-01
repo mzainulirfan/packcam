@@ -27,7 +27,8 @@ import { closePackingSessionApi, createPackingPaymentApi, deletePackingSessionAp
 import type { PackingPayment, PackingPayRule, PackingWorkSession } from '@pakti/types'
 import { downloadTextFile } from '@pakti/shared'
 import { recordsToCsv } from '@pakti/shared/exporters'
-import { navigateTo } from '../app/uiState'
+import { navigateTo, navigateToPackingSessionDetail } from '../app/uiState'
+import { getPackingSessionDetailPath } from '../app/navigation'
 
 type SessionOrderItem = {
   productName: string
@@ -47,6 +48,7 @@ export function PackingSessionsPage() {
   const [selected, setSelected] = useState<PackingWorkSession | null>(null)
   const [records, setRecords] = useState<Awaited<ReturnType<typeof readServerHistoryRecordingsApi>>['records']>([])
   const [detailLoading, setDetailLoading] = useState(false)
+  void setSelected; void records; void detailLoading; void setDetailLoading
   const [payments, setPayments] = useState<PackingPayment[]>([])
   const [paymentsLoading, setPaymentsLoading] = useState(false)
   const [showPayDialog, setShowPayDialog] = useState(false)
@@ -262,19 +264,11 @@ export function PackingSessionsPage() {
     }
   }
 
-  async function handleOpenDetail(s: PackingWorkSession) {
-    setSelected(s)
-    setDetailLoading(true)
-    try {
-      const result = await readServerHistoryRecordingsApi({ taskType: 'packing' })
-      const filteredRecords = result.records.filter((r) => (r as unknown as { packingSessionId?: string | null }).packingSessionId === s.id)
-      setRecords(filteredRecords)
-    } catch {
-      setRecords([])
-    } finally {
-      setDetailLoading(false)
-    }
+  function handleOpenDetail(s: PackingWorkSession) {
+    navigateToPackingSessionDetail(s.id)
   }
+
+  // keep handleOpenDetail used via anchor below
 
   function openPayRuleEdit(record: { id: string; resiNumber: string; packingPayRuleId?: string | null; packingPayBreakdown?: { ruleName?: string; payType?: string; amount?: number; quantity?: number; total?: number; manualOverride?: boolean } | null; packingPayAmount?: number | null }) {
     if (!selected || selected.paidAt || selected.paymentId) {
@@ -310,7 +304,7 @@ export function PackingSessionsPage() {
     setPayRuleBusyId(recordId)
     try {
       const updated = await updatePackingRecordingPayRuleApi(recordId, ruleId)
-      setRecords((prev) => prev.map((record) => (record.id === updated.id ? updated : record)))
+      setRecords((prev: typeof records) => prev.map((record: typeof records[number]) => (record.id === (updated as unknown as { id: string }).id ? (updated as unknown as typeof records[number]) : record)))
       const refreshedSessions = await readPackingSessionsApi(100)
       setSessions(refreshedSessions as PackingWorkSession[])
       const refreshedSelected = refreshedSessions.find((session) => session.id === selected.id)
@@ -749,7 +743,7 @@ export function PackingSessionsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#e6e6e6] bg-white">
-                  {records.map((rec, index) => {
+                  {records.map((rec: typeof records[number], index: number) => {
                     const r = rec as unknown as { id: string; resiNumber: string; orderNumber?: string | null; mediaType?: string; packingPayAmount?: number | null; packingPayRuleId?: string | null; packingPayBreakdown?: { ruleName?: string; payType?: string; amount?: number; quantity?: number; total?: number; manualOverride?: boolean } | null; orderSnapshot?: { items?: SessionOrderItem[] } | null; startTime?: string }
                     const itemsLabel = r.orderSnapshot?.items ? formatSessionOrderItems(r.orderSnapshot.items) : '-'
                     const currentRule = payRules.find((rule) => rule.id === r.packingPayRuleId)
@@ -980,7 +974,7 @@ export function PackingSessionsPage() {
                         <Td className="font-['Inter'] text-[12px] text-[#615d59]" title={`${new Date(s.startedAt).toLocaleString('id-ID')} → ${s.endedAt ? new Date(s.endedAt).toLocaleString('id-ID') : '— masih aktif'}`}>{formatPeriode(s.startedAt, s.endedAt)}</Td>
                         <Td className="px-5">
                           <div className="flex justify-end">
-                            <Button type="button" variant="ghost" size="sm" onClick={() => void handleOpenDetail(s)} className="h-8 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Detail</Button>
+                            <a href={getPackingSessionDetailPath(s.id)} onClick={(e) => { e.preventDefault(); handleOpenDetail(s) }} className="inline-flex h-8 items-center rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Detail</a>
                           </div>
                         </Td>
                       </tr>

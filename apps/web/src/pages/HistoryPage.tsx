@@ -125,6 +125,8 @@ export function HistoryPage() {
   const [packingSessionFilter, setPackingSessionFilter] = useState<string | null>(() => {
     if (typeof window === 'undefined') return null
     try {
+      const searchSession = new URLSearchParams(window.location.search).get('session')
+      if (searchSession?.trim()) return searchSession.trim()
       return window.sessionStorage.getItem('pakti.historyPackingSessionId')
     } catch {
       return null
@@ -314,7 +316,27 @@ export function HistoryPage() {
         void _e
       }
     }
+
+    try {
+      const url = new URL(window.location.href)
+      if (packingSessionFilter) url.searchParams.set('session', packingSessionFilter)
+      else url.searchParams.delete('session')
+      const next = `${url.pathname}${url.search}${url.hash}`
+      const current = `${window.location.pathname}${window.location.search}${window.location.hash}`
+      if (next !== current) window.history.replaceState(null, '', next)
+    } catch {}
   }, [packingSessionFilter])
+
+  useEffect(() => {
+    function handlePopState() {
+      try {
+        const next = new URLSearchParams(window.location.search).get('session')?.trim() || null
+        setPackingSessionFilter(next)
+      } catch {}
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
 
   const operatorOptions = useMemo(() => {
     if (!isAdmin) {

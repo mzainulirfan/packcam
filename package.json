@@ -31,7 +31,7 @@
     "test:chat-send": "tsx scripts/unit-chat-send.ts",
     "test:shipping": "tsx scripts/unit-shipping-chat.ts",
     "prebuild": "npm run clean:build",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/generate-web-route-html.mjs",
     "build:vercel": "npm run build && npm run build -w @pakti/mobile -- --base /mobile/ --outDir ../../dist/mobile",
     "build:mobile:vercel": "npm run build -w @pakti/mobile -- --base / --outDir ../../dist-mobile",
     "build:mobile": "npm run build -w @pakti/mobile",

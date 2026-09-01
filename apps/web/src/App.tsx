@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+﻿import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
@@ -13,24 +13,15 @@ import {
   ShoppingBagCheckIcon,
   UserGroupIcon,
 } from '@hugeicons/core-free-icons'
-import { NAV_ITEMS, type NavGroupId, type PageId } from './app/navigation'
+import { getPagePath, NAV_ITEMS, type NavGroupId, type PageId } from './app/navigation'
 import { logoutOperator, useOperatorSession } from './app/operatorSession'
-import { navigateTo, useActivePage } from './app/uiState'
+import { navigateTo, useActivePage, useRouteState } from './app/uiState'
 import { startRealtimeBridge, stopRealtimeBridge } from './app/realtime'
 import { resolveStartupMode } from './app/startupFlow'
 import { getBootstrapStatusApi } from '@pakti/api-client'
 import { getSystemConfigCssVars, useSystemConfig } from '@pakti/shared/systemConfig'
-import { AdminPage } from './pages/AdminPage'
-import { HistoryPage } from './pages/HistoryPage'
-import { PackingSessionsPage } from './pages/PackingSessionsPage'
-import { HealthPage } from './pages/HealthPage'
 import { OperatorLoginPage } from './pages/OperatorLoginPage'
 import { WelcomePage } from './pages/WelcomePage'
-import { ScanPage } from './pages/ScanPage'
-import { SettingsPage } from './pages/SettingsPage'
-import { ShopeePage } from './pages/ShopeePage'
-import { ShopeeInspectionPage } from './pages/ShopeeInspectionPage'
-import { UsersPage } from './pages/UsersPage'
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
 import { ToastViewport } from './components/ui/toast'
 import 'boxicons/css/boxicons.min.css'
@@ -40,6 +31,7 @@ const PAGE_ICONS: Record<PageId, typeof QrCodeIcon> = {
   scan: QrCodeIcon,
   history: Clock01Icon,
   'packing-sessions': Package01Icon,
+  'packing-session-detail': Package01Icon,
   'shopee-inspection': ShoppingBagCheckIcon,
   shopee: ShoppingBag01Icon,
   settings: Settings01Icon,
@@ -48,10 +40,22 @@ const PAGE_ICONS: Record<PageId, typeof QrCodeIcon> = {
   admin: Shield01Icon,
 }
 
+const ScanPage = lazy(() => import('./pages/ScanPage').then((module) => ({ default: module.ScanPage })))
+const HistoryPage = lazy(() => import('./pages/HistoryPage').then((module) => ({ default: module.HistoryPage })))
+const PackingSessionsPage = lazy(() => import('./pages/PackingSessionsPage').then((module) => ({ default: module.PackingSessionsPage })))
+const PackingSessionDetailPage = lazy(() => import('./pages/PackingSessionDetailPage').then((module) => ({ default: module.PackingSessionDetailPage })))
+const ShopeePage = lazy(() => import('./pages/ShopeePage').then((module) => ({ default: module.ShopeePage })))
+const ShopeeInspectionPage = lazy(() => import('./pages/ShopeeInspectionPage').then((module) => ({ default: module.ShopeeInspectionPage })))
+const SettingsPage = lazy(() => import('./pages/SettingsPage').then((module) => ({ default: module.SettingsPage })))
+const UsersPage = lazy(() => import('./pages/UsersPage').then((module) => ({ default: module.UsersPage })))
+const HealthPage = lazy(() => import('./pages/HealthPage').then((module) => ({ default: module.HealthPage })))
+const AdminPage = lazy(() => import('./pages/AdminPage').then((module) => ({ default: module.AdminPage })))
+
 const PAGE_COMPONENTS: Record<PageId, ReactElement> = {
   scan: <ScanPage />,
   history: <HistoryPage />,
   'packing-sessions': <PackingSessionsPage />,
+  'packing-session-detail': <PackingSessionDetailPage />,
   shopee: <ShopeePage />,
   'shopee-inspection': <ShopeeInspectionPage />,
   settings: <SettingsPage />,
@@ -64,6 +68,7 @@ const ADMIN_ONLY_PAGES = new Set<PageId>(['shopee', 'users', 'settings', 'health
 
 function App() {
   const activePage = useActivePage()
+  const routeState = useRouteState()
   const operatorSession = useOperatorSession()
   const systemConfig = useSystemConfig()
   const [bootstrapNeedsSetup, setBootstrapNeedsSetup] = useState<boolean | null>(null)
@@ -75,7 +80,10 @@ function App() {
   const isAdmin = operatorSession?.role === 'admin'
 
   const activeItem = useMemo(
-    () => NAV_ITEMS.find((item) => item.id === activePage) ?? NAV_ITEMS[0],
+    () => {
+      if (activePage === 'packing-session-detail') return NAV_ITEMS.find((item) => item.id === 'packing-sessions') ?? NAV_ITEMS[0]
+      return NAV_ITEMS.find((item) => item.id === activePage) ?? NAV_ITEMS[0]
+    },
     [activePage],
   )
   const visibleNavItems = useMemo(
@@ -109,7 +117,7 @@ function App() {
     }
 
     return PAGE_COMPONENTS[activePage]
-  }, [activePage, activeItem.label, isAdmin])
+  }, [activePage, activeItem.label, isAdmin, routeState.packingSessionId])
 
   useEffect(() => {
     let cancelled = false
@@ -164,6 +172,8 @@ function App() {
     const titleSuffix =
       startupMode === 'setup-admin'
         ? 'Setup Admin'
+        : activePage === 'packing-session-detail'
+          ? `Detail Sesi ${routeState.packingSessionId ? routeState.packingSessionId.slice(0, 8) : ''}`
         : activePage === 'scan' && !operatorSession
           ? 'Login'
           : activeItem.label
@@ -228,16 +238,19 @@ function App() {
                 <div className="sidebar-nav__group" key={section.id}>
                   <p className="sidebar-nav__group-title">{section.label}</p>
                   <ul className="sidebar-nav__list">
-                    {section.items.map((item) => (
+                    {section.items.map((item) => {
+                      const isActive = item.id === activePage || (item.id === 'packing-sessions' && activePage === 'packing-session-detail')
+                      return (
                       <li key={item.id}>
-                        <button
-                          type="button"
-                          className={item.id === activePage ? 'nav-tab active' : 'nav-tab'}
-                          onClick={() => {
+                        <a
+                          href={getPagePath(item.id)}
+                          className={isActive ? 'nav-tab active' : 'nav-tab'}
+                          onClick={(event) => {
+                            event.preventDefault()
                             navigateTo(item.id)
                             setIsMobileSidebarOpen(false)
                           }}
-                          aria-current={item.id === activePage ? 'page' : undefined}
+                          aria-current={isActive ? 'page' : undefined}
                         >
                           <span className="nav-tab__icon" aria-hidden="true">
                             <HugeiconsIcon icon={PAGE_ICONS[item.id]} size={18} strokeWidth={1.9} />
@@ -246,9 +259,9 @@ function App() {
                             <span className="nav-tab__label">{item.label}</span>
                             <span className="nav-tab__hint">{item.hint}</span>
                           </span>
-                        </button>
+                        </a>
                       </li>
-                    ))}
+                    )})}
                   </ul>
                 </div>
               ))}
@@ -301,7 +314,9 @@ function App() {
             </button>
           </header>
 
-          <main className={activePage === 'users' || activePage === 'settings' || activePage === 'health' || activePage === 'admin' || activePage === 'shopee' || activePage === 'shopee-inspection' || activePage === 'packing-sessions' || activePage === 'history' || activePage === 'scan' ? 'dashboard-content dashboard-content--notion' : 'dashboard-content'}>{pageContent}</main>
+          <main className={activePage === 'users' || activePage === 'settings' || activePage === 'health' || activePage === 'admin' || activePage === 'shopee' || activePage === 'shopee-inspection' || activePage === 'packing-sessions' || activePage === 'packing-session-detail' || activePage === 'history' || activePage === 'scan' ? 'dashboard-content dashboard-content--notion' : 'dashboard-content'}>
+            <Suspense fallback={<PageLoadingPanel />}>{pageContent}</Suspense>
+          </main>
         </section>
       </div>
     )
@@ -342,6 +357,19 @@ function AccessDeniedPanel({
               {actionLabel}
             </button>
           </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+function PageLoadingPanel() {
+  return (
+    <div className="access-denied">
+      <Card className="access-denied__card border-slate-200/80 shadow-xl shadow-slate-900/5">
+        <CardContent className="grid gap-2 pt-6">
+          <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Loading</p>
+          <p className="text-sm leading-6 text-slate-500">Memuat halaman...</p>
         </CardContent>
       </Card>
     </div>

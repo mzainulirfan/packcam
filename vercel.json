@@ -11,7 +11,47 @@
       "destination": "/mobile/index.html"
     },
     {
-      "source": "/(.*)",
+      "source": "/scan",
+      "destination": "/scan/index.html"
+    },
+    {
+      "source": "/history",
+      "destination": "/history/index.html"
+    },
+    {
+      "source": "/packing-sessions/:id",
+      "destination": "/packing-session-detail/index.html"
+    },
+    {
+      "source": "/packing-sessions",
+      "destination": "/packing-sessions/index.html"
+    },
+    {
+      "source": "/shopee-inspection",
+      "destination": "/shopee-inspection/index.html"
+    },
+    {
+      "source": "/shopee",
+      "destination": "/shopee/index.html"
+    },
+    {
+      "source": "/users",
+      "destination": "/users/index.html"
+    },
+    {
+      "source": "/settings",
+      "destination": "/settings/index.html"
+    },
+    {
+      "source": "/health",
+      "destination": "/health/index.html"
+    },
+    {
+      "source": "/admin",
+      "destination": "/admin/index.html"
+    },
+    {
+      "source": "/",
       "destination": "/index.html"
     }
   ]
