@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
@@ -72,6 +72,16 @@ export function PackingSessionsPage() {
   const [payRuleBusyId, setPayRuleBusyId] = useState<string | null>(null)
   const [payRuleEditTarget, setPayRuleEditTarget] = useState<{ id: string; resiNumber: string; packingPayRuleId?: string | null; packingPayBreakdown?: { ruleName?: string; payType?: string; amount?: number; quantity?: number; total?: number; manualOverride?: boolean } | null; packingPayAmount?: number | null } | null>(null)
   const [payRuleEditSelectedId, setPayRuleEditSelectedId] = useState<string>('')
+  const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const moreMenuRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    function onDown(e: PointerEvent) {
+      if (!moreMenuRef.current?.contains(e.target as Node)) setShowMoreMenu(false)
+    }
+    if (showMoreMenu) document.addEventListener('pointerdown', onDown)
+    return () => document.removeEventListener('pointerdown', onDown)
+  }, [showMoreMenu])
 
   async function load() {
     setLoading(true)
@@ -658,44 +668,50 @@ export function PackingSessionsPage() {
         </Dialog>
 
         <Dialog open={showPayDialog} onOpenChange={setShowPayDialog}>
-          <DialogContent showCloseButton={false} className="packing-modal max-w-md gap-0 overflow-hidden rounded-2xl border-[#dddddd] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
-            <div className="border-b border-[#dddddd] p-6">
-              <div className="flex items-start justify-between gap-5">
-                <div className="grid gap-1">
-                  <DialogTitle className="font-['Inter'] text-[18px] font-semibold text-[#000000]">Bayar upah packing</DialogTitle>
-                  <DialogDescription className="font-['Inter'] text-[13px] leading-5 text-[#615d59]">Periksa ringkasan sebelum konfirmasi. Hanya sesi closed dan belum dibayar dari 1 petugas yang bisa dibayar.</DialogDescription>
+          <DialogContent showCloseButton={false} className="packing-modal max-w-md gap-0 overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_23px_52px_rgba(0,0,0,0.08),0_4px_18px_rgba(0,0,0,0.06)]">
+            <div className="border-b border-[#e6e6e6] bg-white p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div className="grid gap-1.5">
+                  <DialogTitle className="font-['Inter'] text-[20px] font-semibold leading-none tracking-[-0.5px] text-[#000000]">Bayar upah packing</DialogTitle>
+                  <DialogDescription className="font-['Inter'] text-[12px] leading-5 text-[#615d59]">Periksa ringkasan sebelum konfirmasi. Hanya sesi closed dan belum dibayar dari 1 petugas yang bisa dibayar.</DialogDescription>
                 </div>
-                <Button type="button" variant="ghost" size="icon" onClick={() => setShowPayDialog(false)} className="h-9 w-9 shrink-0 rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]">
-                  <HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.9} />
+                <Button type="button" variant="ghost" size="icon" onClick={() => setShowPayDialog(false)} className="h-8 w-8 shrink-0 rounded-[8px] border border-[#e6e6e6] bg-white text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]">
+                  <HugeiconsIcon icon={Cancel01Icon} size={16} strokeWidth={1.9} />
                 </Button>
               </div>
             </div>
             {payPreview ? (
-              <div className="grid gap-4 p-6">
-                <div className="rounded-[4px] border border-[#dddddd] bg-[#f6f5f4] p-4">
-                  <p className="font-['Inter'] text-[13px] font-semibold text-[#000000]">{payPreview.packerLabel}</p>
-                  <p className="mt-1 font-['Inter'] text-[12px] text-[#615d59]">{payPreview.count} sesi · {payPreview.totalPaket} paket · {formatCurrency(payPreview.totalUpah)}</p>
-                  <ul className="mt-3 max-h-[18vh] divide-y divide-[#e6e6e6] overflow-y-auto rounded-[4px] border border-[#dddddd] bg-white">
+              <div className="grid gap-4 bg-[#f6f5f4] p-5">
+                <div className="overflow-hidden rounded-[8px] border border-[#e6e6e6] bg-white">
+                  <div className="p-4">
+                    <p className="font-['Inter'] text-[13px] font-semibold text-[#000000]">{payPreview.packerLabel}</p>
+                    <p className="mt-1 font-['Inter'] text-[12px] text-[#615d59]">{payPreview.count} sesi · {payPreview.totalPaket} paket · {formatCurrency(payPreview.totalUpah)}</p>
+                  </div>
+                  <ul className="max-h-[18vh] divide-y divide-[#e6e6e6] overflow-y-auto border-y border-[#e6e6e6] bg-[#f6f5f4]">
                     {payPreview.sessions.map((s) => (
-                      <li key={s.id} className="flex justify-between gap-2 px-3 py-2 font-['Inter'] text-[12px]">
+                      <li key={s.id} className="flex justify-between gap-2 bg-white px-3 py-2 font-['Inter'] text-[12px]">
                         <span className="truncate text-[#31302e]" title={s.id}>{new Date(s.startedAt).toLocaleDateString('id-ID')} · {s.id.slice(0, 8)}</span>
-                        <span className="shrink-0 tabular-nums text-[#000000]">{s.completedPackingCount} paket · {formatCurrency(s.totalPayAmount)}</span>
+                        <span className="shrink-0 tabular-nums font-medium text-[#000000]">{s.completedPackingCount} paket · {formatCurrency(s.totalPayAmount)}</span>
                       </li>
                     ))}
                   </ul>
+                  <div className="flex gap-2 bg-white p-3">
+                    <Button type="button" variant="ghost" onClick={() => { const t = buildSelectionShareText(); if (t) void copyText(t, 'selection') }} className="h-7 flex-1 rounded-[8px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Copy01Icon} size={14} strokeWidth={1.9} /> {copiedKey === 'selection' ? 'Copied' : 'Copy ringkasan'}</Button>
+                    <Button type="button" variant="ghost" onClick={() => { const t = buildSelectionShareText(); if (t) setShareDraft({ title: 'Ringkasan packing', text: t }) }} className="h-7 flex-1 rounded-[8px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={SentIcon} size={14} strokeWidth={1.9} /> WA</Button>
+                  </div>
                 </div>
                 <div className="grid gap-1.5">
-                  <Label className="font-['Inter'] text-[12px] font-medium text-[#000000]">Metode pembayaran</Label>
+                  <Label className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Metode pembayaran</Label>
                   <NativeSelect value={payMethod} onChange={(value) => setPayMethod(value as typeof payMethod)} options={[{ value: 'cash', label: 'cash' }, { value: 'transfer', label: 'transfer' }, { value: 'other', label: 'other' }]} />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label className="font-['Inter'] text-[12px] font-medium text-[#000000]">Catatan (opsional)</Label>
-                  <Input className="h-10 rounded-[4px] border-[#dddddd] bg-white px-3 font-['Inter'] text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" value={payNote} onChange={(e) => setPayNote(e.target.value)} placeholder="mis: periode 1-7 Agu, tunai" />
+                  <Label className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Catatan (opsional)</Label>
+                  <Input className="h-8 rounded-[4px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" value={payNote} onChange={(e) => setPayNote(e.target.value)} placeholder="mis: periode 1-7 Agu, tunai" />
                 </div>
                 {payError ? <Alert variant="destructive" className="font-['Inter'] text-[13px]"><p>{payError}</p></Alert> : null}
-                <div className="flex justify-end gap-2 pt-1">
-                  <Button type="button" variant="ghost" onClick={() => setShowPayDialog(false)} disabled={payBusy} className="h-10 rounded-full border border-[#dddddd] bg-white px-5 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">Batal</Button>
-                  <Button type="button" onClick={() => void handleConfirmPay()} disabled={payBusy || !payPreview.valid} className="h-10 rounded-full bg-[#000000] px-6 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e] disabled:opacity-40">{payBusy ? 'Memproses...' : 'Konfirmasi Bayar'}</Button>
+                <div className="flex justify-end gap-2 border-t border-[#e6e6e6] bg-white -mx-5 -mb-5 px-5 py-3">
+                  <Button type="button" variant="ghost" onClick={() => setShowPayDialog(false)} disabled={payBusy} className="h-8 rounded-[8px] border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Batal</Button>
+                  <Button type="button" onClick={() => void handleConfirmPay()} disabled={payBusy || !payPreview.valid} className="h-8 rounded-[8px] bg-[#000000] px-5 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#31302e] disabled:opacity-40">{payBusy ? 'Memproses...' : 'Konfirmasi Bayar'}</Button>
                 </div>
               </div>
             ) : null}
@@ -908,32 +924,37 @@ export function PackingSessionsPage() {
           <div className="flex shrink-0 flex-wrap items-center gap-1.5">
             <span className="inline-flex h-7 items-center rounded-lg border border-[#dddddd] bg-[#f6f5f4] px-3 font-['Inter'] text-[12px] font-medium text-[#615d59]">{selectedSessionIds.size} terpilih</span>
             <Button type="button" variant="ghost" onClick={selectAllFilteredSessions} disabled={filtered.length === 0} className="h-7 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40">Pilih semua</Button>
-            <Button type="button" variant="ghost" onClick={() => setSelectedSessionIds(new Set())} disabled={selectedSessionIds.size === 0} className="h-7 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40">Reset</Button>
+            <Button type="button" variant="ghost" onClick={() => setSelectedSessionIds(new Set())} disabled={selectedSessionIds.size === 0} className="h-7 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40">Reset pilihan</Button>
             {selectedSessionIds.size > 0 ? (
               <>
                 <span className="mx-1 hidden h-7 w-px bg-[#e6e6e6] sm:block" aria-hidden="true" />
-                <Button type="button" variant="ghost" onClick={() => { const t = buildSelectionShareText(); if (t) void copyText(t, 'selection') }} className="h-7 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Copy01Icon} size={14} strokeWidth={1.9} /> {copiedKey === 'selection' ? 'Copied' : 'Copy'}</Button>
-                <Button type="button" variant="ghost" onClick={() => { const t = buildSelectionShareText(); if (t) setShareDraft({ title: 'Ringkasan packing', text: t }) }} className="h-7 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={SentIcon} size={14} strokeWidth={1.9} /> WA</Button>
                 <Button type="button" onClick={openPayDialog} disabled={payPreview ? !payPreview.valid : true} className="h-7 rounded-lg bg-[#000000] px-3.5 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#31302e] disabled:opacity-40"><HugeiconsIcon icon={DollarCircleIcon} size={14} strokeWidth={1.9} /> Bayar</Button>
-                <Button type="button" variant="ghost" onClick={() => void handleMergeSelected()} disabled={!canMergeSelected || mergeBusy} className="h-7 rounded-lg border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={Package01Icon} size={14} strokeWidth={1.9} /> {mergeBusy ? 'Menggabung...' : 'Gabung'}</Button>
-                <Button type="button" variant="ghost" onClick={() => void handleDeleteSelectedSessions()} disabled={deleteBusy || deletePreview.deletable.length === 0} className="h-7 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={1.9} /> {deleteBusy ? 'Menghapus...' : 'Hapus'}</Button>
+                <div ref={moreMenuRef} className="relative">
+                  <Button type="button" variant="ghost" onClick={() => setShowMoreMenu((v) => !v)} className="grid h-7 w-7 place-items-center rounded-lg border border-[#e6e6e6] bg-white text-[#31302e] hover:bg-[#f6f5f4]" aria-label="Aksi lainnya">⋯</Button>
+                  {showMoreMenu ? (
+                    <div className="absolute right-0 top-[calc(100%+6px)] z-20 grid w-40 gap-1 rounded-[12px] border border-[#e6e6e6] bg-white p-1 shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+                      <button type="button" onClick={() => { setShowMoreMenu(false); void handleMergeSelected() }} disabled={!canMergeSelected || mergeBusy} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={Package01Icon} size={14} strokeWidth={1.9} /> {mergeBusy ? 'Menggabung...' : 'Gabung'}</button>
+                      <button type="button" onClick={() => { setShowMoreMenu(false); void handleDeleteSelectedSessions() }} disabled={deleteBusy || deletePreview.deletable.length === 0} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left font-['Inter'] text-[13px] font-medium text-[#991b1b] hover:bg-[#fee2e2] disabled:opacity-40"><HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={1.9} /> {deleteBusy ? 'Menghapus...' : 'Hapus'}</button>
+                    </div>
+                  ) : null}
+                </div>
               </>
             ) : null}
           </div>
         </div>
-        <div className="border-b border-[#dddddd] bg-white p-4 sm:p-5">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+        <div className="border-b border-[#e6e6e6] bg-white p-3">
+          <div className="flex flex-col gap-2 xl:flex-row xl:items-center">
             <label className="relative flex min-w-[240px] flex-1">
-              <span className="pointer-events-none absolute inset-y-0 left-0 grid w-10 place-items-center text-[#a39e98]">
-                <HugeiconsIcon icon={Search01Icon} size={18} strokeWidth={1.9} />
+              <span className="pointer-events-none absolute inset-y-0 left-0 grid w-8 place-items-center text-[#a39e98]">
+                <HugeiconsIcon icon={Search01Icon} size={15} strokeWidth={1.9} />
               </span>
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari packer / kode / ID sesi..." className="h-10 w-full rounded-[4px] border-[#dddddd] bg-white pl-10 pr-3 font-['Inter'] text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#CFCBC7] focus-visible:ring-0" aria-label="Cari sesi" />
+              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari packer / kode / ID sesi..." className="h-8 w-full rounded-[4px] border-[#e6e6e6] bg-white pl-8 pr-3 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" aria-label="Cari sesi" />
             </label>
             <div className="flex flex-wrap gap-2">
-              <NativeSelect value={packerFilter} onChange={setPackerFilter} options={packerOptions.map((op) => ({ value: `${op.name}::${op.code}`, label: op.label }))} placeholder="Semua petugas" icon={UserGroupIcon} />
-              <NativeSelect value={paidFilter} onChange={(value) => setPaidFilter(value as typeof paidFilter)} options={[{ value: 'unpaid', label: 'Belum dibayar' }, { value: 'paid', label: 'Sudah dibayar' }]} placeholder="Semua bayar" icon={DollarCircleIcon} />
-              <NativeSelect value={statusFilter} onChange={(value) => setStatusFilter(value as typeof statusFilter)} options={[{ value: 'active', label: 'active' }, { value: 'closed', label: 'closed' }, { value: 'cancelled', label: 'cancelled' }]} placeholder="Semua status" />
-              <Button type="button" variant="ghost" onClick={() => { setSearch(''); setStatusFilter('all'); setPackerFilter('all'); setPaidFilter('all') }} className="inline-flex h-10 items-center gap-2 rounded-lg px-3 font-['Inter'] text-[13px] font-medium text-[#615d59] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={RefreshIcon} size={16} strokeWidth={1.9} /> Reset</Button>
+              <NativeSelect compact value={packerFilter} onChange={setPackerFilter} options={packerOptions.map((op) => ({ value: `${op.name}::${op.code}`, label: op.label }))} placeholder="Semua petugas" icon={UserGroupIcon} />
+              <NativeSelect compact value={paidFilter} onChange={(value) => setPaidFilter(value as typeof paidFilter)} options={[{ value: 'unpaid', label: 'Belum dibayar' }, { value: 'paid', label: 'Sudah dibayar' }]} placeholder="Semua bayar" icon={DollarCircleIcon} />
+              <NativeSelect compact value={statusFilter} onChange={(value) => setStatusFilter(value as typeof statusFilter)} options={[{ value: 'active', label: 'active' }, { value: 'closed', label: 'closed' }, { value: 'cancelled', label: 'cancelled' }]} placeholder="Semua status" />
+              <Button type="button" variant="ghost" onClick={() => { setSearch(''); setStatusFilter('all'); setPackerFilter('all'); setPaidFilter('all') }} className="inline-flex h-8 items-center gap-2 rounded-lg border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={1.9} /> Reset filter</Button>
             </div>
           </div>
         </div>
@@ -1160,15 +1181,15 @@ function Td({ children, className = '', title }: { children: ReactNode; classNam
   return <td title={title} className={`bg-white px-4 py-3 align-top font-['Inter'] text-[14px] text-[#31302e] ${className}`}>{children}</td>
 }
 
-function NativeSelect({ value, onChange, options, placeholder, placeholderValue = 'all', icon }: { value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }>; placeholder?: string; placeholderValue?: string; icon?: typeof UserGroupIcon }) {
+function NativeSelect({ value, onChange, options, placeholder, placeholderValue = 'all', icon, compact }: { value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }>; placeholder?: string; placeholderValue?: string; icon?: typeof UserGroupIcon; compact?: boolean }) {
   return (
-    <label className="relative inline-flex h-10 items-center rounded-lg border border-[#dddddd] bg-white text-[#000000]">
+    <label className={`relative inline-flex items-center rounded-lg border bg-white text-[#000000] ${compact ? 'h-8 border-[#e6e6e6]' : 'h-10 border-[#dddddd]'}`}>
       {icon ? (
         <span className="pointer-events-none absolute left-3 grid place-items-center text-[#31302e]">
           <HugeiconsIcon icon={icon} size={17} strokeWidth={1.9} />
         </span>
       ) : null}
-      <select value={value} onChange={(e) => onChange(e.target.value)} className={`h-full appearance-none rounded-lg bg-transparent font-['Inter'] text-[13px] font-medium focus:outline-none focus:ring-0 ${icon ? 'pl-9 pr-8' : 'px-3 pr-8'}`}>
+      <select value={value} onChange={(e) => onChange(e.target.value)} className={`h-full appearance-none rounded-lg bg-transparent font-['Inter'] font-medium focus:outline-none focus:ring-0 ${compact ? 'text-[12px]' : 'text-[13px]'} ${icon ? 'pl-9 pr-8' : 'px-3 pr-8'}`}>
         {placeholder ? <option value={placeholderValue}>{placeholder}</option> : null}
         {options.map((option) => (
           <option key={option.value} value={option.value}>

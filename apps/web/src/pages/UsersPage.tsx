@@ -7,7 +7,6 @@ import {
   Edit02Icon,
   Key01Icon,
   MoreHorizontalIcon,
-  RefreshIcon,
   Search01Icon,
   ShieldUserIcon,
   Task01Icon,
@@ -397,96 +396,106 @@ export function UsersPage() {
           <h1 className="mt-2 font-['Inter'] text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">Kelola pengguna</h1>
           <p className="mt-3 max-w-2xl font-['Inter'] text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Tambah akun, atur role dan tugas, reset password, atau nonaktifkan akses operator dari satu tempat.</p>
         </div>
-        <Button type="button" onClick={openCreateModal} className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-[#0075de] px-5 font-['Inter'] text-[14px] font-medium text-white shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.035)] hover:bg-[#005bab] active:scale-[0.98]">
-          <HugeiconsIcon icon={UserAdd01Icon} size={18} strokeWidth={1.9} /> Tambah user
+        <Button type="button" onClick={openCreateModal} className="inline-flex h-8 shrink-0 items-center justify-center gap-2 rounded-[8px] bg-[#000000] px-3.5 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#31302e] active:scale-[0.98]">
+          <HugeiconsIcon icon={UserAdd01Icon} size={14} strokeWidth={1.9} /> Tambah user
         </Button>
       </section>
 
       <section className="grid gap-3 sm:grid-cols-3">
-        <article className="rounded-xl border border-[#dddddd] bg-white p-5">
+        <article className="rounded-[12px] border border-[#e6e6e6] bg-white p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Total user</div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{operatorProfiles.length}</span>
-                <span className="font-['Inter'] text-[13px] text-[#615d59]">akun</span>
+              <div className="mt-2.5 flex items-baseline gap-2">
+                <span className="font-['Inter'] text-[26px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{operatorProfiles.length}</span>
+                <span className="font-['Inter'] text-[12px] text-[#615d59]">akun</span>
               </div>
             </div>
-            <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
-              <HugeiconsIcon icon={UserGroupIcon} size={19} strokeWidth={1.9} />
+            <span className="grid h-7 w-7 place-items-center rounded-[8px] bg-[#f6f5f4] text-[#31302e]">
+              <HugeiconsIcon icon={UserGroupIcon} size={16} strokeWidth={1.9} />
             </span>
           </div>
         </article>
-        <article className="rounded-xl border border-[#dddddd] bg-white p-5">
+        <article className="rounded-[12px] border border-[#e6e6e6] bg-white p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Admin</div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{totalAdmins}</span>
-                <span className="font-['Inter'] text-[13px] text-[#615d59]">akun</span>
+              <div className="mt-2.5 flex items-baseline gap-2">
+                <span className="font-['Inter'] text-[26px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{totalAdmins}</span>
+                <span className="font-['Inter'] text-[12px] text-[#615d59]">akun</span>
               </div>
             </div>
-            <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
-              <HugeiconsIcon icon={ShieldUserIcon} size={19} strokeWidth={1.9} />
+            <span className="grid h-7 w-7 place-items-center rounded-[8px] bg-[#f6f5f4] text-[#31302e]">
+              <HugeiconsIcon icon={ShieldUserIcon} size={16} strokeWidth={1.9} />
             </span>
           </div>
         </article>
-        <article className="rounded-xl border border-[#dddddd] bg-white p-5">
+        <article className="rounded-[12px] border border-[#e6e6e6] bg-white p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Operator</div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{totalOperators}</span>
-                <span className="font-['Inter'] text-[13px] text-[#615d59]">akun</span>
+              <div className="mt-2.5 flex items-baseline gap-2">
+                <span className="font-['Inter'] text-[26px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{totalOperators}</span>
+                <span className="font-['Inter'] text-[12px] text-[#615d59]">akun</span>
               </div>
             </div>
-            <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
-              <HugeiconsIcon icon={UserMultiple02Icon} size={19} strokeWidth={1.9} />
+            <span className="grid h-7 w-7 place-items-center rounded-[8px] bg-[#f6f5f4] text-[#31302e]">
+              <HugeiconsIcon icon={UserMultiple02Icon} size={16} strokeWidth={1.9} />
             </span>
           </div>
         </article>
       </section>
 
-      <section className="mt-5 overflow-hidden rounded-xl border border-[#dddddd] bg-white">
-        <div className="border-b border-[#dddddd] p-4 sm:p-5">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-            <label className="relative flex flex-1 min-w-[240px]">
-              <span className="pointer-events-none absolute inset-y-0 left-0 grid w-10 place-items-center text-[#a39e98]">
-                <HugeiconsIcon icon={Search01Icon} size={18} strokeWidth={1.9} />
-              </span>
-              <Input id="users-search" value={searchText} onChange={(e) => setSearchText(e.target.value)} placeholder="Cari nama, username, atau kode..." className="h-10 w-full rounded-[4px] border-[#dddddd] bg-white pl-10 pr-3 font-['Inter'] text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#CFCBC7] focus-visible:ring-0" aria-label="Cari user" />
-            </label>
-            <div className="flex flex-wrap gap-2">
-              <label className="relative inline-flex h-10 items-center rounded-lg border border-[#dddddd] bg-[#f6f5f4] text-[#000000]">
-                <span className="pointer-events-none absolute left-3 grid place-items-center text-[#31302e]">
-                  <HugeiconsIcon icon={UserCircleIcon} size={17} strokeWidth={1.9} />
+      <section className="mt-5 overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white">
+        <div className="border-b border-[#e6e6e6] bg-white p-3">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <label className="relative flex flex-1 min-w-[240px]">
+                <span className="pointer-events-none absolute inset-y-0 left-0 grid w-8 place-items-center text-[#a39e98]">
+                  <HugeiconsIcon icon={Search01Icon} size={15} strokeWidth={1.9} />
                 </span>
-                <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as UserRoleFilter)} className="h-full appearance-none rounded-lg bg-transparent pl-9 pr-8 font-['Inter'] text-[13px] font-medium focus:outline-none focus:ring-0">
-                  <option value="all">Semua role</option>
-                  <option value="admin">Admin</option>
-                  <option value="operator">Operator</option>
-                </select>
-                <span className="pointer-events-none absolute right-3 grid place-items-center text-[#a39e98]">
-                  <HugeiconsIcon icon={ArrowDown01Icon} size={15} strokeWidth={1.9} />
-                </span>
+                <Input id="users-search" value={searchText} onChange={(e) => setSearchText(e.target.value)} placeholder="Cari nama, username, atau kode..." className="h-8 w-full rounded-[4px] border-[#e6e6e6] bg-white pl-8 pr-3 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" aria-label="Cari user" />
               </label>
-              <label className="relative inline-flex h-10 items-center rounded-lg border border-[#dddddd] bg-white text-[#000000]">
-                <span className="pointer-events-none absolute left-3 grid place-items-center text-[#31302e]">
-                  <HugeiconsIcon icon={Task01Icon} size={17} strokeWidth={1.9} />
-                </span>
-                <select value={taskFilter} onChange={(e) => setTaskFilter(e.target.value as UserTaskFilter)} className="h-full appearance-none rounded-lg bg-transparent pl-9 pr-8 font-['Inter'] text-[13px] font-medium focus:outline-none focus:ring-0">
-                  <option value="all">Semua tugas</option>
-                  <option value="qc">QC</option>
-                  <option value="packing">Packing</option>
-                </select>
-                <span className="pointer-events-none absolute right-3 grid place-items-center text-[#a39e98]">
-                  <HugeiconsIcon icon={ArrowDown01Icon} size={15} strokeWidth={1.9} />
-                </span>
-              </label>
-              <Button type="button" variant="ghost" onClick={clearFilters} disabled={!hasActiveFilters} className="h-10 inline-flex items-center gap-2 rounded-lg px-3 font-['Inter'] text-[13px] font-medium text-[#615d59] hover:bg-[#f6f5f4] disabled:opacity-40">
-                <HugeiconsIcon icon={RefreshIcon} size={16} strokeWidth={1.9} /> Reset
-              </Button>
+              <div className="hidden h-8 w-px shrink-0 bg-[#e6e6e6] sm:block" aria-hidden="true" />
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="relative inline-flex h-8 w-[148px] shrink-0 items-center rounded-[8px] border border-[#e6e6e6] bg-white pl-8 pr-7 font-['Inter'] text-[12px] font-medium text-[#000000] hover:bg-[#f6f5f4]">
+                  <span className="pointer-events-none absolute left-2.5 grid place-items-center text-[#31302e]">
+                    <HugeiconsIcon icon={UserCircleIcon} size={15} strokeWidth={1.9} />
+                  </span>
+                  <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as UserRoleFilter)} className="h-full w-full appearance-none rounded-[8px] bg-transparent font-['Inter'] text-[12px] font-medium focus:outline-none focus:ring-0">
+                    <option value="all">Semua role</option>
+                    <option value="admin">Admin</option>
+                    <option value="operator">Operator</option>
+                  </select>
+                  <span className="pointer-events-none absolute right-2 grid place-items-center text-[#a39e98]">
+                    <HugeiconsIcon icon={ArrowDown01Icon} size={13} strokeWidth={1.9} />
+                  </span>
+                </label>
+                <label className="relative inline-flex h-8 w-[148px] shrink-0 items-center rounded-[8px] border border-[#e6e6e6] bg-white pl-8 pr-7 font-['Inter'] text-[12px] font-medium text-[#000000] hover:bg-[#f6f5f4]">
+                  <span className="pointer-events-none absolute left-2.5 grid place-items-center text-[#31302e]">
+                    <HugeiconsIcon icon={Task01Icon} size={15} strokeWidth={1.9} />
+                  </span>
+                  <select value={taskFilter} onChange={(e) => setTaskFilter(e.target.value as UserTaskFilter)} className="h-full w-full appearance-none rounded-[8px] bg-transparent font-['Inter'] text-[12px] font-medium focus:outline-none focus:ring-0">
+                    <option value="all">Semua tugas</option>
+                    <option value="qc">QC</option>
+                    <option value="packing">Packing</option>
+                  </select>
+                  <span className="pointer-events-none absolute right-2 grid place-items-center text-[#a39e98]">
+                    <HugeiconsIcon icon={ArrowDown01Icon} size={13} strokeWidth={1.9} />
+                  </span>
+                </label>
+                <Button type="button" variant="ghost" onClick={clearFilters} disabled={!hasActiveFilters} className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] border border-[#e6e6e6] bg-white p-0 text-[#615d59] hover:bg-[#f6f5f4] disabled:opacity-40" title="Reset filter" aria-label="Reset filter">
+                  <HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={1.9} />
+                </Button>
+              </div>
             </div>
+            {hasActiveFilters ? (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {searchText.trim() ? <span className="inline-flex items-center gap-1 rounded-full border border-[#e6e6e6] bg-[#f6f5f4] px-2.5 py-1 font-['Inter'] text-[11px] font-medium text-[#31302e]">Cari: {searchText.trim()} <button type="button" onClick={() => setSearchText('')} className="grid h-4 w-4 place-items-center rounded-full hover:bg-white"><HugeiconsIcon icon={Cancel01Icon} size={10} strokeWidth={1.9} /></button></span> : null}
+                {roleFilter !== 'all' ? <span className="inline-flex items-center gap-1 rounded-full border border-[#e6e6e6] bg-white px-2.5 py-1 font-['Inter'] text-[11px] font-medium text-[#31302e]">Role: {roleFilter} <button type="button" onClick={() => setRoleFilter('all')} className="grid h-4 w-4 place-items-center rounded-full hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Cancel01Icon} size={10} strokeWidth={1.9} /></button></span> : null}
+                {taskFilter !== 'all' ? <span className="inline-flex items-center gap-1 rounded-full border border-[#e6e6e6] bg-white px-2.5 py-1 font-['Inter'] text-[11px] font-medium text-[#31302e]">Tugas: {taskFilter} <button type="button" onClick={() => setTaskFilter('all')} className="grid h-4 w-4 place-items-center rounded-full hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Cancel01Icon} size={10} strokeWidth={1.9} /></button></span> : null}
+              </div>
+            ) : null}
           </div>
           {shouldShowStatusAlert ? (
             <Alert variant={messageTone === 'error' ? 'destructive' : 'default'} className="mt-3 rounded-[4px] border-[#dddddd] bg-[#f6f5f4] font-['Inter'] text-[14px]">
@@ -576,19 +585,19 @@ export function UsersPage() {
       <p className="font-['Inter'] text-[12px] text-[#a39e98]">Catatan: hapus/nonaktifkan akun dipindahkan ke menu lanjutan untuk mengurangi risiko klik tidak sengaja.</p>
 
       <Dialog open={dialogState === 'form'} onOpenChange={(open) => !open && closeFormModal()}>
-        <DialogContent showCloseButton={false} className="users-modal max-w-[520px] gap-0 overflow-hidden rounded-2xl border-[#dddddd] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
-          <div className="border-b border-[#dddddd] p-6">
-            <div className="flex items-start justify-between gap-5">
-              <div className="grid gap-1">
-                <h3 className="font-['Inter'] text-[20px] font-semibold tracking-[-0.2px] text-[#000000]">{formMode === 'edit' ? `Edit ${formSourceProfile?.operatorName ?? 'user'}` : 'Tambah user'}</h3>
-                <p className="font-['Inter'] text-[13px] leading-5 text-[#615d59]">{formMode === 'edit' ? 'Perbarui data operator dengan hati-hati.' : 'Buat akun baru dan tentukan akses awalnya.'}</p>
+        <DialogContent showCloseButton={false} className="users-modal max-w-[520px] gap-0 overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_23px_52px_rgba(0,0,0,0.08),0_4px_18px_rgba(0,0,0,0.06)]">
+          <div className="border-b border-[#e6e6e6] bg-white p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="grid gap-1.5">
+                <h3 className="font-['Inter'] text-[20px] font-semibold leading-none tracking-[-0.5px] text-[#000000]">{formMode === 'edit' ? `Edit ${formSourceProfile?.operatorName ?? 'user'}` : 'Tambah user'}</h3>
+                <p className="font-['Inter'] text-[12px] leading-5 text-[#615d59]">{formMode === 'edit' ? 'Perbarui data operator dengan hati-hati.' : 'Buat akun baru dan tentukan akses awalnya.'}</p>
               </div>
-              <Button type="button" variant="ghost" size="icon" onClick={closeFormModal} className="h-9 w-9 shrink-0 rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" title="Tutup modal">
-                <HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.9} />
+              <Button type="button" variant="ghost" size="icon" onClick={closeFormModal} className="h-8 w-8 shrink-0 rounded-[8px] border border-[#e6e6e6] bg-white text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" title="Tutup modal">
+                <HugeiconsIcon icon={Cancel01Icon} size={16} strokeWidth={1.9} />
               </Button>
             </div>
           </div>
-          <div className="max-h-[64vh] overflow-y-auto p-6">
+          <div className="max-h-[64vh] overflow-y-auto bg-[#f6f5f4] p-5">
             <div className="grid gap-4">
               {formMode === 'edit' && formSourceProfile && (
                 <div className="rounded-[4px] border border-[#dddddd] bg-[#f6f5f4] px-3 py-3">
@@ -647,7 +656,7 @@ export function UsersPage() {
               </div>
             </div>
           </div>
-          <div className="flex items-center justify-end gap-2 border-t border-[#dddddd] bg-white p-4">
+          <div className="flex items-center justify-end gap-2 border-t border-[#e6e6e6] bg-white p-4">
             <Button type="button" variant="ghost" onClick={closeFormModal} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium hover:bg-[#f6f5f4]">Batal</Button>
             <Button type="button" onClick={() => void handleSaveForm()} disabled={!!nameConflict || !!codeConflict || !fullName.trim() || !operatorName.trim()} className="h-10 rounded-full bg-[#0075de] px-5 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#005bab] disabled:opacity-40">Simpan user</Button>
           </div>
@@ -655,14 +664,14 @@ export function UsersPage() {
       </Dialog>
 
       <Dialog open={dialogState === 'confirm-save' && !!pendingSaveAction} onOpenChange={(open) => !open && closeConfirmSaveModal()}>
-        <DialogContent showCloseButton={false} className="users-modal max-w-md gap-0 overflow-hidden rounded-2xl border-[#dddddd] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
-          <div className="border-b border-[#dddddd] p-6">
+        <DialogContent showCloseButton={false} className="users-modal max-w-md gap-0 overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_23px_52px_rgba(0,0,0,0.08),0_4px_18px_rgba(0,0,0,0.06)]">
+          <div className="border-b border-[#e6e6e6] bg-white p-6">
             <div className="flex items-start justify-between gap-5">
               <div className="grid gap-1">
                 <h3 className="font-['Inter'] text-[18px] font-semibold text-[#000000]">{pendingSaveAction?.isEditMode ? `Simpan perubahan ${pendingSaveAction?.name}` : `Buat ${pendingSaveAction?.name}`}</h3>
                 <p className="font-['Inter'] text-[13px] leading-5 text-[#615d59]">Lanjutkan hanya jika perubahan ini memang sudah benar.</p>
               </div>
-              <Button type="button" variant="ghost" size="icon" onClick={closeConfirmSaveModal} className="h-9 w-9 shrink-0 rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" title="Tutup modal">
+              <Button type="button" variant="ghost" size="icon" onClick={closeConfirmSaveModal} className="h-8 w-8 shrink-0 rounded-[8px] border border-[#e6e6e6] bg-white text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" title="Tutup modal">
                 <HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.9} />
               </Button>
             </div>
@@ -680,22 +689,22 @@ export function UsersPage() {
               <DetailRow label="Tugas" value={pendingSaveAction?.taskType} />
             </dl>
           </div>
-          <div className="flex items-center justify-end gap-2 border-t border-[#dddddd] bg-white p-4">
-            <Button type="button" variant="ghost" onClick={closeConfirmSaveModal} className="h-9 rounded-full border border-[#dddddd] bg-white px-5 font-['Inter'] text-[13px]">Kembali</Button>
-            <Button type="button" onClick={() => { if (!pendingSaveAction) return; void commitSaveAction(pendingSaveAction) }} className="h-9 rounded-full bg-[#0075de] px-6 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#005bab]">Simpan sekarang</Button>
+          <div className="flex items-center justify-end gap-2 border-t border-[#e6e6e6] bg-white p-4">
+            <Button type="button" variant="ghost" onClick={closeConfirmSaveModal} className="h-8 rounded-[8px] border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px]">Kembali</Button>
+            <Button type="button" onClick={() => { if (!pendingSaveAction) return; void commitSaveAction(pendingSaveAction) }} className="h-8 rounded-[8px] bg-[#0075de] px-6 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#005bab]">Simpan sekarang</Button>
           </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={dialogState === 'reset' && !!resetTarget} onOpenChange={(open) => !open && (setResetTarget(null), setDialogState(null))}>
-        <DialogContent showCloseButton={false} className="users-modal max-w-[420px] gap-0 overflow-hidden rounded-2xl border-[#dddddd] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
-          <div className="border-b border-[#dddddd] p-6">
+        <DialogContent showCloseButton={false} className="users-modal max-w-[420px] gap-0 overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_23px_52px_rgba(0,0,0,0.08),0_4px_18px_rgba(0,0,0,0.06)]">
+          <div className="border-b border-[#e6e6e6] bg-white p-6">
             <div className="flex items-start justify-between gap-5">
               <div className="grid gap-1">
                 <h3 className="font-['Inter'] text-[20px] font-semibold tracking-[-0.2px] text-[#000000]">Reset password</h3>
                 <p className="font-['Inter'] text-[13px] leading-5 text-[#615d59]">{resetTarget ? `${formatOperator(resetTarget.operatorName, resetTarget.operatorCode)} · ${resetTarget.role}` : 'Atur ulang kata sandi'}</p>
               </div>
-              <Button type="button" variant="ghost" size="icon" onClick={() => (setResetTarget(null), setDialogState(null))} className="h-9 w-9 shrink-0 rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" title="Tutup modal">
+              <Button type="button" variant="ghost" size="icon" onClick={() => (setResetTarget(null), setDialogState(null))} className="h-8 w-8 shrink-0 rounded-[8px] border border-[#e6e6e6] bg-white text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" title="Tutup modal">
                 <HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.9} />
               </Button>
             </div>
@@ -716,22 +725,22 @@ export function UsersPage() {
               </div>
             </div>
           </div>
-          <div className="flex items-center justify-end gap-2 border-t border-[#dddddd] bg-white p-4">
-            <Button type="button" variant="ghost" onClick={() => (setResetTarget(null), setDialogState(null))} disabled={isResetting} className="h-9 rounded-full border border-[#dddddd] bg-white px-5 font-['Inter'] text-[13px]">Batal</Button>
-            <Button type="button" onClick={() => void handleResetPassword()} disabled={isResetting} className="h-9 rounded-full bg-[#0075de] px-6 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#005bab] disabled:opacity-40">{isResetting ? 'Menyimpan...' : 'Simpan password'}</Button>
+          <div className="flex items-center justify-end gap-2 border-t border-[#e6e6e6] bg-white p-4">
+            <Button type="button" variant="ghost" onClick={() => (setResetTarget(null), setDialogState(null))} disabled={isResetting} className="h-8 rounded-[8px] border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px]">Batal</Button>
+            <Button type="button" onClick={() => void handleResetPassword()} disabled={isResetting} className="h-8 rounded-[8px] bg-[#0075de] px-6 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#005bab] disabled:opacity-40">{isResetting ? 'Menyimpan...' : 'Simpan password'}</Button>
           </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={dialogState === 'delete' && !!deleteTarget} onOpenChange={(open) => !open && (setDeleteTarget(null), setDialogState(null))}>
-        <DialogContent showCloseButton={false} className="users-modal max-w-[420px] gap-0 overflow-hidden rounded-2xl border-[#dddddd] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
-          <div className="border-b border-[#dddddd] p-6">
+        <DialogContent showCloseButton={false} className="users-modal max-w-[420px] gap-0 overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_23px_52px_rgba(0,0,0,0.08),0_4px_18px_rgba(0,0,0,0.06)]">
+          <div className="border-b border-[#e6e6e6] bg-white p-6">
             <div className="flex items-start justify-between gap-5">
               <div className="grid gap-1">
                 <h3 className="font-['Inter'] text-[18px] font-semibold text-[#000000]">Hapus user</h3>
                 <p className="font-['Inter'] text-[13px] leading-5 text-[#615d59]">{deleteTarget ? `${deleteTarget.fullName ?? deleteTarget.operatorName} · ${deleteTarget.operatorCode} · ${deleteTarget.role}` : ''}</p>
               </div>
-              <Button type="button" variant="ghost" size="icon" onClick={() => (setDeleteTarget(null), setDialogState(null))} className="h-9 w-9 shrink-0 rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" title="Tutup modal">
+              <Button type="button" variant="ghost" size="icon" onClick={() => (setDeleteTarget(null), setDialogState(null))} className="h-8 w-8 shrink-0 rounded-[8px] border border-[#e6e6e6] bg-white text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" title="Tutup modal">
                 <HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.9} />
               </Button>
             </div>
@@ -742,9 +751,9 @@ export function UsersPage() {
               <p className="mt-1 font-['Inter'] text-[13px] leading-5 text-[#615d59]">Data user ini akan dihapus dari daftar operator. Tindakan tidak bisa dibatalkan.</p>
             </div>
           </div>
-          <div className="flex items-center justify-end gap-2 border-t border-[#dddddd] bg-white p-4">
-            <Button type="button" variant="ghost" onClick={() => (setDeleteTarget(null), setDialogState(null))} className="h-9 rounded-full border border-[#dddddd] bg-white px-5 font-['Inter'] text-[13px]">Batal</Button>
-            <Button type="button" onClick={() => deleteTarget && void handleDeleteProfile(deleteTarget)} className="h-9 rounded-full bg-black px-6 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]">Hapus user</Button>
+          <div className="flex items-center justify-end gap-2 border-t border-[#e6e6e6] bg-white p-4">
+            <Button type="button" variant="ghost" onClick={() => (setDeleteTarget(null), setDialogState(null))} className="h-8 rounded-[8px] border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px]">Batal</Button>
+            <Button type="button" onClick={() => deleteTarget && void handleDeleteProfile(deleteTarget)} className="h-8 rounded-[8px] bg-black px-6 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]">Hapus user</Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -294,14 +294,14 @@ export function SettingsPage() {
 
   return (
     <div className="settings-page mx-auto max-w-[1240px] bg-[#f6f5f4] px-4 py-8 font-['Inter'] sm:px-6 lg:py-10 xl:px-8">
-      <section className="mb-7 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+      <section className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Administrasi / Settings</div>
-          <h1 className="mt-2 text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">Pengaturan sistem</h1>
-          <p className="mt-3 max-w-2xl text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Atur folder video, kualitas rekaman, kamera default, dan identitas aplikasi dari satu tempat.</p>
+          <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Administrasi / Settings</div>
+          <h1 className="mt-2 font-['Inter'] text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">Pengaturan sistem</h1>
+          <p className="mt-2 max-w-2xl font-['Inter'] text-[14px] leading-6 text-[#615d59]">Atur folder video, kualitas rekaman, kamera default, dan identitas aplikasi dari satu tempat.</p>
         </div>
-        <span className={`inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full border px-5 text-[14px] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.035)] ${serverStatus === 'online' ? 'border-[#dddddd] bg-white text-[#0075de]' : serverStatus === 'offline' ? 'border-[#f2c8a4] bg-[#fff7ed] text-[#dd5b00]' : 'border-[#dddddd] bg-white text-[#615d59]'}`}>
-          <HugeiconsIcon icon={CloudServerIcon} size={18} strokeWidth={1.9} /> {serverStatusLabel}
+        <span className={`inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-[8px] border px-3 font-['Inter'] text-[12px] font-medium ${serverStatus === 'online' ? 'border-[#e6e6e6] bg-white text-[#31302e]' : serverStatus === 'offline' ? 'border-[#f2c8a4] bg-[#fff7ed] text-[#dd5b00]' : 'border-[#e6e6e6] bg-white text-[#615d59]'}`}>
+          <HugeiconsIcon icon={CloudServerIcon} size={14} strokeWidth={1.9} /> {serverStatusLabel}
         </span>
       </section>
 
@@ -323,9 +323,9 @@ export function SettingsPage() {
       ) : null}
 
       <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-        <section className="overflow-hidden rounded-xl border border-[#dddddd] bg-white">
+        <section className="overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white">
           <PanelHeader icon={VideoReplayIcon} title="Operational" description="Konfigurasi rekaman, folder penyimpanan, dan kamera default." badge={operationalSavedAt || 'Belum tersimpan'} />
-          <div className="grid gap-5 p-4 sm:p-5">
+          <div className="grid gap-4 p-4 sm:p-5">
             <div className="rounded-[12px] border border-[#dddddd] bg-[#f6f5f4] p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
@@ -390,7 +390,7 @@ export function SettingsPage() {
           </div>
         </section>
 
-        <section className="overflow-hidden rounded-xl border border-[#dddddd] bg-white">
+        <section className="overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white">
           <PanelHeader icon={Settings01Icon} title="Branding" description="Identitas aplikasi yang tampil di sidebar dan metadata sistem." badge={brandingSavedAt || 'Belum tersimpan'} />
           <div className="grid gap-4 p-4 sm:p-5">
             <FieldGroup controlId="branding-app-name-input" label="Nama aplikasi">
@@ -453,15 +453,15 @@ function FieldGroup({
 
 function SettingsStat({ label, value, detail, icon }: { label: string; value: string; detail: string; icon: typeof Settings01Icon }) {
   return (
-    <article className="rounded-xl border border-[#e6e6e6] bg-white p-5">
+    <article className="rounded-[12px] border border-[#e6e6e6] bg-white p-5">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div>
-          <div className="mt-3 text-[24px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{value}</div>
-          <p className="mt-2 line-clamp-2 text-[12px] leading-5 text-[#615d59]">{detail}</p>
+          <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div>
+          <div className="mt-2.5 text-[26px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{value}</div>
+          <p className="mt-1.5 line-clamp-2 font-['Inter'] text-[12px] leading-5 text-[#615d59]">{detail}</p>
         </div>
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
-          <HugeiconsIcon icon={icon} size={19} strokeWidth={1.9} />
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[8px] bg-[#f6f5f4] text-[#31302e]">
+          <HugeiconsIcon icon={icon} size={16} strokeWidth={1.9} />
         </span>
       </div>
     </article>

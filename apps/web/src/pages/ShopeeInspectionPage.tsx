@@ -4,6 +4,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import {
   ArrowDown01Icon,
   Calendar03Icon,
+  Cancel01Icon,
   Copy01Icon,
   Delete02Icon,
   ExternalLinkIcon,
@@ -225,19 +226,19 @@ export function ShopeeInspectionPage() {
 
   return (
     <div className="shopee-inspection-page mx-auto max-w-[1240px] bg-[#f6f5f4] px-4 py-8 font-['Inter'] sm:px-6 lg:py-10 xl:px-8">
-      <section className="mb-7 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+      <section className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Operasional / Hasil Shopee</div>
-          <h1 className="mt-2 text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">Hasil Inspek Shopee</h1>
-          <p className="mt-3 max-w-2xl text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Card hasil inspeksi dari seller.shopee.co.id yang tersimpan di Pakti dan bisa diverifikasi ke History atau Scan.</p>
+          <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Operasional / Hasil Shopee</div>
+          <h1 className="mt-2 font-['Inter'] text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">Hasil Inspek Shopee</h1>
+          <p className="mt-2 max-w-2xl font-['Inter'] text-[14px] leading-6 text-[#615d59]">Card hasil inspeksi dari seller.shopee.co.id yang tersimpan di Pakti dan bisa diverifikasi ke History atau Scan.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <span className="inline-flex h-11 items-center justify-center rounded-full border border-[#dddddd] bg-white px-4 text-[14px] font-medium text-[#0075de] shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.035)]">{loading ? 'Loading' : `${filtered.length}/${orders.length}`}</span>
-          <Button type="button" variant="outline" onClick={() => void load()} disabled={loading} className="h-11 rounded-full border-[#dddddd] bg-white px-5 text-[14px] font-medium text-[#615d59] hover:bg-[#fbfaf9]">
-            <HugeiconsIcon icon={RefreshIcon} size={18} strokeWidth={1.9} className={loading ? 'animate-spin' : ''} /> Refresh
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="inline-flex h-8 items-center justify-center rounded-[8px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e]">{loading ? 'Loading' : `${filtered.length}/${orders.length}`}</span>
+          <Button type="button" variant="outline" onClick={() => void load()} disabled={loading} className="h-8 rounded-[8px] border-[#e6e6e6] bg-white px-3.5 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">
+            <HugeiconsIcon icon={RefreshIcon} size={14} strokeWidth={1.9} className={loading ? 'animate-spin' : ''} /> Refresh
           </Button>
-          <Button type="button" variant="outline" onClick={handleOpenShopee} className="h-11 rounded-full border-[#dddddd] bg-white px-5 text-[14px] font-medium text-[#615d59] hover:bg-[#fbfaf9]">
-            <HugeiconsIcon icon={ExternalLinkIcon} size={18} strokeWidth={1.9} /> Buka Shopee
+          <Button type="button" variant="outline" onClick={handleOpenShopee} className="h-8 rounded-[8px] border border-[#e6e6e6] bg-white px-3.5 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">
+            <HugeiconsIcon icon={ExternalLinkIcon} size={14} strokeWidth={1.9} /> Buka Shopee
           </Button>
         </div>
       </section>
@@ -252,32 +253,32 @@ export function ShopeeInspectionPage() {
         <InspectionStat label="Last sync" value={formatRelativeTime(adminStatus?.shopeeAutomation.orders.latestUpdatedAt ?? null)} detail="Sinkronisasi terakhir" icon={Calendar03Icon} />
       </section>
 
-      <section className="relative z-20 mt-5 overflow-visible rounded-xl border border-[#dddddd] bg-white">
-        <div className="flex flex-wrap items-center gap-2 p-2 sm:p-2.5 lg:flex-nowrap">
+      <section className="relative z-20 mt-5 overflow-visible rounded-[12px] border border-[#e6e6e6] bg-white">
+        <div className="flex flex-wrap items-center gap-2 p-3">
           <label className="relative flex min-w-[180px] max-w-[360px] flex-1">
-            <span className="pointer-events-none absolute inset-y-0 left-0 grid w-8 place-items-center text-[#a39e98]"><HugeiconsIcon icon={Search01Icon} size={16} strokeWidth={1.9} /></span>
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari buyer / order / resi..." className="h-8 w-full rounded-[4px] border-[#dddddd] bg-white pl-8 pr-3 text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#CFCBC7] focus-visible:ring-0" />
+            <span className="pointer-events-none absolute inset-y-0 left-0 grid w-8 place-items-center text-[#a39e98]"><HugeiconsIcon icon={Search01Icon} size={15} strokeWidth={1.9} /></span>
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari buyer / order / resi..." className="h-8 w-full rounded-[4px] border-[#e6e6e6] bg-white pl-8 pr-3 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" />
           </label>
-          <div className="ml-auto flex shrink-0 items-center gap-1 rounded-lg border border-[#dddddd] bg-[#f6f5f4] p-1">
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
             <PeriodeDropdown value={dateFilter} onChange={setDateFilter} />
             {dateFilter === 'custom' ? (
               <div className="flex items-center gap-1">
-                <Input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="h-7 rounded-[4px] border-[#dddddd] bg-white px-2 text-[12px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+                <Input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="h-7 rounded-[4px] border-[#e6e6e6] bg-white px-2 font-['Inter'] text-[12px] focus-visible:border-[#8f8a84] focus-visible:ring-0" />
                 <span className="text-[11px] text-[#a39e98]">—</span>
-                <Input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="h-7 rounded-[4px] border-[#dddddd] bg-white px-2 text-[12px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+                <Input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="h-7 rounded-[4px] border-[#e6e6e6] bg-white px-2 font-['Inter'] text-[12px] focus-visible:border-[#8f8a84] focus-visible:ring-0" />
               </div>
             ) : null}
-            <Button type="button" variant="ghost" onClick={clearFilters} disabled={!hasActiveFilters} className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md bg-white px-2.5 text-[12px] font-medium text-[#615d59] hover:bg-white disabled:opacity-40"><HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={1.9} /> Reset</Button>
+            <Button type="button" variant="ghost" onClick={clearFilters} disabled={!hasActiveFilters} className="grid h-8 w-8 place-items-center rounded-[8px] border border-[#e6e6e6] bg-white p-0 text-[#615d59] hover:bg-[#f6f5f4] disabled:opacity-40" title="Reset filter" aria-label="Reset filter"><HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={1.9} /></Button>
           </div>
         </div>
-        <div className="flex items-center justify-between gap-4 border-t border-[#dddddd] bg-[#fbfaf9] px-4 py-3 sm:px-5">
-          <div><h2 className="text-[14px] font-semibold text-[#000000]">Daftar hasil inspek</h2><p className="mt-0.5 text-[12px] text-[#a39e98]">{filtered.length} dari {orders.length} · halaman {currentPage}/{totalPages}</p></div>
-          <span className="inline-flex items-center rounded-full border border-[#dddddd] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#0075de]">{filtered.length} hasil</span>
+        <div className="flex items-center justify-between gap-4 border-t border-[#e6e6e6] bg-[#fbfaf9] px-4 py-3 sm:px-5">
+          <div><h2 className="font-['Inter'] text-[14px] font-semibold leading-none text-[#000000]">Daftar hasil inspek</h2><p className="mt-1 font-['Inter'] text-[12px] leading-none text-[#a39e98]">{filtered.length} dari {orders.length} · halaman {currentPage}/{totalPages}</p></div>
+          <span className="inline-flex items-center rounded-full border border-[#e6e6e6] bg-white px-2.5 py-1 font-['Inter'] text-[11px] font-semibold text-[#31302e]">{filtered.length} hasil</span>
         </div>
       </section>
 
       {loading ? <InspectionTableSkeleton /> : filtered.length === 0 ? <EmptyState ordersCount={orders.length} onOpenShopee={handleOpenShopee} onReset={clearFilters} /> : <>
-        <section className="overflow-hidden rounded-xl border border-[#dddddd] bg-white">
+        <section className="overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[780px] border-collapse">
               <thead className="bg-[#f6f5f4]">
@@ -387,7 +388,7 @@ function CopyValue({ value, label, copyKey, onCopy }: { value: string; label: st
 
 function InspectionTableSkeleton() {
   return (
-    <section className="overflow-hidden rounded-xl border border-[#dddddd] bg-white">
+    <section className="overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white">
       <div className="grid gap-2 p-4" aria-label="Memuat hasil inspek Shopee">
         {Array.from({ length: 6 }).map((_, index) => (
           <div key={index} className="flex justify-between gap-3 rounded-lg border border-[#e6e6e6] bg-[#f6f5f4] p-3">
@@ -410,14 +411,14 @@ function Td({ children, className = '' }: { children: ReactNode; className?: str
 
 function InspectionStat({ label, value, detail, icon }: { label: string; value: string; detail: string; icon: typeof ShoppingBag01Icon }) {
   return (
-    <article className="rounded-xl border border-[#dddddd] bg-white p-5">
+    <article className="rounded-[12px] border border-[#e6e6e6] bg-white p-5">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div>
-          <div className="mt-3 text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{value}</div>
-          <p className="mt-2 text-[12px] leading-5 text-[#615d59]">{detail}</p>
+          <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div>
+          <div className="mt-2.5 text-[26px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{value}</div>
+          <p className="mt-1.5 font-['Inter'] text-[12px] leading-5 text-[#615d59]">{detail}</p>
         </div>
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]"><HugeiconsIcon icon={icon} size={19} strokeWidth={1.9} /></span>
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[8px] bg-[#f6f5f4] text-[#31302e]"><HugeiconsIcon icon={icon} size={16} strokeWidth={1.9} /></span>
       </div>
     </article>
   )
@@ -454,7 +455,7 @@ function PeriodeDropdown({ value, onChange }: { value: string; onChange: (v: any
 
 function EmptyState({ ordersCount, onOpenShopee, onReset }: { ordersCount: number; onOpenShopee: () => void; onReset: () => void }) {
   return (
-    <section className="grid place-items-center gap-3 rounded-xl border border-[#dddddd] bg-white px-6 py-14 text-center">
+    <section className="grid place-items-center gap-3 rounded-[12px] border border-[#e6e6e6] bg-white px-6 py-14 text-center">
       <div className="grid h-12 w-12 place-items-center rounded-xl bg-[#f6f5f4] text-[#615d59]"><HugeiconsIcon icon={Package01Icon} size={22} strokeWidth={1.9} /></div>
       <div className="grid gap-1"><p className="text-[14px] font-semibold text-[#000000]">Tidak ada hasil sesuai filter</p><p className="max-w-[42ch] text-[13px] leading-6 text-[#615d59]">{ordersCount === 0 ? 'Belum ada order Shopee di Pakti. Buka seller.shopee.co.id, jalankan extension Pakti, lalu Sync.' : 'Coba ubah kata kunci, channel, status verifikasi, atau tanggal.'}</p></div>
       <Button type="button" variant="outline" size="sm" onClick={ordersCount === 0 ? onOpenShopee : onReset} className="h-9 rounded-lg border-[#dddddd] bg-white px-3 text-[13px] font-medium text-[#615d59] hover:bg-[#f6f5f4]">
@@ -466,7 +467,7 @@ function EmptyState({ ordersCount, onOpenShopee, onReset }: { ordersCount: numbe
 
 function Pagination({ currentPage, totalPages, total, onPageChange }: { currentPage: number; totalPages: number; total: number; onPageChange: (page: number) => void }) {
   return (
-    <div className="mt-3 flex flex-col items-center justify-between gap-3 rounded-xl border border-[#dddddd] bg-white px-4 py-3 text-[13px] text-[#615d59] sm:flex-row">
+    <div className="mt-3 flex flex-col items-center justify-between gap-3 rounded-[12px] border border-[#e6e6e6] bg-white px-4 py-3 font-['Inter'] text-[12px] text-[#615d59] sm:flex-row">
       <span>Menampilkan {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, total)} dari {total} hasil</span>
       <div className="flex flex-wrap items-center gap-1">
         <Button type="button" variant="outline" size="sm" className="h-8 min-w-8 rounded-lg border-[#dddddd] bg-white px-2" disabled={currentPage <= 1} onClick={() => onPageChange(Math.max(1, currentPage - 1))}>‹</Button>

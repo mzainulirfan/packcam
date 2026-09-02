@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { WorkTask } from '@pakti/types'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { ArrowDown01Icon, Calendar03Icon, RefreshIcon, Search01Icon, Task01Icon, Tick02Icon, UserCircleIcon } from '@hugeicons/core-free-icons'
+import { ArrowDown01Icon, Calendar03Icon, Cancel01Icon, Search01Icon, Task01Icon, Tick02Icon, UserCircleIcon } from '@hugeicons/core-free-icons'
 
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -89,27 +89,27 @@ export function HistoryFilters({
   const hasActiveFilters = Boolean(searchText.trim()) || taskFilter !== 'all' || docStatusFilter !== 'all' || operatorFilter !== 'all' || activeDatePreset !== 'none'
 
   return (
-    <div className="relative z-20 overflow-visible border-b border-[#e6e6e6] p-4 sm:p-5">
+    <div className="relative z-20 overflow-visible border-b border-[#e6e6e6] bg-white p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="relative flex min-w-[240px] flex-1">
-          <span className="pointer-events-none absolute inset-y-0 left-0 grid w-10 place-items-center text-[#a39e98]">
-            <HugeiconsIcon icon={Search01Icon} size={18} strokeWidth={1.9} />
+        <label className="relative flex min-w-[200px] flex-1">
+          <span className="pointer-events-none absolute inset-y-0 left-0 grid w-8 place-items-center text-[#a39e98]">
+            <HugeiconsIcon icon={Search01Icon} size={15} strokeWidth={1.9} />
           </span>
           <Input
             value={searchText}
             onChange={(event) => onSearchTextChange(event.target.value)}
             placeholder="Cari resi atau nomor pesanan..."
-            className="h-10 w-full rounded-[4px] border-[#dddddd] bg-white pl-10 pr-8 font-['Inter'] text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#CFCBC7] focus-visible:ring-0"
+            className="h-8 w-full rounded-[4px] border-[#e6e6e6] bg-white pl-8 pr-7 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0"
             aria-label="Cari resi atau nomor pesanan"
           />
           {searchText.trim() ? (
-            <button type="button" onClick={() => onSearchTextChange('')} className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full px-1.5 py-0.5 font-['Inter'] text-[11px] font-medium text-[#615d59] hover:bg-[#f6f5f4]">
-              ×
+            <button type="button" onClick={() => onSearchTextChange('')} className="absolute right-1 top-1/2 -translate-y-1/2 grid h-6 w-6 place-items-center rounded-full text-[#615d59] hover:bg-[#f6f5f4]">
+              <span className="font-['Inter'] text-[14px] leading-none">×</span>
             </button>
           ) : null}
         </label>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           <TaskDropdown value={taskFilter} onChange={onTaskFilterChange} />
           <DocStatusDropdown value={docStatusFilter} onChange={onDocStatusFilterChange} />
           {isAdmin ? <OperatorSearchSelect value={operatorFilter} options={operatorOptions} onChange={onOperatorFilterChange} compact /> : null}
@@ -122,8 +122,8 @@ export function HistoryFilters({
             onCustomToggle={() => setShowCustomRange(true)}
             onDateChange={onDateChange}
           />
-          <Button type="button" variant="ghost" onClick={handleClearFilters} disabled={!hasActiveFilters} className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#dddddd] bg-white p-0 text-[#615d59] hover:bg-[#f6f5f4] disabled:opacity-40" title="Reset filter" aria-label="Reset filter">
-            <HugeiconsIcon icon={RefreshIcon} size={16} strokeWidth={1.9} />
+          <Button type="button" variant="ghost" onClick={handleClearFilters} disabled={!hasActiveFilters} className="grid h-8 w-8 place-items-center rounded-[8px] border border-[#e6e6e6] bg-white p-0 text-[#615d59] hover:bg-[#f6f5f4] disabled:opacity-40" title="Reset filter" aria-label="Reset filter">
+            <HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={1.9} />
           </Button>
         </div>
       </div>
@@ -144,13 +144,13 @@ function TaskDropdown({ value, onChange }: { value: HistoryTaskFilter; onChange:
   }, [])
   return (
     <div ref={ref} className="relative shrink-0">
-      <button type="button" onClick={() => setOpen((v) => !v)} className="relative inline-flex h-10 items-center rounded-[8px] border border-[#e6e6e6] bg-white pl-9 pr-8 font-['Inter'] text-[13px] font-medium text-[#000000] hover:bg-[#f6f5f4]">
-        <span className="pointer-events-none absolute left-3 grid place-items-center text-[#31302e]">
-          <HugeiconsIcon icon={Task01Icon} size={17} strokeWidth={1.9} />
+      <button type="button" onClick={() => setOpen((v) => !v)} className="relative inline-flex h-8 items-center rounded-[8px] border border-[#e6e6e6] bg-white pl-8 pr-7 font-['Inter'] text-[12px] font-medium text-[#000000] hover:bg-[#f6f5f4]">
+        <span className="pointer-events-none absolute left-2.5 grid place-items-center text-[#31302e]">
+          <HugeiconsIcon icon={Task01Icon} size={15} strokeWidth={1.9} />
         </span>
         {label}
-        <span className="pointer-events-none absolute right-3 grid place-items-center text-[#a39e98]">
-          <HugeiconsIcon icon={ArrowDown01Icon} size={15} strokeWidth={1.9} />
+        <span className="pointer-events-none absolute right-2 grid place-items-center text-[#a39e98]">
+          <HugeiconsIcon icon={ArrowDown01Icon} size={13} strokeWidth={1.9} />
         </span>
       </button>
       {open ? (
@@ -184,13 +184,13 @@ function DocStatusDropdown({ value, onChange }: { value: HistoryDocStatusFilter;
   }, [])
   return (
     <div ref={ref} className="relative shrink-0">
-      <button type="button" onClick={() => setOpen((v) => !v)} className="relative inline-flex h-10 items-center rounded-[8px] border border-[#e6e6e6] bg-white pl-9 pr-8 font-['Inter'] text-[13px] font-medium text-[#000000] hover:bg-[#f6f5f4]">
-        <span className="pointer-events-none absolute left-3 grid place-items-center text-[#31302e]">
-          <HugeiconsIcon icon={Tick02Icon} size={17} strokeWidth={1.9} />
+      <button type="button" onClick={() => setOpen((v) => !v)} className="relative inline-flex h-8 items-center rounded-[8px] border border-[#e6e6e6] bg-white pl-8 pr-7 font-['Inter'] text-[12px] font-medium text-[#000000] hover:bg-[#f6f5f4]">
+        <span className="pointer-events-none absolute left-2.5 grid place-items-center text-[#31302e]">
+          <HugeiconsIcon icon={Tick02Icon} size={15} strokeWidth={1.9} />
         </span>
         {label}
-        <span className="pointer-events-none absolute right-3 grid place-items-center text-[#a39e98]">
-          <HugeiconsIcon icon={ArrowDown01Icon} size={15} strokeWidth={1.9} />
+        <span className="pointer-events-none absolute right-2 grid place-items-center text-[#a39e98]">
+          <HugeiconsIcon icon={ArrowDown01Icon} size={13} strokeWidth={1.9} />
         </span>
       </button>
       {open ? (
@@ -240,17 +240,17 @@ function PeriodeDropdown({
   }, [])
   return (
     <div ref={ref} className="relative shrink-0">
-      <button type="button" onClick={() => setOpen((v) => !v)} className="relative inline-flex h-10 items-center rounded-lg border border-[#dddddd] bg-white pl-9 pr-8 font-['Inter'] text-[13px] font-medium text-[#000000] hover:bg-[#f6f5f4]">
-        <span className="pointer-events-none absolute left-3 grid place-items-center text-[#31302e]">
-          <HugeiconsIcon icon={Calendar03Icon} size={17} strokeWidth={1.9} />
+      <button type="button" onClick={() => setOpen((v) => !v)} className="relative inline-flex h-8 items-center rounded-[8px] border border-[#e6e6e6] bg-white pl-8 pr-7 font-['Inter'] text-[12px] font-medium text-[#000000] hover:bg-[#f6f5f4]">
+        <span className="pointer-events-none absolute left-2.5 grid place-items-center text-[#31302e]">
+          <HugeiconsIcon icon={Calendar03Icon} size={15} strokeWidth={1.9} />
         </span>
         {label}
-        <span className="pointer-events-none absolute right-3 grid place-items-center text-[#a39e98]">
-          <HugeiconsIcon icon={ArrowDown01Icon} size={15} strokeWidth={1.9} />
+        <span className="pointer-events-none absolute right-2 grid place-items-center text-[#a39e98]">
+          <HugeiconsIcon icon={ArrowDown01Icon} size={13} strokeWidth={1.9} />
         </span>
       </button>
       {open ? (
-        <div className="absolute left-0 top-[calc(100%+6px)] z-30 grid min-w-[260px] gap-1 rounded-xl border border-[#dddddd] bg-white p-1 shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+        <div className="absolute left-0 top-[calc(100%+6px)] z-30 grid min-w-[260px] gap-1 rounded-[12px] border border-[#e6e6e6] bg-white p-1 shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
           <button type="button" onClick={() => { onPreset('today'); setOpen(false) }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left font-['Inter'] text-[13px] ${activePreset === 'today' && !showCustom ? 'bg-[#f6f5f4] font-semibold text-[#000000]' : 'text-[#31302e] hover:bg-[#f6f5f4]'}`}>
             Hari ini {activePreset === 'today' && !showCustom ? <HugeiconsIcon icon={Tick02Icon} size={14} strokeWidth={2} /> : null}
           </button>
@@ -264,10 +264,10 @@ function PeriodeDropdown({
             Custom {showCustom ? <HugeiconsIcon icon={Tick02Icon} size={14} strokeWidth={2} /> : null}
           </button>
           {showCustom ? (
-            <div className="flex items-center gap-1 border-t border-[#dddddd] px-1 pt-2">
-              <Input type="date" value={dateFrom} onChange={(e) => onDateChange('from', e.target.value)} className="h-7 rounded-[4px] border-[#dddddd] bg-white px-2 font-['Inter'] text-[12px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+            <div className="flex items-center gap-1 border-t border-[#e6e6e6] px-1 pt-2">
+              <Input type="date" value={dateFrom} onChange={(e) => onDateChange('from', e.target.value)} className="h-7 rounded-[4px] border-[#e6e6e6] bg-white px-2 font-['Inter'] text-[12px] focus-visible:border-[#8f8a84] focus-visible:ring-0" />
               <span className="font-['Inter'] text-[11px] text-[#a39e98]">—</span>
-              <Input type="date" value={dateTo} onChange={(e) => onDateChange('to', e.target.value)} className="h-7 rounded-[4px] border-[#dddddd] bg-white px-2 font-['Inter'] text-[12px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+              <Input type="date" value={dateTo} onChange={(e) => onDateChange('to', e.target.value)} className="h-7 rounded-[4px] border-[#e6e6e6] bg-white px-2 font-['Inter'] text-[12px] focus-visible:border-[#8f8a84] focus-visible:ring-0" />
             </div>
           ) : null}
         </div>
@@ -350,18 +350,18 @@ function OperatorSearchSelect({
         type="button"
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
-        className={`relative inline-flex items-center border border-[#dddddd] bg-[#f6f5f4] pl-9 pr-8 font-['Inter'] font-medium text-[#000000] hover:bg-[#f6f5f4] ${compact ? 'h-10 rounded-lg text-[13px]' : 'h-10 rounded-lg px-3 text-[13px]'}`}
+        className={`relative inline-flex items-center border bg-white pl-8 pr-7 font-['Inter'] font-medium text-[#000000] hover:bg-[#f6f5f4] ${compact ? 'h-8 rounded-[8px] border-[#e6e6e6] text-[12px]' : 'h-10 rounded-lg border-[#dddddd] px-3 text-[13px]'}`}
       >
-        <span className="pointer-events-none absolute left-3 grid place-items-center text-[#31302e]">
-          <HugeiconsIcon icon={UserCircleIcon} size={17} strokeWidth={1.9} />
+        <span className="pointer-events-none absolute left-2.5 grid place-items-center text-[#31302e]">
+          <HugeiconsIcon icon={UserCircleIcon} size={15} strokeWidth={1.9} />
         </span>
         <span className={`${compact ? 'max-w-[12ch]' : 'max-w-[14ch]'} truncate`}>{selectedLabel}</span>
-        <span className="pointer-events-none absolute right-3 grid place-items-center text-[#a39e98]">
-          <HugeiconsIcon icon={ArrowDown01Icon} size={15} strokeWidth={1.9} />
+        <span className="pointer-events-none absolute right-2 grid place-items-center text-[#a39e98]">
+          <HugeiconsIcon icon={ArrowDown01Icon} size={13} strokeWidth={1.9} />
         </span>
       </button>
       {open ? (
-        <div className="absolute left-0 top-[calc(100%+6px)] z-30 grid min-w-[200px] gap-2 rounded-xl border border-[#dddddd] bg-white p-2 shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+        <div className="absolute left-0 top-[calc(100%+6px)] z-30 grid min-w-[200px] gap-2 rounded-[12px] border border-[#e6e6e6] bg-white p-2 shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}

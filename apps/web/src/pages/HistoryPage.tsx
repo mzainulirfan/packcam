@@ -773,15 +773,15 @@ export function HistoryPage() {
 
   return (
     <div className="history-page mx-auto max-w-[1240px] bg-[#f6f5f4] px-4 py-8 font-['Inter'] sm:px-6 lg:py-10 xl:px-8">
-      <section className="mb-7 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+      <section className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <div className="font-['Inter'] text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Operasional / History</div>
+          <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Operasional / History</div>
           <h1 className="mt-2 font-['Inter'] text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">History Dokumentasi</h1>
-          <p className="mt-3 max-w-2xl font-['Inter'] text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Telusuri dokumentasi QC dan packing berdasarkan resi, pesanan, operator, periode, atau status pengiriman.</p>
+          <p className="mt-2 max-w-2xl font-['Inter'] text-[14px] leading-6 text-[#615d59]">Telusuri dokumentasi QC dan packing berdasarkan resi, pesanan, operator, periode, atau status pengiriman.</p>
         </div>
         <div ref={exportRef} className="relative flex shrink-0 items-center gap-2">
-          <Button type="button" onClick={() => setIsExportOpen((v) => !v)} className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-[8px] border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4] active:scale-[0.98]">
-              <HugeiconsIcon icon={Download01Icon} size={16} strokeWidth={1.9} /> Export <HugeiconsIcon icon={ArrowDown01Icon} size={14} strokeWidth={1.9} />
+          <Button type="button" onClick={() => setIsExportOpen((v) => !v)} className="inline-flex h-8 shrink-0 items-center justify-center gap-2 rounded-[8px] border border-[#e6e6e6] bg-white px-3.5 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4] active:scale-[0.98]">
+              <HugeiconsIcon icon={Download01Icon} size={14} strokeWidth={1.9} /> Export <HugeiconsIcon icon={ArrowDown01Icon} size={12} strokeWidth={1.9} />
             </Button>
             {isExportOpen ? (
               <div className="absolute right-0 top-[calc(100%+8px)] z-20 w-[280px] overflow-hidden rounded-xl border border-[#dddddd] bg-white shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
@@ -817,27 +817,27 @@ export function HistoryPage() {
       </section>
 
       <section className="grid gap-3 sm:grid-cols-3">
-        <article className="rounded-[12px] border border-[#e6e6e6] bg-white p-6">
+        <article className="rounded-[12px] border border-[#e6e6e6] bg-white p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Total dokumentasi</div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{docStatusFilteredGroups.length}</span>
-                <span className="font-['Inter'] text-[13px] text-[#615d59]">paket</span>
+              <div className="mt-2.5 flex items-baseline gap-2">
+                <span className="font-['Inter'] text-[26px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{docStatusFilteredGroups.length}</span>
+                <span className="font-['Inter'] text-[12px] text-[#615d59]">paket</span>
               </div>
             </div>
-            <span className="grid h-8 w-8 place-items-center rounded-[8px] bg-[#f6f5f4] text-[#31302e]">
-              <HugeiconsIcon icon={Package01Icon} size={18} strokeWidth={1.9} />
+            <span className="grid h-7 w-7 place-items-center rounded-[8px] bg-[#f6f5f4] text-[#31302e]">
+              <HugeiconsIcon icon={Package01Icon} size={16} strokeWidth={1.9} />
             </span>
           </div>
         </article>
-        <article className="rounded-[12px] border border-[#e6e6e6] bg-white p-6">
+        <article className="rounded-[12px] border border-[#e6e6e6] bg-white p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Dokumentasi lengkap</div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{historyMetrics.completed}</span>
-                <span className="font-['Inter'] text-[13px] text-[#615d59]">{docStatusFilteredGroups.length ? `${Math.round((historyMetrics.completed / docStatusFilteredGroups.length) * 100)}%` : '0%'}</span>
+              <div className="mt-2.5 flex items-baseline gap-2">
+                <span className="font-['Inter'] text-[26px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{historyMetrics.completed}</span>
+                <span className="font-['Inter'] text-[12px] text-[#615d59]">{docStatusFilteredGroups.length ? `${Math.round((historyMetrics.completed / docStatusFilteredGroups.length) * 100)}%` : '0%'}</span>
               </div>
             </div>
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
@@ -845,17 +845,17 @@ export function HistoryPage() {
             </span>
           </div>
         </article>
-        <article className="rounded-[12px] border border-[#e6e6e6] bg-white p-6">
+        <article className="rounded-[12px] border border-[#e6e6e6] bg-white p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Perlu perhatian</div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{historyMetrics.incomplete}</span>
-                <span className="font-['Inter'] text-[13px] text-[#615d59]">paket</span>
+              <div className="mt-2.5 flex items-baseline gap-2">
+                <span className="font-['Inter'] text-[26px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{historyMetrics.incomplete}</span>
+                <span className="font-['Inter'] text-[12px] text-[#615d59]">paket</span>
               </div>
             </div>
-            <span className="grid h-8 w-8 place-items-center rounded-[8px] bg-[#f6f5f4] text-[#31302e]">
-              <HugeiconsIcon icon={Clock01Icon} size={18} strokeWidth={1.9} />
+            <span className="grid h-7 w-7 place-items-center rounded-[8px] bg-[#f6f5f4] text-[#31302e]">
+              <HugeiconsIcon icon={Clock01Icon} size={16} strokeWidth={1.9} />
             </span>
           </div>
         </article>

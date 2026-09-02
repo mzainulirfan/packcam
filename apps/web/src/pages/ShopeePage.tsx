@@ -5,8 +5,8 @@ import {
   Alert01Icon,
   ArrowDown01Icon,
   BubbleChatIcon,
+  Cancel01Icon,
   CheckmarkCircle01Icon,
-  Delete02Icon,
   Message01Icon,
   RefreshIcon,
   Search01Icon,
@@ -258,19 +258,19 @@ export function ShopeePage() {
           </div>
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-[#dddddd] bg-white">
-        <div className="border-b border-[#dddddd] p-4 sm:p-5">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+      <section className="overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white">
+        <div className="border-b border-[#e6e6e6] bg-white p-3">
+          <div className="flex flex-col gap-2 xl:flex-row xl:items-center">
             <label className="relative flex min-w-[240px] flex-1">
-              <span className="pointer-events-none absolute inset-y-0 left-0 grid w-10 place-items-center text-[#a39e98]"><HugeiconsIcon icon={Search01Icon} size={18} strokeWidth={1.9} /></span>
-              <Input value={queueSearch} onChange={(event) => setQueueSearch(event.target.value)} placeholder="Cari buyer / order / pesan..." className="h-10 w-full rounded-[4px] border-[#dddddd] bg-white pl-10 pr-3 text-[14px] placeholder:text-[#a39e98] focus-visible:border-[#CFCBC7] focus-visible:ring-0" aria-label="Cari buyer, order, atau pesan" />
+              <span className="pointer-events-none absolute inset-y-0 left-0 grid w-8 place-items-center text-[#a39e98]"><HugeiconsIcon icon={Search01Icon} size={15} strokeWidth={1.9} /></span>
+              <Input value={queueSearch} onChange={(event) => setQueueSearch(event.target.value)} placeholder="Cari buyer / order / pesan..." className="h-8 w-full rounded-[4px] border-[#e6e6e6] bg-white pl-8 pr-3 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" aria-label="Cari buyer, order, atau pesan" />
             </label>
-            <div className="flex flex-wrap gap-2">
-              <div className="flex flex-wrap rounded-lg border border-[#dddddd] bg-[#f6f5f4] p-1">
-                {QUEUE_MODE_OPTIONS.map((option) => <Button key={option.value} type="button" variant="ghost" size="sm" className={`h-8 rounded-[4px] px-3 text-[13px] font-medium ${queueMode === option.value ? 'bg-white text-[#000000] shadow-sm' : 'text-[#615d59] hover:bg-white/70'}`} onClick={() => setQueueMode(option.value)}>{option.label}</Button>)}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-wrap gap-1.5">
+                {QUEUE_MODE_OPTIONS.map((option) => <Button key={option.value} type="button" variant="ghost" size="sm" className={`h-8 rounded-[8px] border px-3 text-[12px] font-medium ${queueMode === option.value ? 'border-[#000000] bg-[#000000] text-white' : 'border-[#e6e6e6] bg-white text-[#31302e] hover:bg-[#f6f5f4]'}`} onClick={() => setQueueMode(option.value)}>{option.label}</Button>)}
               </div>
               <StatusFilter id="shopee-queue-status-filter" value={queueStatusFilter} counts={queueStatusCounts} total={modeFilteredQueueItems.length} onChange={setQueueStatusFilter} />
-              <Button type="button" variant="ghost" size="sm" className="h-10 rounded-lg px-3 text-[13px] font-medium text-[#615d59] hover:bg-[#f6f5f4]" onClick={handleClearQueueFilters} aria-label="Reset filter" title="Reset filter"><HugeiconsIcon icon={Delete02Icon} size={16} strokeWidth={1.9} /> Reset</Button>
+              <Button type="button" variant="ghost" size="sm" className="grid h-8 w-8 place-items-center rounded-[8px] border border-[#e6e6e6] bg-white p-0 text-[#615d59] hover:bg-[#f6f5f4]" onClick={handleClearQueueFilters} aria-label="Reset filter" title="Reset filter"><HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={1.9} /></Button>
             </div>
           </div>
         </div>
@@ -315,8 +315,8 @@ function ActivityTile({ label, value, detail, icon }: { label: string; value: st
 
 function StatusFilter({ id, value, counts, total, onChange }: { id: string; value: ChatSendFilter; counts: Record<ChatSendStatus, number>; total: number; onChange: (value: ChatSendFilter) => void }) {
   return (
-    <label htmlFor={id} className="relative inline-flex h-10 items-center rounded-lg border border-[#dddddd] bg-white text-[#000000]">
-      <select id={id} value={value} onChange={(event) => onChange(event.target.value as ChatSendFilter)} className="h-full min-w-[190px] appearance-none rounded-lg bg-transparent px-3 pr-9 text-[13px] font-medium focus:outline-none focus:ring-0">
+    <label htmlFor={id} className="relative inline-flex h-8 items-center rounded-[8px] border border-[#e6e6e6] bg-white text-[#000000]">
+      <select id={id} value={value} onChange={(event) => onChange(event.target.value as ChatSendFilter)} className="h-full min-w-[160px] appearance-none rounded-[8px] bg-transparent px-3 pr-7 text-[12px] font-medium focus:outline-none focus:ring-0">
         <option value="all">Status: All ({total})</option>
         {CHAT_SEND_STATUSES.map((status) => <option key={status} value={status}>{status} ({counts[status]})</option>)}
       </select>
