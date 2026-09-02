@@ -1473,16 +1473,16 @@ function StatCard({
   unit: string
 }) {
   return (
-    <article className="rounded-xl border border-[#e6e6e6] bg-white p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
+    <article className="rounded-[12px] border border-[#e6e6e6] bg-white p-5">
+      <div className="grid gap-2">
+        <div className="flex items-start justify-between gap-2">
           <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{value}</span>
-            <span className="font-['Inter'] text-[13px] text-[#615d59]">{unit}</span>
-          </div>
+          <span className="grid h-7 w-7 place-items-center rounded-[8px] bg-[#f6f5f4] font-['Inter'] text-[11px] font-bold text-[#31302e]">{marker}</span>
         </div>
-        <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e] font-['Inter'] text-[12px] font-semibold">{marker}</span>
+        <div className="flex items-baseline gap-2">
+          <span className="font-['Inter'] text-[26px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{value}</span>
+          <span className="font-['Inter'] text-[12px] leading-none text-[#615d59]">{unit}</span>
+        </div>
       </div>
     </article>
   )

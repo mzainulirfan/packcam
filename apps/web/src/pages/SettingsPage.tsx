@@ -294,15 +294,18 @@ export function SettingsPage() {
 
   return (
     <div className="settings-page mx-auto max-w-[1240px] bg-[#f6f5f4] px-4 py-8 font-['Inter'] sm:px-6 lg:py-10 xl:px-8">
-      <section className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <section className="mb-6 flex flex-col gap-4">
         <div>
           <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Administrasi / Settings</div>
           <h1 className="mt-2 font-['Inter'] text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">Pengaturan sistem</h1>
           <p className="mt-2 max-w-2xl font-['Inter'] text-[14px] leading-6 text-[#615d59]">Atur folder video, kualitas rekaman, kamera default, dan identitas aplikasi dari satu tempat.</p>
         </div>
-        <span className={`inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-[8px] border px-3 font-['Inter'] text-[12px] font-medium ${serverStatus === 'online' ? 'border-[#e6e6e6] bg-white text-[#31302e]' : serverStatus === 'offline' ? 'border-[#f2c8a4] bg-[#fff7ed] text-[#dd5b00]' : 'border-[#e6e6e6] bg-white text-[#615d59]'}`}>
-          <HugeiconsIcon icon={CloudServerIcon} size={14} strokeWidth={1.9} /> {serverStatusLabel}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`inline-flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-full border px-3 font-['Inter'] text-[11px] font-semibold ${serverStatus === 'online' ? 'border-[#e6e6e6] bg-white text-[#31302e]' : serverStatus === 'offline' ? 'border-[#f2c8a4] bg-[#fff7ed] text-[#dd5b00]' : 'border-[#e6e6e6] bg-white text-[#615d59]'}`}>
+            <HugeiconsIcon icon={CloudServerIcon} size={12} strokeWidth={1.9} /> {serverStatusLabel}
+          </span>
+          <span className="font-['Inter'] text-[12px] text-[#a39e98]">{sourceMessage}</span>
+        </div>
       </section>
 
       <section className="mb-5 grid gap-3 sm:grid-cols-3">
@@ -322,10 +325,10 @@ export function SettingsPage() {
         </Alert>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+      <div className="grid gap-6">
         <section className="overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white">
           <PanelHeader icon={VideoReplayIcon} title="Operational" description="Konfigurasi rekaman, folder penyimpanan, dan kamera default." badge={operationalSavedAt || 'Belum tersimpan'} />
-          <div className="grid gap-4 p-4 sm:p-5">
+          <div className="grid gap-4 p-5">
             <div className="rounded-[12px] border border-[#dddddd] bg-[#f6f5f4] p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
@@ -359,13 +362,13 @@ export function SettingsPage() {
                 </NativeSelect>
               </FieldGroup>
               <FieldGroup controlId="settings-resolution-input" label="Resolusi video">
-                <Input id="settings-resolution-input" value={settings.videoResolution} onChange={(event) => updateField('videoResolution', event.target.value)} placeholder={DEFAULT_VIDEO_RESOLUTION} className="h-10 rounded-[4px] border-[#dddddd] bg-white px-3 text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+                <Input id="settings-resolution-input" value={settings.videoResolution} onChange={(event) => updateField('videoResolution', event.target.value)} placeholder={DEFAULT_VIDEO_RESOLUTION} className="h-8 rounded-[4px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" />
               </FieldGroup>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <FieldGroup controlId="settings-bitrate-input" label="Bitrate video">
-                <Input id="settings-bitrate-input" value={settings.videoBitrate} onChange={(event) => updateField('videoBitrate', event.target.value)} placeholder={DEFAULT_VIDEO_BITRATE} className="h-10 rounded-[4px] border-[#dddddd] bg-white px-3 text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+                <Input id="settings-bitrate-input" value={settings.videoBitrate} onChange={(event) => updateField('videoBitrate', event.target.value)} placeholder={DEFAULT_VIDEO_BITRATE} className="h-8 rounded-[4px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" />
               </FieldGroup>
               <FieldGroup controlId="settings-camera-input" label="Kamera default">
                 <NativeSelect id="settings-camera-input" value={settings.cameraDeviceId || '__default__'} onChange={(value) => updateField('cameraDeviceId', value === '__default__' ? '' : value)}>
@@ -377,14 +380,14 @@ export function SettingsPage() {
               </FieldGroup>
             </div>
 
-            <label htmlFor="settings-auto-open-input" className="flex items-start gap-3 rounded-[4px] border border-[#dddddd] bg-[#f6f5f4] p-3 text-[14px] text-[#31302e]">
-              <input id="settings-auto-open-input" type="checkbox" checked={settings.autoOpenFolder} onChange={(event) => updateField('autoOpenFolder', event.target.checked)} className="mt-0.5 size-4 accent-[#0075de]" />
+            <label htmlFor="settings-auto-open-input" className="flex items-start gap-2.5 rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] p-3 font-['Inter'] text-[13px] leading-5 text-[#31302e]">
+              <input id="settings-auto-open-input" type="checkbox" checked={settings.autoOpenFolder} onChange={(event) => updateField('autoOpenFolder', event.target.checked)} className="mt-0.5 size-4 rounded-[4px] border-[#e6e6e6] accent-[#000000]" />
               <span>Aktifkan pembukaan folder otomatis setelah rekaman tersimpan.</span>
             </label>
 
-            <div className="flex justify-end border-t border-[#dddddd] pt-4">
-              <Button type="button" onClick={handleSave} className="h-10 rounded-full bg-[#0075de] px-5 text-[13px] font-medium text-white hover:bg-[#005bab]">
-                <HugeiconsIcon icon={CheckmarkCircle01Icon} size={16} strokeWidth={1.9} /> Simpan settings
+            <div className="flex justify-end border-t border-[#e6e6e6] pt-4">
+              <Button type="button" onClick={handleSave} className="h-8 rounded-[8px] bg-[#000000] px-5 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#31302e]">
+                <HugeiconsIcon icon={CheckmarkCircle01Icon} size={14} strokeWidth={1.9} /> Simpan settings
               </Button>
             </div>
           </div>
@@ -392,34 +395,36 @@ export function SettingsPage() {
 
         <section className="overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white">
           <PanelHeader icon={Settings01Icon} title="Branding" description="Identitas aplikasi yang tampil di sidebar dan metadata sistem." badge={brandingSavedAt || 'Belum tersimpan'} />
-          <div className="grid gap-4 p-4 sm:p-5">
+          <div className="grid gap-4 p-5">
             <FieldGroup controlId="branding-app-name-input" label="Nama aplikasi">
-              <Input id="branding-app-name-input" value={systemConfig.appName} onChange={(event) => updateBrandingField('appName', event.target.value)} placeholder={DEFAULT_SYSTEM_CONFIG.appName} className="h-10 rounded-[4px] border-[#dddddd] bg-white px-3 text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+              <Input id="branding-app-name-input" value={systemConfig.appName} onChange={(event) => updateBrandingField('appName', event.target.value)} placeholder={DEFAULT_SYSTEM_CONFIG.appName} className="h-8 rounded-[4px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" />
             </FieldGroup>
             <FieldGroup controlId="branding-tagline-input" label="Tagline">
-              <Input id="branding-tagline-input" value={systemConfig.tagline} onChange={(event) => updateBrandingField('tagline', event.target.value)} placeholder={DEFAULT_SYSTEM_CONFIG.tagline} className="h-10 rounded-[4px] border-[#dddddd] bg-white px-3 text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+              <Input id="branding-tagline-input" value={systemConfig.tagline} onChange={(event) => updateBrandingField('tagline', event.target.value)} placeholder={DEFAULT_SYSTEM_CONFIG.tagline} className="h-8 rounded-[4px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" />
             </FieldGroup>
             <FieldGroup controlId="branding-mark-input" label="Brand mark">
-              <Input id="branding-mark-input" value={systemConfig.brandMark} onChange={(event) => updateBrandingField('brandMark', event.target.value)} placeholder={DEFAULT_SYSTEM_CONFIG.brandMark} className="h-10 rounded-[4px] border-[#dddddd] bg-white px-3 text-[14px] focus-visible:border-[#0075de] focus-visible:ring-0" />
+              <Input id="branding-mark-input" value={systemConfig.brandMark} onChange={(event) => updateBrandingField('brandMark', event.target.value)} placeholder={DEFAULT_SYSTEM_CONFIG.brandMark} className="h-8 rounded-[4px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" />
             </FieldGroup>
 
-            <div className="mt-1 rounded-[12px] border border-[#dddddd] bg-[#f6f5f4] p-4">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Preview</div>
-              <div className="mt-3 flex items-center gap-3">
-                <div className="grid h-9 w-9 place-items-center rounded-lg bg-black text-[12px] font-bold text-white">{systemConfig.brandMark || DEFAULT_SYSTEM_CONFIG.brandMark}</div>
+            <div className="mt-1 overflow-hidden rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4]">
+              <div className="border-b border-[#e6e6e6] bg-white px-4 py-3">
+                <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Preview</div>
+              </div>
+              <div className="flex items-center gap-3 bg-white p-4">
+                <div className="grid h-9 w-9 place-items-center rounded-[8px] bg-[#000000] font-['Inter'] text-[12px] font-bold text-white">{systemConfig.brandMark || DEFAULT_SYSTEM_CONFIG.brandMark}</div>
                 <div className="min-w-0">
-                  <div className="truncate text-[15px] font-semibold text-[#000000]">{systemConfig.appName || DEFAULT_SYSTEM_CONFIG.appName}</div>
-                  <div className="truncate text-[12px] text-[#a39e98]">{systemConfig.tagline || DEFAULT_SYSTEM_CONFIG.tagline}</div>
+                  <div className="truncate font-['Inter'] text-[14px] font-semibold text-[#000000]">{systemConfig.appName || DEFAULT_SYSTEM_CONFIG.appName}</div>
+                  <div className="truncate font-['Inter'] text-[12px] text-[#615d59]">{systemConfig.tagline || DEFAULT_SYSTEM_CONFIG.tagline}</div>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-wrap justify-end gap-2 border-t border-[#dddddd] pt-4">
-              <Button type="button" variant="ghost" onClick={handleResetBranding} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 text-[13px] font-medium text-[#615d59] hover:bg-[#f6f5f4]">
-                <HugeiconsIcon icon={RefreshIcon} size={16} strokeWidth={1.9} /> Reset branding
+            <div className="flex flex-wrap justify-end gap-2 border-t border-[#e6e6e6] pt-4">
+              <Button type="button" variant="ghost" onClick={handleResetBranding} className="h-8 rounded-[8px] border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]">
+                <HugeiconsIcon icon={RefreshIcon} size={14} strokeWidth={1.9} /> Reset branding
               </Button>
-              <Button type="button" onClick={handleSaveBranding} className="h-10 rounded-full bg-[#0075de] px-5 text-[13px] font-medium text-white hover:bg-[#005bab]">
-                <HugeiconsIcon icon={CheckmarkCircle01Icon} size={16} strokeWidth={1.9} /> Simpan branding
+              <Button type="button" onClick={handleSaveBranding} className="h-8 rounded-[8px] bg-[#000000] px-5 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#31302e]">
+                <HugeiconsIcon icon={CheckmarkCircle01Icon} size={14} strokeWidth={1.9} /> Simpan branding
               </Button>
             </div>
           </div>
@@ -442,11 +447,11 @@ function FieldGroup({
 }) {
   return (
     <div className="grid min-w-0 gap-1.5">
-      <Label htmlFor={controlId} className="text-[12px] font-medium text-[#000000]">
+      <Label htmlFor={controlId} className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">
         {label}
       </Label>
       {children}
-      {description ? <p className="text-[12px] text-[#615d59]">{description}</p> : null}
+      {description ? <p className="font-['Inter'] text-[12px] text-[#615d59]">{description}</p> : null}
     </div>
   )
 }
@@ -454,15 +459,17 @@ function FieldGroup({
 function SettingsStat({ label, value, detail, icon }: { label: string; value: string; detail: string; icon: typeof Settings01Icon }) {
   return (
     <article className="rounded-[12px] border border-[#e6e6e6] bg-white p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
+      <div className="grid gap-2">
+        <div className="flex items-start justify-between gap-2">
           <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div>
-          <div className="mt-2.5 text-[26px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{value}</div>
-          <p className="mt-1.5 line-clamp-2 font-['Inter'] text-[12px] leading-5 text-[#615d59]">{detail}</p>
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[8px] bg-[#f6f5f4] text-[#31302e]">
+            <HugeiconsIcon icon={icon} size={16} strokeWidth={1.9} />
+          </span>
         </div>
-        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[8px] bg-[#f6f5f4] text-[#31302e]">
-          <HugeiconsIcon icon={icon} size={16} strokeWidth={1.9} />
-        </span>
+        <div className="flex items-baseline gap-2">
+          <span className="font-['Inter'] text-[26px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{value}</span>
+          <span className="font-['Inter'] text-[12px] leading-none text-[#615d59]">{detail}</span>
+        </div>
       </div>
     </article>
   )
@@ -488,11 +495,11 @@ function PanelHeader({ icon, title, description, badge }: { icon: typeof Setting
 function NativeSelect({ id, value, onChange, children }: { id: string; value: string; onChange: (value: string) => void; children: ReactNode }) {
   return (
     <label className="relative block">
-      <select id={id} value={value} onChange={(event) => onChange(event.target.value)} className="h-10 w-full appearance-none rounded-[5px] border border-[#e6e6e6] bg-white px-3 pr-9 text-[14px] text-[#000000] focus:border-[#0075de] focus:outline-none">
+      <select id={id} value={value} onChange={(event) => onChange(event.target.value)} className="h-8 w-full appearance-none rounded-[4px] border border-[#e6e6e6] bg-white px-3 pr-8 font-['Inter'] text-[13px] text-[#000000] focus:border-[#8f8a84] focus:outline-none">
         {children}
       </select>
       <span className="pointer-events-none absolute inset-y-0 right-3 grid place-items-center text-[#a39e98]">
-        <HugeiconsIcon icon={ArrowDown01Icon} size={15} strokeWidth={1.9} />
+        <HugeiconsIcon icon={ArrowDown01Icon} size={14} strokeWidth={1.9} />
       </span>
     </label>
   )

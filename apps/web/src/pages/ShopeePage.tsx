@@ -287,14 +287,16 @@ export function ShopeePage() {
 
 function ShopeeStat({ label, value, detail, icon }: { label: string; value: string; detail: string; icon: typeof ShoppingBag01Icon }) {
   return (
-    <article className="rounded-xl border border-[#dddddd] bg-white p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div>
-          <div className="mt-3 text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{value}</div>
-          <p className="mt-2 line-clamp-2 text-[12px] leading-5 text-[#615d59]">{detail}</p>
+    <article className="rounded-[12px] border border-[#e6e6e6] bg-white p-5">
+      <div className="grid gap-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div>
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[8px] bg-[#f6f5f4] text-[#31302e]"><HugeiconsIcon icon={icon} size={16} strokeWidth={1.9} /></span>
         </div>
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]"><HugeiconsIcon icon={icon} size={19} strokeWidth={1.9} /></span>
+        <div className="flex items-baseline gap-2">
+          <span className="font-['Inter'] text-[26px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{value}</span>
+          <span className="font-['Inter'] text-[12px] leading-none text-[#615d59]">{detail}</span>
+        </div>
       </div>
     </article>
   )

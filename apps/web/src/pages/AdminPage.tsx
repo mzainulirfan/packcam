@@ -210,7 +210,7 @@ export function AdminPage() {
         </div>
       </section>
 
-      <section className="mb-5 grid gap-3 sm:grid-cols-3">
+      <section className="mb-5 grid gap-3 md:grid-cols-3">
         <AdminStat label="Operators" value={String(adminStatus?.bootstrap.operatorCount ?? 0)} detail={`${adminStatus?.bootstrap.adminCount ?? 0} admin aktif`} icon={UserGroupIcon} />
         <AdminStat label="Recordings" value={String(adminStatus?.counts.recordings ?? 0)} detail={`${adminStatus?.counts.scanLogs ?? 0} scan log`} icon={Database02Icon} />
         <AdminStat label="Sessions" value={String(adminStatus?.counts.sessions ?? packingSessions.length)} detail={`${payRules.length} pay rule`} icon={Package01Icon} />
@@ -223,7 +223,7 @@ export function AdminPage() {
         </div>
       </Alert>
 
-      <section className="mb-5 overflow-hidden rounded-xl border border-[#dddddd] bg-white">
+      <section className="mb-5 overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white">
         <PanelHeader icon={Activity01Icon} title="Recent activity" description="Aktivitas recording dan scan log terbaru dari server." />
         <div className="grid gap-4 p-4 md:grid-cols-2 sm:p-5">
           <ActivityBlock title="Recent recordings" emptyText="Belum ada recording di server.">
@@ -235,19 +235,19 @@ export function AdminPage() {
         </div>
       </section>
 
-      <section className="mb-5 overflow-hidden rounded-xl border border-[#dddddd] bg-white">
+      <section className="mb-5 overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white">
         <div className="flex flex-col gap-3 border-b border-[#dddddd] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div>
             <h2 className="text-[16px] font-semibold text-[#000000]">Packing sessions payroll</h2>
             <p className="mt-1 text-[12px] text-[#a39e98]">Ringkasan sesi packing dan nominal upah.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" size="sm" className="h-9 rounded-lg border-[#dddddd] bg-white px-3 text-[13px] font-medium text-[#615d59]" onClick={() => navigateTo('packing-sessions')}><HugeiconsIcon icon={ArrowRight01Icon} size={15} strokeWidth={1.9} /> Buka sesi</Button>
+            <Button type="button" variant="outline" size="sm" className="h-8 rounded-[8px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#615d59]" onClick={() => navigateTo('packing-sessions')}><HugeiconsIcon icon={ArrowRight01Icon} size={15} strokeWidth={1.9} /> Buka sesi</Button>
             <label className="relative">
               <HugeiconsIcon icon={Search01Icon} size={15} strokeWidth={1.9} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#a39e98]" />
               <Input placeholder="Filter packer..." value={sessionFilterText} onChange={(e) => setSessionFilterText(e.target.value)} className="h-9 w-[190px] rounded-lg border-[#dddddd] bg-white pl-9 text-[13px] focus-visible:border-[#0075de] focus-visible:ring-0" />
             </label>
-            <Button type="button" variant="outline" size="sm" className="h-9 rounded-lg border-[#dddddd] bg-white px-3 text-[13px] font-medium text-[#615d59]" onClick={() => handleExportPayroll(null, 'all')}><HugeiconsIcon icon={Download01Icon} size={15} strokeWidth={1.9} /> Export CSV</Button>
+            <Button type="button" variant="outline" size="sm" className="h-8 rounded-[8px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#615d59]" onClick={() => handleExportPayroll(null, 'all')}><HugeiconsIcon icon={Download01Icon} size={15} strokeWidth={1.9} /> Export CSV</Button>
           </div>
         </div>
         {packingSessions.length === 0 ? <EmptyState>Belum ada sesi packing.</EmptyState> : (
@@ -264,10 +264,10 @@ export function AdminPage() {
         )}
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-[#dddddd] bg-white">
+      <section className="overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white">
         <PanelHeader icon={DollarCircleIcon} title="Pay rules" description="Aturan variasi upah packing berdasarkan default, produk, SKU, atau channel pengiriman." />
         <div className="grid gap-4 p-4 sm:p-5">
-          <div className="grid gap-3 rounded-[12px] border border-[#dddddd] bg-[#f6f5f4] p-4">
+          <div className="grid gap-3 rounded-[12px] border border-[#e6e6e6] bg-[#f6f5f4] p-4">
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
               <AdminInput placeholder="Nama rule" value={payForm.name} onChange={(e) => setPayForm((p) => ({ ...p, name: e.target.value }))} />
               <AdminSelect value={payForm.matchType} onChange={(e) => setPayForm((p) => ({ ...p, matchType: e.target.value as PackingPayRule['matchType'] }))}><option value="default">default</option><option value="product_contains">product_contains</option><option value="variation_contains">variation_contains</option><option value="sku_contains">sku_contains</option><option value="shipping_channel">shipping_channel</option></AdminSelect>
@@ -297,7 +297,7 @@ export function AdminPage() {
         <ModalOverlay onClose={() => setSelectedSession(null)} contentClassName="admin-modal max-w-3xl gap-0 overflow-hidden rounded-2xl border-[#dddddd] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
           <div>
             <div className="border-b border-[#dddddd] p-6"><div className="flex items-start justify-between gap-5"><div className="grid gap-1"><p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Detail sesi packing</p><h3 className="text-[18px] font-semibold text-[#000000]">{selectedSession.packerNameSnapshot} ({selectedSession.packerCodeSnapshot}) · {selectedSession.status}</h3><p className="text-[13px] leading-5 text-[#615d59]">{formatDateTime(selectedSession.startedAt)} {'->'} {selectedSession.endedAt ? formatDateTime(selectedSession.endedAt) : 'masih aktif'} · {selectedSession.completedPackingCount} paket · {formatCurrency(selectedSession.totalPayAmount)}</p></div><Button type="button" variant="ghost" size="icon" onClick={() => setSelectedSession(null)} className="h-9 w-9 shrink-0 rounded-lg text-[#615d59] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.9} /></Button></div></div>
-            <div className="flex flex-wrap gap-2 p-4"><Button type="button" variant="outline" size="sm" className="h-9 rounded-lg border-[#dddddd] bg-white px-3 text-[13px]" onClick={() => handleExportPayroll(selectedSession, 'session')}><HugeiconsIcon icon={Download01Icon} size={15} strokeWidth={1.9} /> Export CSV sesi</Button>{selectedSession.status === 'active' ? <Button type="button" variant="outline" size="sm" className="h-9 rounded-lg border-[#dddddd] bg-white px-3 text-[13px]" onClick={() => void handleCloseSession(selectedSession.id)}>Tutup sesi</Button> : null}</div>
+            <div className="flex flex-wrap gap-2 p-4"><Button type="button" variant="outline" size="sm" className="h-8 rounded-[8px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px]" onClick={() => handleExportPayroll(selectedSession, 'session')}><HugeiconsIcon icon={Download01Icon} size={15} strokeWidth={1.9} /> Export CSV sesi</Button>{selectedSession.status === 'active' ? <Button type="button" variant="outline" size="sm" className="h-8 rounded-[8px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px]" onClick={() => void handleCloseSession(selectedSession.id)}>Tutup sesi</Button> : null}</div>
             {sessionDetailLoading ? <EmptyState>Memuat detail sesi...</EmptyState> : sessionRecords.length === 0 ? <EmptyState>Belum ada paket completed di sesi ini.</EmptyState> : <SessionRecordsTable records={sessionRecords} />}
           </div>
         </ModalOverlay>
@@ -310,7 +310,7 @@ function ActivityBlock({ title, emptyText, children }: { title: string; emptyTex
   const hasChildren = Array.isArray(children) ? children.length > 0 : Boolean(children)
 
   return (
-    <div className="rounded-[12px] border border-[#dddddd] bg-[#f6f5f4] p-4">
+    <div className="rounded-[12px] border border-[#e6e6e6] bg-[#f6f5f4] p-4">
       <p className="text-[13px] font-semibold text-[#000000]">{title}</p>
       <div className="mt-3 grid gap-2 text-[13px]">
         {hasChildren ? children : <p className="text-[#615d59]">{emptyText}</p>}
@@ -321,14 +321,16 @@ function ActivityBlock({ title, emptyText, children }: { title: string; emptyTex
 
 function AdminStat({ label, value, detail, icon }: { label: string; value: string; detail: string; icon: typeof Activity01Icon }) {
   return (
-    <article className="rounded-xl border border-[#dddddd] bg-white p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div>
-          <div className="mt-3 text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{value}</div>
-          <p className="mt-2 text-[12px] text-[#615d59]">{detail}</p>
+    <article className="rounded-[12px] border border-[#e6e6e6] bg-white p-5">
+      <div className="grid gap-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div>
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[8px] bg-[#f6f5f4] text-[#31302e]"><HugeiconsIcon icon={icon} size={16} strokeWidth={1.9} /></span>
         </div>
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]"><HugeiconsIcon icon={icon} size={19} strokeWidth={1.9} /></span>
+        <div className="flex items-baseline gap-2">
+          <span className="font-['Inter'] text-[26px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{value}</span>
+          <span className="font-['Inter'] text-[12px] leading-none text-[#615d59]">{detail}</span>
+        </div>
       </div>
     </article>
   )
@@ -369,11 +371,11 @@ function SmallAction({ children, onClick }: { children: ReactNode; onClick: () =
 }
 
 function AdminInput(props: React.ComponentProps<typeof Input>) {
-  return <Input {...props} className={`h-10 rounded-[4px] border-[#dddddd] bg-white px-3 text-[13px] focus-visible:border-[#0075de] focus-visible:ring-0 ${props.className ?? ''}`} />
+  return <Input {...props} className={`h-8 rounded-[4px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[13px] focus-visible:border-[#0075de] focus-visible:ring-0 ${props.className ?? ''}`} />
 }
 
 function AdminSelect({ children, ...props }: React.ComponentProps<'select'>) {
-  return <select {...props} className={`h-10 rounded-[4px] border border-[#dddddd] bg-white px-3 text-[13px] focus:border-[#0075de] focus:outline-none ${props.className ?? ''}`}>{children}</select>
+  return <select {...props} className={`h-8 rounded-[4px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[13px] text-[13px] focus:border-[#0075de] focus:outline-none ${props.className ?? ''}`}>{children}</select>
 }
 
 function InlineNumber({ defaultValue, className, onCommit }: { defaultValue: number; className?: string; onCommit: (value: number) => void }) {

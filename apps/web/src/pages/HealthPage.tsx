@@ -184,16 +184,16 @@ export function HealthPage() {
 
   return (
     <div className="health-page mx-auto max-w-[1240px] bg-[#f6f5f4] px-4 py-8 font-['Inter'] sm:px-6 lg:py-10 xl:px-8">
-      <section className="mb-7 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+      <section className="mb-6 flex flex-col gap-4">
         <div>
-          <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">System / Health</div>
-          <h1 className="mt-2 text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">Health console</h1>
-          <p className="mt-3 max-w-2xl text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Diagnosa runtime, server, storage, dan reset data operasional dari satu panel.</p>
+          <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">System / Health</div>
+          <h1 className="mt-2 font-['Inter'] text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">Health console</h1>
+          <p className="mt-2 max-w-2xl font-['Inter'] text-[14px] leading-6 text-[#615d59]">Diagnosa runtime, server, storage, dan reset data operasional dari satu panel.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <span className="inline-flex h-11 items-center justify-center rounded-full border border-[#e6e6e6] bg-white px-4 text-[14px] font-medium text-[#0075de] shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.035)]">v{buildInfo.version}</span>
-          <Button type="button" variant="outline" onClick={() => void refreshHealth()} className="h-11 rounded-full border-[#e6e6e6] bg-white px-5 text-[14px] font-medium text-[#615d59] hover:bg-[#fbfaf9]">
-            <HugeiconsIcon icon={RefreshIcon} size={18} strokeWidth={1.9} /> Refresh
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="inline-flex h-7 items-center justify-center gap-1.5 rounded-full border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[11px] font-semibold text-[#31302e]">v{buildInfo.version}</span>
+          <Button type="button" variant="outline" onClick={() => void refreshHealth()} className="h-7 rounded-[8px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">
+            <HugeiconsIcon icon={RefreshIcon} size={14} strokeWidth={1.9} /> Refresh
           </Button>
         </div>
       </section>
@@ -219,19 +219,19 @@ export function HealthPage() {
         </Alert>
       ) : null}
 
-      <section className="grid gap-5 lg:grid-cols-2">
-        <div className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
+      <section className="grid gap-6">
+        <div className="overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white">
           <PanelHeader icon={CheckmarkCircle01Icon} title="Runtime diagnostics" description="Kesiapan browser untuk kamera, recorder, dan komunikasi API." />
-          <div className="grid gap-3 p-4 sm:p-5">
+          <div className="grid gap-3 p-5">
             {runtimeChecks.map((check) => (
               <RuntimeCheckRow key={check.label} label={check.label} description={check.description} value={check.value} />
             ))}
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
+        <div className="overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white">
           <PanelHeader icon={Alert01Icon} title="Danger zone" description="Aksi reset data server yang butuh konfirmasi." />
-          <div className="grid gap-3 p-4 sm:p-5">
+          <div className="grid gap-3 p-5">
             <DangerAction title="Reset scan data" description="Menghapus data QC, packing, recording, dan log. User/operator tetap aman." actionLabel="Clear scan" onClick={() => setActiveModal('scan')} />
             <DangerAction title="Reset all data" description="Menghapus seluruh data server, termasuk user, session login, recording, log, dan pengaturan." actionLabel="Clear all" onClick={() => setActiveModal('all')} destructive />
           </div>
@@ -358,16 +358,18 @@ function ConfirmDialog({
 
 function HealthStat({ label, value, detail, icon }: { label: string; value: string; detail: string; icon: typeof Activity01Icon }) {
   return (
-    <article className="rounded-xl border border-[#e6e6e6] bg-white p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div>
-          <div className="mt-3 text-[24px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{value}</div>
-          <p className="mt-2 line-clamp-2 text-[12px] leading-5 text-[#615d59]">{detail}</p>
+    <article className="rounded-[12px] border border-[#e6e6e6] bg-white p-5">
+      <div className="grid gap-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div>
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[8px] bg-[#f6f5f4] text-[#31302e]">
+            <HugeiconsIcon icon={icon} size={16} strokeWidth={1.9} />
+          </span>
         </div>
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
-          <HugeiconsIcon icon={icon} size={19} strokeWidth={1.9} />
-        </span>
+        <div className="flex items-baseline gap-2">
+          <span className="font-['Inter'] text-[26px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{value}</span>
+          <span className="font-['Inter'] text-[12px] leading-none text-[#615d59]">{detail}</span>
+        </div>
       </div>
     </article>
   )

@@ -51,7 +51,7 @@ export function PackingSessionsPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'closed' | 'cancelled'>('all')
   const [packerFilter, setPackerFilter] = useState<string>('all')
-  const [paidFilter, setPaidFilter] = useState<'all' | 'unpaid' | 'paid'>('all')
+  const [paidFilter, setPaidFilter] = useState<'all' | 'unpaid' | 'paid'>('unpaid')
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(() => new Set())
   const [selected, setSelected] = useState<PackingWorkSession | null>(null)
   const [records, setRecords] = useState<Awaited<ReturnType<typeof readServerHistoryRecordingsApi>>['records']>([])
@@ -954,7 +954,7 @@ export function PackingSessionsPage() {
               <NativeSelect compact value={packerFilter} onChange={setPackerFilter} options={packerOptions.map((op) => ({ value: `${op.name}::${op.code}`, label: op.label }))} placeholder="Semua petugas" icon={UserGroupIcon} />
               <NativeSelect compact value={paidFilter} onChange={(value) => setPaidFilter(value as typeof paidFilter)} options={[{ value: 'unpaid', label: 'Belum dibayar' }, { value: 'paid', label: 'Sudah dibayar' }]} placeholder="Semua bayar" icon={DollarCircleIcon} />
               <NativeSelect compact value={statusFilter} onChange={(value) => setStatusFilter(value as typeof statusFilter)} options={[{ value: 'active', label: 'active' }, { value: 'closed', label: 'closed' }, { value: 'cancelled', label: 'cancelled' }]} placeholder="Semua status" />
-              <Button type="button" variant="ghost" onClick={() => { setSearch(''); setStatusFilter('all'); setPackerFilter('all'); setPaidFilter('all') }} className="inline-flex h-8 items-center gap-2 rounded-lg border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={1.9} /> Reset filter</Button>
+              <Button type="button" variant="ghost" onClick={() => { setSearch(''); setStatusFilter('all'); setPackerFilter('all'); setPaidFilter('unpaid') }} className="inline-flex h-8 items-center gap-2 rounded-lg border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={1.9} /> Reset filter</Button>
             </div>
           </div>
         </div>
@@ -972,7 +972,7 @@ export function PackingSessionsPage() {
             </div>
             <div className="mt-3 font-['Inter'] text-[14px] font-medium text-[#000000]">Tidak ada sesi sesuai filter</div>
             <div className="mt-1 font-['Inter'] text-[12px] text-[#a39e98]">Coba ubah petugas, status bayar, atau kata kunci pencarian.</div>
-            <Button type="button" variant="ghost" onClick={() => { setSearch(''); setStatusFilter('all'); setPackerFilter('all'); setPaidFilter('all') }} className="mt-4 h-9 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">Reset filter</Button>
+            <Button type="button" variant="ghost" onClick={() => { setSearch(''); setStatusFilter('all'); setPackerFilter('all'); setPaidFilter('unpaid') }} className="mt-4 h-9 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">Reset filter</Button>
           </div>
         ) : (
           <div className="overflow-x-auto scrollbar-thin">
@@ -1156,18 +1156,18 @@ function getInitials(name: string) {
 
 function StatCard({ label, value, subLabel, icon }: { label: string; value: string; subLabel?: string; icon: typeof Package01Icon }) {
   return (
-    <article className="rounded-xl border border-[#dddddd] bg-white p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
+    <article className="rounded-[12px] border border-[#e6e6e6] bg-white p-5">
+      <div className="grid gap-2">
+        <div className="flex items-start justify-between gap-2">
           <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{value}</span>
-            {subLabel ? <span className="font-['Inter'] text-[13px] text-[#615d59]">{subLabel}</span> : null}
-          </div>
+          <span className="grid h-7 w-7 place-items-center rounded-[8px] bg-[#f6f5f4] text-[#31302e]">
+            <HugeiconsIcon icon={icon} size={16} strokeWidth={1.9} />
+          </span>
         </div>
-        <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
-          <HugeiconsIcon icon={icon} size={19} strokeWidth={1.9} />
-        </span>
+        <div className="flex items-baseline gap-2">
+          <span className="font-['Inter'] text-[26px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{value}</span>
+          {subLabel ? <span className="font-['Inter'] text-[12px] leading-none text-[#615d59]">{subLabel}</span> : null}
+        </div>
       </div>
     </article>
   )

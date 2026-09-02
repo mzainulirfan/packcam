@@ -85,14 +85,16 @@ function CopyValue({ value, copyKey, onCopy }: { value: string; copyKey: string;
 
 function StatCard({ label, value, subLabel, icon }: { label: string; value: string; subLabel: string; icon: typeof Package01Icon }) {
   return (
-    <article className="rounded-xl border border-[#dddddd] bg-white p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
+    <article className="rounded-[12px] border border-[#e6e6e6] bg-white p-5">
+      <div className="grid gap-2">
+        <div className="flex items-start justify-between gap-2">
           <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{label}</div>
-          <div className="mt-3 font-['Inter'] text-[22px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{value}</div>
-          <div className="font-['Inter'] text-[12px] text-[#615d59]">{subLabel}</div>
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[8px] bg-[#f6f5f4] text-[#31302e]"><HugeiconsIcon icon={icon} size={16} strokeWidth={1.9} /></span>
         </div>
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]"><HugeiconsIcon icon={icon} size={18} strokeWidth={1.9} /></span>
+        <div className="flex items-baseline gap-2">
+          <span className="font-['Inter'] text-[26px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{value}</span>
+          <span className="font-['Inter'] text-[12px] leading-none text-[#615d59]">{subLabel}</span>
+        </div>
       </div>
     </article>
   )

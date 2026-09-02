@@ -65,7 +65,6 @@ export function OperatorLoginPage() {
 
   return (
     <AuthShell
-      appName={systemConfig.appName}
       brandMark={systemConfig.brandMark || systemConfig.appName.charAt(0).toUpperCase()}
       eyebrow="Operator login"
       title="Masuk ke dashboard Pakti"
@@ -73,8 +72,8 @@ export function OperatorLoginPage() {
       highlights={LOGIN_HIGHLIGHTS}
       footerNote="Login aman untuk desktop operasional"
     >
-      <Card className="auth-opencode__card w-full max-w-xl">
-        <CardContent className="space-y-5 p-5 sm:p-6">
+      <Card className="w-full overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white shadow-none">
+        <CardContent className="space-y-4 p-5">
           <form
             className="space-y-4"
             onSubmit={(event) => {
@@ -82,8 +81,8 @@ export function OperatorLoginPage() {
               void handleLogin()
             }}
           >
-            <div className="auth-opencode__field space-y-2">
-              <Label htmlFor="operator-username">
+            <div className="grid gap-1.5">
+              <Label htmlFor="operator-username" className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">
                 Username
               </Label>
               <Input
@@ -95,12 +94,12 @@ export function OperatorLoginPage() {
                 }}
                 placeholder="Username"
                 autoComplete="username"
-                className="auth-opencode__input"
+                className="h-8 rounded-[4px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0"
               />
             </div>
 
-            <div className="auth-opencode__field space-y-2">
-              <Label htmlFor="operator-password">
+            <div className="grid gap-1.5">
+              <Label htmlFor="operator-password" className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">
                 Password
               </Label>
               <div className="relative">
@@ -114,13 +113,13 @@ export function OperatorLoginPage() {
                   }}
                   placeholder="Password"
                   autoComplete="current-password"
-                  className="auth-opencode__input pr-12"
+                  className="h-8 rounded-[4px] border-[#e6e6e6] bg-white px-3 pr-16 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0"
                 />
                 <Button
                   type="button"
                   variant="ghost"
-                  size="icon-sm"
-                  className="auth-opencode__password-toggle absolute right-1 top-1/2 -translate-y-1/2"
+                  size="sm"
+                  className="absolute right-1 top-1/2 h-6 -translate-y-1/2 rounded-[4px] bg-white px-2 font-['Inter'] text-[11px] font-medium text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]"
                   onClick={() => setShowPassword((current) => !current)}
                   aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
                 >
@@ -130,13 +129,13 @@ export function OperatorLoginPage() {
             </div>
 
             {message && messageTone === 'error' ? (
-              <Alert variant="destructive">
-                <AlertTitle>Login gagal</AlertTitle>
-                <AlertDescription>{message}</AlertDescription>
+              <Alert variant="destructive" className="rounded-[8px] border-[#fecaca] bg-[#fee2e2] font-['Inter'] text-[13px]">
+                <AlertTitle className="font-['Inter'] text-[13px] font-semibold text-[#991b1b]">Login gagal</AlertTitle>
+                <AlertDescription className="font-['Inter'] text-[12px] leading-5 text-[#991b1b]">{message}</AlertDescription>
               </Alert>
             ) : null}
 
-            <Button type="submit" size="lg" className="h-10 w-full rounded-lg bg-[#000000] font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]" disabled={isSubmitting}>
+            <Button type="submit" size="lg" className="h-8 w-full rounded-[8px] bg-[#000000] font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]" disabled={isSubmitting}>
               {isSubmitting ? 'Memproses...' : 'Masuk'}
             </Button>
           </form>

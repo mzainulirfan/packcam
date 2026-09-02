@@ -35,23 +35,23 @@ export function ToastViewport() {
   }
 
   return (
-    <div className="pointer-events-none fixed right-4 top-4 z-[80] grid w-[min(26rem,calc(100vw-2rem))] gap-3">
+    <div className="pointer-events-none fixed right-4 top-4 z-[80] grid w-[min(26rem,calc(100vw-2rem))] gap-3 font-['Inter']">
       {toasts.map((toast) => (
-        <Card key={toast.id} className="toast-opencode pointer-events-auto overflow-hidden" data-variant={toast.variant}>
-          <CardContent className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 px-4 py-3">
-            <span className="toast-opencode__marker">{getToastMarker(toast.variant)}</span>
+        <Card key={toast.id} className="pointer-events-auto overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white shadow-[0_23px_52px_rgba(0,0,0,0.08),0_4px_18px_rgba(0,0,0,0.06)]" data-variant={toast.variant}>
+          <CardContent className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 p-4">
+            <span className="grid h-7 w-7 place-items-center rounded-[8px] bg-[#f6f5f4] font-['Inter'] text-[11px] font-bold text-[#31302e]">{getToastMarker(toast.variant)}</span>
             <div className="min-w-0">
-              <div className="toast-opencode__meta">{getToastLabel(toast.variant)}</div>
-              <p className="toast-opencode__title">{toast.title}</p>
-              {toast.description ? <p className="toast-opencode__description">{toast.description}</p> : null}
+              <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">{getToastLabel(toast.variant)}</div>
+              <p className="mt-0.5 font-['Inter'] text-[13px] font-semibold leading-5 text-[#000000]">{toast.title}</p>
+              {toast.description ? <p className="mt-1 font-['Inter'] text-[12px] leading-5 text-[#615d59]">{toast.description}</p> : null}
             </div>
             <button
               type="button"
-              className="toast-opencode__close"
+              className="grid h-7 w-7 place-items-center rounded-[8px] border border-[#e6e6e6] bg-white font-['Inter'] text-[12px] text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]"
               onClick={() => dismissToast(toast.id)}
               aria-label="Tutup toast"
             >
-              [x]
+              ×
             </button>
           </CardContent>
         </Card>
