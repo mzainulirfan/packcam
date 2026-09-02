@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { ArrowLeft01Icon, Cancel01Icon, Delete02Icon, DollarCircleIcon, Download01Icon, Edit02Icon, LockPasswordIcon, Package01Icon } from '@hugeicons/core-free-icons'
+import { ArrowLeft01Icon, Cancel01Icon, Copy01Icon, Delete02Icon, DollarCircleIcon, Download01Icon, Edit02Icon, LockPasswordIcon, Package01Icon } from '@hugeicons/core-free-icons'
 import { Button } from '../components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../components/ui/dialog'
 import { Label } from '../components/ui/label'
@@ -44,9 +44,43 @@ function formatPeriode(startedAt: string, endedAt: string | null) {
   }
 }
 
-function formatSessionOrderItems(items: SessionOrderItem[]) {
-  if (items.length === 0) return '-'
-  return items.map((it) => `${it.productName}${it.variationName ? ` (${it.variationName})` : ''} x${it.quantity}`).join(', ')
+function formatSessionOrderItemsTitle(items: SessionOrderItem[]) {
+  if (!items || items.length === 0) return '-'
+  const labels = items.slice(0, 2).map((it) => `${it.productName}${it.variationName?.trim() ? ` | ${it.variationName.trim()}` : ''} x${it.quantity}`)
+  if (items.length > 2) labels.push(`+${items.length - 2} item lagi`)
+  return labels.join(' · ')
+}
+
+function PackingOrderItemsSummary({ items }: { items: SessionOrderItem[] }) {
+  if (!items || items.length === 0) return <span className="font-['Inter'] text-[13px] text-[#a39e98]">-</span>
+  return (
+    <div className="grid min-w-0 flex-1 gap-1" title={formatSessionOrderItemsTitle(items)}>
+      {items.slice(0, 2).map((it, idx) => {
+        const variation = it.variationName?.trim()
+        return (
+          <div key={`${it.productName}-${variation ?? ''}-${idx}`} className="flex min-w-0 items-start justify-between gap-2">
+            <span className="grid min-w-0 gap-0.5">
+              <span className="line-clamp-2 font-['Inter'] text-[13px] font-medium leading-5 text-[#31302e]">{it.productName}</span>
+              {variation ? <span className="truncate font-['Inter'] text-[11px] leading-4 text-[#615d59]">{variation}</span> : null}
+            </span>
+            <span className="shrink-0 rounded-md bg-[#f6f5f4] px-1.5 py-0.5 font-['Inter'] text-[11px] font-semibold text-[#31302e] ring-1 ring-[#e6e6e6]">x{it.quantity}</span>
+          </div>
+        )
+      })}
+      {items.length > 2 ? <span className="font-['Inter'] text-[11px] text-[#a39e98]">+{items.length - 2} item lagi</span> : null}
+    </div>
+  )
+}
+
+function CopyValue({ value, copyKey, onCopy }: { value: string; copyKey: string; onCopy: (text: string, key: string) => Promise<void> }) {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <span className="truncate font-['Inter'] text-[13px] text-[#31302e]" title={value}>{value}</span>
+      <button type="button" className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" onClick={() => void onCopy(value, copyKey)} title="Copy">
+        <HugeiconsIcon icon={Copy01Icon} size={14} strokeWidth={1.9} />
+      </button>
+    </div>
+  )
 }
 
 function StatCard({ label, value, subLabel, icon }: { label: string; value: string; subLabel: string; icon: typeof Package01Icon }) {
@@ -64,10 +98,10 @@ function StatCard({ label, value, subLabel, icon }: { label: string; value: stri
   )
 }
 function Th({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <th className={`px-3 py-3 font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#615d59] ${className}`}>{children}</th>
+  return <th className={`bg-[#f6f5f4] px-4 py-3 text-left font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98] ${className}`}>{children}</th>
 }
 function Td({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <td className={`px-3 py-3 align-top ${className}`}>{children}</td>
+  return <td className={`bg-transparent px-4 py-3 align-middle font-['Inter'] text-[13px] text-[#31302e] ${className}`}>{children}</td>
 }
 
 export function PackingSessionDetailPage() {
@@ -82,6 +116,7 @@ export function PackingSessionDetailPage() {
   const [payRuleEditTarget, setPayRuleEditTarget] = useState<{ id: string; resiNumber: string; packingPayRuleId?: string | null; packingPayBreakdown?: { ruleName?: string; payType?: string; amount?: number; quantity?: number; total?: number; manualOverride?: boolean } | null; packingPayAmount?: number | null } | null>(null)
   const [payRuleEditSelectedId, setPayRuleEditSelectedId] = useState<string>('')
   const [copyKey, setCopyKey] = useState<string | null>(null)
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
 
   useEffect(() => {
     if (!detailId) return
@@ -163,6 +198,28 @@ export function PackingSessionDetailPage() {
     downloadTextFile(`packing-session-${session.packerCodeSnapshot}-${session.id.slice(0, 8)}.csv`, csv, 'text/csv;charset=utf-8')
   }
 
+  async function copyText(text: string, key: string) {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedKey(key)
+      window.setTimeout(() => setCopiedKey((prev) => (prev === key ? null : prev)), 1600)
+    } catch {
+      const ta = document.createElement('textarea')
+      ta.value = text
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.focus()
+      ta.select()
+      try {
+        document.execCommand('copy')
+        setCopiedKey(key)
+        window.setTimeout(() => setCopiedKey((prev) => (prev === key ? null : prev)), 1600)
+      } catch {}
+      finally { ta.remove() }
+    }
+  }
+
   async function copyDetailLink() {
     const url = `${window.location.origin}${getHistorySessionPath(session?.id ?? '')}`.replace('/history?session=', `/packing-sessions/${session?.id}?copy=history`)
     const detailUrl = `${window.location.origin}/packing-sessions/${session?.id}`
@@ -228,26 +285,49 @@ export function PackingSessionDetailPage() {
         ) : records.length === 0 ? (
           <div className="px-6 py-14 text-center"><div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[#f6f5f4] text-[#615d59]"><HugeiconsIcon icon={Package01Icon} size={20} strokeWidth={1.9} /></div><div className="mt-3 font-['Inter'] text-[15px] font-semibold text-[#000000]">Belum ada paket completed di sesi ini</div><div className="mt-1 font-['Inter'] text-[13px] text-[#615d59]">Sesi kosong yang sudah closed bisa dihapus.</div>{canDelete ? <Button type="button" variant="ghost" onClick={() => void handleDelete()} className="mt-4 h-9 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">Hapus sesi kosong</Button> : null}</div>
         ) : (
-          <div className="overflow-x-auto scrollbar-thin">
-            <table className="w-full min-w-[860px] border-collapse">
-              <thead className="bg-[#f6f5f4]"><tr className="text-left"><Th className="w-[56px]">No</Th><Th>Paket</Th><Th>Produk</Th><Th className="text-right">Upah</Th><Th>Waktu</Th></tr></thead>
-              <tbody className="divide-y divide-[#e6e6e6] bg-white">
-                {records.map((rec, index) => {
-                  const r = rec as unknown as { id: string; resiNumber: string; orderNumber?: string | null; mediaType?: string; packingPayAmount?: number | null; packingPayRuleId?: string | null; packingPayBreakdown?: { ruleName?: string; payType?: string; amount?: number; quantity?: number; total?: number; manualOverride?: boolean } | null; orderSnapshot?: { items?: SessionOrderItem[] } | null; startTime?: string }
-                  const itemsLabel = r.orderSnapshot?.items ? formatSessionOrderItems(r.orderSnapshot.items) : '-'
-                  const canEdit = !isPaid && payRules.length > 0
-                  return (
-                    <tr key={r.id ?? `${r.resiNumber}-${index}`} className="bg-white transition-colors hover:bg-[#fbfaf9]">
-                      <Td className="font-['Inter'] text-[13px] text-[#a39e98]">{String(index + 1).padStart(2, '0')}</Td>
-                      <Td><div className="grid gap-1"><span className="font-['Inter'] text-[13px] font-semibold text-[#000000]">{r.resiNumber}</span><span className="font-['Inter'] text-[12px] text-[#a39e98]">{r.orderNumber ? `Order ${r.orderNumber}` : 'Order -'} · {r.mediaType ?? 'video'}</span></div></Td>
-                      <Td><p className="max-w-[56rem] font-['Inter'] text-[13px] leading-5 text-[#31302e] [overflow-wrap:anywhere]">{itemsLabel}</p><div className="mt-2 inline-flex items-center gap-1.5"><span className="rounded-full bg-[#f6f5f4] px-2 py-0.5 font-['Inter'] text-[12px] font-medium text-[#31302e] ring-1 ring-[#e6e6e6]">{r.packingPayBreakdown?.ruleName ?? '-'}</span><Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" onClick={() => openPayRuleEdit({ id: r.id, resiNumber: r.resiNumber, packingPayRuleId: r.packingPayRuleId, packingPayBreakdown: r.packingPayBreakdown, packingPayAmount: r.packingPayAmount })} disabled={!canEdit || payRuleBusyId === r.id} title={isPaid ? 'Terkunci: sudah dibayar' : 'Ubah pay rule'}><HugeiconsIcon icon={isPaid ? LockPasswordIcon : Edit02Icon} size={14} strokeWidth={1.9} /></Button></div></Td>
-                      <Td className="text-right font-['Inter'] text-[13px] font-medium tabular-nums text-[#000000]">{r.packingPayAmount != null ? formatCurrency(r.packingPayAmount) : '-'}</Td>
-                      <Td className="font-['Inter'] text-[12px] text-[#a39e98]">{r.startTime ? new Date(r.startTime).toLocaleString('id-ID') : '-'}</Td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          <div className="overflow-hidden rounded-xl border border-[#dddddd] bg-white">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[780px] border-collapse">
+                <thead className="bg-[#f6f5f4]"><tr className="text-left"><Th className="px-5">Paket</Th><Th>Produk</Th><Th>Upah</Th><Th>Waktu</Th><Th className="px-5 text-right">Aksi</Th></tr></thead>
+                <tbody className="divide-y divide-[#e6e6e6] bg-white">
+                  {records.map((rec, index) => {
+                    const r = rec as unknown as { id: string; resiNumber: string; orderNumber?: string | null; mediaType?: string; packingPayAmount?: number | null; packingPayRuleId?: string | null; packingPayBreakdown?: { ruleName?: string; payType?: string; amount?: number; quantity?: number; total?: number; manualOverride?: boolean } | null; orderSnapshot?: { items?: SessionOrderItem[] } | null; startTime?: string }
+                    const items = r.orderSnapshot?.items ?? []
+                    const canEdit = !isPaid && payRules.length > 0
+                    return (
+                      <tr key={r.id ?? `${r.resiNumber}-${index}`} className="transition-colors hover:bg-[#fbfaf9]">
+                        <Td className="px-5 py-4">
+                          <div className="grid gap-1.5">
+                            <span className="font-['Inter'] text-[14px] font-semibold leading-tight text-[#000000]">{r.resiNumber}</span>
+                            <CopyValue value={r.orderNumber ?? '-'} copyKey={`order-${r.id}`} onCopy={copyText} />
+                            <span className="font-['Inter'] text-[12px] text-[#a39e98]">{r.mediaType ?? 'video'} · {r.startTime ? new Date(r.startTime).toLocaleDateString('id-ID') : '-'}</span>
+                          </div>
+                        </Td>
+                        <Td>
+                          <div className="flex max-w-[520px] items-start gap-2">
+                            <PackingOrderItemsSummary items={items} />
+                          </div>
+                        </Td>
+                        <Td>
+                          <div className="grid gap-1">
+                            <span className="font-['Inter'] text-[13px] font-medium tabular-nums text-[#000000]">{r.packingPayAmount != null ? formatCurrency(r.packingPayAmount) : '-'}</span>
+                            <span className="inline-flex w-fit rounded-full bg-[#f6f5f4] px-2 py-0.5 font-['Inter'] text-[11px] font-medium text-[#31302e] ring-1 ring-[#e6e6e6]">{r.packingPayBreakdown?.ruleName ?? '-'}</span>
+                          </div>
+                        </Td>
+                        <Td className="font-['Inter'] text-[12px] text-[#615d59]">{r.startTime ? new Date(r.startTime).toLocaleString('id-ID') : '-'}</Td>
+                        <Td className="px-5 py-4">
+                          <div className="flex justify-end gap-1.5">
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-lg border border-[#dddddd] bg-white text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" onClick={() => void copyText(r.resiNumber, `resi-${r.id}`)} title="Copy resi"><HugeiconsIcon icon={Copy01Icon} size={14} strokeWidth={1.9} /></Button>
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-lg border border-[#dddddd] bg-white text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" onClick={() => openPayRuleEdit({ id: r.id, resiNumber: r.resiNumber, packingPayRuleId: r.packingPayRuleId, packingPayBreakdown: r.packingPayBreakdown, packingPayAmount: r.packingPayAmount })} disabled={!canEdit || payRuleBusyId === r.id} title={isPaid ? 'Terkunci: sudah dibayar' : 'Ubah pay rule'}><HugeiconsIcon icon={isPaid ? LockPasswordIcon : Edit02Icon} size={14} strokeWidth={1.9} /></Button>
+                          </div>
+                        </Td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {copiedKey ? <div className="flex items-center gap-1.5 border-t border-[#dddddd] bg-[#fbfaf9] px-4 py-2.5 text-[12px] text-[#615d59]"><HugeiconsIcon icon={Copy01Icon} size={14} strokeWidth={1.9} />Copied {copiedKey}</div> : null}
           </div>
         )}
       </section>

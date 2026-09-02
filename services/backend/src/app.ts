@@ -8,7 +8,7 @@ import multer from 'multer'
 import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
 import type { AppSettings, ShopeeOrder } from '@pakti/types'
 
-import { calculatePackingPayForOrder, clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, closePackingSession, createPackingPayment, createPackingPayRule, createPackingSession, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deletePackingPayRule, deletePackingSession, deleteRecording, deleteSessionById, deleteShopeeOrderByOrderNumber, finalizeRecording, getActivePackingSession, getBootstrapStatus, getChatSendStats, getHealthSnapshot, getNextPendingShippingChatSend, getPackingPaymentById, getPackingSessionById, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, getShopeeOrderStats, getShippingChatSendStats, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPackingOperators, listPackingPayRules, listPackingPayments, listPackingSessions, listPendingChatSends, listRecentChatSends, listRecentShippingChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, prepareBundledRecordingChatSend, prepareReadyRecordingChatSendsForToday, prepareRecordingShareFile, prepareShippingChatSends, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, reopenPackingSession, resolveSession, resetOperatorPassword, retryChatSend, retryShippingChatSend, saveSettings, saveSystemConfig, updateChatSendStatus, updatePackingPayRule, updatePackingRecordingPayRule, updateSessionTaskType, updateShippingChatSendStatus, upsertOperatorProfile } from './store'
+import { calculatePackingPayForOrder, clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, closePackingSession, createPackingPayment, createPackingPayRule, createPackingSession, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deletePackingPayRule, deletePackingSession, deleteRecording, deleteSessionById, deleteShopeeOrderByOrderNumber, finalizeRecording, getActivePackingSession, getBootstrapStatus, getChatSendStats, getHealthSnapshot, getNextPendingShippingChatSend, getPackingPaymentById, getPackingSessionById, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, getShopeeOrderStats, getShippingChatSendStats, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPackingOperators, listPackingPayRules, listPackingPayments, listPackingSessions, listPendingChatSends, listRecentChatSends, listRecentShippingChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, mergePackingSessions, prepareBundledRecordingChatSend, prepareReadyRecordingChatSendsForToday, prepareRecordingShareFile, prepareShippingChatSends, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, reopenPackingSession, resolveSession, resetOperatorPassword, retryChatSend, retryShippingChatSend, saveSettings, saveSystemConfig, updateChatSendStatus, updatePackingPayRule, updatePackingRecordingPayRule, updateSessionTaskType, updateShippingChatSendStatus, upsertOperatorProfile } from './store'
 import type { ShippingChatOrderInput } from './store/shippingChatSendStore'
 import { clearSessionCookie, getCookie, normalizeRole, readStringField, sendError, sendOk, setSessionCookie } from './http'
 import type { HttpSession } from './http'
@@ -555,6 +555,16 @@ app.post('/api/packing-sessions', requireSession, (req, res) => {
     return sendOk(res, packingSession)
   } catch (error) {
     return sendError(res, 400, error instanceof Error ? error.message : 'Gagal membuat sesi packing.')
+  }
+})
+
+app.post('/api/packing-sessions/merge', requireSession, (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.sessionIds) ? (req.body.sessionIds as unknown[]) : []
+    const merged = mergePackingSessions(ids.map((id) => String(id)))
+    return sendOk(res, merged)
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal menggabungkan sesi.')
   }
 })
 

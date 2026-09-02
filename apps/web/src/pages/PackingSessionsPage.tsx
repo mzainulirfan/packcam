@@ -23,7 +23,7 @@ import { Button } from '../components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../components/ui/dialog'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
-import { closePackingSessionApi, createPackingPaymentApi, deletePackingSessionApi, readPackingPaymentsApi, readPackingPayRulesApi, readPackingSessionsApi, readServerHistoryRecordingsApi, updatePackingRecordingPayRuleApi } from '@pakti/api-client'
+import { closePackingSessionApi, createPackingPaymentApi, deletePackingSessionApi, mergePackingSessionsApi, readPackingPaymentsApi, readPackingPayRulesApi, readPackingSessionsApi, readServerHistoryRecordingsApi, updatePackingRecordingPayRuleApi } from '@pakti/api-client'
 import type { PackingPayment, PackingPayRule, PackingWorkSession } from '@pakti/types'
 import { downloadTextFile } from '@pakti/shared'
 import { recordsToCsv } from '@pakti/shared/exporters'
@@ -34,6 +34,14 @@ type SessionOrderItem = {
   productName: string
   variationName?: string | null
   quantity: number
+}
+
+function getJakartaDateKey(iso: string) {
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso))
+  } catch {
+    return iso.slice(0, 10)
+  }
 }
 
 export function PackingSessionsPage() {
@@ -195,6 +203,37 @@ export function PackingSessionsPage() {
       invalidCount: selectedRows.length - deletable.length,
     }
   }, [filtered, selectedSessionIds])
+
+  const canMergeSelected = useMemo(() => {
+    if (selectedSessionIds.size < 2) return false
+    const selected = filtered.filter((s) => selectedSessionIds.has(s.id))
+    if (selected.length !== selectedSessionIds.size) return false
+    if (selected.some((s) => Boolean(s.paidAt) || Boolean(s.paymentId))) return false
+    const first = selected[0]!
+    const opKey = `${first.packerOperatorName}::${first.packerOperatorCode}`
+    const dateKey = getJakartaDateKey(first.startedAt)
+    return selected.every((s) => `${s.packerOperatorName}::${s.packerOperatorCode}` === opKey && getJakartaDateKey(s.startedAt) === dateKey)
+  }, [filtered, selectedSessionIds])
+
+  const [mergeBusy, setMergeBusy] = useState(false)
+  async function handleMergeSelected() {
+    if (!canMergeSelected) {
+      alert('Hanya sesi dengan operator dan tanggal yang sama yang bisa digabung, dan belum dibayar.')
+      return
+    }
+    if (!confirm(`Gabung ${selectedSessionIds.size} sesi terpilih menjadi 1 sesi?`)) return
+    setMergeBusy(true)
+    try {
+      const ids = Array.from(selectedSessionIds)
+      await mergePackingSessionsApi(ids)
+      setSelectedSessionIds(new Set())
+      await load()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Gagal menggabungkan sesi')
+    } finally {
+      setMergeBusy(false)
+    }
+  }
 
   async function handleClose(id: string) {
     if (!confirm('Tutup sesi packing ini?')) return
@@ -857,15 +896,31 @@ export function PackingSessionsPage() {
       ) : null}
 
       <section className="mt-5 overflow-hidden rounded-xl border border-[#dddddd] bg-white">
-        <div className="flex flex-col gap-3 border-b border-[#dddddd] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-          <div>
-            <h2 className="font-['Inter'] text-[16px] font-semibold text-[#000000]">Daftar sesi</h2>
-            <p className="mt-1 font-['Inter'] text-[12px] text-[#a39e98]">{filtered.length} sesi terfilter · {groupedSessions.length} petugas</p>
+        <div className="flex flex-col gap-3 border-b border-[#dddddd] bg-[#fbfaf9] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="min-w-0">
+            <h2 className="font-['Inter'] text-[14px] font-semibold leading-none text-[#000000]">Daftar Sesi</h2>
+            <p className="mt-1 truncate font-['Inter'] text-[12px] leading-none text-[#615d59]">
+              {selectedSessionIds.size > 0
+                ? `${totals.selectedSessions.length} sesi · ${totals.totalPaket} paket · ${formatCurrency(totals.totalUpah)}${payPreview && !payPreview.valid ? ` · ${payPreview.mixedPacker ? 'pilih 1 petugas saja' : payPreview.notClosedCount > 0 ? `${payPreview.notClosedCount} sesi belum closed` : payPreview.alreadyPaidCount > 0 ? `${payPreview.alreadyPaidCount} sesi sudah dibayar` : ''}` : deletePreview.invalidCount > 0 ? ` · ${deletePreview.deletable.length} bisa dihapus, ${deletePreview.invalidCount} dilewati` : ''}${canMergeSelected ? ' · bisa digabung' : ''}`
+                : `Menampilkan ${filtered.length} dari ${sessions.length} sesi · ${groupedSessions.length} petugas`}
+            </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex h-9 items-center rounded-lg border border-[#dddddd] bg-[#f6f5f4] px-3 font-['Inter'] text-[12px] font-medium text-[#615d59]">{selectedSessionIds.size} terpilih</span>
-            <Button type="button" variant="ghost" onClick={selectAllFilteredSessions} disabled={filtered.length === 0} className="h-9 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40">Pilih semua</Button>
-            <Button type="button" variant="ghost" onClick={() => setSelectedSessionIds(new Set())} disabled={selectedSessionIds.size === 0} className="h-9 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40">Reset pilihan</Button>
+          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+            {selectedSessionIds.size > 0 ? (
+              <>
+                <Button type="button" variant="ghost" onClick={() => { const t = buildSelectionShareText(); if (t) void copyText(t, 'selection') }} className="h-7 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Copy01Icon} size={14} strokeWidth={1.9} /> {copiedKey === 'selection' ? 'Copied' : 'Copy'}</Button>
+                <Button type="button" variant="ghost" onClick={() => { const t = buildSelectionShareText(); if (t) setShareDraft({ title: 'Ringkasan packing', text: t }) }} className="h-7 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={SentIcon} size={14} strokeWidth={1.9} /> WA</Button>
+                <Button type="button" onClick={openPayDialog} disabled={payPreview ? !payPreview.valid : true} className="h-7 rounded-lg bg-[#000000] px-3.5 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#31302e] disabled:opacity-40"><HugeiconsIcon icon={DollarCircleIcon} size={14} strokeWidth={1.9} /> Bayar</Button>
+                <Button type="button" variant="ghost" onClick={() => void handleMergeSelected()} disabled={!canMergeSelected || mergeBusy} className="h-7 rounded-lg border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={Package01Icon} size={14} strokeWidth={1.9} /> {mergeBusy ? 'Menggabung...' : 'Gabung'}</Button>
+                <Button type="button" variant="ghost" onClick={() => void handleDeleteSelectedSessions()} disabled={deleteBusy || deletePreview.deletable.length === 0} className="h-7 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={1.9} /> {deleteBusy ? 'Menghapus...' : 'Hapus'}</Button>
+              </>
+            ) : (
+              <>
+                <span className="inline-flex h-7 items-center rounded-lg border border-[#dddddd] bg-[#f6f5f4] px-3 font-['Inter'] text-[12px] font-medium text-[#615d59]">{selectedSessionIds.size} terpilih</span>
+                <Button type="button" variant="ghost" onClick={selectAllFilteredSessions} disabled={filtered.length === 0} className="h-7 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40">Pilih semua</Button>
+                <Button type="button" variant="ghost" onClick={() => setSelectedSessionIds(new Set())} disabled={selectedSessionIds.size === 0} className="h-7 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40">Reset</Button>
+              </>
+            )}
           </div>
         </div>
         <div className="border-b border-[#dddddd] bg-white p-4 sm:p-5">
@@ -884,17 +939,7 @@ export function PackingSessionsPage() {
             </div>
           </div>
         </div>
-        {selectedSessionIds.size > 0 ? (
-          <div className="flex flex-col gap-3 border-b border-[#dddddd] bg-[#fbfaf9] px-4 py-3 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
-            <p className="font-['Inter'] text-[12px] text-[#615d59]">{totals.selectedSessions.length} sesi · {totals.totalPaket} paket · {formatCurrency(totals.totalUpah)}{payPreview && !payPreview.valid ? ` · ${payPreview.mixedPacker ? 'pilih 1 petugas saja' : payPreview.notClosedCount > 0 ? `${payPreview.notClosedCount} sesi belum closed` : payPreview.alreadyPaidCount > 0 ? `${payPreview.alreadyPaidCount} sesi sudah dibayar` : ''}` : deletePreview.invalidCount > 0 ? ` · ${deletePreview.deletable.length} bisa dihapus, ${deletePreview.invalidCount} dilewati` : ''}</p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" variant="ghost" onClick={() => { const t = buildSelectionShareText(); if (t) void copyText(t, 'selection') }} className="h-9 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Copy01Icon} size={16} strokeWidth={1.9} /> {copiedKey === 'selection' ? 'Copied' : 'Copy'}</Button>
-              <Button type="button" variant="ghost" onClick={() => { const t = buildSelectionShareText(); if (t) setShareDraft({ title: 'Ringkasan packing', text: t }) }} className="h-9 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={SentIcon} size={16} strokeWidth={1.9} /> WA</Button>
-              <Button type="button" onClick={openPayDialog} disabled={payPreview ? !payPreview.valid : true} className="h-9 rounded-lg bg-[#000000] px-5 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e] disabled:opacity-40"><HugeiconsIcon icon={DollarCircleIcon} size={16} strokeWidth={1.9} /> Bayar</Button>
-              <Button type="button" variant="ghost" onClick={() => void handleDeleteSelectedSessions()} disabled={deleteBusy || deletePreview.deletable.length === 0} className="h-9 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={Delete02Icon} size={16} strokeWidth={1.9} /> {deleteBusy ? 'Menghapus...' : 'Hapus Kosong'}</Button>
-            </div>
-          </div>
-        ) : null}
+
         {loading ? (
           <div className="grid gap-2 p-6">
             <div className="h-10 animate-pulse rounded-lg bg-[#f6f5f4]" />

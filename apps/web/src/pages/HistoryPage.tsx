@@ -18,7 +18,7 @@ import type { LocalRecordingRecord } from '@pakti/shared/recordings'
 import type { RecordingRow, WorkTask } from '@pakti/types'
 import { downloadTextFile } from '@pakti/shared'
 import { HistoryDetailDialog } from '../history/HistoryDetailDialog'
-import { HistoryFilters, type HistoryTaskFilter } from '../history/HistoryFilters'
+import { HistoryFilters, type HistoryDocStatusFilter, type HistoryTaskFilter } from '../history/HistoryFilters'
 import { HistoryRecordingCard } from '../history/HistoryRecordingCard'
 
 type HistoryRecordingGroup = {
@@ -38,6 +38,7 @@ type OrderItemLike = {
 type HistoryFilterState = {
   searchText: string
   taskFilter: HistoryTaskFilter
+  docStatusFilter: 'all' | 'lengkap' | 'belum'
   operatorFilter: string
   dateFrom: string
   dateTo: string
@@ -52,6 +53,7 @@ function getDefaultHistoryFilterState(): HistoryFilterState {
   return {
     searchText: '',
     taskFilter: 'all',
+    docStatusFilter: 'all',
     operatorFilter: 'all',
     dateFrom: today,
     dateTo: today,
@@ -78,6 +80,7 @@ function readStoredHistoryFilters(): HistoryFilterState {
     return {
       searchText: typeof parsed.searchText === 'string' ? parsed.searchText : '',
       taskFilter: parsed.taskFilter === 'qc' || parsed.taskFilter === 'packing' ? parsed.taskFilter : 'all',
+      docStatusFilter: parsed.docStatusFilter === 'lengkap' || parsed.docStatusFilter === 'belum' ? parsed.docStatusFilter : 'all',
       operatorFilter: typeof parsed.operatorFilter === 'string' ? parsed.operatorFilter : 'all',
       dateFrom: typeof parsed.dateFrom === 'string' ? parsed.dateFrom : '',
       dateTo: typeof parsed.dateTo === 'string' ? parsed.dateTo : '',
@@ -103,6 +106,7 @@ export function HistoryPage() {
   const initialHistoryFilters = useMemo(() => readStoredHistoryFilters(), [])
   const [searchText, setSearchText] = useState(initialHistoryFilters.searchText)
   const [taskFilter, setTaskFilter] = useState<HistoryTaskFilter>(initialHistoryFilters.taskFilter)
+  const [docStatusFilter, setDocStatusFilter] = useState<'all' | 'lengkap' | 'belum'>(initialHistoryFilters.docStatusFilter)
   const [operatorFilter, setOperatorFilter] = useState(initialHistoryFilters.operatorFilter)
   const [dateFrom, setDateFrom] = useState(initialHistoryFilters.dateFrom)
   const [dateTo, setDateTo] = useState(initialHistoryFilters.dateTo)
@@ -288,11 +292,12 @@ export function HistoryPage() {
     writeStoredHistoryFilters({
       searchText,
       taskFilter,
+      docStatusFilter,
       operatorFilter,
       dateFrom,
       dateTo,
     })
-  }, [dateFrom, dateTo, operatorFilter, searchText, taskFilter])
+  }, [dateFrom, dateTo, docStatusFilter, operatorFilter, searchText, taskFilter])
 
   useEffect(() => {
     function handlePointerDown(e: PointerEvent) {
@@ -413,9 +418,17 @@ export function HistoryPage() {
 
   const groupedRecordings = useMemo(() => groupRecordingsByResi(filteredRecordings), [filteredRecordings])
 
-  const totalPages = Math.max(1, Math.ceil(groupedRecordings.length / PAGE_SIZE))
+  const docStatusFilteredGroups = useMemo(() => {
+    if (docStatusFilter === 'all') return groupedRecordings
+    return groupedRecordings.filter((group) => {
+      const isLengkap = getGroupStatus(group) === 'completed'
+      return docStatusFilter === 'lengkap' ? isLengkap : !isLengkap
+    })
+  }, [groupedRecordings, docStatusFilter])
+
+  const totalPages = Math.max(1, Math.ceil(docStatusFilteredGroups.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
-  const pageItems = groupedRecordings.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+  const pageItems = docStatusFilteredGroups.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   const selectedRecord = useMemo(() => {
     return filteredRecordings.find((record) => record.id === selectedId) ?? pageItems[0]?.latest ?? null
@@ -474,14 +487,14 @@ export function HistoryPage() {
     ? new Map<string, RecordingChatSend>()
     : chatSendByRecordingId
 
-  const exportSummaryLabel = `${filteredRecordings.length} rekaman / ${groupedRecordings.length} resi`
+  const exportSummaryLabel = `${filteredRecordings.length} rekaman / ${docStatusFilteredGroups.length} resi`
   const historyMetrics = useMemo(() => {
-    const completed = groupedRecordings.filter((group) => getGroupStatus(group) === 'completed').length
-    const incomplete = groupedRecordings.length - completed
+    const completed = docStatusFilteredGroups.filter((group) => getGroupStatus(group) === 'completed').length
+    const incomplete = docStatusFilteredGroups.length - completed
 
     return { completed, incomplete }
-  }, [groupedRecordings])
-  const hasActiveFilters = Boolean(searchText.trim() || taskFilter !== 'all' || operatorFilter !== 'all' || dateFrom || dateTo)
+  }, [docStatusFilteredGroups])
+  const hasActiveFilters = Boolean(searchText.trim() || taskFilter !== 'all' || docStatusFilter !== 'all' || operatorFilter !== 'all' || dateFrom || dateTo)
 
   function getShopeeOrderForRecord(record: LocalRecordingRecord) {
     const snapshot = (record as unknown as { orderSnapshot?: { orderNumber?: string | null } | null }).orderSnapshot ?? null
@@ -523,6 +536,11 @@ export function HistoryPage() {
     setPage(1)
   }
 
+  function handleDocStatusChange(nextFilter: HistoryDocStatusFilter) {
+    setDocStatusFilter(nextFilter)
+    setPage(1)
+  }
+
   function handleOperatorChange(value: string) {
     setOperatorFilter(value)
     setPage(1)
@@ -554,6 +572,7 @@ export function HistoryPage() {
     const defaultHistoryFilterState = getDefaultHistoryFilterState()
     setSearchText(defaultHistoryFilterState.searchText)
     setTaskFilter(defaultHistoryFilterState.taskFilter)
+    setDocStatusFilter(defaultHistoryFilterState.docStatusFilter)
     setOperatorFilter(defaultHistoryFilterState.operatorFilter)
     setDateFrom(defaultHistoryFilterState.dateFrom)
     setDateTo(defaultHistoryFilterState.dateTo)
@@ -562,23 +581,25 @@ export function HistoryPage() {
   }
 
   function handleExportCsv() {
-    const csv = recordsToCsv(filteredRecordings)
+    const exportRecords = docStatusFilteredGroups.flatMap((group) => group.records)
+    const csv = recordsToCsv(exportRecords)
     downloadTextFile(
       `pakti-recordings-${formatDateForExport(new Date())}.csv`,
       csv,
       'text/csv;charset=utf-8',
     )
-    notify.save('Export CSV berhasil', `${filteredRecordings.length} rekaman siap diunduh.`)
+    notify.save('Export CSV berhasil', `${exportRecords.length} rekaman siap diunduh.`)
   }
 
   function handleExportExcel() {
-    const xml = recordsToExcelXml(filteredRecordings)
+    const exportRecords = docStatusFilteredGroups.flatMap((group) => group.records)
+    const xml = recordsToExcelXml(exportRecords)
     downloadTextFile(
       `pakti-recordings-${formatDateForExport(new Date())}.xls`,
       xml,
       'application/vnd.ms-excel',
     )
-    notify.save('Export Excel berhasil', `${filteredRecordings.length} rekaman siap diunduh.`)
+    notify.save('Export Excel berhasil', `${exportRecords.length} rekaman siap diunduh.`)
   }
 
   async function handleOpenVideoFolder() {
@@ -759,7 +780,7 @@ export function HistoryPage() {
           <p className="mt-3 max-w-2xl font-['Inter'] text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Telusuri dokumentasi QC dan packing berdasarkan resi, pesanan, operator, periode, atau status pengiriman.</p>
         </div>
         <div ref={exportRef} className="relative flex shrink-0 items-center gap-2">
-          <Button type="button" onClick={() => setIsExportOpen((v) => !v)} className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-[#0075de] px-5 font-['Inter'] text-[14px] font-medium text-white shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.035)] hover:bg-[#005bab] active:scale-[0.98]">
+          <Button type="button" onClick={() => setIsExportOpen((v) => !v)} className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-[8px] border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4] active:scale-[0.98]">
               <HugeiconsIcon icon={Download01Icon} size={16} strokeWidth={1.9} /> Export <HugeiconsIcon icon={ArrowDown01Icon} size={14} strokeWidth={1.9} />
             </Button>
             {isExportOpen ? (
@@ -796,27 +817,27 @@ export function HistoryPage() {
       </section>
 
       <section className="grid gap-3 sm:grid-cols-3">
-        <article className="rounded-xl border border-[#dddddd] bg-white p-5">
+        <article className="rounded-[12px] border border-[#e6e6e6] bg-white p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Total dokumentasi</div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{groupedRecordings.length}</span>
+                <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{docStatusFilteredGroups.length}</span>
                 <span className="font-['Inter'] text-[13px] text-[#615d59]">paket</span>
               </div>
             </div>
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
+            <span className="grid h-8 w-8 place-items-center rounded-[8px] bg-[#f6f5f4] text-[#31302e]">
               <HugeiconsIcon icon={Package01Icon} size={18} strokeWidth={1.9} />
             </span>
           </div>
         </article>
-        <article className="rounded-xl border border-[#dddddd] bg-white p-5">
+        <article className="rounded-[12px] border border-[#e6e6e6] bg-white p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Dokumentasi lengkap</div>
               <div className="mt-3 flex items-baseline gap-2">
                 <span className="font-['Inter'] text-[28px] font-bold leading-none tracking-[-0.5px] text-[#000000]">{historyMetrics.completed}</span>
-                <span className="font-['Inter'] text-[13px] text-[#615d59]">{groupedRecordings.length ? `${Math.round((historyMetrics.completed / groupedRecordings.length) * 100)}%` : '0%'}</span>
+                <span className="font-['Inter'] text-[13px] text-[#615d59]">{docStatusFilteredGroups.length ? `${Math.round((historyMetrics.completed / docStatusFilteredGroups.length) * 100)}%` : '0%'}</span>
               </div>
             </div>
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
@@ -824,7 +845,7 @@ export function HistoryPage() {
             </span>
           </div>
         </article>
-        <article className="rounded-xl border border-[#dddddd] bg-white p-5">
+        <article className="rounded-[12px] border border-[#e6e6e6] bg-white p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Perlu perhatian</div>
@@ -833,7 +854,7 @@ export function HistoryPage() {
                 <span className="font-['Inter'] text-[13px] text-[#615d59]">paket</span>
               </div>
             </div>
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#f6f5f4] text-[#31302e]">
+            <span className="grid h-8 w-8 place-items-center rounded-[8px] bg-[#f6f5f4] text-[#31302e]">
               <HugeiconsIcon icon={Clock01Icon} size={18} strokeWidth={1.9} />
             </span>
           </div>
@@ -841,21 +862,22 @@ export function HistoryPage() {
       </section>
 
       {packingSessionFilter ? (
-        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-[#dddddd] bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-5 flex flex-col gap-3 rounded-[12px] border border-[#e6e6e6] bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="font-['Inter'] text-[13px] text-[#31302e]">
             Filter sesi: <span className="font-['Inter'] font-semibold text-[#000000]">{packingSessionFilter.slice(0, 8)}</span> — hanya rekaman packing untuk sesi ini.
           </p>
-          <Button type="button" variant="ghost" size="sm" onClick={() => setPackingSessionFilter(null)} className="h-8 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">
+          <Button type="button" variant="ghost" size="sm" onClick={() => setPackingSessionFilter(null)} className="h-8 rounded-[8px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">
             <HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={1.9} /> Clear
           </Button>
         </div>
       ) : null}
 
         <div className="mt-5 grid gap-4 min-w-0">
-          <section className="overflow-hidden rounded-xl border border-[#dddddd] bg-white">
+          <section className="overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white">
             <HistoryFilters
               searchText={searchText}
               taskFilter={taskFilter}
+              docStatusFilter={docStatusFilter}
               operatorFilter={operatorFilter}
               dateFrom={dateFrom}
               dateTo={dateTo}
@@ -863,16 +885,17 @@ export function HistoryPage() {
               operatorOptions={operatorOptions}
               onSearchTextChange={handleTextChange}
               onTaskFilterChange={handleTaskChange}
+              onDocStatusFilterChange={handleDocStatusChange}
               onOperatorFilterChange={handleOperatorChange}
               onDateChange={handleDateChange}
               onClearFilters={clearFilters}
             />
-            <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-5">
+            <div className="flex items-center justify-between gap-4 border-b border-[#e6e6e6] bg-[#fbfaf9] px-4 py-3 sm:px-5">
               <div>
-                <h2 className="font-['Inter'] text-[16px] font-semibold text-[#000000]">Dokumentasi paket</h2>
-                <p className="mt-1 font-['Inter'] text-[12px] text-[#a39e98]">{isRefreshingHistory ? 'Memperbarui data terbaru...' : 'Klik nomor resi atau baris untuk melihat detail dokumentasi.'}</p>
+                <h2 className="font-['Inter'] text-[14px] font-semibold leading-none text-[#000000]">Dokumentasi paket</h2>
+                <p className="mt-1 font-['Inter'] text-[12px] leading-none text-[#a39e98]">{isRefreshingHistory ? 'Memperbarui data terbaru...' : 'Klik nomor resi atau baris untuk melihat detail dokumentasi.'}</p>
               </div>
-              <span className="inline-flex items-center rounded-full border border-[#dddddd] bg-white px-2.5 py-1 font-['Inter'] text-[11px] font-semibold text-[#0075de]">{groupedRecordings.length} hasil</span>
+              <span className="inline-flex items-center rounded-full border border-[#e6e6e6] bg-white px-2.5 py-1 font-['Inter'] text-[11px] font-semibold text-[#31302e]">{docStatusFilteredGroups.length} hasil</span>
             </div>
             <div className="min-w-0 p-0">
               {isLoadingHistory ? <HistorySkeleton /> : null}
@@ -889,7 +912,7 @@ export function HistoryPage() {
                 </div>
               ) : null}
 
-              <div className="divide-y divide-[#e6e6e6] bg-white md:hidden">
+              <div className="grid gap-2 bg-[#f6f5f4] p-3 md:hidden">
                 {!isLoadingHistory && !historyError && pageItems.length ? (
                   pageItems.map((group) => {
                     const isSelected = group.latest.id === selectedRecord?.id
@@ -898,11 +921,11 @@ export function HistoryPage() {
                       <article
                         key={group.resiNumber}
                         onClick={() => openDetail(group.latest)}
-                        className={`grid cursor-pointer gap-3 p-4 transition-colors ${isSelected ? 'bg-[#f6f5f4]' : 'bg-white hover:bg-[#fbfaf9]'}`}
+                        className={`grid cursor-pointer gap-3 rounded-[12px] border bg-white p-4 transition-colors ${isSelected ? 'border-[#000000] bg-[#f6f5f4]' : 'border-[#e6e6e6] hover:border-[#d8d5d1] hover:bg-[#fbfaf9]'}`}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="grid min-w-0 gap-0.5">
-                            <span className="font-['Inter'] text-[14px] font-semibold leading-tight text-[#000000]">{group.resiNumber}</span>
+                            <span className="font-['Inter'] text-[14px] font-semibold leading-tight tracking-[-0.2px] text-[#000000]">{group.resiNumber}</span>
                             {shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())?.orderNumber ? (
                               <span className="truncate font-['Inter'] text-[12px] text-[#615d59]">{shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())!.orderNumber}</span>
                             ) : null}
@@ -916,7 +939,7 @@ export function HistoryPage() {
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center justify-between gap-3 border-t border-[#e6e6e6] pt-3">
                           <div className="flex min-w-0 items-center gap-2">
                             <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#000000] text-[11px] font-semibold text-white">{getInitials(formatOperatorForCurrentSession(group.latest.operatorName, group.latest.operatorCode, currentOperatorName, currentOperatorCode))}</span>
                             <span className="truncate font-['Inter'] text-[12px] text-[#615d59]">{formatOperatorForCurrentSession(group.latest.operatorName, group.latest.operatorCode, currentOperatorName, currentOperatorCode)}</span>
@@ -928,9 +951,7 @@ export function HistoryPage() {
                               compact
                             />
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="grid h-7 w-7 place-items-center text-[#a39e98]">›</span>
-                          </div>
+                          <span className="grid h-7 w-7 place-items-center rounded-full bg-[#f6f5f4] text-[#a39e98]">›</span>
                         </div>
                       </article>
                     )
@@ -1018,10 +1039,10 @@ export function HistoryPage() {
                 </div>
               </div>
 
-              {groupedRecordings.length > PAGE_SIZE ? (
+              {docStatusFilteredGroups.length > PAGE_SIZE ? (
                 <div className="flex flex-col gap-3 border-t border-[#dddddd] bg-[#fbfaf9] px-4 py-3 font-['Inter'] sm:flex-row sm:items-center sm:justify-between sm:px-5">
                   <span className="font-['Inter'] text-[13px] text-[#615d59]">
-                    <span className="font-semibold text-[#000000]">{(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, groupedRecordings.length)}</span> dari <span className="font-semibold text-[#000000]">{groupedRecordings.length}</span> dokumentasi
+                    <span className="font-semibold text-[#000000]">{(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, docStatusFilteredGroups.length)}</span> dari <span className="font-semibold text-[#000000]">{docStatusFilteredGroups.length}</span> dokumentasi
                   </span>
                   <div className="flex flex-wrap items-center gap-1">
                     <Button

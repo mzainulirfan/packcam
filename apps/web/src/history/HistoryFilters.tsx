@@ -7,6 +7,7 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 
 export type HistoryTaskFilter = 'all' | WorkTask
+export type HistoryDocStatusFilter = 'all' | 'lengkap' | 'belum'
 
 type OperatorOption = {
   value: string
@@ -16,6 +17,7 @@ type OperatorOption = {
 type HistoryFiltersProps = {
   searchText: string
   taskFilter: HistoryTaskFilter
+  docStatusFilter: HistoryDocStatusFilter
   operatorFilter: string
   dateFrom: string
   dateTo: string
@@ -23,6 +25,7 @@ type HistoryFiltersProps = {
   operatorOptions: OperatorOption[]
   onSearchTextChange: (value: string) => void
   onTaskFilterChange: (value: HistoryTaskFilter) => void
+  onDocStatusFilterChange: (value: HistoryDocStatusFilter) => void
   onOperatorFilterChange: (value: string) => void
   onDateChange: (kind: 'from' | 'to', value: string) => void
   onClearFilters: () => void
@@ -34,9 +37,16 @@ const taskOptions: Array<{ value: HistoryTaskFilter; label: string }> = [
   { value: 'packing', label: 'Packing' },
 ]
 
+const docStatusOptions: Array<{ value: HistoryDocStatusFilter; label: string }> = [
+  { value: 'all', label: 'Semua status' },
+  { value: 'lengkap', label: 'Lengkap' },
+  { value: 'belum', label: 'Belum' },
+]
+
 export function HistoryFilters({
   searchText,
   taskFilter,
+  docStatusFilter,
   operatorFilter,
   dateFrom,
   dateTo,
@@ -44,6 +54,7 @@ export function HistoryFilters({
   operatorOptions,
   onSearchTextChange,
   onTaskFilterChange,
+  onDocStatusFilterChange,
   onOperatorFilterChange,
   onDateChange,
   onClearFilters,
@@ -75,10 +86,10 @@ export function HistoryFilters({
     setShowCustomRange(false)
     onClearFilters()
   }
-  const hasActiveFilters = Boolean(searchText.trim()) || taskFilter !== 'all' || operatorFilter !== 'all' || activeDatePreset !== 'none'
+  const hasActiveFilters = Boolean(searchText.trim()) || taskFilter !== 'all' || docStatusFilter !== 'all' || operatorFilter !== 'all' || activeDatePreset !== 'none'
 
   return (
-    <div className="relative z-20 overflow-visible border-b border-[#dddddd] p-4 sm:p-5">
+    <div className="relative z-20 overflow-visible border-b border-[#e6e6e6] p-4 sm:p-5">
       <div className="flex flex-wrap items-center gap-2">
         <label className="relative flex min-w-[240px] flex-1">
           <span className="pointer-events-none absolute inset-y-0 left-0 grid w-10 place-items-center text-[#a39e98]">
@@ -100,6 +111,7 @@ export function HistoryFilters({
 
         <div className="flex flex-wrap items-center gap-2">
           <TaskDropdown value={taskFilter} onChange={onTaskFilterChange} />
+          <DocStatusDropdown value={docStatusFilter} onChange={onDocStatusFilterChange} />
           {isAdmin ? <OperatorSearchSelect value={operatorFilter} options={operatorOptions} onChange={onOperatorFilterChange} compact /> : null}
           <PeriodeDropdown
             activePreset={activeDatePreset}
@@ -132,7 +144,7 @@ function TaskDropdown({ value, onChange }: { value: HistoryTaskFilter; onChange:
   }, [])
   return (
     <div ref={ref} className="relative shrink-0">
-      <button type="button" onClick={() => setOpen((v) => !v)} className="relative inline-flex h-10 items-center rounded-lg border border-[#dddddd] bg-white pl-9 pr-8 font-['Inter'] text-[13px] font-medium text-[#000000] hover:bg-[#f6f5f4]">
+      <button type="button" onClick={() => setOpen((v) => !v)} className="relative inline-flex h-10 items-center rounded-[8px] border border-[#e6e6e6] bg-white pl-9 pr-8 font-['Inter'] text-[13px] font-medium text-[#000000] hover:bg-[#f6f5f4]">
         <span className="pointer-events-none absolute left-3 grid place-items-center text-[#31302e]">
           <HugeiconsIcon icon={Task01Icon} size={17} strokeWidth={1.9} />
         </span>
@@ -142,8 +154,48 @@ function TaskDropdown({ value, onChange }: { value: HistoryTaskFilter; onChange:
         </span>
       </button>
       {open ? (
-        <div className="absolute left-0 top-[calc(100%+6px)] z-30 min-w-[160px] rounded-xl border border-[#dddddd] bg-white p-1 shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+        <div className="absolute left-0 top-[calc(100%+6px)] z-30 min-w-[160px] rounded-[12px] border border-[#e6e6e6] bg-white p-1 shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
           {taskOptions.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => { onChange(opt.value); setOpen(false) }}
+              className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left font-['Inter'] text-[13px] ${value === opt.value ? 'bg-[#f6f5f4] font-semibold text-[#000000]' : 'text-[#31302e] hover:bg-[#f6f5f4]'}`}
+            >
+              {opt.label} {value === opt.value ? <HugeiconsIcon icon={Tick02Icon} size={14} strokeWidth={2} /> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function DocStatusDropdown({ value, onChange }: { value: HistoryDocStatusFilter; onChange: (v: HistoryDocStatusFilter) => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement | null>(null)
+  const label = value === 'all' ? 'Semua status' : value === 'lengkap' ? 'Lengkap' : 'Belum'
+  useEffect(() => {
+    function onDown(e: PointerEvent) {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', onDown)
+    return () => document.removeEventListener('pointerdown', onDown)
+  }, [])
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button type="button" onClick={() => setOpen((v) => !v)} className="relative inline-flex h-10 items-center rounded-[8px] border border-[#e6e6e6] bg-white pl-9 pr-8 font-['Inter'] text-[13px] font-medium text-[#000000] hover:bg-[#f6f5f4]">
+        <span className="pointer-events-none absolute left-3 grid place-items-center text-[#31302e]">
+          <HugeiconsIcon icon={Tick02Icon} size={17} strokeWidth={1.9} />
+        </span>
+        {label}
+        <span className="pointer-events-none absolute right-3 grid place-items-center text-[#a39e98]">
+          <HugeiconsIcon icon={ArrowDown01Icon} size={15} strokeWidth={1.9} />
+        </span>
+      </button>
+      {open ? (
+        <div className="absolute left-0 top-[calc(100%+6px)] z-30 min-w-[160px] rounded-[12px] border border-[#e6e6e6] bg-white p-1 shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+          {docStatusOptions.map((opt) => (
             <button
               key={opt.value}
               type="button"

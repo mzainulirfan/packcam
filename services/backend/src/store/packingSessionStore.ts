@@ -315,6 +315,48 @@ export function deletePackingSession(id: string) {
   return true
 }
 
+function getJakartaDateKey(iso: string): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso))
+  } catch {
+    return iso.slice(0, 10)
+  }
+}
+
+export function mergePackingSessions(ids: string[]) {
+  const trimmed = Array.from(new Set(ids.map((id) => String(id).trim()).filter(Boolean)))
+  if (trimmed.length < 2) throw new Error('Pilih minimal 2 sesi untuk digabung.')
+  const sessions = trimmed.map((id) => getPackingSessionById(id)).filter(Boolean) as PackingWorkSession[]
+  if (sessions.length !== trimmed.length) throw new Error('Beberapa sesi tidak ditemukan.')
+  if (sessions.some((s) => Boolean(s.paidAt) || Boolean(s.paymentId))) throw new Error('Sesi yang sudah dibayar tidak bisa digabung.')
+  const first = sessions[0]!
+  const operatorKey = `${first.packerOperatorName}::${first.packerOperatorCode}`
+  const dateKey = getJakartaDateKey(first.startedAt)
+  for (const s of sessions) {
+    if (`${s.packerOperatorName}::${s.packerOperatorCode}` !== operatorKey) throw new Error('Hanya sesi dengan operator yang sama yang bisa digabung.')
+    if (getJakartaDateKey(s.startedAt) !== dateKey) throw new Error('Hanya sesi di tanggal yang sama yang bisa digabung.')
+  }
+  sessions.sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime())
+  const primary = sessions[0]!
+  const duplicates = sessions.slice(1)
+  const timestamp = nowIso()
+  let latestEndedAt = primary.endedAt ? new Date(primary.endedAt).getTime() : 0
+  for (const dup of duplicates) {
+    const dupEnded = dup.endedAt ? new Date(dup.endedAt).getTime() : 0
+    if (dupEnded > latestEndedAt) latestEndedAt = dupEnded
+    db().prepare(`UPDATE recordings SET packing_session_id = ?, updated_at = ? WHERE packing_session_id = ?`).run(primary.id, timestamp, dup.id)
+  }
+  const newEndedAt = latestEndedAt ? new Date(latestEndedAt).toISOString() : primary.endedAt
+  const newStatus = sessions.some((s) => s.status === 'active') ? 'active' : 'closed'
+  db().prepare(`UPDATE packing_work_sessions SET ended_at = ?, status = ?, updated_at = ? WHERE id = ?`).run(newEndedAt, newStatus, timestamp, primary.id)
+  for (const dup of duplicates) {
+    db().prepare(`DELETE FROM packing_work_sessions WHERE id = ?`).run(dup.id)
+    broadcastBackendEvent('sessions-updated', { packingSessionId: dup.id, action: 'packing-session-merged', targetId: primary.id })
+  }
+  broadcastBackendEvent('sessions-updated', { packingSessionId: primary.id, action: 'packing-sessions-merged', mergedIds: trimmed })
+  return getPackingSessionById(primary.id)
+}
+
 export function assertActivePackingSession(id: string) {
   const session = getPackingSessionById(id)
   if (!session || session.status !== 'active') {

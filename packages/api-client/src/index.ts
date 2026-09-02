@@ -423,6 +423,13 @@ export function readPackingSessionsApi(limit = 50) {
   return requestApi<PackingWorkSession[]>(`/api/packing-sessions?limit=${encodeURIComponent(String(limit))}`)
 }
 
+export function mergePackingSessionsApi(sessionIds: string[]) {
+  return requestApi<PackingWorkSession>('/api/packing-sessions/merge', {
+    method: 'POST',
+    body: JSON.stringify({ sessionIds }),
+  })
+}
+
 export function readPackingPaymentsApi(limit = 50) {
   return requestApi<PackingPayment[]>(`/api/packing-payments?limit=${encodeURIComponent(String(limit))}`)
 }
