@@ -906,21 +906,19 @@ export function PackingSessionsPage() {
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+            <span className="inline-flex h-7 items-center rounded-lg border border-[#dddddd] bg-[#f6f5f4] px-3 font-['Inter'] text-[12px] font-medium text-[#615d59]">{selectedSessionIds.size} terpilih</span>
+            <Button type="button" variant="ghost" onClick={selectAllFilteredSessions} disabled={filtered.length === 0} className="h-7 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40">Pilih semua</Button>
+            <Button type="button" variant="ghost" onClick={() => setSelectedSessionIds(new Set())} disabled={selectedSessionIds.size === 0} className="h-7 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40">Reset</Button>
             {selectedSessionIds.size > 0 ? (
               <>
+                <span className="mx-1 hidden h-7 w-px bg-[#e6e6e6] sm:block" aria-hidden="true" />
                 <Button type="button" variant="ghost" onClick={() => { const t = buildSelectionShareText(); if (t) void copyText(t, 'selection') }} className="h-7 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Copy01Icon} size={14} strokeWidth={1.9} /> {copiedKey === 'selection' ? 'Copied' : 'Copy'}</Button>
                 <Button type="button" variant="ghost" onClick={() => { const t = buildSelectionShareText(); if (t) setShareDraft({ title: 'Ringkasan packing', text: t }) }} className="h-7 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={SentIcon} size={14} strokeWidth={1.9} /> WA</Button>
                 <Button type="button" onClick={openPayDialog} disabled={payPreview ? !payPreview.valid : true} className="h-7 rounded-lg bg-[#000000] px-3.5 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#31302e] disabled:opacity-40"><HugeiconsIcon icon={DollarCircleIcon} size={14} strokeWidth={1.9} /> Bayar</Button>
                 <Button type="button" variant="ghost" onClick={() => void handleMergeSelected()} disabled={!canMergeSelected || mergeBusy} className="h-7 rounded-lg border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={Package01Icon} size={14} strokeWidth={1.9} /> {mergeBusy ? 'Menggabung...' : 'Gabung'}</Button>
                 <Button type="button" variant="ghost" onClick={() => void handleDeleteSelectedSessions()} disabled={deleteBusy || deletePreview.deletable.length === 0} className="h-7 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={1.9} /> {deleteBusy ? 'Menghapus...' : 'Hapus'}</Button>
               </>
-            ) : (
-              <>
-                <span className="inline-flex h-7 items-center rounded-lg border border-[#dddddd] bg-[#f6f5f4] px-3 font-['Inter'] text-[12px] font-medium text-[#615d59]">{selectedSessionIds.size} terpilih</span>
-                <Button type="button" variant="ghost" onClick={selectAllFilteredSessions} disabled={filtered.length === 0} className="h-7 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40">Pilih semua</Button>
-                <Button type="button" variant="ghost" onClick={() => setSelectedSessionIds(new Set())} disabled={selectedSessionIds.size === 0} className="h-7 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40">Reset</Button>
-              </>
-            )}
+            ) : null}
           </div>
         </div>
         <div className="border-b border-[#dddddd] bg-white p-4 sm:p-5">
