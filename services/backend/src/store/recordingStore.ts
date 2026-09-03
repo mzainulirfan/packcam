@@ -879,6 +879,27 @@ function scheduleRecordingWatermark(recording: RecordingRow | null) {
       reportLastError(watermarkError instanceof Error ? watermarkError.message : 'Gagal memberi watermark video.')
     }
   })
+
+  void tryAutoQueuePackingProof(completedRecording.resi_number).catch(() => {})
+}
+
+function tryAutoQueuePackingProof(resiNumber: string) {
+  const normalized = resiNumber.trim()
+  if (!normalized) return Promise.resolve()
+  return Promise.resolve().then(async () => {
+    const qc = db().prepare(`SELECT id FROM recordings WHERE resi_number = ? AND task_type = 'qc' AND status = 'completed' LIMIT 1`).get(normalized) as { id: string } | undefined
+    const packing = db().prepare(`SELECT id FROM recordings WHERE resi_number = ? AND task_type = 'packing' AND status = 'completed' LIMIT 1`).get(normalized) as { id: string } | undefined
+    if (!qc || !packing) return
+    const existing = db().prepare(`SELECT id FROM recording_chat_sends WHERE resi_number = ? AND status IN ('pending','prepared','sent') LIMIT 1`).get(normalized) as { id: string } | undefined
+    if (existing) return
+    const latestPacking = db().prepare(`SELECT id FROM recordings WHERE resi_number = ? AND task_type = 'packing' AND status = 'completed' ORDER BY updated_at DESC LIMIT 1`).get(normalized) as { id: string } | undefined
+    if (!latestPacking) return
+    const { prepareBundledRecordingChatSend } = await import('./chatSendStore')
+    await prepareBundledRecordingChatSend({
+      recordingId: latestPacking.id,
+      prepareShareFile: (id: string) => prepareRecordingShareFile(id).then((f) => ({ filePath: f.filePath, fileName: f.fileName, mimeType: f.mimeType })),
+    })
+  })
 }
 
 function finalizePendingRecording(
