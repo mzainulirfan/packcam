@@ -144,19 +144,17 @@ export function matchesHistoryDateFilter(updatedAt: string, historyDateFilter: H
     return false
   }
 
-  const now = new Date()
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const startOfYesterday = startOfToday - 86400000
+  const jakartaKey = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso))
+  const todayKey = jakartaKey(new Date().toISOString())
+  const recordKey = jakartaKey(updatedAt)
+  const toKey = (d: Date) => jakartaKey(d.toISOString())
+  const yesterdayKey = toKey(new Date(Date.now() - 86400000))
+  const weekStart = new Date(Date.now() - 6 * 86400000)
+  const weekStartKey = toKey(weekStart)
 
-  if (historyDateFilter === 'today') {
-    return recordTime >= startOfToday
-  }
-
-  if (historyDateFilter === 'yesterday') {
-    return recordTime >= startOfYesterday && recordTime < startOfToday
-  }
-
-  return recordTime >= startOfToday - 6 * 86400000
+  if (historyDateFilter === 'today') return recordKey === todayKey
+  if (historyDateFilter === 'yesterday') return recordKey === yesterdayKey
+  return recordKey >= weekStartKey && recordKey <= todayKey
 }
 
 export function filterRecordings(input: {
@@ -243,8 +241,9 @@ export function groupHistoryByDate(groupedRecordings: HistoryGroup[], historyDoc
     ? groupedRecordings
     : groupedRecordings.filter((group) => getDocStatus(group) === historyDocStatusFilter)
 
+  const jakartaKey = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso))
   for (const group of filteredByDocStatus) {
-    const dateKey = group.latestRow?.updatedAt ? new Date(group.latestRow.updatedAt).toDateString() : '-'
+    const dateKey = group.latestRow?.updatedAt ? jakartaKey(group.latestRow.updatedAt) : '-'
     if (!sections.has(dateKey)) sections.set(dateKey, [])
     sections.get(dateKey)?.push(group)
   }
@@ -254,12 +253,14 @@ export function groupHistoryByDate(groupedRecordings: HistoryGroup[], historyDoc
 
 export function formatSectionDate(dateKey: string) {
   if (dateKey === '-') return ''
-  const d = new Date(dateKey)
-  const today = new Date().toDateString()
-  const yesterday = new Date(Date.now() - 86400000).toDateString()
-  if (dateKey === today) return 'Hari ini'
-  if (dateKey === yesterday) return 'Kemarin'
-  return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(d)
+  // dateKey is YYYY-MM-DD in Asia/Jakarta
+  const jakartaToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+  const jakartaYesterday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now() - 86400000))
+  if (dateKey === jakartaToday) return 'Hari ini'
+  if (dateKey === jakartaYesterday) return 'Kemarin'
+  const [y, m, d] = dateKey.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, (m - 1), d))
+  return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' }).format(dt)
 }
 
 export function getHistoryEmptyState(input: {
