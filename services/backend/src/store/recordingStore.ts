@@ -355,7 +355,7 @@ export function createRecordingDraft(input: RecordingDraftInput) {
   const id = input.id ?? makeId('recording')
   const startedAt = input.startedAt ? new Date(input.startedAt) : new Date()
   const startTime = startedAt.toISOString()
-  const recordDate = startTime.slice(0, 10)
+  const recordDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(startedAt)
   const taskType = normalizeTaskType(input.taskType)
   if (taskType === 'packing' && !canStartPackingForResi(input.resiNumber)) {
     throw new Error('Packing hanya bisa dimulai setelah QC selesai untuk resi ini.')
