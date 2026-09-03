@@ -293,16 +293,19 @@ export function PackingSessionDetailPage() {
                 <thead className="bg-[#f6f5f4]"><tr className="text-left"><Th className="px-5">Paket</Th><Th>Produk</Th><Th>Upah</Th><Th>Waktu</Th><Th className="px-5 text-right">Aksi</Th></tr></thead>
                 <tbody className="divide-y divide-[#e6e6e6] bg-white">
                   {records.map((rec, index) => {
-                    const r = rec as unknown as { id: string; resiNumber: string; orderNumber?: string | null; mediaType?: string; packingPayAmount?: number | null; packingPayRuleId?: string | null; packingPayBreakdown?: { ruleName?: string; payType?: string; amount?: number; quantity?: number; total?: number; manualOverride?: boolean } | null; orderSnapshot?: { items?: SessionOrderItem[] } | null; startTime?: string }
-                    const items = r.orderSnapshot?.items ?? []
+                    const r = rec as unknown as { id: string; resiNumber: string; orderNumber?: string | null; shippingChannel?: string | null; mediaType?: string; packingPayAmount?: number | null; packingPayRuleId?: string | null; packingPayBreakdown?: { ruleName?: string; payType?: string; amount?: number; quantity?: number; total?: number; manualOverride?: boolean } | null; orderSnapshot?: { shippingChannel?: string | null; orderNumber?: string | null; items?: SessionOrderItem[] } | null; startTime?: string }
+                    const snapshot = r.orderSnapshot
+                    const items = snapshot?.items ?? []
+                    const orderNo = r.orderNumber ?? snapshot?.orderNumber ?? '-'
+                    const courier = r.shippingChannel ?? snapshot?.shippingChannel ?? (r.resiNumber.startsWith('SPXID') ? 'SPX Standard' : r.resiNumber.startsWith('323') ? 'SPX Instant' : '-')
                     const canEdit = !isPaid && payRules.length > 0
                     return (
                       <tr key={r.id ?? `${r.resiNumber}-${index}`} className="transition-colors hover:bg-[#fbfaf9]">
                         <Td className="px-5 py-4">
                           <div className="grid gap-1.5">
                             <span className="font-['Inter'] text-[14px] font-semibold leading-tight text-[#000000]">{r.resiNumber}</span>
-                            <CopyValue value={r.orderNumber ?? '-'} copyKey={`order-${r.id}`} onCopy={copyText} />
-                            <span className="font-['Inter'] text-[12px] text-[#a39e98]">{r.mediaType ?? 'video'} · {r.startTime ? new Date(r.startTime).toLocaleDateString('id-ID') : '-'}</span>
+                            <CopyValue value={orderNo} copyKey={`order-${r.id}`} onCopy={copyText} />
+                            <span className="font-['Inter'] text-[12px] text-[#a39e98]">{courier} · {r.mediaType ?? 'video'} · {r.startTime ? new Date(r.startTime).toLocaleDateString('id-ID') : '-'}</span>
                           </div>
                         </Td>
                         <Td>

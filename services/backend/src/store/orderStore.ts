@@ -292,7 +292,7 @@ export function getShopeeOrderByResi(resiNumber: string) {
     return null
   }
 
-  const row = db()
+  let row = db()
     .prepare(
       `SELECT id, source, order_number, tracking_number, buyer_username, shipping_channel, order_status, raw_payload, created_at, updated_at
        FROM orders
@@ -302,6 +302,19 @@ export function getShopeeOrderByResi(resiNumber: string) {
        LIMIT 1`,
     )
     .get(normalizedResi) as OrderRow | undefined
+
+  if (!row) {
+    row = db()
+      .prepare(
+        `SELECT id, source, order_number, tracking_number, buyer_username, shipping_channel, order_status, raw_payload, created_at, updated_at
+         FROM orders
+         WHERE source = 'shopee'
+           AND lower(order_number) = lower(?)
+         ORDER BY updated_at DESC
+         LIMIT 1`,
+      )
+      .get(normalizedResi) as OrderRow | undefined
+  }
 
   return getOrderByRow(row)
 }
