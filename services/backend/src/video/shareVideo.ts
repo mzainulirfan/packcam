@@ -24,14 +24,23 @@ function getShareEncodingProfile(recording: VideoProcessingRecording) {
   return { videoBitrate, audioBitrate }
 }
 
+function findEbmlOffset(buffer: Buffer): number {
+  for (let i = 0; i < Math.min(buffer.length - 4, 64); i += 1) {
+    if (buffer[i] === 0x1a && buffer[i + 1] === 0x45 && buffer[i + 2] === 0xdf && buffer[i + 3] === 0xa3) return i
+  }
+  return -1
+}
+
 export async function runFfmpegShareMp4Transcode(recording: VideoProcessingRecording, inputPath: string, outputPath: string) {
   fs.mkdirSync(path.dirname(outputPath), { recursive: true })
   const { videoBitrate, audioBitrate } = getShareEncodingProfile(recording)
   const durationSeconds = Math.max(1, Number(recording.duration_seconds ?? 60))
   let lastProgress = -1
+  let effectiveInputPath = inputPath
+  let tempRepairedPath: string | null = null
 
-  await runFfmpeg([
-    '-y', '-i', inputPath, '-map', '0:v:0', '-map', '0:a?',
+  const tryRun = () => runFfmpeg([
+    '-y', '-i', effectiveInputPath, '-map', '0:v:0', '-map', '0:a?',
     '-vf', 'scale=720:720:force_original_aspect_ratio=decrease:force_divisible_by=2,fps=15',
     '-c:v', 'libx264', '-preset', 'veryfast', '-b:v', String(videoBitrate),
     '-maxrate', String(videoBitrate), '-bufsize', String(videoBitrate * 2), '-pix_fmt', 'yuv420p',
@@ -51,6 +60,32 @@ export async function runFfmpegShareMp4Transcode(recording: VideoProcessingRecor
       progress,
     })
   })
+
+  try {
+    await tryRun()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    const isEbmlError = message.includes('EBML header parsing failed') || message.includes('Invalid data found when processing input')
+    if (!isEbmlError) throw error
+    try {
+      const header = fs.readFileSync(inputPath).subarray(0, 8192)
+      const offset = findEbmlOffset(header)
+      if (offset <= 0) throw error
+      tempRepairedPath = `${inputPath}.repaired-${Date.now()}.webm`
+      const full = fs.readFileSync(inputPath)
+      fs.writeFileSync(tempRepairedPath, full.subarray(offset))
+      effectiveInputPath = tempRepairedPath
+      if (fs.existsSync(outputPath)) fs.rmSync(outputPath, { force: true })
+      await tryRun()
+    } catch (repairError) {
+      if (tempRepairedPath && fs.existsSync(tempRepairedPath)) fs.rmSync(tempRepairedPath, { force: true })
+      throw new Error(`File video rusak (EBML header invalid) untuk resi ${recording.resi_number}. Silakan rekam ulang.`)
+    } finally {
+      if (tempRepairedPath && fs.existsSync(tempRepairedPath)) fs.rmSync(tempRepairedPath, { force: true })
+    }
+  } finally {
+    if (tempRepairedPath && fs.existsSync(tempRepairedPath)) fs.rmSync(tempRepairedPath, { force: true })
+  }
 
   const outputSize = fs.statSync(outputPath).size
   if (outputSize > SHOPEE_VIDEO_LIMIT_BYTES) {

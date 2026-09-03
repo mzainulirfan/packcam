@@ -224,9 +224,13 @@ export function groupRecordings(recordings: RecordingRow[], historySortOrder: Hi
   })
 }
 
-export function getDocStatus(group: { rows: RecordingRow[] }) {
-  const qc = group.rows.find((record) => record.taskType === 'qc')
-  const packing = group.rows.find((record) => record.taskType === 'packing')
+export function getDocStatus(group: { rows: RecordingRow[]; resiNumber: string }, allRecordings?: RecordingRow[]) {
+  // Use allRecordings for the resi if provided, so filter (task/date) doesn't hide the other task
+  const rows = allRecordings
+    ? allRecordings.filter((r) => r.resiNumber.trim().toLowerCase() === group.resiNumber.trim().toLowerCase())
+    : group.rows
+  const qc = rows.find((record) => record.taskType === 'qc')
+  const packing = rows.find((record) => record.taskType === 'packing')
   const qcDone = qc?.status === 'completed'
   const packingDone = packing?.status === 'completed'
 
@@ -235,11 +239,11 @@ export function getDocStatus(group: { rows: RecordingRow[] }) {
   return 'kosong' as const
 }
 
-export function groupHistoryByDate(groupedRecordings: HistoryGroup[], historyDocStatusFilter: 'all' | 'lengkap' | 'belum-lengkap') {
+export function groupHistoryByDate(groupedRecordings: HistoryGroup[], historyDocStatusFilter: 'all' | 'lengkap' | 'belum-lengkap', allRecordings?: RecordingRow[]) {
   const sections = new Map<string, HistoryGroup[]>()
   const filteredByDocStatus = historyDocStatusFilter === 'all'
     ? groupedRecordings
-    : groupedRecordings.filter((group) => getDocStatus(group) === historyDocStatusFilter)
+    : groupedRecordings.filter((group) => getDocStatus(group, allRecordings) === historyDocStatusFilter)
 
   const jakartaKey = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso))
   for (const group of filteredByDocStatus) {

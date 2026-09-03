@@ -2362,7 +2362,7 @@ function App() {
                     <p className="text-[12px] font-bold tracking-wide text-[var(--op-mute)]">{formatSectionDate(dateKey)}</p>
                     <div className="grid gap-2">
                     {groups.map((group) => {
-                      const status = getDocStatus(group)
+                      const status = getDocStatus(group, recordings)
                       const statusLabel = status === 'lengkap' ? 'Lengkap' : status === 'belum-lengkap' ? 'Belum lengkap' : 'Belum ada'
                       const qcRow = group.rows.find((r: RecordingRow) => r.taskType === 'qc')
                       const packingRow = group.rows.find((r: RecordingRow) => r.taskType === 'packing')

@@ -102,8 +102,8 @@ export function useMobileHistoryFilters({
   const historyFilterSheetActive = historyDocStatusFilter !== 'all' || historyAllAccounts || historyDateFilter !== 'all' || historySortOrder !== 'newest'
 
   const groupedByDate = useMemo(() => {
-    return groupHistoryByDate(groupedRecordings, historyDocStatusFilter)
-  }, [groupedRecordings, historyDocStatusFilter])
+    return groupHistoryByDate(groupedRecordings, historyDocStatusFilter, recordings)
+  }, [groupedRecordings, historyDocStatusFilter, recordings])
 
   const historyEmptyState = useMemo(() => getHistoryEmptyState({
     groupedRecordingsLength: groupedRecordings.length,
