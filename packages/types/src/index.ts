@@ -122,6 +122,62 @@ export type PackingPayRule = {
 
 export type PackingPaymentMethod = 'cash' | 'transfer' | 'other'
 
+export type PackingPaymentAdjustmentKind = 'add' | 'deduct'
+
+export type PackingPaymentAdjustment = {
+  label: string
+  kind: PackingPaymentAdjustmentKind
+  amount: number
+}
+
+export type PackerAdjustmentStatus = 'pending' | 'applied' | 'cancelled'
+
+export type PackerAdjustment = {
+  id: string
+  packerOperatorName: string
+  packerOperatorCode: string
+  packerNameSnapshot: string
+  packerCodeSnapshot: string
+  label: string
+  kind: PackingPaymentAdjustmentKind
+  amount: number
+  status: PackerAdjustmentStatus
+  appliedPaymentId: string | null
+  note: string | null
+  createdByOperatorName: string | null
+  createdByOperatorCode: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type PackingPaymentDraftStatus = 'draft' | 'confirmed' | 'cancelled'
+
+export type PackingPaymentDraft = {
+  id: string
+  draftNo: string
+  packerOperatorName: string
+  packerOperatorCode: string
+  packerNameSnapshot: string
+  packerCodeSnapshot: string
+  totalSessions: number
+  totalPackages: number
+  subtotalSnapshot: number
+  adjustmentTotalSnapshot: number
+  estimatedTotal: number
+  adjustments: PackingPaymentAdjustment[]
+  ledgerAdjustmentIds: string[]
+  ledgerItems: PackingPaymentAdjustment[]
+  paymentMethod: PackingPaymentMethod
+  note: string | null
+  status: PackingPaymentDraftStatus
+  sessionIds: string[]
+  confirmedPaymentId: string | null
+  createdByOperatorName: string | null
+  createdByOperatorCode: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export type PackingPayment = {
   id: string
   paymentNo: string
@@ -131,6 +187,9 @@ export type PackingPayment = {
   packerCodeSnapshot: string
   totalSessions: number
   totalPackages: number
+  subtotalAmount: number
+  adjustmentTotal: number
+  adjustments: PackingPaymentAdjustment[]
   totalAmount: number
   paymentMethod: PackingPaymentMethod
   paidAt: string

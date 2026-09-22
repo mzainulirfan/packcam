@@ -3,6 +3,7 @@ import type { PackingWorkSession, PackingWorkSessionStatus } from '@pakti/types'
 import { getDb, ensureServerStorage } from '../db'
 import type { HttpSession } from '../http'
 import { broadcastBackendEvent } from '../realtime'
+import { assertSessionsNotLocked } from './packingDraftLock'
 import { findOperatorProfile, listOperatorProfiles } from './operatorStore'
 
 const DEFAULT_PACKING_PAY_AMOUNT = 1500
@@ -301,6 +302,7 @@ export function deletePackingSession(id: string) {
   if (session.paymentId || session.paidAt) {
     throw new Error('Sesi packing yang sudah dibayar tidak bisa dihapus.')
   }
+  assertSessionsNotLocked([session.id])
 
   const timestamp = nowIso()
   db().prepare(
@@ -329,6 +331,7 @@ export function mergePackingSessions(ids: string[]) {
   const sessions = trimmed.map((id) => getPackingSessionById(id)).filter(Boolean) as PackingWorkSession[]
   if (sessions.length !== trimmed.length) throw new Error('Beberapa sesi tidak ditemukan.')
   if (sessions.some((s) => Boolean(s.paidAt) || Boolean(s.paymentId))) throw new Error('Sesi yang sudah dibayar tidak bisa digabung.')
+  assertSessionsNotLocked(trimmed)
   const first = sessions[0]!
   const operatorKey = `${first.packerOperatorName}::${first.packerOperatorCode}`
   const dateKey = getJakartaDateKey(first.startedAt)

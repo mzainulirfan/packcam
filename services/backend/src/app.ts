@@ -8,7 +8,7 @@ import multer from 'multer'
 import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
 import type { AppSettings, ShopeeOrder } from '@pakti/types'
 
-import { calculatePackingPayForOrder, clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, closePackingSession, createPackingPayment, createPackingPayRule, createPackingSession, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deletePackingPayRule, deletePackingSession, deleteRecording, deleteSessionById, deleteShopeeOrderByOrderNumber, finalizeRecording, getActivePackingSession, getBootstrapStatus, getChatSendStats, getHealthSnapshot, getNextPendingShippingChatSend, getPackingPaymentById, getPackingSessionById, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, getShopeeOrderStats, getShippingChatSendStats, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPackingOperators, listPackingPayRules, listPackingPayments, listPackingSessions, listPendingChatSends, listRecentChatSends, listRecentShippingChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, mergePackingSessions, prepareBundledRecordingChatSend, prepareReadyRecordingChatSendsForToday, prepareRecordingShareFile, prepareShippingChatSends, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, reopenPackingSession, resolveSession, resetOperatorPassword, retryChatSend, retryShippingChatSend, saveSettings, saveSystemConfig, updateChatSendStatus, updatePackingPayRule, updatePackingRecordingPayRule, updateSessionTaskType, updateShippingChatSendStatus, upsertOperatorProfile } from './store'
+import { calculatePackingPayForOrder, clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, cancelPackerAdjustment, cancelPackingPaymentDraft, closePackingSession, confirmPackingPaymentDraft, createPackerAdjustment, createPackingPayment, createPackingPaymentDraft, createPackingPayRule, createPackingSession, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deletePackingPayRule, deletePackingSession, deleteRecording, deleteSessionById, deleteShopeeOrderByOrderNumber, finalizeRecording, getActivePackingSession, getBootstrapStatus, getChatSendStats, getHealthSnapshot, getNextPendingShippingChatSend, getPackingPaymentById, getPackingPaymentDraftById, getPackingSessionById, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, getShopeeOrderStats, getShippingChatSendStats, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPackerAdjustments, listPackingOperators, listPackingPayRules, listPackingPaymentDrafts, listPackingPayments, listPackingSessions, listPendingChatSends, listRecentChatSends, listRecentShippingChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, mergePackingSessions, prepareBundledRecordingChatSend, prepareReadyRecordingChatSendsForToday, prepareRecordingShareFile, prepareShippingChatSends, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, reopenPackingSession, resolveSession, resetOperatorPassword, retryChatSend, retryShippingChatSend, saveSettings, saveSystemConfig, updateChatSendStatus, updatePackingPayRule, updatePackingRecordingPayRule, updateSessionTaskType, updateShippingChatSendStatus, upsertOperatorProfile } from './store'
 import type { ShippingChatOrderInput } from './store/shippingChatSendStore'
 import { clearSessionCookie, getCookie, normalizeRole, readStringField, sendError, sendOk, setSessionCookie } from './http'
 import type { HttpSession } from './http'
@@ -678,11 +678,103 @@ app.post('/api/packing-payments', requireAdmin, (req, res) => {
       sessionIds: Array.isArray(req.body?.sessionIds) ? (req.body.sessionIds as unknown[]) : [],
       paymentMethod: typeof req.body?.paymentMethod === 'string' ? req.body.paymentMethod : null,
       note: typeof req.body?.note === 'string' ? req.body.note : null,
+      adjustments: Array.isArray(req.body?.adjustments) ? (req.body.adjustments as unknown[]) : [],
+      ledgerAdjustmentIds: Array.isArray(req.body?.ledgerAdjustmentIds) ? (req.body.ledgerAdjustmentIds as unknown[]) : [],
       paidBySession: session,
     })
     return sendOk(res, payment)
   } catch (error) {
     return sendError(res, 400, error instanceof Error ? error.message : 'Gagal membuat pembayaran packing.')
+  }
+})
+
+app.get('/api/packer-adjustments', requireSession, (req, res) => {
+  const query = req.query as Record<string, string | string[] | undefined>
+  const status = readQueryString(query.status) || 'pending'
+  sendOk(res, listPackerAdjustments({
+    packerOperatorName: readQueryString(query.packerOperatorName) || null,
+    packerOperatorCode: readQueryString(query.packerOperatorCode) || null,
+    status: (status === 'all' || status === 'applied' || status === 'cancelled' ? status : 'pending') as 'pending' | 'applied' | 'cancelled' | 'all',
+    limit: Number(readQueryString(query.limit) || 100),
+  }))
+})
+
+app.post('/api/packer-adjustments', requireAdmin, (req, res) => {
+  const session = getRequestSession(req)
+  if (!session) return sendError(res, 401, 'Sesi login diperlukan.')
+  try {
+    const item = createPackerAdjustment({
+      packerOperatorName: typeof req.body?.packerOperatorName === 'string' ? req.body.packerOperatorName : '',
+      packerOperatorCode: typeof req.body?.packerOperatorCode === 'string' ? req.body.packerOperatorCode : '',
+      label: typeof req.body?.label === 'string' ? req.body.label : '',
+      kind: typeof req.body?.kind === 'string' ? req.body.kind : '',
+      amount: Number(req.body?.amount),
+      note: typeof req.body?.note === 'string' ? req.body.note : null,
+      createdBySession: session,
+    })
+    return sendOk(res, item)
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal mencatat kasbon/bonus.')
+  }
+})
+
+app.post('/api/packer-adjustments/:id/cancel', requireAdmin, (req, res) => {
+  try {
+    const params = req.params as Record<string, string | undefined>
+    return sendOk(res, cancelPackerAdjustment(params.id ?? ''))
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal membatalkan catatan.')
+  }
+})
+
+app.get('/api/packing-payment-drafts', requireSession, (req, res) => {
+  const query = req.query as Record<string, string | string[] | undefined>
+  const status = readQueryString(query.status) || 'draft'
+  sendOk(res, listPackingPaymentDrafts(status === 'all' || status === 'confirmed' || status === 'cancelled' ? status : 'draft', Number(readQueryString(query.limit) || 50)))
+})
+
+app.get('/api/packing-payment-drafts/:id', requireSession, (req, res) => {
+  const params = req.params as Record<string, string | undefined>
+  const draft = getPackingPaymentDraftById(params.id ?? '')
+  if (!draft) return sendError(res, 404, 'Draft pending tidak ditemukan.')
+  return sendOk(res, draft)
+})
+
+app.post('/api/packing-payment-drafts', requireAdmin, (req, res) => {
+  const session = getRequestSession(req)
+  if (!session) return sendError(res, 401, 'Sesi login diperlukan.')
+  try {
+    const draft = createPackingPaymentDraft({
+      sessionIds: Array.isArray(req.body?.sessionIds) ? (req.body.sessionIds as unknown[]) : [],
+      manualAdjustments: Array.isArray(req.body?.manualAdjustments) ? (req.body.manualAdjustments as unknown[]) : (Array.isArray(req.body?.adjustments) ? (req.body.adjustments as unknown[]) : []),
+      ledgerAdjustmentIds: Array.isArray(req.body?.ledgerAdjustmentIds) ? (req.body.ledgerAdjustmentIds as unknown[]) : [],
+      paymentMethod: typeof req.body?.paymentMethod === 'string' ? req.body.paymentMethod : null,
+      note: typeof req.body?.note === 'string' ? req.body.note : null,
+      paidBySession: session,
+    })
+    return sendOk(res, draft)
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal menyimpan draft pending.')
+  }
+})
+
+app.post('/api/packing-payment-drafts/:id/confirm', requireAdmin, (req, res) => {
+  const session = getRequestSession(req)
+  if (!session) return sendError(res, 401, 'Sesi login diperlukan.')
+  try {
+    const params = req.params as Record<string, string | undefined>
+    return sendOk(res, confirmPackingPaymentDraft(params.id ?? '', session))
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal konfirmasi draft.')
+  }
+})
+
+app.post('/api/packing-payment-drafts/:id/cancel', requireAdmin, (req, res) => {
+  try {
+    const params = req.params as Record<string, string | undefined>
+    return sendOk(res, cancelPackingPaymentDraft(params.id ?? ''))
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal membatalkan draft.')
   }
 })
 

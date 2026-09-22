@@ -135,6 +135,8 @@ function AdminPackingSection() {
   function buildPaymentShareText(p: PackingPayment) {
     const firstName = p.packerNameSnapshot.split(' ')[0]
     const metode = p.paymentMethod === 'cash' ? 'Tunai' : p.paymentMethod === 'transfer' ? 'Transfer' : 'Lainnya'
+    const subtotal = p.subtotalAmount ?? p.totalAmount
+    const adjustments = p.adjustments ?? []
     const lines = [
       `Halo Kak ${firstName} 👋`,
       ``,
@@ -146,6 +148,8 @@ function AdminPackingSection() {
       `Metode: ${metode} (${p.paymentMethod})`,
       p.note ? `Catatan: ${p.note}` : null,
       ``,
+      `Subtotal upah: ${formatCurrency(subtotal)}`,
+      ...adjustments.map((item) => `${item.kind === 'add' ? '+' : '−'} ${item.label}: ${formatCurrency(item.amount)}`),
       `Total dibayar: ${formatCurrency(p.totalAmount)}`,
       `Rincian: ${p.totalSessions} sesi • ${p.totalPackages} paket`,
       ``,

@@ -1,4 +1,4 @@
-import type { AppSettings, OperatorProfile, OperatorRole, OperatorSession, PackingPayment, PackingPaymentMethod, PackingPayRule, PackingPayRuleMatchType, PackingPayType, PackingPayStatus, PackingWorkSession, RecordingChatSend, RecordingMediaType, RecordingRow, ScanLogRow, ShippingChatSend, ShopeeOrder, SystemConfig } from '@pakti/types'
+import type { AppSettings, OperatorProfile, OperatorRole, OperatorSession, PackerAdjustment, PackerAdjustmentStatus, PackingPayment, PackingPaymentDraft, PackingPaymentDraftStatus, PackingPaymentMethod, PackingPayRule, PackingPayRuleMatchType, PackingPayType, PackingPayStatus, PackingWorkSession, RecordingChatSend, RecordingMediaType, RecordingRow, ScanLogRow, ShippingChatSend, ShopeeOrder, SystemConfig } from '@pakti/types'
 
 type ApiResponse<T> = {
   ok: boolean
@@ -438,10 +438,55 @@ export function readPackingPaymentApi(id: string) {
   return requestApi<PackingPayment>(`/api/packing-payments/${encodeURIComponent(id)}`)
 }
 
-export function createPackingPaymentApi(payload: { sessionIds: string[]; paymentMethod?: PackingPaymentMethod | string | null; note?: string | null }) {
+export function createPackingPaymentApi(payload: { sessionIds: string[]; paymentMethod?: PackingPaymentMethod | string | null; note?: string | null; adjustments?: Array<{ label: string; kind: 'add' | 'deduct'; amount: number }>; ledgerAdjustmentIds?: string[] }) {
   return requestApi<PackingPayment>('/api/packing-payments', {
     method: 'POST',
     body: JSON.stringify(payload),
+  })
+}
+
+export function readPackerAdjustmentsApi(query: { packerOperatorName?: string; packerOperatorCode?: string; status?: PackerAdjustmentStatus | 'all'; limit?: number } = {}) {
+  const params = new URLSearchParams()
+  if (query.packerOperatorName) params.set('packerOperatorName', query.packerOperatorName)
+  if (query.packerOperatorCode) params.set('packerOperatorCode', query.packerOperatorCode)
+  params.set('status', query.status ?? 'pending')
+  if (query.limit) params.set('limit', String(query.limit))
+  return requestApi<PackerAdjustment[]>(`/api/packer-adjustments?${params.toString()}`)
+}
+
+export function createPackerAdjustmentApi(payload: { packerOperatorName: string; packerOperatorCode: string; label: string; kind: 'add' | 'deduct'; amount: number; note?: string | null }) {
+  return requestApi<PackerAdjustment>('/api/packer-adjustments', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function cancelPackerAdjustmentApi(id: string) {
+  return requestApi<PackerAdjustment>(`/api/packer-adjustments/${encodeURIComponent(id)}/cancel`, {
+    method: 'POST',
+  })
+}
+
+export function readPackingPaymentDraftsApi(status: PackingPaymentDraftStatus | 'all' = 'draft', limit = 50) {
+  return requestApi<PackingPaymentDraft[]>(`/api/packing-payment-drafts?status=${encodeURIComponent(status)}&limit=${encodeURIComponent(String(limit))}`)
+}
+
+export function createPackingPaymentDraftApi(payload: { sessionIds: string[]; manualAdjustments?: Array<{ label: string; kind: 'add' | 'deduct'; amount: number }>; ledgerAdjustmentIds?: string[]; paymentMethod?: PackingPaymentMethod | string | null; note?: string | null }) {
+  return requestApi<PackingPaymentDraft>('/api/packing-payment-drafts', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function confirmPackingPaymentDraftApi(id: string) {
+  return requestApi<{ draft: PackingPaymentDraft; payment: PackingPayment }>(`/api/packing-payment-drafts/${encodeURIComponent(id)}/confirm`, {
+    method: 'POST',
+  })
+}
+
+export function cancelPackingPaymentDraftApi(id: string) {
+  return requestApi<PackingPaymentDraft>(`/api/packing-payment-drafts/${encodeURIComponent(id)}/cancel`, {
+    method: 'POST',
   })
 }
 

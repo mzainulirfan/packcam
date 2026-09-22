@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
@@ -23,8 +23,8 @@ import { Button } from '../components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../components/ui/dialog'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
-import { closePackingSessionApi, createPackingPaymentApi, deletePackingSessionApi, mergePackingSessionsApi, readPackingPaymentsApi, readPackingPayRulesApi, readPackingSessionsApi, readServerHistoryRecordingsApi, updatePackingRecordingPayRuleApi } from '@pakti/api-client'
-import type { PackingPayment, PackingPayRule, PackingWorkSession } from '@pakti/types'
+import { cancelPackerAdjustmentApi, cancelPackingPaymentDraftApi, closePackingSessionApi, confirmPackingPaymentDraftApi, createPackerAdjustmentApi, createPackingPaymentApi, createPackingPaymentDraftApi, deletePackingSessionApi, mergePackingSessionsApi, readPackerAdjustmentsApi, readPackingPaymentDraftsApi, readPackingPaymentsApi, readPackingPayRulesApi, readPackingSessionsApi, readServerHistoryRecordingsApi, updatePackingRecordingPayRuleApi } from '@pakti/api-client'
+import type { PackerAdjustment, PackingPayment, PackingPaymentDraft, PackingPayRule, PackingWorkSession } from '@pakti/types'
 import { downloadTextFile } from '@pakti/shared'
 import { recordsToCsv } from '@pakti/shared/exporters'
 import { navigateTo, navigateToPackingSessionDetail } from '../app/uiState'
@@ -62,8 +62,25 @@ export function PackingSessionsPage() {
   const [showPayDialog, setShowPayDialog] = useState(false)
   const [payMethod, setPayMethod] = useState<'cash' | 'transfer' | 'other'>('cash')
   const [payNote, setPayNote] = useState('')
+  const [payAdjustments, setPayAdjustments] = useState<Array<{ id: string; kind: 'add' | 'deduct'; label: string; amount: string }>>([])
   const [payBusy, setPayBusy] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
+  const [draftBusy, setDraftBusy] = useState(false)
+  const [drafts, setDrafts] = useState<PackingPaymentDraft[]>([])
+  const [draftsLoading, setDraftsLoading] = useState(false)
+  const [expandedDraftId, setExpandedDraftId] = useState<string | null>(null)
+  const [pendingLedger, setPendingLedger] = useState<PackerAdjustment[]>([])
+  const [ledgerLoading, setLedgerLoading] = useState(false)
+  const [checkedLedgerIds, setCheckedLedgerIds] = useState<Set<string>>(() => new Set())
+  const [adjustOpen, setAdjustOpen] = useState(false)
+  const [showLedgerDialog, setShowLedgerDialog] = useState(false)
+  const [ledgerBusy, setLedgerBusy] = useState(false)
+  const [ledgerError, setLedgerError] = useState<string | null>(null)
+  const [ledgerPacker, setLedgerPacker] = useState('all')
+  const [ledgerKind, setLedgerKind] = useState<'add' | 'deduct'>('deduct')
+  const [ledgerLabel, setLedgerLabel] = useState('')
+  const [ledgerAmount, setLedgerAmount] = useState('')
+  const [ledgerNote, setLedgerNote] = useState('')
   const [lastPayment, setLastPayment] = useState<PackingPayment | null>(null)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [shareDraft, setShareDraft] = useState<{ title: string; text: string } | null>(null)
@@ -87,14 +104,38 @@ export function PackingSessionsPage() {
     setLoading(true)
     setError(null)
     try {
-      const [data, pays, rules] = await Promise.all([readPackingSessionsApi(100), readPackingPaymentsApi(50).catch(() => [] as PackingPayment[]), readPackingPayRulesApi().catch(() => [] as PackingPayRule[])])
+      const [data, pays, rules, draftList, ledger] = await Promise.all([
+        readPackingSessionsApi(100),
+        readPackingPaymentsApi(50).catch(() => [] as PackingPayment[]),
+        readPackingPayRulesApi().catch(() => [] as PackingPayRule[]),
+        readPackingPaymentDraftsApi('draft', 50).catch(() => [] as PackingPaymentDraft[]),
+        readPackerAdjustmentsApi({ status: 'pending', limit: 100 }).catch(() => [] as PackerAdjustment[]),
+      ])
       setSessions(data as PackingWorkSession[])
       setPayments(pays as PackingPayment[])
       setPayRules(rules as PackingPayRule[])
+      setDrafts(draftList as PackingPaymentDraft[])
+      setPendingLedger(ledger as PackerAdjustment[])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal memuat sesi packing.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function refreshPending() {
+    setDraftsLoading(true)
+    setLedgerLoading(true)
+    try {
+      const [draftList, ledger] = await Promise.all([
+        readPackingPaymentDraftsApi('draft', 50).catch(() => [] as PackingPaymentDraft[]),
+        readPackerAdjustmentsApi({ status: 'pending', limit: 100 }).catch(() => [] as PackerAdjustment[]),
+      ])
+      setDrafts(draftList as PackingPaymentDraft[])
+      setPendingLedger(ledger as PackerAdjustment[])
+    } finally {
+      setDraftsLoading(false)
+      setLedgerLoading(false)
     }
   }
 
@@ -182,6 +223,21 @@ export function PackingSessionsPage() {
     }
   }, [filtered, selectedSessionIds])
 
+  const lockedSessionDraftNo = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const draft of drafts) {
+      if (draft.status !== 'draft') continue
+      for (const sid of draft.sessionIds) {
+        if (!map.has(sid)) map.set(sid, draft.draftNo)
+      }
+    }
+    return map
+  }, [drafts])
+
+  const canDeleteSession = useCallback((s: PackingWorkSession) => {
+    return s.status === 'closed' && (s.completedPackingCount ?? 0) === 0 && !s.paidAt && !s.paymentId && !lockedSessionDraftNo.has(s.id)
+  }, [lockedSessionDraftNo])
+
   const payPreview = useMemo(() => {
     const ids = Array.from(selectedSessionIds)
     if (ids.length === 0) return null
@@ -191,18 +247,21 @@ export function PackingSessionsPage() {
     const mixedPacker = selectedRows.some((s) => s.packerOperatorName !== first.packerOperatorName || s.packerOperatorCode !== first.packerOperatorCode)
     const notClosed = selectedRows.filter((s) => s.status !== 'closed')
     const alreadyPaid = selectedRows.filter((s) => Boolean(s.paidAt))
+    const locked = selectedRows.filter((s) => lockedSessionDraftNo.has(s.id))
     return {
       count: selectedRows.length,
       packerLabel: `${first.packerNameSnapshot} (${first.packerCodeSnapshot})`,
+      packerKey: `${first.packerOperatorName}::${first.packerOperatorCode}`,
       mixedPacker,
       notClosedCount: notClosed.length,
       alreadyPaidCount: alreadyPaid.length,
+      lockedCount: locked.length,
       totalPaket: selectedRows.reduce((acc, s) => acc + (s.completedPackingCount ?? 0), 0),
       totalUpah: selectedRows.reduce((acc, s) => acc + (s.totalPayAmount ?? 0), 0),
       sessions: selectedRows,
-      valid: !mixedPacker && notClosed.length === 0 && alreadyPaid.length === 0,
+      valid: !mixedPacker && notClosed.length === 0 && alreadyPaid.length === 0 && locked.length === 0,
     }
-  }, [filtered, selectedSessionIds])
+  }, [filtered, selectedSessionIds, lockedSessionDraftNo])
 
   const deletePreview = useMemo(() => {
     const selectedRows = filtered.filter((s) => selectedSessionIds.has(s.id))
@@ -212,18 +271,61 @@ export function PackingSessionsPage() {
       deletable,
       invalidCount: selectedRows.length - deletable.length,
     }
-  }, [filtered, selectedSessionIds])
+  }, [filtered, selectedSessionIds, canDeleteSession])
+
+  function parseAdjustmentAmount(raw: string) {
+    const digits = raw.replace(/[^0-9]/g, '')
+    if (!digits) return 0
+    const value = Number(digits)
+    return Number.isFinite(value) ? Math.floor(value) : 0
+  }
+
+  const payLedgerOptions = useMemo(() => {
+    if (!payPreview || payPreview.mixedPacker) return [] as PackerAdjustment[]
+    return pendingLedger.filter((item) => `${item.packerOperatorName}::${item.packerOperatorCode}` === payPreview.packerKey)
+  }, [pendingLedger, payPreview])
+
+  const payAdjustmentSummary = useMemo(() => {
+    const items = payAdjustments.map((item) => {
+      const amount = parseAdjustmentAmount(item.amount)
+      return { ...item, parsedAmount: amount, signed: item.kind === 'add' ? amount : -amount }
+    })
+    const manualTotal = items.reduce((acc, item) => acc + (item.label.trim() && item.parsedAmount > 0 ? item.signed : 0), 0)
+    const ledgerChecked = payLedgerOptions.filter((item) => checkedLedgerIds.has(item.id))
+    const ledgerTotal = ledgerChecked.reduce((acc, item) => acc + (item.kind === 'add' ? item.amount : -item.amount), 0)
+    const adjustmentTotal = manualTotal + ledgerTotal
+    const subtotal = payPreview?.totalUpah ?? 0
+    return { items, ledgerChecked, ledgerTotal, manualTotal, adjustmentTotal, subtotal, finalTotal: subtotal + adjustmentTotal }
+  }, [payAdjustments, payPreview, payLedgerOptions, checkedLedgerIds])
+
+  function addPayAdjustmentRow() {
+    if (payAdjustments.length >= 10) {
+      alert('Maksimal 10 baris penyesuaian.')
+      return
+    }
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    setPayAdjustments((prev) => [...prev, { id, kind: 'deduct', label: '', amount: '' }])
+  }
+
+  function updatePayAdjustmentRow(id: string, patch: Partial<{ kind: 'add' | 'deduct'; label: string; amount: string }>) {
+    setPayAdjustments((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)))
+  }
+
+  function removePayAdjustmentRow(id: string) {
+    setPayAdjustments((prev) => prev.filter((item) => item.id !== id))
+  }
 
   const canMergeSelected = useMemo(() => {
     if (selectedSessionIds.size < 2) return false
     const selected = filtered.filter((s) => selectedSessionIds.has(s.id))
     if (selected.length !== selectedSessionIds.size) return false
     if (selected.some((s) => Boolean(s.paidAt) || Boolean(s.paymentId))) return false
+    if (selected.some((s) => lockedSessionDraftNo.has(s.id))) return false
     const first = selected[0]!
     const opKey = `${first.packerOperatorName}::${first.packerOperatorCode}`
     const dateKey = getJakartaDateKey(first.startedAt)
     return selected.every((s) => `${s.packerOperatorName}::${s.packerOperatorCode}` === opKey && getJakartaDateKey(s.startedAt) === dateKey)
-  }, [filtered, selectedSessionIds])
+  }, [filtered, selectedSessionIds, lockedSessionDraftNo])
 
   const [mergeBusy, setMergeBusy] = useState(false)
   async function handleMergeSelected() {
@@ -254,10 +356,6 @@ export function PackingSessionsPage() {
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Gagal tutup sesi')
     }
-  }
-
-  function canDeleteSession(s: PackingWorkSession) {
-    return s.status === 'closed' && (s.completedPackingCount ?? 0) === 0 && !s.paidAt && !s.paymentId
   }
 
   async function handleDeleteSession(s: PackingWorkSession) {
@@ -383,11 +481,17 @@ export function PackingSessionsPage() {
       alert('Belum ada pembayaran.')
       return
     }
-    const csv = ['payment_no,packer_name,packer_code,sesi,paket,upah,metode,paid_at,note', ...payments.map((p) => `${p.paymentNo},${p.packerNameSnapshot},${p.packerCodeSnapshot},${p.totalSessions},${p.totalPackages},${p.totalAmount},${p.paymentMethod},${p.paidAt},${(p.note ?? '').replace(/,/g, ';')}`)].join('\n')
+    const csv = ['payment_no,packer_name,packer_code,sesi,paket,subtotal,penyesuaian,upah,metode,paid_at,note,adjustment_detail', ...payments.map((p) => {
+      const subtotal = p.subtotalAmount ?? p.totalAmount
+      const adj = p.adjustmentTotal ?? 0
+      const detail = (p.adjustments ?? []).map((item) => `${item.kind === 'add' ? '+' : '-'}${item.label} Rp${item.amount}`).join('|').replace(/,/g, ';')
+      return `${p.paymentNo},${p.packerNameSnapshot},${p.packerCodeSnapshot},${p.totalSessions},${p.totalPackages},${subtotal},${adj},${p.totalAmount},${p.paymentMethod},${p.paidAt},${(p.note ?? '').replace(/,/g, ';')},${detail}`
+    })].join('\n')
     downloadTextFile(`packing-payments-${new Date().toISOString().slice(0, 10)}.csv`, csv, 'text/csv;charset=utf-8')
   }
 
   function toggleSessionSelection(sessionId: string) {
+    if (lockedSessionDraftNo.has(sessionId)) return
     setSelectedSessionIds((current) => {
       const next = new Set(current)
       if (next.has(sessionId)) next.delete(sessionId)
@@ -397,14 +501,16 @@ export function PackingSessionsPage() {
   }
 
   function selectAllFilteredSessions() {
-    setSelectedSessionIds(new Set(filtered.map((s) => s.id)))
+    setSelectedSessionIds(new Set(filtered.filter((s) => !lockedSessionDraftNo.has(s.id)).map((s) => s.id)))
   }
 
   function toggleGroupSelection(groupSessions: PackingWorkSession[]) {
+    const unlocked = groupSessions.filter((s) => !lockedSessionDraftNo.has(s.id))
+    if (unlocked.length === 0) return
     setSelectedSessionIds((current) => {
       const next = new Set(current)
-      const allSelected = groupSessions.every((session) => next.has(session.id))
-      for (const session of groupSessions) {
+      const allSelected = unlocked.every((session) => next.has(session.id))
+      for (const session of unlocked) {
         if (allSelected) next.delete(session.id)
         else next.add(session.id)
       }
@@ -440,9 +546,17 @@ export function PackingSessionsPage() {
       alert(`Ada ${payPreview.alreadyPaidCount} sesi yang sudah dibayar. Filter ke belum dibayar dulu.`)
       return
     }
+    if (payPreview.lockedCount > 0) {
+      alert(`Ada ${payPreview.lockedCount} sesi yang terkunci di draft pending. Konfirmasi atau batalkan draft dulu.`)
+      return
+    }
     setPayError(null)
     setPayMethod('cash')
     setPayNote('')
+    setPayAdjustments([])
+    const packerPending = pendingLedger.filter((item) => `${item.packerOperatorName}::${item.packerOperatorCode}` === payPreview.packerKey)
+    setCheckedLedgerIds(new Set(packerPending.map((item) => item.id)))
+    setAdjustOpen(packerPending.length > 0)
     setShowPayDialog(true)
   }
 
@@ -553,6 +667,9 @@ export function PackingSessionsPage() {
     const linked = paymentSessionLookup(payment)
     const metodeLabel = payment.paymentMethod === 'cash' ? 'Tunai' : payment.paymentMethod === 'transfer' ? 'Transfer' : 'Lainnya'
     const firstName = payment.packerNameSnapshot.split(' ')[0]
+    const subtotal = payment.subtotalAmount ?? payment.totalAmount
+    const adjustments = payment.adjustments ?? []
+    const adjustmentTotal = payment.adjustmentTotal ?? 0
     const lines = [
       `Halo Kak ${firstName} 👋`,
       ``,
@@ -564,6 +681,9 @@ export function PackingSessionsPage() {
       `Metode: ${metodeLabel} (${payment.paymentMethod})`,
       payment.note ? `Catatan: ${payment.note}` : null,
       ``,
+      `Subtotal upah: ${formatCurrency(subtotal)}`,
+      ...adjustments.map((item) => `${item.kind === 'add' ? '+' : '−'} ${item.label}: ${formatCurrency(item.amount)}`),
+      adjustmentTotal !== 0 ? `Penyesuaian: ${adjustmentTotal > 0 ? '+' : '−'}${formatCurrency(Math.abs(adjustmentTotal)).replace('Rp', 'Rp')}` : null,
       `Total dibayar: ${formatCurrency(payment.totalAmount)}`,
       `Rincian: ${payment.totalSessions} sesi • ${payment.totalPackages} paket`,
       ``,
@@ -611,28 +731,186 @@ export function PackingSessionsPage() {
     window.open(url, '_blank', 'noopener,noreferrer')
   }
 
+  function collectManualAdjustments() {
+    return payAdjustmentSummary.items
+      .filter((item) => item.label.trim() || item.parsedAmount > 0)
+      .map((item) => {
+        const label = item.label.trim()
+        if (!label) throw new Error('Setiap penyesuaian wajib diisi keterangannya.')
+        if (item.parsedAmount <= 0) throw new Error(`Penyesuaian "${label}": nominal harus lebih dari Rp 0.`)
+        return { label: label.slice(0, 100), kind: item.kind, amount: item.parsedAmount }
+      })
+  }
+
+  function collectLedgerIds() {
+    return payAdjustmentSummary.ledgerChecked.map((item) => item.id)
+  }
+
+  function validateFinalTotal(manual: Array<{ kind: 'add' | 'deduct'; amount: number }>, ledger: PackerAdjustment[]) {
+    if (!payPreview) return false
+    const total = manual.reduce((acc, item) => acc + (item.kind === 'add' ? item.amount : -item.amount), 0)
+      + ledger.reduce((acc, item) => acc + (item.kind === 'add' ? item.amount : -item.amount), 0)
+    return payPreview.totalUpah + total >= 0
+  }
+
   async function handleConfirmPay() {
     if (!payPreview || !payPreview.valid) return
     setPayBusy(true)
     setPayError(null)
     try {
-      const payment = await createPackingPaymentApi({ sessionIds: payPreview.sessions.map((s) => s.id), paymentMethod: payMethod, note: payNote.trim() || null })
+      const manual = collectManualAdjustments()
+      const ledgerIds = collectLedgerIds()
+      if (!validateFinalTotal(manual, payAdjustmentSummary.ledgerChecked)) {
+        setPayError('Total akhir tidak boleh negatif. Kurangi potongan atau tambah bonus.')
+        return
+      }
+      const payment = await createPackingPaymentApi({ sessionIds: payPreview.sessions.map((s) => s.id), paymentMethod: payMethod, note: payNote.trim() || null, adjustments: manual, ledgerAdjustmentIds: ledgerIds })
       setLastPayment(payment as PackingPayment)
       const t = buildPaymentShareText(payment as PackingPayment)
       setShareDraft({ title: `Pembayaran ${payment.paymentNo}`, text: t })
       setShowPayDialog(false)
       setSelectedSessionIds(new Set())
+      setPayAdjustments([])
+      setCheckedLedgerIds(new Set())
       await load()
       await loadPayments()
     } catch (e) {
-      setPayError(e instanceof Error ? e.message : 'Gagal membuat pembayaran.')
+      if (e instanceof Error && e.message.startsWith('Penyesuaian')) {
+        setPayError(e.message)
+      } else {
+        setPayError(e instanceof Error ? e.message : 'Gagal membuat pembayaran.')
+      }
     } finally {
       setPayBusy(false)
     }
   }
 
+  async function handleSaveDraft() {
+    if (!payPreview || !payPreview.valid) return
+    setDraftBusy(true)
+    setPayError(null)
+    try {
+      const manual = collectManualAdjustments()
+      const ledgerIds = collectLedgerIds()
+      if (!validateFinalTotal(manual, payAdjustmentSummary.ledgerChecked)) {
+        setPayError('Estimasi total tidak boleh negatif. Kurangi potongan atau tambah bonus.')
+        return
+      }
+      const draft = await createPackingPaymentDraftApi({ sessionIds: payPreview.sessions.map((s) => s.id), manualAdjustments: manual, ledgerAdjustmentIds: ledgerIds, paymentMethod: payMethod, note: payNote.trim() || null })
+      setShowPayDialog(false)
+      setSelectedSessionIds(new Set())
+      setPayAdjustments([])
+      setCheckedLedgerIds(new Set())
+      await load()
+      setExpandedDraftId((draft as PackingPaymentDraft).id)
+    } catch (e) {
+      setPayError(e instanceof Error ? e.message : 'Gagal menyimpan draft pending.')
+    } finally {
+      setDraftBusy(false)
+    }
+  }
+
+  async function handleConfirmDraft(draft: PackingPaymentDraft) {
+    if (!confirm(`Konfirmasi pembayaran ${draft.draftNo}? Sesi akan ditandai dibayar dan tidak bisa diubah.`)) return
+    try {
+      const result = await confirmPackingPaymentDraftApi(draft.id)
+      setLastPayment(result.payment as PackingPayment)
+      const t = buildPaymentShareText(result.payment as PackingPayment)
+      setShareDraft({ title: `Pembayaran ${result.payment.paymentNo}`, text: t })
+      setSelectedSessionIds(new Set())
+      await load()
+      await loadPayments()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Gagal konfirmasi draft.')
+      await refreshPending()
+    }
+  }
+
+  async function handleCancelDraft(draft: PackingPaymentDraft) {
+    if (!confirm(`Batalkan draft ${draft.draftNo}? Sesi akan bebas dipilih lagi.`)) return
+    try {
+      await cancelPackingPaymentDraftApi(draft.id)
+      await load()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Gagal membatalkan draft.')
+    }
+  }
+
+  async function handleCancelLedger(item: PackerAdjustment) {
+    if (!confirm(`Batalkan catatan "${item.label}" (${formatCurrency(item.amount)})?`)) return
+    try {
+      await cancelPackerAdjustmentApi(item.id)
+      setCheckedLedgerIds((prev) => {
+        const next = new Set(prev)
+        next.delete(item.id)
+        return next
+      })
+      await refreshPending()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Gagal membatalkan catatan.')
+    }
+  }
+
+  function openLedgerDialog(presetPacker = 'all') {
+    setLedgerError(null)
+    setLedgerKind('deduct')
+    setLedgerLabel('')
+    setLedgerAmount('')
+    setLedgerNote('')
+    setLedgerPacker(presetPacker !== 'all' ? presetPacker : (packerFilter !== 'all' ? packerFilter : 'all'))
+    setShowLedgerDialog(true)
+  }
+
+  async function handleCreateLedger() {
+    const [name, code] = ledgerPacker.split('::')
+    if (!name || !code) {
+      setLedgerError('Pilih petugas dulu.')
+      return
+    }
+    const amount = parseAdjustmentAmount(ledgerAmount)
+    if (!ledgerLabel.trim()) {
+      setLedgerError('Keterangan wajib diisi (mis: Kasbon, Bonus rapi).')
+      return
+    }
+    if (amount <= 0) {
+      setLedgerError('Nominal harus lebih dari Rp 0.')
+      return
+    }
+    setLedgerBusy(true)
+    setLedgerError(null)
+    try {
+      await createPackerAdjustmentApi({ packerOperatorName: name, packerOperatorCode: code, label: ledgerLabel.trim().slice(0, 100), kind: ledgerKind, amount, note: ledgerNote.trim() || null })
+      setShowLedgerDialog(false)
+      await refreshPending()
+      // Jika modal bayar sedang terbuka untuk packer yang sama, centang otomatis
+      if (showPayDialog && payPreview && payPreview.packerKey === `${name}::${code}`) {
+        const fresh = await readPackerAdjustmentsApi({ packerOperatorName: name, packerOperatorCode: code, status: 'pending', limit: 100 }).catch(() => [] as PackerAdjustment[])
+        const match = (fresh as PackerAdjustment[]).find((item) => item.label === ledgerLabel.trim().slice(0, 100) && item.amount === amount && item.kind === ledgerKind)
+        if (match) setCheckedLedgerIds((prev) => new Set(prev).add(match.id))
+        setPendingLedger((prev) => {
+          const ids = new Set(prev.map((p) => p.id))
+          const merged = [...prev]
+          for (const item of fresh as PackerAdjustment[]) {
+            if (!ids.has(item.id)) merged.push(item)
+          }
+          return merged
+        })
+      }
+    } catch (e) {
+      setLedgerError(e instanceof Error ? e.message : 'Gagal mencatat.')
+    } finally {
+      setLedgerBusy(false)
+    }
+  }
+
   // ── Dialogs (shared) ──────────────────────────────────────────────
   function renderDialogs() {
+    const activePayAdjustments = payPreview ? [
+      ...payAdjustmentSummary.ledgerChecked.map((item) => ({ key: `ledger-${item.id}`, label: item.label, kind: item.kind, amount: item.amount, source: 'tersimpan' as const })),
+      ...payAdjustmentSummary.items
+        .filter((item) => item.label.trim() && item.parsedAmount > 0)
+        .map((item) => ({ key: `manual-${item.id}`, label: item.label.trim(), kind: item.kind, amount: item.parsedAmount, source: 'manual' as const })),
+    ] : []
     return (
       <>
         <Dialog open={Boolean(shareDraft)} onOpenChange={(open) => !open && setShareDraft(null)}>
@@ -668,12 +946,18 @@ export function PackingSessionsPage() {
         </Dialog>
 
         <Dialog open={showPayDialog} onOpenChange={setShowPayDialog}>
-          <DialogContent showCloseButton={false} className="packing-modal max-w-md gap-0 overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_23px_52px_rgba(0,0,0,0.08),0_4px_18px_rgba(0,0,0,0.06)]">
-            <div className="border-b border-[#e6e6e6] bg-white p-6">
+          <DialogContent showCloseButton={false} className="packing-modal flex max-h-[88vh] w-[calc(100vw-2rem)] max-w-xl flex-col gap-0 overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_23px_52px_rgba(0,0,0,0.08),0_4px_18px_rgba(0,0,0,0.06)] sm:max-w-xl">
+            <div className="shrink-0 border-b border-[#e6e6e6] bg-white p-6 pb-5">
               <div className="flex items-start justify-between gap-4">
-                <div className="grid gap-1.5">
+                <div className="grid min-w-0 gap-1.5">
                   <DialogTitle className="font-['Inter'] text-[20px] font-semibold leading-none tracking-[-0.5px] text-[#000000]">Bayar upah packing</DialogTitle>
-                  <DialogDescription className="font-['Inter'] text-[12px] leading-5 text-[#615d59]">Periksa ringkasan sebelum konfirmasi. Hanya sesi closed dan belum dibayar dari 1 petugas yang bisa dibayar.</DialogDescription>
+                  <DialogDescription className="font-['Inter'] text-[12px] leading-5 text-[#615d59]">1 petugas · sesi closed & belum dibayar · bisa simpan pending dulu</DialogDescription>
+                  {payPreview ? (
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <span className="inline-flex max-w-full truncate rounded-full bg-[#000000] px-2.5 py-1 font-['Inter'] text-[11px] font-semibold text-white">{payPreview.packerLabel}</span>
+                      <span className="inline-flex rounded-full border border-[#e6e6e6] bg-[#f6f5f4] px-2.5 py-1 font-['Inter'] text-[11px] font-medium tabular-nums text-[#31302e]">{payPreview.count} sesi · {payPreview.totalPaket} paket</span>
+                    </div>
+                  ) : null}
                 </div>
                 <Button type="button" variant="ghost" size="icon" onClick={() => setShowPayDialog(false)} className="h-8 w-8 shrink-0 rounded-[8px] border border-[#e6e6e6] bg-white text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]">
                   <HugeiconsIcon icon={Cancel01Icon} size={16} strokeWidth={1.9} />
@@ -681,40 +965,182 @@ export function PackingSessionsPage() {
               </div>
             </div>
             {payPreview ? (
-              <div className="grid gap-4 bg-[#f6f5f4] p-5">
-                <div className="overflow-hidden rounded-[8px] border border-[#e6e6e6] bg-white">
-                  <div className="p-4">
-                    <p className="font-['Inter'] text-[13px] font-semibold text-[#000000]">{payPreview.packerLabel}</p>
-                    <p className="mt-1 font-['Inter'] text-[12px] text-[#615d59]">{payPreview.count} sesi · {payPreview.totalPaket} paket · {formatCurrency(payPreview.totalUpah)}</p>
+              <>
+              <div className="min-h-0 flex-1 overflow-y-auto bg-[#f6f5f4]">
+              <div className="sticky top-0 z-10 border-b border-[#e6e6e6] bg-white/95 px-5 py-3 backdrop-blur">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-['Inter'] text-[12px] tabular-nums text-[#615d59]">{payPreview.count} sesi · {payPreview.totalPaket} paket · subtotal {formatCurrency(payPreview.totalUpah)}</p>
+                    <p className="mt-0.5 truncate font-['Inter'] text-[12px] tabular-nums text-[#615d59]">penyesuaian {payAdjustmentSummary.adjustmentTotal === 0 ? '—' : `${payAdjustmentSummary.adjustmentTotal > 0 ? '+' : '−'}${formatCurrency(Math.abs(payAdjustmentSummary.adjustmentTotal))}`}{activePayAdjustments.length > 0 ? ` (${activePayAdjustments.length})` : ''}</p>
                   </div>
-                  <ul className="max-h-[18vh] divide-y divide-[#e6e6e6] overflow-y-auto border-y border-[#e6e6e6] bg-[#f6f5f4]">
-                    {payPreview.sessions.map((s) => (
-                      <li key={s.id} className="flex justify-between gap-2 bg-white px-3 py-2 font-['Inter'] text-[12px]">
-                        <span className="truncate text-[#31302e]" title={s.id}>{new Date(s.startedAt).toLocaleDateString('id-ID')} · {s.id.slice(0, 8)}</span>
-                        <span className="shrink-0 tabular-nums font-medium text-[#000000]">{s.completedPackingCount} paket · {formatCurrency(s.totalPayAmount)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="flex gap-2 bg-white p-3">
-                    <Button type="button" variant="ghost" onClick={() => { const t = buildSelectionShareText(); if (t) void copyText(t, 'selection') }} className="h-7 flex-1 rounded-[8px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Copy01Icon} size={14} strokeWidth={1.9} /> {copiedKey === 'selection' ? 'Copied' : 'Copy ringkasan'}</Button>
-                    <Button type="button" variant="ghost" onClick={() => { const t = buildSelectionShareText(); if (t) setShareDraft({ title: 'Ringkasan packing', text: t }) }} className="h-7 flex-1 rounded-[8px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={SentIcon} size={14} strokeWidth={1.9} /> WA</Button>
+                  <div className="shrink-0 text-right">
+                    <p className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Total dibayar</p>
+                    <p className="font-['Inter'] text-[22px] font-bold tabular-nums leading-tight tracking-[-0.5px] text-[#000000]">{formatCurrency(Math.max(0, payAdjustmentSummary.finalTotal))}</p>
                   </div>
-                </div>
-                <div className="grid gap-1.5">
-                  <Label className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Metode pembayaran</Label>
-                  <NativeSelect value={payMethod} onChange={(value) => setPayMethod(value as typeof payMethod)} options={[{ value: 'cash', label: 'cash' }, { value: 'transfer', label: 'transfer' }, { value: 'other', label: 'other' }]} />
-                </div>
-                <div className="grid gap-1.5">
-                  <Label className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Catatan (opsional)</Label>
-                  <Input className="h-8 rounded-[4px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" value={payNote} onChange={(e) => setPayNote(e.target.value)} placeholder="mis: periode 1-7 Agu, tunai" />
-                </div>
-                {payError ? <Alert variant="destructive" className="font-['Inter'] text-[13px]"><p>{payError}</p></Alert> : null}
-                <div className="flex justify-end gap-2 border-t border-[#e6e6e6] bg-white -mx-5 -mb-5 px-5 py-3">
-                  <Button type="button" variant="ghost" onClick={() => setShowPayDialog(false)} disabled={payBusy} className="h-8 rounded-[8px] border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Batal</Button>
-                  <Button type="button" onClick={() => void handleConfirmPay()} disabled={payBusy || !payPreview.valid} className="h-8 rounded-[8px] bg-[#000000] px-5 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#31302e] disabled:opacity-40">{payBusy ? 'Memproses...' : 'Konfirmasi Bayar'}</Button>
                 </div>
               </div>
+              <div className="grid gap-5 p-5">
+                <section className="grid gap-2">
+                  <div className="flex items-baseline gap-2">
+                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#000000] font-['Inter'] text-[11px] font-bold text-white">1</span>
+                    <h3 className="font-['Inter'] text-[13px] font-semibold text-[#000000]">Sesi yang dibayar</h3>
+                    <span className="font-['Inter'] text-[12px] tabular-nums text-[#a39e98]">{formatCurrency(payPreview.totalUpah)}</span>
+                  </div>
+                  <div className="overflow-hidden rounded-[8px] border border-[#e6e6e6] bg-white">
+                    <ul className="max-h-44 divide-y divide-[#e6e6e6] overflow-y-auto bg-white">
+                      {payPreview.sessions.map((s) => (
+                        <li key={s.id} className="flex items-center justify-between gap-2 px-3 py-2 font-['Inter'] text-[12px]">
+                          <span className="min-w-0">
+                            <span className="block truncate text-[#31302e]" title={s.id}>{new Date(s.startedAt).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })} · {s.id.slice(0, 8)}</span>
+                            <span className="block text-[11px] tabular-nums text-[#a39e98]">{s.completedPackingCount} paket</span>
+                          </span>
+                          <span className="shrink-0 tabular-nums font-semibold text-[#000000]">{formatCurrency(s.totalPayAmount)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="flex gap-2 border-t border-[#e6e6e6] bg-white p-2">
+                      <Button type="button" variant="ghost" onClick={() => { const t = buildSelectionShareText(); if (t) void copyText(t, 'selection') }} className="h-7 flex-1 rounded-[8px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Copy01Icon} size={14} strokeWidth={1.9} /> {copiedKey === 'selection' ? 'Copied' : 'Copy ringkasan'}</Button>
+                      <Button type="button" variant="ghost" onClick={() => { const t = buildSelectionShareText(); if (t) setShareDraft({ title: 'Ringkasan packing', text: t }) }} className="h-7 flex-1 rounded-[8px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={SentIcon} size={14} strokeWidth={1.9} /> WA</Button>
+                    </div>
+                  </div>
+                </section>
+                <section className="overflow-hidden rounded-[8px] border border-[#e6e6e6] bg-white">
+                  <button type="button" onClick={() => setAdjustOpen((v) => !v)} aria-expanded={adjustOpen} className="flex w-full items-center gap-2.5 px-4 py-3 text-left hover:bg-[#fbfaf9]">
+                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#000000] font-['Inter'] text-[11px] font-bold text-white">2</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-['Inter'] text-[13px] font-semibold text-[#000000]">Penyesuaian</span>
+                      <span className="block truncate font-['Inter'] text-[12px] tabular-nums text-[#a39e98]">{activePayAdjustments.length === 0 ? 'Tidak ada — total = subtotal upah' : `${activePayAdjustments.length} aktif · ${payAdjustmentSummary.adjustmentTotal > 0 ? '+' : payAdjustmentSummary.adjustmentTotal < 0 ? '−' : ''}${formatCurrency(Math.abs(payAdjustmentSummary.adjustmentTotal))}`}</span>
+                    </span>
+                    <span className={`shrink-0 font-['Inter'] text-[14px] text-[#615d59] transition-transform ${adjustOpen ? 'rotate-180' : ''}`} aria-hidden="true">▾</span>
+                  </button>
+                  {adjustOpen ? (
+                  <div className="grid gap-2 border-t border-[#e6e6e6] px-4 py-3">
+                  <p className="font-['Inter'] text-[12px] leading-5 text-[#615d59]">Centang kasbon/bonus yang <span className="font-medium text-[#31302e]">tersimpan</span>, atau tambah baris <span className="font-medium text-[#31302e]">manual</span> sekali pakai.</p>
+                  {payLedgerOptions.length > 0 ? (
+                    <div className="grid gap-1.5">
+                      {payLedgerOptions.map((item) => {
+                        const checked = checkedLedgerIds.has(item.id)
+                        return (
+                          <label key={item.id} className={`flex cursor-pointer items-center gap-2.5 rounded-[8px] border bg-white px-3 py-2 transition-colors ${checked ? 'border-[#000000]' : 'border-[#e6e6e6]'}`}>
+                            <input type="checkbox" className="h-4 w-4 shrink-0 rounded border-[#dddddd] accent-[#000000]" checked={checked} onChange={() => setCheckedLedgerIds((prev) => { const next = new Set(prev); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next })} aria-label={`Ikutkan ${item.label}`} />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate font-['Inter'] text-[12px] text-[#31302e]" title={item.label}>{item.label}</span>
+                              <span className="block font-['Inter'] text-[11px] text-[#a39e98]">Tersimpan · oleh {item.createdByOperatorName ?? '-'}</span>
+                            </span>
+                            <span className={`shrink-0 font-['Inter'] text-[12px] font-semibold tabular-nums ${item.kind === 'add' ? 'text-[#000000]' : 'text-[#991b1b]'}`}>{item.kind === 'add' ? '+' : '−'}{formatCurrency(item.amount)}</span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  ) : null}
+                  {payAdjustmentSummary.items.length > 0 ? (
+                    <div className="grid gap-2">
+                      {payAdjustmentSummary.items.map((item) => (
+                        <div key={item.id} className="grid grid-cols-[76px_1fr] gap-2 rounded-[8px] border border-dashed border-[#8f8a84] bg-white p-2">
+                          <select value={item.kind} onChange={(e) => updatePayAdjustmentRow(item.id, { kind: e.target.value as 'add' | 'deduct' })} className="h-8 rounded-[4px] border border-[#e6e6e6] bg-white px-1 font-['Inter'] text-[12px] font-medium text-[#000000] focus:outline-none" aria-label="Tipe penyesuaian">
+                            <option value="add">+ Tambah</option>
+                            <option value="deduct">− Kurang</option>
+                          </select>
+                          <div className="grid gap-2">
+                            <div className="flex gap-2">
+                              <Input value={item.label} onChange={(e) => updatePayAdjustmentRow(item.id, { label: e.target.value })} placeholder="mis: Bonus rapi / Koreksi kurang bayar" className="h-8 flex-1 rounded-[4px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" maxLength={100} aria-label="Keterangan penyesuaian" />
+                              <Button type="button" variant="ghost" size="icon" onClick={() => removePayAdjustmentRow(item.id)} className="h-8 w-8 shrink-0 rounded-[4px] border border-[#e6e6e6] text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" aria-label="Hapus penyesuaian">
+                                <HugeiconsIcon icon={Delete02Icon} size={15} strokeWidth={1.9} />
+                              </Button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-['Inter'] text-[12px] text-[#a39e98]">Rp</span>
+                              <Input value={item.amount} onChange={(e) => updatePayAdjustmentRow(item.id, { amount: e.target.value })} inputMode="numeric" placeholder="0" className="h-8 flex-1 rounded-[4px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[13px] tabular-nums placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" aria-label="Nominal penyesuaian" />
+                              <span className={`shrink-0 font-['Inter'] text-[12px] font-semibold tabular-nums ${item.parsedAmount > 0 ? (item.kind === 'add' ? 'text-[#000000]' : 'text-[#991b1b]') : 'text-[#a39e98]'}`}>{item.parsedAmount > 0 ? `${item.kind === 'add' ? '+' : '−'}${formatCurrency(item.parsedAmount)}` : 'Rp 0'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                  {payLedgerOptions.length === 0 && payAdjustmentSummary.items.length === 0 ? (
+                    <p className="rounded-[8px] border border-dashed border-[#e6e6e6] bg-white px-3 py-2.5 font-['Inter'] text-[12px] leading-5 text-[#a39e98]">Belum ada penyesuaian — total yang dibayar sama dengan subtotal upah.</p>
+                  ) : null}
+                  <div className="flex flex-wrap gap-1.5">
+                    <button type="button" onClick={addPayAdjustmentRow} disabled={payAdjustments.length >= 10} className="inline-flex h-7 items-center rounded-[8px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40">+ Baris manual</button>
+                    <button type="button" onClick={() => openLedgerDialog(payPreview.packerKey)} className="inline-flex h-7 items-center rounded-[8px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">+ Catat kasbon/bonus</button>
+                    {['Bonus rapi', 'Kasbon', 'Kurang bayar lalu'].map((preset) => (
+                      <button key={preset} type="button" onClick={() => { if (payAdjustments.length >= 10) { alert('Maksimal 10 baris penyesuaian.'); return } const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; setPayAdjustments((prev) => [...prev, { id, kind: preset === 'Bonus rapi' || preset === 'Kurang bayar lalu' ? 'add' : 'deduct', label: preset, amount: '' }]) }} className="h-7 rounded-full border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]">{preset}</button>
+                    ))}
+                  </div>
+                  {payAdjustmentSummary.finalTotal < 0 ? <p className="font-['Inter'] text-[12px] font-medium text-red-600">Total tidak boleh negatif. Kurangi potongan.</p> : null}
+                  </div>
+                  ) : null}
+                </section>
+                <section className="grid gap-2">
+                  <div className="flex items-baseline gap-2">
+                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#000000] font-['Inter'] text-[11px] font-bold text-white">3</span>
+                    <h3 className="font-['Inter'] text-[13px] font-semibold text-[#000000]">Pembayaran</h3>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5 rounded-[8px] border border-[#e6e6e6] bg-white p-1.5" role="radiogroup" aria-label="Metode pembayaran">
+                    {[{ value: 'cash', label: 'Tunai' }, { value: 'transfer', label: 'Transfer' }, { value: 'other', label: 'Lainnya' }].map((opt) => (
+                      <button key={opt.value} type="button" role="radio" aria-checked={payMethod === opt.value} onClick={() => setPayMethod(opt.value as typeof payMethod)} className={`h-9 rounded-[6px] font-['Inter'] text-[13px] font-medium transition-colors ${payMethod === opt.value ? 'bg-[#000000] text-white' : 'text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]'}`}>{opt.label}</button>
+                    ))}
+                  </div>
+                  <Input value={payNote} onChange={(e) => setPayNote(e.target.value)} placeholder="Catatan (opsional) — mis: periode 1-7 Agu, tunai" maxLength={200} className="h-9 rounded-[8px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" aria-label="Catatan pembayaran" />
+                  <p className="rounded-[8px] border border-[#e6e6e6] bg-white px-3 py-2.5 font-['Inter'] text-[12px] leading-5 text-[#615d59]"><span className="font-semibold text-[#000000]">Simpan pending</span> menyimpan pembayaran ini sebagai draft & mengunci {payPreview.count} sesi — sesi tidak bisa dibayar di tempat lain sampai draft dikonfirmasi atau dibatalkan.</p>
+                </section>
+                {payError ? <Alert variant="destructive" className="font-['Inter'] text-[13px]"><p>{payError}</p></Alert> : null}
+                </div>
+              </div>
+              <div className="grid shrink-0 gap-2 border-t border-[#e6e6e6] bg-white p-4 sm:grid-cols-[auto_1fr_1fr] sm:items-center">
+                <Button type="button" variant="ghost" onClick={() => setShowPayDialog(false)} disabled={payBusy || draftBusy} className="h-10 rounded-[8px] border border-[#e6e6e6] bg-white px-5 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Batal</Button>
+                <Button type="button" variant="ghost" onClick={() => void handleSaveDraft()} disabled={payBusy || draftBusy || !payPreview.valid || payAdjustmentSummary.finalTotal < 0} className="h-10 rounded-[8px] border border-[#000000] bg-white px-5 font-['Inter'] text-[13px] font-semibold text-[#000000] hover:bg-[#f6f5f4] disabled:opacity-40">{draftBusy ? 'Menyimpan...' : 'Simpan pending'}</Button>
+                <Button type="button" onClick={() => void handleConfirmPay()} disabled={payBusy || draftBusy || !payPreview.valid || payAdjustmentSummary.finalTotal < 0} className="h-10 rounded-[8px] bg-[#000000] px-5 font-['Inter'] text-[13px] font-semibold text-white hover:bg-[#31302e] disabled:opacity-40">{payBusy ? 'Memproses...' : `Bayar ${formatCurrency(Math.max(0, payAdjustmentSummary.finalTotal))}`}</Button>
+              </div>
+              </>
             ) : null}
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showLedgerDialog} onOpenChange={setShowLedgerDialog}>
+          <DialogContent showCloseButton={false} className="packing-modal max-w-md gap-0 overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_23px_52px_rgba(0,0,0,0.08),0_4px_18px_rgba(0,0,0,0.06)]">
+            <div className="border-b border-[#e6e6e6] bg-white p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div className="grid gap-1.5">
+                  <DialogTitle className="font-['Inter'] text-[20px] font-semibold leading-none tracking-[-0.5px] text-[#000000]">Catat kasbon / bonus</DialogTitle>
+                  <DialogDescription className="font-['Inter'] text-[12px] leading-5 text-[#615d59]">Tersimpan sebagai pending per petugas. Otomatis disarankan saat bayar nanti — tanpa harus bayar sekarang.</DialogDescription>
+                </div>
+                <Button type="button" variant="ghost" size="icon" onClick={() => setShowLedgerDialog(false)} className="h-8 w-8 shrink-0 rounded-[8px] border border-[#e6e6e6] bg-white text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]">
+                  <HugeiconsIcon icon={Cancel01Icon} size={16} strokeWidth={1.9} />
+                </Button>
+              </div>
+            </div>
+            <div className="grid gap-4 bg-[#f6f5f4] p-5">
+              <div className="grid gap-1.5">
+                <Label className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Petugas</Label>
+                <NativeSelect value={ledgerPacker} onChange={setLedgerPacker} options={packerOptions.map((op) => ({ value: `${op.name}::${op.code}`, label: op.label }))} placeholder="Pilih petugas" placeholderValue="" />
+              </div>
+              <div className="grid gap-1.5">
+                <Label className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Tipe</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => setLedgerKind('deduct')} className={`h-9 rounded-[8px] border font-['Inter'] text-[13px] font-medium ${ledgerKind === 'deduct' ? 'border-[#000000] bg-[#000000] text-white' : 'border-[#e6e6e6] bg-white text-[#31302e] hover:bg-[#f6f5f4]'}`}>− Kurang (kasbon)</button>
+                  <button type="button" onClick={() => setLedgerKind('add')} className={`h-9 rounded-[8px] border font-['Inter'] text-[13px] font-medium ${ledgerKind === 'add' ? 'border-[#000000] bg-[#000000] text-white' : 'border-[#e6e6e6] bg-white text-[#31302e] hover:bg-[#f6f5f4]'}`}>+ Tambah (bonus)</button>
+                </div>
+              </div>
+              <div className="grid gap-1.5">
+                <Label className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Keterangan</Label>
+                <Input value={ledgerLabel} onChange={(e) => setLedgerLabel(e.target.value)} placeholder="mis: Kasbon 20 Jan / Bonus rapi" maxLength={100} className="h-9 rounded-[4px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" />
+              </div>
+              <div className="grid gap-1.5">
+                <Label className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Nominal (Rp)</Label>
+                <Input value={ledgerAmount} onChange={(e) => setLedgerAmount(e.target.value)} inputMode="numeric" placeholder="0" className="h-9 rounded-[4px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[13px] tabular-nums placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" />
+              </div>
+              <div className="grid gap-1.5">
+                <Label className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Catatan (opsional)</Label>
+                <Input value={ledgerNote} onChange={(e) => setLedgerNote(e.target.value)} placeholder="mis: titip ke mandor" maxLength={200} className="h-9 rounded-[4px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" />
+              </div>
+              {ledgerError ? <Alert variant="destructive" className="font-['Inter'] text-[13px]"><p>{ledgerError}</p></Alert> : null}
+              <div className="flex justify-end gap-2 border-t border-[#e6e6e6] bg-white -mx-5 -mb-5 px-5 py-3">
+                <Button type="button" variant="ghost" onClick={() => setShowLedgerDialog(false)} disabled={ledgerBusy} className="h-8 rounded-[8px] border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Batal</Button>
+                <Button type="button" onClick={() => void handleCreateLedger()} disabled={ledgerBusy} className="h-8 rounded-[8px] bg-[#000000] px-5 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#31302e] disabled:opacity-40">{ledgerBusy ? 'Menyimpan...' : 'Simpan catatan'}</Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </>
@@ -876,11 +1302,12 @@ export function PackingSessionsPage() {
         <div>
           <div className="font-['Inter'] text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Operasional / Sesi Packing</div>
           <h1 className="mt-2 font-['Inter'] text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">Riwayat Sesi Packing</h1>
-          <p className="mt-3 max-w-2xl font-['Inter'] text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Kelola sesi packing per petugas, hitung total upah, lalu bayar atau share ringkasan.</p>
+          <p className="mt-3 max-w-2xl font-['Inter'] text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Kelola sesi packing per petugas, catat kasbon/bonus kapan saja, simpan pending, lalu bayar atau share ringkasan.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center rounded-full border border-[#dddddd] bg-white px-2.5 py-1 font-['Inter'] text-[11px] font-semibold text-[#615d59]">{loading ? 'Loading' : 'Ready'}</span>
           <Button type="button" variant="ghost" onClick={() => void load()} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={RefreshIcon} size={16} strokeWidth={1.9} /> Refresh</Button>
+          <Button type="button" variant="ghost" onClick={() => openLedgerDialog()} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Edit02Icon} size={16} strokeWidth={1.9} /> Catat kasbon/bonus</Button>
           <Button type="button" variant="ghost" onClick={handleExportAll} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Download01Icon} size={16} strokeWidth={1.9} /> Export Sesi</Button>
           <Button type="button" variant="ghost" onClick={handleExportPayments} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Download01Icon} size={16} strokeWidth={1.9} /> Export Bayar</Button>
         </div>
@@ -900,7 +1327,7 @@ export function PackingSessionsPage() {
           <p className="font-['Inter'] text-[13px] leading-5 text-[#31302e]">
             <span className="font-semibold text-[#000000]">{lastPayment.paymentNo}</span>
             <span className="mx-1 text-[#a39e98]">·</span>
-            {lastPayment.packerNameSnapshot} ({lastPayment.packerCodeSnapshot}) · {lastPayment.totalSessions} sesi · {lastPayment.totalPackages} paket · {formatCurrency(lastPayment.totalAmount)}
+            {lastPayment.packerNameSnapshot} ({lastPayment.packerCodeSnapshot}) · {lastPayment.totalSessions} sesi · {lastPayment.totalPackages} paket · {formatCurrency(lastPayment.totalAmount)}{(lastPayment.adjustmentTotal ?? 0) !== 0 ? ` (subtotal ${formatCurrency(lastPayment.subtotalAmount ?? lastPayment.totalAmount)})` : ''}
             <span className="ml-2 inline-flex rounded-full bg-[#000000] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-white">barusan dibayar</span>
           </p>
           <div className="flex flex-wrap gap-2">
@@ -917,7 +1344,7 @@ export function PackingSessionsPage() {
             <h2 className="font-['Inter'] text-[14px] font-semibold leading-none text-[#000000]">Daftar Sesi</h2>
             <p className="mt-1 truncate font-['Inter'] text-[12px] leading-none text-[#615d59]">
               {selectedSessionIds.size > 0
-                ? `${totals.selectedSessions.length} sesi · ${totals.totalPaket} paket · ${formatCurrency(totals.totalUpah)}${payPreview && !payPreview.valid ? ` · ${payPreview.mixedPacker ? 'pilih 1 petugas saja' : payPreview.notClosedCount > 0 ? `${payPreview.notClosedCount} sesi belum closed` : payPreview.alreadyPaidCount > 0 ? `${payPreview.alreadyPaidCount} sesi sudah dibayar` : ''}` : deletePreview.invalidCount > 0 ? ` · ${deletePreview.deletable.length} bisa dihapus, ${deletePreview.invalidCount} dilewati` : ''}${canMergeSelected ? ' · bisa digabung' : ''}`
+                ? `${totals.selectedSessions.length} sesi · ${totals.totalPaket} paket · ${formatCurrency(totals.totalUpah)}${payPreview && !payPreview.valid ? ` · ${payPreview.mixedPacker ? 'pilih 1 petugas saja' : payPreview.notClosedCount > 0 ? `${payPreview.notClosedCount} sesi belum closed` : payPreview.alreadyPaidCount > 0 ? `${payPreview.alreadyPaidCount} sesi sudah dibayar` : payPreview.lockedCount > 0 ? `${payPreview.lockedCount} sesi terkunci pending` : ''}` : deletePreview.invalidCount > 0 ? ` · ${deletePreview.deletable.length} bisa dihapus, ${deletePreview.invalidCount} dilewati` : ''}${canMergeSelected ? ' · bisa digabung' : ''}`
                 : `Menampilkan ${filtered.length} dari ${sessions.length} sesi · ${groupedSessions.length} petugas`}
             </p>
           </div>
@@ -1014,7 +1441,7 @@ export function PackingSessionsPage() {
                     </tr>
                     {group.sessions.map((s) => (
                       <tr key={s.id} className="bg-white transition-colors hover:bg-[#fbfaf9]">
-                        <Td className="px-4"><input type="checkbox" className="h-4 w-4 rounded border-[#dddddd] accent-[#000000]" checked={selectedSessionIds.has(s.id)} onChange={() => toggleSessionSelection(s.id)} aria-label={`Pilih sesi ${s.packerNameSnapshot}`} /></Td>
+                        <Td className="px-4"><input type="checkbox" className="h-4 w-4 rounded border-[#dddddd] accent-[#000000] disabled:opacity-30" checked={selectedSessionIds.has(s.id)} disabled={lockedSessionDraftNo.has(s.id)} title={lockedSessionDraftNo.get(s.id) ? `Terkunci di ${lockedSessionDraftNo.get(s.id)}` : undefined} onChange={() => toggleSessionSelection(s.id)} aria-label={`Pilih sesi ${s.packerNameSnapshot}`} /></Td>
                         <Td>
                           <div className="ml-4 grid gap-1 border-l border-[#e6e6e6] pl-3">
                             <span className="font-['Inter'] text-[13px] font-medium text-[#000000]">{formatSessionDateLabel(s.startedAt)}</span>
@@ -1025,7 +1452,7 @@ export function PackingSessionsPage() {
                         </Td>
                         <Td>
                           <div className="flex flex-wrap gap-1.5">
-                            {s.paidAt ? <span className="inline-flex rounded-lg bg-[#000000] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-white">Dibayar</span> : <span className="inline-flex rounded-lg border border-[#8f8a84] bg-white px-2 py-0.5 font-['Inter'] text-[11px] font-medium text-[#615d59]">Belum</span>}
+                            {s.paidAt ? <span className="inline-flex rounded-lg bg-[#000000] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-white">Dibayar</span> : lockedSessionDraftNo.has(s.id) ? <span className="inline-flex rounded-lg border border-[#8f8a84] bg-[#f6f5f4] px-2 py-0.5 font-['Inter'] text-[11px] font-medium text-[#31302e]" title={`Terkunci di ${lockedSessionDraftNo.get(s.id)}`}>Pending</span> : <span className="inline-flex rounded-lg border border-[#8f8a84] bg-white px-2 py-0.5 font-['Inter'] text-[11px] font-medium text-[#615d59]">Belum</span>}
                             {s.status === 'active' && !s.createdBySessionId ? <span className="inline-flex rounded-lg border border-[#dddddd] bg-white px-2 py-0.5 font-['Inter'] text-[11px] font-medium text-[#615d59]">Menggantung</span> : null}
                           </div>
                         </Td>
@@ -1051,6 +1478,88 @@ export function PackingSessionsPage() {
           </div>
         )}
         {filtered.length > 0 ? <p className="border-t border-[#dddddd] bg-[#fbfaf9] px-4 py-3 font-['Inter'] text-[12px] text-[#a39e98] sm:px-5">Menampilkan {filtered.length} dari {sessions.length} sesi · Centang untuk hitung total & share.</p> : null}
+      </section>
+
+      <section className="mt-5 overflow-hidden rounded-xl border border-[#dddddd] bg-white">
+        <div className="flex flex-col gap-3 border-b border-[#dddddd] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div>
+            <h2 className="font-['Inter'] text-[16px] font-semibold text-[#000000]">Pending</h2>
+            <p className="mt-1 font-['Inter'] text-[12px] text-[#a39e98]">{drafts.length} draft pembayaran · {pendingLedger.length} kasbon/bonus menunggu · sesi di draft terkunci</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="ghost" onClick={() => openLedgerDialog()} className="h-9 rounded-full border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Edit02Icon} size={16} strokeWidth={1.9} /> Catat kasbon/bonus</Button>
+            <Button type="button" variant="ghost" onClick={() => void refreshPending()} disabled={draftsLoading || ledgerLoading} className="h-9 rounded-full border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={RefreshIcon} size={16} strokeWidth={1.9} /> {draftsLoading || ledgerLoading ? 'Memuat...' : 'Refresh'}</Button>
+          </div>
+        </div>
+        {drafts.length === 0 && pendingLedger.length === 0 ? (
+          <div className="px-6 py-10 text-center">
+            <div className="mt-1 font-['Inter'] text-[14px] font-medium text-[#000000]">Tidak ada yang pending</div>
+            <div className="mt-1 font-['Inter'] text-[12px] text-[#a39e98]">Kasbon/bonus yang baru ingat bisa dicatat kapan saja. Pembayaran bisa disimpan sebagai draft tanpa konfirmasi.</div>
+          </div>
+        ) : (
+          <div className="grid gap-0 lg:grid-cols-2">
+            <div className="border-b border-[#dddddd] lg:border-b-0 lg:border-r">
+              <p className="border-b border-[#e6e6e6] bg-[#fbfaf9] px-4 py-2.5 font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98] sm:px-5">Draft pembayaran ({drafts.length})</p>
+              {drafts.length === 0 ? (
+                <p className="px-4 py-4 font-['Inter'] text-[12px] text-[#a39e98] sm:px-5">Belum ada draft. Pilih sesi → Bayar → Simpan pending.</p>
+              ) : (
+                <ul className="divide-y divide-[#e6e6e6]">
+                  {drafts.map((draft) => {
+                    const expanded = expandedDraftId === draft.id
+                    const allAdj = [...draft.adjustments, ...draft.ledgerItems]
+                    return (
+                      <li key={draft.id} className="px-4 py-3 sm:px-5">
+                        <div className="flex items-start justify-between gap-3">
+                          <button type="button" onClick={() => setExpandedDraftId(expanded ? null : draft.id)} className="min-w-0 flex-1 text-left">
+                            <p className="truncate font-['Inter'] text-[13px] font-semibold text-[#000000]">{draft.draftNo} · {draft.packerNameSnapshot}</p>
+                            <p className="mt-0.5 font-['Inter'] text-[12px] tabular-nums text-[#615d59]">{draft.totalSessions} sesi · {draft.totalPackages} paket · estimasi {formatCurrency(draft.estimatedTotal)}</p>
+                            <p className="mt-0.5 font-['Inter'] text-[11px] text-[#a39e98]">oleh {draft.createdByOperatorName ?? '-'} · {new Date(draft.createdAt).toLocaleString('id-ID')}</p>
+                          </button>
+                          <div className="flex shrink-0 gap-1">
+                            <Button type="button" variant="ghost" size="sm" onClick={() => void handleConfirmDraft(draft)} className="h-8 rounded-lg bg-[#000000] px-3 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#31302e]">Konfirmasi</Button>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => void handleCancelDraft(draft)} className="h-8 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] text-[#991b1b] hover:bg-[#fee2e2]">Batal</Button>
+                          </div>
+                        </div>
+                        {expanded ? (
+                          <div className="mt-2 rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] p-3">
+                            <p className="font-['Inter'] text-[12px] text-[#615d59]">Subtotal {formatCurrency(draft.subtotalSnapshot)}{draft.adjustmentTotalSnapshot !== 0 ? ` · penyesuaian ${draft.adjustmentTotalSnapshot > 0 ? '+' : '−'}${formatCurrency(Math.abs(draft.adjustmentTotalSnapshot))}` : ''} · metode {draft.paymentMethod}</p>
+                            {allAdj.length > 0 ? (
+                              <ul className="mt-1.5 grid gap-1">
+                                {allAdj.map((item, idx) => (
+                                  <li key={`${draft.id}-adj-${idx}`} className="flex justify-between gap-2 font-['Inter'] text-[12px] text-[#31302e]"><span className="truncate">{item.kind === 'add' ? '+' : '−'} {item.label}</span><span className="shrink-0 tabular-nums">{formatCurrency(item.amount)}</span></li>
+                                ))}
+                              </ul>
+                            ) : null}
+                            {draft.note ? <p className="mt-1.5 font-['Inter'] text-[12px] text-[#615d59]">Catatan: {draft.note}</p> : null}
+                            <p className="mt-1.5 font-['Inter'] text-[11px] text-[#a39e98]">Sesi: {draft.sessionIds.map((id) => id.slice(0, 8)).join(', ')}</p>
+                          </div>
+                        ) : null}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
+            <div>
+              <p className="border-b border-[#e6e6e6] bg-[#fbfaf9] px-4 py-2.5 font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98] sm:px-5">Kasbon & bonus menunggu ({pendingLedger.length})</p>
+              {pendingLedger.length === 0 ? (
+                <p className="px-4 py-4 font-['Inter'] text-[12px] text-[#a39e98] sm:px-5">Belum ada catatan. Baru ingat ada kasbon? Catat di sini.</p>
+              ) : (
+                <ul className="max-h-[320px] divide-y divide-[#e6e6e6] overflow-y-auto">
+                  {pendingLedger.map((item) => (
+                    <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5">
+                      <div className="min-w-0">
+                        <p className="truncate font-['Inter'] text-[13px] font-medium text-[#000000]">{item.kind === 'add' ? '+' : '−'} {item.label}</p>
+                        <p className="mt-0.5 truncate font-['Inter'] text-[11px] text-[#a39e98]">{item.packerNameSnapshot} ({item.packerCodeSnapshot}) · {formatCurrency(item.amount)} · oleh {item.createdByOperatorName ?? '-'}</p>
+                      </div>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => void handleCancelLedger(item)} className="h-8 shrink-0 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] text-[#991b1b] hover:bg-[#fee2e2]">Batalkan</Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="mt-5 overflow-hidden rounded-xl border border-[#dddddd] bg-white">
@@ -1096,7 +1605,12 @@ export function PackingSessionsPage() {
                     </Td>
                     <Td className="text-center font-['Inter'] text-[13px] tabular-nums text-[#000000]">{p.totalSessions}</Td>
                     <Td className="text-right font-['Inter'] text-[13px] tabular-nums text-[#000000]">{p.totalPackages}</Td>
-                    <Td className="text-right font-['Inter'] text-[13px] font-semibold tabular-nums text-[#000000]">{formatCurrency(p.totalAmount)}</Td>
+                    <Td className="text-right">
+                      <div className="grid gap-0.5">
+                        <span className="font-['Inter'] text-[13px] font-semibold tabular-nums text-[#000000]">{formatCurrency(p.totalAmount)}</span>
+                        {(p.adjustmentTotal ?? 0) !== 0 ? <span className="font-['Inter'] text-[11px] tabular-nums text-[#615d59]">subtotal {formatCurrency(p.subtotalAmount ?? p.totalAmount)} {(p.adjustmentTotal ?? 0) > 0 ? '+' : '−'}{formatCurrency(Math.abs(p.adjustmentTotal ?? 0))}</span> : null}
+                      </div>
+                    </Td>
                     <Td><span className="inline-flex rounded-full border border-[#dddddd] bg-[#f6f5f4] px-2 py-0.5 font-['Inter'] text-[12px] font-medium text-[#31302e]">{p.paymentMethod}</span></Td>
                     <Td className="font-['Inter'] text-[12px] text-[#615d59]">{new Date(p.paidAt).toLocaleString('id-ID')}</Td>
                     <Td className="px-5">

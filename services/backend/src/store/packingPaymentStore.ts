@@ -1,8 +1,10 @@
-import type { PackingPayment, PackingPaymentMethod } from '@pakti/types'
+import type { PackingPayment, PackingPaymentAdjustment, PackingPaymentMethod } from '@pakti/types'
 
 import { ensureServerStorage, getDb } from '../db'
 import type { HttpSession } from '../http'
 import { broadcastBackendEvent } from '../realtime'
+import { markLedgerItemsApplied, resolvePendingLedgerItems } from './packerAdjustmentStore'
+import { assertSessionsNotLocked } from './packingDraftLock'
 import { getPackingSessionById } from './packingSessionStore'
 
 function db() {
@@ -34,6 +36,9 @@ type PackingPaymentRow = {
   packer_code_snapshot: string
   total_sessions: number
   total_packages: number
+  subtotal_amount: number | null
+  adjustment_total: number | null
+  adjustment_items: string | null
   total_amount: number
   payment_method: string
   paid_at: string
@@ -45,9 +50,56 @@ type PackingPaymentRow = {
   updated_at: string
 }
 
+function parseAdjustments(value: string | null): PackingPaymentAdjustment[] {
+  if (!value) return []
+  try {
+    const parsed = JSON.parse(value) as unknown
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .filter((entry): entry is PackingPaymentAdjustment => {
+        if (!entry || typeof entry !== 'object') return false
+        const item = entry as Record<string, unknown>
+        return typeof item.label === 'string' && (item.kind === 'add' || item.kind === 'deduct') && Number.isFinite(Number(item.amount))
+      })
+      .map((entry) => ({ label: entry.label.trim(), kind: entry.kind, amount: Math.round(Number(entry.amount)) }))
+      .filter((entry) => entry.label.length > 0 && entry.amount > 0)
+  } catch {
+    return []
+  }
+}
+
+export function normalizePaymentAdjustments(value: unknown): PackingPaymentAdjustment[] {
+  if (!Array.isArray(value)) return []
+  if (value.length > 10) {
+    throw new Error('Maksimal 10 baris penyesuaian per pembayaran.')
+  }
+  return value.map((entry, index) => {
+    const item = (entry ?? {}) as Record<string, unknown>
+    const label = typeof item.label === 'string' ? item.label.trim().slice(0, 100) : ''
+    if (!label) {
+      throw new Error(`Penyesuaian baris ${index + 1}: keterangan wajib diisi.`)
+    }
+    const kind = item.kind === 'deduct' ? 'deduct' : item.kind === 'add' ? 'add' : null
+    if (!kind) {
+      throw new Error(`Penyesuaian "${label}": tipe harus tambah (+) atau kurang (−).`)
+    }
+    const amount = Math.round(Number(item.amount))
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new Error(`Penyesuaian "${label}": nominal harus lebih dari Rp 0.`)
+    }
+    if (amount > 1_000_000_000) {
+      throw new Error(`Penyesuaian "${label}": nominal terlalu besar.`)
+    }
+    return { label, kind, amount }
+  })
+}
+
 
 
 function mapPaymentRow(row: PackingPaymentRow, sessionIds: string[]): PackingPayment {
+  const adjustments = parseAdjustments(row.adjustment_items)
+  const subtotal = row.subtotal_amount ?? row.total_amount
+  const adjustmentTotal = row.adjustment_total ?? adjustments.reduce((acc, item) => acc + (item.kind === 'add' ? item.amount : -item.amount), 0)
   return {
     id: row.id,
     paymentNo: row.payment_no,
@@ -57,6 +109,9 @@ function mapPaymentRow(row: PackingPaymentRow, sessionIds: string[]): PackingPay
     packerCodeSnapshot: row.packer_code_snapshot,
     totalSessions: row.total_sessions,
     totalPackages: row.total_packages,
+    subtotalAmount: subtotal,
+    adjustmentTotal,
+    adjustments,
     totalAmount: row.total_amount,
     paymentMethod: normalizePaymentMethod(row.payment_method),
     paidAt: row.paid_at,
@@ -120,10 +175,88 @@ export function createPackingPayment(input: {
   sessionIds: string[]
   paymentMethod?: PackingPaymentMethod | string | null
   note?: string | null
+  adjustments?: unknown
+  ledgerAdjustmentIds?: unknown
+  /** Internal: lewati cek kunci untuk draft yang sedang dikonfirmasi. */
+  skipLockCheckForDraftId?: string | null
   paidBySession: HttpSession
 }) {
   ensurePaymentLinksTable()
-  const sessionIds = Array.from(new Set((input.sessionIds ?? []).map((id) => String(id).trim()).filter(Boolean)))
+  const { sessionIds, validSessions, first, totalSessions, totalPackages, subtotalAmount } = validatePayablePackingSessions(input.sessionIds)
+
+  assertSessionsNotLocked(sessionIds, input.skipLockCheckForDraftId ?? null)
+
+  const manualAdjustments = normalizePaymentAdjustments(input.adjustments ?? [])
+  const ledgerItems = resolvePendingLedgerItems(db(), input.ledgerAdjustmentIds ?? [], first.packerOperatorName, first.packerOperatorCode)
+  const adjustments: PackingPaymentAdjustment[] = [
+    ...manualAdjustments,
+    ...ledgerItems.map((item) => ({ label: item.label, kind: item.kind, amount: item.amount })),
+  ]
+  if (adjustments.length > 10) {
+    throw new Error('Maksimal 10 baris penyesuaian per pembayaran.')
+  }
+  const adjustmentTotal = adjustments.reduce((acc, item) => acc + (item.kind === 'add' ? item.amount : -item.amount), 0)
+  const totalAmount = subtotalAmount + adjustmentTotal
+  if (totalAmount < 0) {
+    throw new Error('Total akhir tidak boleh negatif. Kurangi potongan atau tambah bonus.')
+  }
+
+  const paymentMethod = normalizePaymentMethod(input.paymentMethod)
+  const note = typeof input.note === 'string' ? input.note.trim() || null : null
+  const timestamp = nowIso()
+  const id = makeId('packing_payment')
+  const paymentNo = generatePaymentNo()
+
+  const tx = db().transaction(() => {
+    db().prepare(
+      `INSERT INTO packing_payments (
+        id, payment_no, packer_operator_name, packer_operator_code, packer_name_snapshot, packer_code_snapshot,
+        total_sessions, total_packages, subtotal_amount, adjustment_total, adjustment_items, total_amount, payment_method, paid_at,
+        paid_by_operator_name, paid_by_operator_code, paid_by_session_id, note, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      id,
+      paymentNo,
+      first.packerOperatorName,
+      first.packerOperatorCode,
+      first.packerNameSnapshot,
+      first.packerCodeSnapshot,
+      totalSessions,
+      totalPackages,
+      subtotalAmount,
+      adjustmentTotal,
+      JSON.stringify(adjustments),
+      totalAmount,
+      paymentMethod,
+      timestamp,
+      input.paidBySession.operatorName,
+      input.paidBySession.operatorCode,
+      input.paidBySession.sessionId,
+      note,
+      timestamp,
+      timestamp,
+    )
+
+    for (const sid of sessionIds) {
+      db().prepare('INSERT INTO packing_payment_sessions (payment_id, packing_session_id) VALUES (?, ?)').run(id, sid)
+      db().prepare(
+        `UPDATE packing_work_sessions SET payment_id = ?, paid_at = ?, paid_amount = ?, paid_by_operator_name = ?, paid_by_operator_code = ?, updated_at = ? WHERE id = ?`,
+      ).run(id, timestamp, validSessions.find((s) => s.id === sid)?.totalPayAmount ?? 0, input.paidBySession.operatorName, input.paidBySession.operatorCode, timestamp, sid)
+    }
+
+    markLedgerItemsApplied(db(), ledgerItems.map((item) => item.id), id, timestamp)
+  })
+
+  tx()
+
+  broadcastBackendEvent('sessions-updated', { paymentId: id, action: 'packing-payment-created' })
+
+  return getPackingPaymentById(id)!
+}
+
+/** Validasi sesi layak bayar: ada, closed, belum dibayar, 1 petugas, minimal 1 paket. Dipakai bayar langsung & draft. */
+export function validatePayablePackingSessions(sessionIdsInput: unknown) {
+  const sessionIds = Array.from(new Set((Array.isArray(sessionIdsInput) ? sessionIdsInput : []).map((id) => String(id).trim()).filter(Boolean)))
   if (sessionIds.length === 0) {
     throw new Error('Pilih minimal 1 sesi packing untuk dibayar.')
   }
@@ -134,7 +267,7 @@ export function createPackingPayment(input: {
     throw new Error(`Sesi packing tidak ditemukan: ${sessionIds[missing]}`)
   }
 
-  const validSessions = sessions as NonNullable<(typeof sessions)[number]>[]
+  const validSessions = sessions as NonNullable<(typeof sessions)[number][]>
 
   // Only closed sessions can be paid
   const notClosed = validSessions.find((s) => s.status !== 'closed')
@@ -157,56 +290,11 @@ export function createPackingPayment(input: {
 
   const totalSessions = validSessions.length
   const totalPackages = validSessions.reduce((acc, s) => acc + (s.completedPackingCount ?? 0), 0)
-  const totalAmount = validSessions.reduce((acc, s) => acc + (s.totalPayAmount ?? 0), 0)
+  const subtotalAmount = validSessions.reduce((acc, s) => acc + (s.totalPayAmount ?? 0), 0)
 
   if (totalPackages === 0) {
     throw new Error('Tidak bisa bayar sesi kosong (0 paket). Sesi harus punya minimal 1 paket completed.')
   }
 
-  const paymentMethod = normalizePaymentMethod(input.paymentMethod)
-  const note = typeof input.note === 'string' ? input.note.trim() || null : null
-  const timestamp = nowIso()
-  const id = makeId('packing_payment')
-  const paymentNo = generatePaymentNo()
-
-  const tx = db().transaction(() => {
-    db().prepare(
-      `INSERT INTO packing_payments (
-        id, payment_no, packer_operator_name, packer_operator_code, packer_name_snapshot, packer_code_snapshot,
-        total_sessions, total_packages, total_amount, payment_method, paid_at,
-        paid_by_operator_name, paid_by_operator_code, paid_by_session_id, note, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      id,
-      paymentNo,
-      first.packerOperatorName,
-      first.packerOperatorCode,
-      first.packerNameSnapshot,
-      first.packerCodeSnapshot,
-      totalSessions,
-      totalPackages,
-      totalAmount,
-      paymentMethod,
-      timestamp,
-      input.paidBySession.operatorName,
-      input.paidBySession.operatorCode,
-      input.paidBySession.sessionId,
-      note,
-      timestamp,
-      timestamp,
-    )
-
-    for (const sid of sessionIds) {
-      db().prepare('INSERT INTO packing_payment_sessions (payment_id, packing_session_id) VALUES (?, ?)').run(id, sid)
-      db().prepare(
-        `UPDATE packing_work_sessions SET payment_id = ?, paid_at = ?, paid_amount = ?, paid_by_operator_name = ?, paid_by_operator_code = ?, updated_at = ? WHERE id = ?`,
-      ).run(id, timestamp, validSessions.find((s) => s.id === sid)?.totalPayAmount ?? 0, input.paidBySession.operatorName, input.paidBySession.operatorCode, timestamp, sid)
-    }
-  })
-
-  tx()
-
-  broadcastBackendEvent('sessions-updated', { paymentId: id, action: 'packing-payment-created' })
-
-  return getPackingPaymentById(id)!
+  return { sessionIds, validSessions, first, totalSessions, totalPackages, subtotalAmount }
 }

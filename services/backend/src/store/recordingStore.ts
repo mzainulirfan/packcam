@@ -19,6 +19,7 @@ import {
   SHOPEE_VIDEO_LIMIT_BYTES,
 } from '../video/shareVideo'
 import { calculatePackingPayForOrder, calculatePackingPayForRule, getPackingPayRuleById } from './packingPayRuleStore'
+import { assertSessionsNotLocked } from './packingDraftLock'
 import { assertActivePackingSession } from './packingSessionStore'
 import { getShopeeOrderByResi } from './orderStore'
 
@@ -517,6 +518,9 @@ export function updatePackingRecordingPayRule(recordingId: string, ruleId: strin
     : null
   if (session?.payment_id || session?.paid_at) {
     throw new Error('Pay rule tidak bisa diubah karena sesi sudah dibayar.')
+  }
+  if (recording.packing_session_id) {
+    assertSessionsNotLocked([recording.packing_session_id])
   }
 
   const rule = getPackingPayRuleById(ruleId.trim())
