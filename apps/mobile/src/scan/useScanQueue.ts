@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from 'react'
 type StartScanRecordingFn = (
   resiInput: string,
   source?: 'manual' | 'camera',
-) => Promise<'started' | 'duplicate' | 'queued' | 'error'>
+) => Promise<'started' | 'duplicate' | 'queued' | 'busy' | 'error'>
 
 type ScanQueueRecordingState = {
   mode: string
@@ -27,6 +27,9 @@ export function useScanQueue({ active, recordingState, stopRecording }: UseScanQ
   const rejectedResiRef = useRef<string | null>(null)
   const scanQueueBusyRef = useRef(false)
   const scanQueueRetryTimerRef = useRef<number | null>(null)
+  // Batas tunggu agar antrean tidak deadlock saat mode nyangkut di stopping/saving/error.
+  const queueStuckSinceRef = useRef<number | null>(null)
+  const QUEUE_STUCK_TIMEOUT_MS = 15_000
   const startScanRecordingRef = useRef<StartScanRecordingFn | null>(null)
   const processCameraScanQueueRef = useRef<(() => Promise<void>) | null>(null)
   const activeRef = useRef(active)
@@ -113,21 +116,34 @@ export function useScanQueue({ active, recordingState, stopRecording }: UseScanQ
           }
 
           const result = await startScanRecording(nextResi, 'camera')
-          if (result === 'queued') {
+          if (result === 'queued' || result === 'busy') {
             pendingScanResiRef.current.unshift(nextResi)
           } else {
             continue
           }
 
-          await stopRecording()
+          if (result === 'queued') {
+            await stopRecording()
+          }
           await waitForNextQueueTurn()
           continue
         }
 
         if (currentRecordingState.mode !== 'idle') {
+          const now = Date.now()
+          if (queueStuckSinceRef.current === null) {
+            queueStuckSinceRef.current = now
+          } else if (now - queueStuckSinceRef.current > QUEUE_STUCK_TIMEOUT_MS) {
+            // Mode nyangkut (mis. stopping/saving/error): lepas item agar scanner jalan lagi.
+            queueStuckSinceRef.current = null
+            pendingScanResiRef.current.shift()
+            rejectResi(nextResi)
+            continue
+          }
           await waitForNextQueueTurn()
           continue
         }
+        queueStuckSinceRef.current = null
 
         pendingScanResiRef.current.shift()
         const startScanRecording = startScanRecordingRef.current
@@ -155,7 +171,7 @@ export function useScanQueue({ active, recordingState, stopRecording }: UseScanQ
         }, 0)
       }
     }
-  }, [stopRecording])
+  }, [stopRecording, rejectResi])
 
   useEffect(() => {
     processCameraScanQueueRef.current = processCameraScanQueue

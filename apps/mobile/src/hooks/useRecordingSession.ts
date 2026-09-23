@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createRecordingDraft, saveRecordingArtifact, saveRecordingChunk } from '@pakti/shared/recordings'
 import { logScanEvent } from '@pakti/shared'
-import { createServerRecordingDraftApi, reportServerLastErrorApi } from '@pakti/api-client'
+import { createServerRecordingDraftApi, deleteServerRecordingApi, reportServerLastErrorApi } from '@pakti/api-client'
 import type { AppSettings, WorkTask } from '@pakti/types'
 import type { LocalRecordingRecord } from '@pakti/shared/recordings'
 
@@ -68,11 +68,31 @@ export function useMobileRecordingSession({ stream, settings, operatorName, oper
   const recorderRef = useRef<MediaRecorder | null>(null)
   const sessionRef = useRef<RecordingSessionRef>(null)
   const stopResolveRef = useRef<((message: string) => void) | null>(null)
+  // Cermin sinkron agar guard tidak kalah oleh stale closure antar tap/scan cepat.
+  const modeRef = useRef<RecordingMode>('idle')
+  const startBusyRef = useRef(false)
+  const failedDraftIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    modeRef.current = state.mode
+  }, [state.mode])
 
   const supportsRecorder = useMemo(() => typeof MediaRecorder !== 'undefined', [])
 
   useEffect(() => {
     if (!stream) {
+      const recorder = recorderRef.current
+      const session = sessionRef.current
+      // Stream hilang saat rekam (pindah tab / kamera error): coba stop agar
+      // onstop -> finalize tetap jalan, jangan orphan-kan draft diam-diam.
+      if (recorder && session && recorder.state !== 'inactive') {
+        try {
+          recorder.stop()
+        } catch {
+          // Abaikan; finalize/error handler yang menyelesaikan.
+        }
+        return
+      }
       recorderRef.current = null
       sessionRef.current = null
       queueMicrotask(() => {
@@ -163,6 +183,7 @@ export function useMobileRecordingSession({ stream, settings, operatorName, oper
     } catch (error) {
       const message = normalizeMessage(error, 'Gagal menyimpan rekaman.')
       void reportServerLastErrorApi(message).catch(() => undefined)
+      failedDraftIdRef.current = snapshot.draft.id
       setState((current) => ({
         ...current,
         mode: 'error',
@@ -177,9 +198,10 @@ export function useMobileRecordingSession({ stream, settings, operatorName, oper
   }
 
   async function startRecording(resiNumber: string) {
-    if (state.mode === 'recording' || state.mode === 'stopping' || state.mode === 'saving') {
+    if (startBusyRef.current || modeRef.current === 'recording' || modeRef.current === 'stopping' || modeRef.current === 'saving') {
       return 'Rekaman sedang berjalan.'
     }
+    startBusyRef.current = true
 
     if (!stream) {
       const message = 'Kamera belum aktif.'
@@ -188,6 +210,7 @@ export function useMobileRecordingSession({ stream, settings, operatorName, oper
         mode: 'error',
         message,
       }))
+      startBusyRef.current = false
       return message
     }
 
@@ -198,6 +221,7 @@ export function useMobileRecordingSession({ stream, settings, operatorName, oper
         mode: 'error',
         message,
       }))
+      startBusyRef.current = false
       return message
     }
 
@@ -216,6 +240,7 @@ export function useMobileRecordingSession({ stream, settings, operatorName, oper
         mode: 'error',
         message,
       }))
+      startBusyRef.current = false
       return message
     }
     const startedAt = new Date()
@@ -255,6 +280,7 @@ export function useMobileRecordingSession({ stream, settings, operatorName, oper
         mode: 'error',
         message,
       }))
+      startBusyRef.current = false
       return message
     }
 
@@ -319,6 +345,7 @@ export function useMobileRecordingSession({ stream, settings, operatorName, oper
         message: `Merekam resi ${resiNumber}.`,
         startedAt: startedAt.toISOString(),
       }))
+      startBusyRef.current = false
       return `Merekam resi ${resiNumber}.`
     } catch (error) {
       const message = normalizeMessage(error, 'Gagal memulai rekaman.')
@@ -328,6 +355,7 @@ export function useMobileRecordingSession({ stream, settings, operatorName, oper
         mode: 'error',
         message,
       }))
+      startBusyRef.current = false
       return message
     }
   }
@@ -336,10 +364,10 @@ export function useMobileRecordingSession({ stream, settings, operatorName, oper
     const recorder = recorderRef.current
 
     if (!recorder) {
-      return state.mode === 'saving' ? state.message : 'Tidak ada rekaman aktif.'
+      return modeRef.current === 'saving' ? state.message : 'Tidak ada rekaman aktif.'
     }
 
-    if (state.mode === 'stopping' || state.mode === 'saving') {
+    if (modeRef.current === 'stopping' || modeRef.current === 'saving') {
       return state.message
     }
 
@@ -357,9 +385,34 @@ export function useMobileRecordingSession({ stream, settings, operatorName, oper
   }
 
   function resetError() {
+    failedDraftIdRef.current = null
     setState((current) => ({
       ...current,
       mode: 'idle',
+      activeResi: null,
+      savingResi: null,
+      message: 'Rekaman siap.',
+    }))
+  }
+
+  /** Buang draft gagal di server (best-effort) lalu kembalikan ke idle agar scanner jalan lagi. */
+  async function discardErrorDraft() {
+    const draftId = failedDraftIdRef.current ?? sessionRef.current?.draft.id ?? null
+    if (draftId) {
+      try {
+        await deleteServerRecordingApi(draftId)
+      } catch {
+        // Abaikan: draft mungkin memang tidak tersimpan di server.
+      }
+    }
+    recorderRef.current = null
+    sessionRef.current = null
+    failedDraftIdRef.current = null
+    setState((current) => ({
+      ...current,
+      mode: 'idle',
+      activeResi: null,
+      savingResi: null,
       message: 'Rekaman siap.',
     }))
   }
@@ -369,5 +422,6 @@ export function useMobileRecordingSession({ stream, settings, operatorName, oper
     startRecording,
     stopRecording,
     resetError,
+    discardErrorDraft,
   }
 }
