@@ -118,6 +118,21 @@ function formatRupiah(value: number | null | undefined) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value ?? 0)
 }
 
+/** Batas bawah jendela history. null = semua. Angka = N hari terakhir mulai tengah malam lokal. */
+function historyWindowSinceIso(sinceDays: number | null): string | null {
+  if (sinceDays === null || sinceDays < 0) return null
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  start.setDate(start.getDate() - sinceDays)
+  return start.toISOString()
+}
+
+function historyWindowLabel(sinceDays: number | null) {
+  if (sinceDays === null) return 'Semua'
+  if (sinceDays <= 0) return 'Hari ini'
+  return `${sinceDays} hari terakhir`
+}
+
 const ACTIVE_TAB_STORAGE_KEY = 'pakti_mobile_active_tab'
 const THEME_STORAGE_KEY = 'pakti_mobile_theme'
 const PENDING_PHOTO_RESI_KEY = 'pakti_mobile_pending_photo_resi'
@@ -222,6 +237,19 @@ function App() {
   const scanNoticeTimerRef = useRef<number | null>(null)
   const previousRecordingModeRef = useRef<string>('idle')
   const scanFeedbackContextRef = useRef<AudioContext | null>(null)
+
+  const showScanNotice = useCallback((nextNotice: ScanNotice) => {
+    setScanNotice(nextNotice)
+
+    if (scanNoticeTimerRef.current !== null) {
+      window.clearTimeout(scanNoticeTimerRef.current)
+    }
+
+    scanNoticeTimerRef.current = window.setTimeout(() => {
+      setScanNotice(null)
+      scanNoticeTimerRef.current = null
+    }, 2800)
+  }, [])
   // Lock sinkron anti double-submit (tap/scan cepat) + resi foto tertunda.
   const scanStartBusyRef = useRef(false)
   const photoBusyRef = useRef(false)
@@ -539,7 +567,20 @@ function App() {
       setWatermarkResi(null)
       void processCameraScanQueue()
     }
-  }, [clearRejectedResi, processCameraScanQueue, recordingSession.state.mode])
+
+    // Bunyi + notice sekali saat video benar-benar tersimpan (finalize sukses).
+    if (previousMode === 'saving' && recordingSession.state.mode === 'idle') {
+      const savedResi = recordingSession.state.lastSavedResi
+      queueMicrotask(() => {
+        playScanFeedback('success')
+        showScanNotice({
+          kind: 'success',
+          title: 'Video tersimpan',
+          message: savedResi ? `Resi ${savedResi} sudah tersimpan.` : 'Rekaman sudah tersimpan.',
+        })
+      })
+    }
+  }, [clearRejectedResi, processCameraScanQueue, playScanFeedback, showScanNotice, recordingSession.state.mode, recordingSession.state.lastSavedResi])
 
   const {
     groupedRecordings,
@@ -686,7 +727,7 @@ function App() {
       setHistoryError(null)
 
       try {
-        const rows = await readServerRecordingsApi()
+        const rows = await readServerRecordingsApi({ limit: 300, since: historyWindowSinceIso(0) })
         if (cancelled) {
           return
         }
@@ -694,7 +735,7 @@ function App() {
         setRecordings(rows)
 
         try {
-          const orders = await readRecentShopeeOrdersApi(500)
+          const orders = await readRecentShopeeOrdersApi(100)
           if (!cancelled) {
             setShopeeOrders(orders)
           }
@@ -847,19 +888,6 @@ function App() {
     }
   }
 
-  const showScanNotice = useCallback((nextNotice: ScanNotice) => {
-    setScanNotice(nextNotice)
-
-    if (scanNoticeTimerRef.current !== null) {
-      window.clearTimeout(scanNoticeTimerRef.current)
-    }
-
-    scanNoticeTimerRef.current = window.setTimeout(() => {
-      setScanNotice(null)
-      scanNoticeTimerRef.current = null
-    }, 2800)
-  }, [])
-
   const readPendingPhotoResi = useCallback(() => {
     try {
       return window.sessionStorage.getItem(PENDING_PHOTO_RESI_KEY)?.trim() || null
@@ -1004,7 +1032,10 @@ function App() {
     [mergeRecordingsForResi, recordings],
   )
 
-  const refreshHistory = useCallback(async () => {
+  const [historySinceDays, setHistorySinceDays] = useState<number | null>(0)
+  const historySinceDaysRef = useRef<number | null>(0)
+
+  const fetchHistoryWindow = useCallback(async (sinceDays: number | null) => {
     if (!session) {
       return
     }
@@ -1013,11 +1044,11 @@ function App() {
     setHistoryError(null)
 
     try {
-      const rows = await readServerRecordingsApi()
+      const rows = await readServerRecordingsApi({ limit: 300, since: historyWindowSinceIso(sinceDays) })
       setRecordings(rows)
 
       try {
-        const orders = await readRecentShopeeOrdersApi(500)
+        const orders = await readRecentShopeeOrdersApi(100)
         setShopeeOrders(orders)
       } catch {
         setShopeeOrders([])
@@ -1028,6 +1059,20 @@ function App() {
       setHistoryBusy(false)
     }
   }, [session])
+
+  const refreshHistory = useCallback(async () => {
+    await fetchHistoryWindow(historySinceDaysRef.current)
+  }, [fetchHistoryWindow])
+
+  /** Perlebar jendela history (0 -> 7 -> 30 -> semua) dan muat ulang. */
+  const loadMoreHistory = useCallback(() => {
+    const current = historySinceDaysRef.current
+    const next = current === null ? null : current <= 0 ? 7 : current < 30 ? 30 : null
+    if (next === current) return
+    historySinceDaysRef.current = next
+    setHistorySinceDays(next)
+    void fetchHistoryWindow(next)
+  }, [fetchHistoryWindow])
 
   const {
     sharingRecordId,
@@ -1293,17 +1338,23 @@ function App() {
     void primeScanFeedbackAudio()
 
     try {
+      const stoppedResi = recordingSession.state.activeResi ?? recordingSession.state.savingResi
       await recordingSession.stopRecording()
+      if (stoppedResi) {
+        // Merge lokal per resi saja, tanpa unduh ulang seluruh history.
+        readServerRecordingsByResiApi(stoppedResi)
+          .then((rows) => mergeRecordingsForResi(stoppedResi, rows))
+          .catch(() => undefined)
+      }
       if (session.taskType === 'packing' && activePackingSession) {
         void readPackingSessionApi(activePackingSession.id).then(setActivePackingSession).catch(() => void refreshActivePackingSession())
       }
-      void refreshHistory()
     } catch (error) {
       setBootError(normalizeError(error))
     } finally {
       setScanBusy(false)
     }
-  }, [activePackingSession, primeScanFeedbackAudio, refreshActivePackingSession, refreshHistory, scanBusy, session, recordingSession])
+  }, [activePackingSession, mergeRecordingsForResi, primeScanFeedbackAudio, refreshActivePackingSession, scanBusy, session, recordingSession])
 
   async function handleCopyResi(resiNumber: string) {
     try {
@@ -1411,7 +1462,6 @@ function App() {
       setActivePackingSession(next)
       void readPackingSessionsApi(20).then(setRecentPackingSessions).catch(() => undefined)
       showScanNotice({ kind: 'success', title: 'Sesi diganti', message: `Sekarang ${next.packerNameSnapshot} (${next.packerCodeSnapshot}) · sesi lama belum diakhiri.` })
-      void refreshHistory()
       setShowSwitchDialog(false)
       return true
     } catch (error) {
@@ -1451,7 +1501,6 @@ function App() {
       setShowSwitchDialog(false)
       showScanNotice({ kind: 'success', title: 'Sesi dilanjutkan', message: `${reopened.packerNameSnapshot} · ${reopened.completedPackingCount} paket · ${formatRupiah(reopened.totalPayAmount)}.` })
       void readPackingSessionsApi(20).then(setRecentPackingSessions).catch(() => undefined)
-      void refreshHistory()
     } catch (error) {
       showScanNotice({ kind: 'warning', title: 'Gagal lanjutkan sesi', message: normalizeError(error) })
       void refreshActivePackingSession()
@@ -1669,7 +1718,6 @@ function App() {
       }
       setWatermarkResi((current) => (current === record.resiNumber ? null : current))
       clearRejectedResi(record.resiNumber)
-      await refreshHistory()
       showScanNotice({
         kind: 'success',
         title: 'Recording dihapus',
@@ -2265,12 +2313,19 @@ function App() {
               <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--op-mute)]">History</p>
               <h2 className="mt-1 truncate text-[18px] font-bold leading-none">{groupedRecordings.length} resi</h2>
               <p className="mt-1 text-[12px] text-[var(--op-mute)]">
-                {historyAllAccounts && isAdmin ? 'Semua akun' : `Akun ${session?.operatorCode || '-'}`}
+                {historyAllAccounts && isAdmin ? 'Semua akun' : `Akun ${session?.operatorCode || '-'}`} · {historyWindowLabel(historySinceDays)}
               </p>
             </div>
-            <Button variant="outline" size="icon" type="button" className="h-10 w-10 shrink-0 rounded-[4px] border-[var(--op-hairline)]" onClick={() => void refreshHistory()} disabled={historyBusy} aria-label="Refresh history">
-              {historyBusy ? '…' : '↻'}
-            </Button>
+            <div className="flex shrink-0 items-center gap-2">
+              {historySinceDays !== null ? (
+                <Button variant="outline" type="button" className="h-10 shrink-0 rounded-[4px] border-[var(--op-hairline)] px-3 text-[12px]" onClick={() => loadMoreHistory()} disabled={historyBusy}>
+                  {historyBusy ? '…' : historySinceDays <= 0 ? 'Muat 7 hari' : historySinceDays < 30 ? 'Muat 30 hari' : 'Muat semua'}
+                </Button>
+              ) : null}
+              <Button variant="outline" size="icon" type="button" className="h-10 w-10 shrink-0 rounded-[4px] border-[var(--op-hairline)]" onClick={() => void refreshHistory()} disabled={historyBusy} aria-label="Refresh history">
+                {historyBusy ? '…' : '↻'}
+              </Button>
+            </div>
           </div>
 
           <div

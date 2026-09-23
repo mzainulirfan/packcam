@@ -984,7 +984,8 @@ app.delete('/api/orders/by-order/:orderNumber', requireSession, (req, res) => {
 app.get('/api/orders/recent', requireSession, (req, res) => {
   const query = req.query as Record<string, string | string[] | undefined>
   const limit = Number(readQueryString(query.limit) || 50)
-  return sendOk(res, listRecentShopeeOrders(Number.isFinite(limit) ? limit : 50))
+  const includeRaw = readQueryString(query.includeRaw) === '1'
+  return sendOk(res, listRecentShopeeOrders(Number.isFinite(limit) ? limit : 50, includeRaw))
 })
 
 app.post('/api/operators/:operatorName/:operatorCode/:role/password', requireAdmin, (req, res) => {
@@ -1014,7 +1015,11 @@ app.get('/api/recordings', (req, res) => {
     return sendError(res, 401, 'Sesi login diperlukan.')
   }
 
-  sendOk(res, listRecordings().filter((record) => canSessionAccessRecording(session, record)))
+  const query = req.query as Record<string, string | string[] | undefined>
+  const rawLimit = Number(readQueryString(query.limit))
+  const limit = Number.isFinite(rawLimit) ? rawLimit : 300
+  const since = readQueryString(query.since) || null
+  sendOk(res, listRecordings({ limit, since }).filter((record) => canSessionAccessRecording(session, record)))
 })
 
 app.get('/api/history/recordings', (req, res) => {

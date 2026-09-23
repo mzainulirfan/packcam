@@ -514,8 +514,12 @@ export function deletePackingPayRuleApi(id: string) {
   })
 }
 
-export function readServerRecordingsApi() {
-  return requestApi<ServerRecordingRow[]>('/api/recordings')
+export function readServerRecordingsApi(query: { limit?: number; since?: string | null } = {}) {
+  const params = new URLSearchParams()
+  if (query.limit !== undefined) params.set('limit', String(query.limit))
+  if (query.since) params.set('since', query.since)
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  return requestApi<ServerRecordingRow[]>(`/api/recordings${suffix}`)
     .then((records) => records.map(normalizeRecordingRow))
 }
 
@@ -565,8 +569,10 @@ export function readShopeeOrderByOrderNumberApi(orderNumber: string) {
   return requestApi<ShopeeOrder>(`/api/orders/by-order/${encodeURIComponent(orderNumber)}`)
 }
 
-export function readRecentShopeeOrdersApi(limit = 50) {
-  return requestApi<ShopeeOrder[]>(`/api/orders/recent?limit=${encodeURIComponent(String(limit))}`)
+export function readRecentShopeeOrdersApi(limit = 50, includeRaw = false) {
+  const params = new URLSearchParams({ limit: String(limit) })
+  if (includeRaw) params.set('includeRaw', '1')
+  return requestApi<ShopeeOrder[]>(`/api/orders/recent?${params.toString()}`)
 }
 
 export function deleteShopeeOrderByOrderNumberApi(orderNumber: string) {

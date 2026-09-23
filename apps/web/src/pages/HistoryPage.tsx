@@ -159,7 +159,7 @@ export function HistoryPage() {
 
   useEffect(() => {
     let cancelled = false
-    void readRecentShopeeOrdersApi(500)
+    void readRecentShopeeOrdersApi(100)
       .then((orders) => {
         if (cancelled) return
         const byResi = new Map<string, ShopeeOrder>()

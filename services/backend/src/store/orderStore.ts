@@ -386,11 +386,11 @@ export function listShopeeOrderResisByOrderNumberSearch(searchText: string) {
   return rows.map((row) => row.tracking_number?.trim()).filter((resi): resi is string => Boolean(resi))
 }
 
-export function listRecentShopeeOrders(limit = 50) {
+export function listRecentShopeeOrders(limit = 50, includeRaw = false) {
   const safeLimit = Math.min(200, Math.max(1, Math.floor(limit)))
   const rows = db()
     .prepare(
-      `SELECT id, source, order_number, tracking_number, buyer_username, shipping_channel, order_status, raw_payload, created_at, updated_at
+      `SELECT id, source, order_number, tracking_number, buyer_username, shipping_channel, order_status, ${includeRaw ? 'raw_payload' : 'NULL AS raw_payload'}, created_at, updated_at
        FROM orders
        WHERE source = 'shopee'
        ORDER BY updated_at DESC

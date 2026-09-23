@@ -308,14 +308,24 @@ export function getHealthSnapshot() {
   }
 }
 
-export function listRecordings() {
+export function listRecordings(options: { limit?: number; since?: string | null } = {}) {
+  const conditions: string[] = []
+  const params: unknown[] = []
+  const since = typeof options.since === 'string' ? options.since.trim() : ''
+  if (since) {
+    conditions.push(`start_time >= ?`)
+    params.push(since)
+  }
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+  const limit = options.limit === undefined ? null : Math.min(2000, Math.max(1, Math.floor(options.limit)))
   const rows = db()
     .prepare(
       `SELECT ${recordingSelectFields()}
        FROM recordings
-       ORDER BY start_time DESC`,
+       ${where}
+       ORDER BY start_time DESC${limit === null ? '' : ' LIMIT ?'}`,
     )
-    .all() as RecordingRow[]
+    .all(...params, ...(limit === null ? [] : [limit])) as RecordingRow[]
 
   return rows.map(withRecordingShareFileInfo)
 }
