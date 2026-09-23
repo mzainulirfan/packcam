@@ -5,6 +5,7 @@ import {
   Activity01Icon,
   ArrowRightFromLineIcon,
   Clock01Icon,
+  DollarCircleIcon,
   Package01Icon,
   QrCodeIcon,
   Settings01Icon,
@@ -32,6 +33,7 @@ const PAGE_ICONS: Record<PageId, typeof QrCodeIcon> = {
   history: Clock01Icon,
   'packing-sessions': Package01Icon,
   'packing-session-detail': Package01Icon,
+  'packing-payments': DollarCircleIcon,
   'shopee-inspection': ShoppingBagCheckIcon,
   shopee: ShoppingBag01Icon,
   settings: Settings01Icon,
@@ -44,6 +46,7 @@ const ScanPage = lazy(() => import('./pages/ScanPage').then((module) => ({ defau
 const HistoryPage = lazy(() => import('./pages/HistoryPage').then((module) => ({ default: module.HistoryPage })))
 const PackingSessionsPage = lazy(() => import('./pages/PackingSessionsPage').then((module) => ({ default: module.PackingSessionsPage })))
 const PackingSessionDetailPage = lazy(() => import('./pages/PackingSessionDetailPage').then((module) => ({ default: module.PackingSessionDetailPage })))
+const PackingPaymentsPage = lazy(() => import('./pages/PackingPaymentsPage').then((module) => ({ default: module.PackingPaymentsPage })))
 const ShopeePage = lazy(() => import('./pages/ShopeePage').then((module) => ({ default: module.ShopeePage })))
 const ShopeeInspectionPage = lazy(() => import('./pages/ShopeeInspectionPage').then((module) => ({ default: module.ShopeeInspectionPage })))
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then((module) => ({ default: module.SettingsPage })))
@@ -56,6 +59,7 @@ const PAGE_COMPONENTS: Record<PageId, ReactElement> = {
   history: <HistoryPage />,
   'packing-sessions': <PackingSessionsPage />,
   'packing-session-detail': <PackingSessionDetailPage />,
+  'packing-payments': <PackingPaymentsPage />,
   shopee: <ShopeePage />,
   'shopee-inspection': <ShopeeInspectionPage />,
   settings: <SettingsPage />,
@@ -92,7 +96,7 @@ function App() {
   )
   const sidebarSections = useMemo(() => {
     const sectionOrder: Array<{ id: NavGroupId | 'system'; label: string; items: PageId[] }> = [
-      { id: 'operasional', label: 'Operasional', items: ['scan', 'history', 'packing-sessions', 'shopee-inspection'] },
+      { id: 'operasional', label: 'Operasional', items: ['scan', 'history', 'packing-sessions', 'packing-payments', 'shopee-inspection'] },
       { id: 'administrasi', label: 'Administrasi', items: ['shopee', 'users', 'settings'] },
       { id: 'system', label: 'System', items: ['health', 'admin'] },
     ]
@@ -314,7 +318,7 @@ function App() {
             </button>
           </header>
 
-          <main className={activePage === 'users' || activePage === 'settings' || activePage === 'health' || activePage === 'admin' || activePage === 'shopee' || activePage === 'shopee-inspection' || activePage === 'packing-sessions' || activePage === 'packing-session-detail' || activePage === 'history' || activePage === 'scan' ? 'dashboard-content dashboard-content--notion' : 'dashboard-content'}>
+          <main className={activePage === 'users' || activePage === 'settings' || activePage === 'health' || activePage === 'admin' || activePage === 'shopee' || activePage === 'shopee-inspection' || activePage === 'packing-sessions' || activePage === 'packing-session-detail' || activePage === 'packing-payments' || activePage === 'history' || activePage === 'scan' ? 'dashboard-content dashboard-content--notion' : 'dashboard-content'}>
             <Suspense fallback={<PageLoadingPanel />}>{pageContent}</Suspense>
           </main>
         </section>

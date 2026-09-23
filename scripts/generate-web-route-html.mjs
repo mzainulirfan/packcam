@@ -43,6 +43,13 @@ const routes = [
     robots: 'noindex, nofollow',
   },
   {
+    path: '/packing-payments',
+    output: 'packing-payments/index.html',
+    title: 'Pakti · Riwayat Pembayaran',
+    description: 'Arsip pembayaran upah packing per petugas beserta rincian potongan dan bonus.',
+    robots: 'noindex, nofollow',
+  },
+  {
     path: '/shopee-inspection',
     output: 'shopee-inspection/index.html',
     title: 'Pakti · Hasil Shopee',

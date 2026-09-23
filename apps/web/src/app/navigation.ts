@@ -1,4 +1,4 @@
-export type PageId = 'scan' | 'history' | 'packing-sessions' | 'packing-session-detail' | 'shopee' | 'shopee-inspection' | 'settings' | 'users' | 'health' | 'admin'
+export type PageId = 'scan' | 'history' | 'packing-sessions' | 'packing-session-detail' | 'packing-payments' | 'shopee' | 'shopee-inspection' | 'settings' | 'users' | 'health' | 'admin'
 export type NavGroupId = 'operasional' | 'administrasi'
 
 export const PAGE_PATHS: Record<PageId, string> = {
@@ -6,6 +6,7 @@ export const PAGE_PATHS: Record<PageId, string> = {
   history: '/history',
   'packing-sessions': '/packing-sessions',
   'packing-session-detail': '/packing-sessions/:id',
+  'packing-payments': '/packing-payments',
   shopee: '/shopee',
   'shopee-inspection': '/shopee-inspection',
   settings: '/settings',
@@ -78,6 +79,13 @@ export const NAV_ITEMS: Array<{
     id: 'packing-sessions',
     label: 'Sesi Packing',
     hint: 'Riwayat sesi & payroll',
+    icon: 'history',
+    group: 'operasional',
+  },
+  {
+    id: 'packing-payments',
+    label: 'Riwayat Bayar',
+    hint: 'Arsip pembayaran upah',
     icon: 'history',
     group: 'operasional',
   },

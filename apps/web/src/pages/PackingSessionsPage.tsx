@@ -3,14 +3,12 @@ import type { ReactNode } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   ArrowDown01Icon,
-  ArrowLeft01Icon,
   Cancel01Icon,
   Copy01Icon,
   Delete02Icon,
   DollarCircleIcon,
   Download01Icon,
   Edit02Icon,
-  LockPasswordIcon,
   Package01Icon,
   RefreshIcon,
   Search01Icon,
@@ -23,18 +21,11 @@ import { Button } from '../components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../components/ui/dialog'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
-import { cancelPackerAdjustmentApi, cancelPackingPaymentDraftApi, closePackingSessionApi, confirmPackingPaymentDraftApi, createPackerAdjustmentApi, createPackingPaymentApi, createPackingPaymentDraftApi, deletePackingSessionApi, mergePackingSessionsApi, readPackerAdjustmentsApi, readPackingPaymentDraftsApi, readPackingPaymentsApi, readPackingPayRulesApi, readPackingSessionsApi, readServerHistoryRecordingsApi, updatePackingRecordingPayRuleApi } from '@pakti/api-client'
-import type { PackerAdjustment, PackingPayment, PackingPaymentDraft, PackingPayRule, PackingWorkSession } from '@pakti/types'
+import { cancelPackerAdjustmentApi, cancelPackingPaymentDraftApi, closePackingSessionApi, confirmPackingPaymentDraftApi, createPackerAdjustmentApi, createPackingPaymentApi, createPackingPaymentDraftApi, deletePackingSessionApi, mergePackingSessionsApi, readPackerAdjustmentsApi, readPackingPaymentDraftsApi, readPackingSessionsApi } from '@pakti/api-client'
+import type { PackerAdjustment, PackingPayment, PackingPaymentDraft, PackingWorkSession } from '@pakti/types'
 import { downloadTextFile } from '@pakti/shared'
-import { recordsToCsv } from '@pakti/shared/exporters'
 import { navigateTo, navigateToPackingSessionDetail } from '../app/uiState'
 import { getPackingSessionDetailPath } from '../app/navigation'
-
-type SessionOrderItem = {
-  productName: string
-  variationName?: string | null
-  quantity: number
-}
 
 function getJakartaDateKey(iso: string) {
   try {
@@ -53,12 +44,6 @@ export function PackingSessionsPage() {
   const [packerFilter, setPackerFilter] = useState<string>('all')
   const [paidFilter, setPaidFilter] = useState<'all' | 'unpaid' | 'paid'>('unpaid')
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(() => new Set())
-  const [selected, setSelected] = useState<PackingWorkSession | null>(null)
-  const [records, setRecords] = useState<Awaited<ReturnType<typeof readServerHistoryRecordingsApi>>['records']>([])
-  const [detailLoading, setDetailLoading] = useState(false)
-  void setSelected; void records; void detailLoading; void setDetailLoading
-  const [payments, setPayments] = useState<PackingPayment[]>([])
-  const [paymentsLoading, setPaymentsLoading] = useState(false)
   const [showPayDialog, setShowPayDialog] = useState(false)
   const [payMethod, setPayMethod] = useState<'cash' | 'transfer' | 'other'>('cash')
   const [payNote, setPayNote] = useState('')
@@ -76,6 +61,8 @@ export function PackingSessionsPage() {
   const [showLedgerDialog, setShowLedgerDialog] = useState(false)
   const [ledgerBusy, setLedgerBusy] = useState(false)
   const [ledgerError, setLedgerError] = useState<string | null>(null)
+  const [ledgerFieldErrors, setLedgerFieldErrors] = useState<{ packer?: string; label?: string; amount?: string }>({})
+  const [highlightLedgerId, setHighlightLedgerId] = useState<string | null>(null)
   const [ledgerPacker, setLedgerPacker] = useState('all')
   const [ledgerKind, setLedgerKind] = useState<'add' | 'deduct'>('deduct')
   const [ledgerLabel, setLedgerLabel] = useState('')
@@ -85,35 +72,38 @@ export function PackingSessionsPage() {
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [shareDraft, setShareDraft] = useState<{ title: string; text: string } | null>(null)
   const [deleteBusy, setDeleteBusy] = useState(false)
-  const [payRules, setPayRules] = useState<PackingPayRule[]>([])
-  const [payRuleBusyId, setPayRuleBusyId] = useState<string | null>(null)
-  const [payRuleEditTarget, setPayRuleEditTarget] = useState<{ id: string; resiNumber: string; packingPayRuleId?: string | null; packingPayBreakdown?: { ruleName?: string; payType?: string; amount?: number; quantity?: number; total?: number; manualOverride?: boolean } | null; packingPayAmount?: number | null } | null>(null)
-  const [payRuleEditSelectedId, setPayRuleEditSelectedId] = useState<string>('')
-  const [showMoreMenu, setShowMoreMenu] = useState(false)
-  const moreMenuRef = useRef<HTMLDivElement | null>(null)
+  const pendingSectionRef = useRef<HTMLElement | null>(null)
+  const daftarSectionRef = useRef<HTMLElement | null>(null)
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false)
+  const headerMenuRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     function onDown(e: PointerEvent) {
-      if (!moreMenuRef.current?.contains(e.target as Node)) setShowMoreMenu(false)
+      if (!headerMenuRef.current?.contains(e.target as Node)) setShowHeaderMenu(false)
     }
-    if (showMoreMenu) document.addEventListener('pointerdown', onDown)
+    if (showHeaderMenu) document.addEventListener('pointerdown', onDown)
     return () => document.removeEventListener('pointerdown', onDown)
-  }, [showMoreMenu])
+  }, [showHeaderMenu])
+  const [pendingFlash, setPendingFlash] = useState(false)
+  const [confirmAction, setConfirmAction] = useState<{
+    title: string
+    body: string
+    confirmLabel: string
+    danger?: boolean
+    busy?: boolean
+    onConfirm: () => void | Promise<void>
+  } | null>(null)
 
   async function load() {
     setLoading(true)
     setError(null)
     try {
-      const [data, pays, rules, draftList, ledger] = await Promise.all([
+      const [data, draftList, ledger] = await Promise.all([
         readPackingSessionsApi(100),
-        readPackingPaymentsApi(50).catch(() => [] as PackingPayment[]),
-        readPackingPayRulesApi().catch(() => [] as PackingPayRule[]),
         readPackingPaymentDraftsApi('draft', 50).catch(() => [] as PackingPaymentDraft[]),
         readPackerAdjustmentsApi({ status: 'pending', limit: 100 }).catch(() => [] as PackerAdjustment[]),
       ])
       setSessions(data as PackingWorkSession[])
-      setPayments(pays as PackingPayment[])
-      setPayRules(rules as PackingPayRule[])
       setDrafts(draftList as PackingPaymentDraft[])
       setPendingLedger(ledger as PackerAdjustment[])
     } catch (e) {
@@ -139,18 +129,6 @@ export function PackingSessionsPage() {
     }
   }
 
-  async function loadPayments() {
-    setPaymentsLoading(true)
-    try {
-      const data = await readPackingPaymentsApi(50)
-      setPayments(data as PackingPayment[])
-    } catch {
-      // ignore
-    } finally {
-      setPaymentsLoading(false)
-    }
-  }
-
   useEffect(() => {
     queueMicrotask(() => {
       void load()
@@ -168,20 +146,32 @@ export function PackingSessionsPage() {
     return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label))
   }, [sessions])
 
+  const lockedSessionDraftNo = useMemo(() => {
+    const map = new Map<string, { draftNo: string; draftId: string }>()
+    for (const draft of drafts) {
+      if (draft.status !== 'draft') continue
+      for (const sid of draft.sessionIds) {
+        if (!map.has(sid)) map.set(sid, { draftNo: draft.draftNo, draftId: draft.id })
+      }
+    }
+    return map
+  }, [drafts])
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return sessions.filter((s) => {
-      const matchesSearch = !q || `${s.packerNameSnapshot} ${s.packerCodeSnapshot} ${s.id}`.toLowerCase().includes(q)
+      const draftNo = lockedSessionDraftNo.get(s.id)?.draftNo ?? ''
+      const matchesSearch = !q || `${s.packerNameSnapshot} ${s.packerCodeSnapshot} ${s.id} ${draftNo}`.toLowerCase().includes(q)
       const matchesStatus = statusFilter === 'all' || s.status === statusFilter
       const matchesPacker = packerFilter === 'all' || `${s.packerOperatorName}::${s.packerOperatorCode}` === packerFilter
       const isPaid = Boolean(s.paidAt)
       const matchesPaid = paidFilter === 'all' || (paidFilter === 'paid' ? isPaid : !isPaid)
       return matchesSearch && matchesStatus && matchesPacker && matchesPaid
     })
-  }, [sessions, search, statusFilter, packerFilter, paidFilter])
+  }, [sessions, search, statusFilter, packerFilter, paidFilter, lockedSessionDraftNo])
 
   const groupedSessions = useMemo(() => {
-    const map = new Map<string, { key: string; name: string; code: string; sessions: PackingWorkSession[]; totalPaket: number; totalUpah: number; paidSessions: number; unpaidSessions: number }>()
+    const map = new Map<string, { key: string; name: string; code: string; sessions: PackingWorkSession[]; totalPaket: number; totalUpah: number; paidSessions: number; unpaidSessions: number; lockedSessions: number }>()
 
     for (const session of filtered) {
       const key = `${session.packerOperatorName}::${session.packerOperatorCode}`
@@ -194,17 +184,19 @@ export function PackingSessionsPage() {
         totalUpah: 0,
         paidSessions: 0,
         unpaidSessions: 0,
+        lockedSessions: 0,
       }
       group.sessions.push(session)
       group.totalPaket += session.completedPackingCount ?? 0
       group.totalUpah += session.totalPayAmount ?? 0
       if (session.paidAt) group.paidSessions += 1
       else group.unpaidSessions += 1
+      if (lockedSessionDraftNo.has(session.id)) group.lockedSessions += 1
       map.set(key, group)
     }
 
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name))
-  }, [filtered])
+  }, [filtered, lockedSessionDraftNo])
 
   const totals = useMemo(() => {
     const selectedSessions = selectedSessionIds.size > 0
@@ -223,16 +215,76 @@ export function PackingSessionsPage() {
     }
   }, [filtered, selectedSessionIds])
 
-  const lockedSessionDraftNo = useMemo(() => {
-    const map = new Map<string, string>()
+  const lockedSummary = useMemo(() => {
+    const draftIds = new Set<string>()
+    let count = 0
     for (const draft of drafts) {
       if (draft.status !== 'draft') continue
-      for (const sid of draft.sessionIds) {
-        if (!map.has(sid)) map.set(sid, draft.draftNo)
-      }
+      draftIds.add(draft.id)
+      count += draft.sessionIds.length
     }
-    return map
+    return { sessionCount: count, draftCount: draftIds.size }
   }, [drafts])
+
+  const pendingTotals = useMemo(() => {
+    const draftEstimasi = drafts.reduce((acc, d) => acc + (d.estimatedTotal ?? 0), 0)
+    let kasbon = 0
+    let bonus = 0
+    for (const item of pendingLedger) {
+      if (item.kind === 'add') bonus += item.amount
+      else kasbon += item.amount
+    }
+    return { draftEstimasi, kasbon, bonus, ledgerNet: bonus - kasbon }
+  }, [drafts, pendingLedger])
+
+  function scrollToPending(draftId?: string | null) {
+    if (draftId) setExpandedDraftId(draftId)
+    pendingSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    setPendingFlash(true)
+    window.setTimeout(() => setPendingFlash(false), 1600)
+  }
+
+  function askConfirm(action: NonNullable<typeof confirmAction>) {
+    setConfirmAction({ ...action, busy: false })
+  }
+
+  async function runConfirmAction() {
+    if (!confirmAction || confirmAction.busy) return
+    setConfirmAction((current) => (current ? { ...current, busy: true } : current))
+    try {
+      await confirmAction.onConfirm()
+    } finally {
+      setConfirmAction(null)
+    }
+  }
+
+  function isPayableSession(s: PackingWorkSession) {
+    return s.status === 'closed' && !s.paidAt && !s.paymentId && !lockedSessionDraftNo.has(s.id)
+  }
+
+  function selectPayableSessions() {
+    setSelectedSessionIds(new Set(filtered.filter(isPayableSession).map((s) => s.id)))
+  }
+
+  function deselectInvalidSessions() {
+    setSelectedSessionIds((current) => {
+      const next = new Set<string>()
+      for (const id of current) {
+        const s = filtered.find((row) => row.id === id)
+        if (s && isPayableSession(s)) next.add(id)
+      }
+      return next
+    })
+  }
+
+  async function handleCloseSessionInline(id: string) {
+    try {
+      const updated = await closePackingSessionApi(id)
+      setSessions((prev) => prev.map((s) => (s.id === updated.id ? (updated as PackingWorkSession) : s)))
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Gagal menutup sesi.')
+    }
+  }
 
   const canDeleteSession = useCallback((s: PackingWorkSession) => {
     return s.status === 'closed' && (s.completedPackingCount ?? 0) === 0 && !s.paidAt && !s.paymentId && !lockedSessionDraftNo.has(s.id)
@@ -333,49 +385,27 @@ export function PackingSessionsPage() {
       alert('Hanya sesi dengan operator dan tanggal yang sama yang bisa digabung, dan belum dibayar.')
       return
     }
-    if (!confirm(`Gabung ${selectedSessionIds.size} sesi terpilih menjadi 1 sesi?`)) return
-    setMergeBusy(true)
-    try {
-      const ids = Array.from(selectedSessionIds)
-      await mergePackingSessionsApi(ids)
-      setSelectedSessionIds(new Set())
-      await load()
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Gagal menggabungkan sesi')
-    } finally {
-      setMergeBusy(false)
-    }
-  }
-
-  async function handleClose(id: string) {
-    if (!confirm('Tutup sesi packing ini?')) return
-    try {
-      const updated = await closePackingSessionApi(id)
-      setSessions((prev) => prev.map((s) => (s.id === updated.id ? (updated as PackingWorkSession) : s)))
-      if (selected?.id === id) setSelected(updated as PackingWorkSession)
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Gagal tutup sesi')
-    }
-  }
-
-  async function handleDeleteSession(s: PackingWorkSession) {
-    if (!canDeleteSession(s)) {
-      alert('Hanya sesi closed yang kosong dan belum dibayar yang bisa dihapus.')
-      return
-    }
-    if (!confirm(`Hapus sesi kosong ${s.packerNameSnapshot} (${s.packerCodeSnapshot})? Aksi ini tidak bisa dibatalkan.`)) return
-    try {
-      await deletePackingSessionApi(s.id)
-      setSessions((prev) => prev.filter((item) => item.id !== s.id))
-      setSelectedSessionIds((current) => {
-        const next = new Set(current)
-        next.delete(s.id)
-        return next
-      })
-      if (selected?.id === s.id) setSelected(null)
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Gagal hapus sesi')
-    }
+    const targets = filtered.filter((s) => selectedSessionIds.has(s.id))
+    const totalPaket = targets.reduce((acc, s) => acc + (s.completedPackingCount ?? 0), 0)
+    const totalUpah = targets.reduce((acc, s) => acc + (s.totalPayAmount ?? 0), 0)
+    askConfirm({
+      title: 'Gabung sesi packing?',
+      body: `${targets.length} sesi · ${totalPaket} paket · ${formatCurrency(totalUpah)} · ${targets[0]?.packerNameSnapshot ?? ''}. Rekaman paket pindah ke sesi paling awal.`,
+      confirmLabel: 'Gabung',
+      onConfirm: async () => {
+        setMergeBusy(true)
+        try {
+          const ids = Array.from(selectedSessionIds)
+          await mergePackingSessionsApi(ids)
+          setSelectedSessionIds(new Set())
+          await load()
+        } catch (e) {
+          alert(e instanceof Error ? e.message : 'Gagal menggabungkan sesi')
+        } finally {
+          setMergeBusy(false)
+        }
+      },
+    })
   }
 
   async function handleDeleteSelectedSessions() {
@@ -387,28 +417,33 @@ export function PackingSessionsPage() {
       alert('Tidak ada sesi terpilih yang bisa dihapus. Hanya sesi closed, kosong, dan belum dibayar yang bisa dihapus.')
       return
     }
-    const skippedText = deletePreview.invalidCount > 0 ? ` ${deletePreview.invalidCount} sesi lain dilewati karena tidak kosong/belum closed/sudah dibayar.` : ''
-    if (!confirm(`Hapus ${deletePreview.deletable.length} sesi kosong terpilih?${skippedText} Aksi ini tidak bisa dibatalkan.`)) return
-
-    setDeleteBusy(true)
-    try {
-      for (const session of deletePreview.deletable) {
-        await deletePackingSessionApi(session.id)
-      }
-      const deletedIds = new Set(deletePreview.deletable.map((session) => session.id))
-      setSessions((prev) => prev.filter((session) => !deletedIds.has(session.id)))
-      setSelectedSessionIds((current) => {
-        const next = new Set(current)
-        for (const id of deletedIds) next.delete(id)
-        return next
-      })
-      if (selected && deletedIds.has(selected.id)) setSelected(null)
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Gagal hapus sesi terpilih')
-      await load()
-    } finally {
-      setDeleteBusy(false)
-    }
+    const skippedText = deletePreview.invalidCount > 0 ? ` ${deletePreview.invalidCount} sesi lain dilewati (tidak kosong / belum closed / sudah dibayar / terkunci).` : ''
+    askConfirm({
+      title: `Hapus ${deletePreview.deletable.length} sesi kosong?`,
+      body: `Aksi ini tidak bisa dibatalkan.${skippedText}`,
+      confirmLabel: 'Hapus',
+      danger: true,
+      onConfirm: async () => {
+        setDeleteBusy(true)
+        try {
+          for (const session of deletePreview.deletable) {
+            await deletePackingSessionApi(session.id)
+          }
+          const deletedIds = new Set(deletePreview.deletable.map((session) => session.id))
+          setSessions((prev) => prev.filter((session) => !deletedIds.has(session.id)))
+          setSelectedSessionIds((current) => {
+            const next = new Set(current)
+            for (const id of deletedIds) next.delete(id)
+            return next
+          })
+        } catch (e) {
+          alert(e instanceof Error ? e.message : 'Gagal hapus sesi terpilih')
+          await load()
+        } finally {
+          setDeleteBusy(false)
+        }
+      },
+    })
   }
 
   function handleOpenDetail(s: PackingWorkSession) {
@@ -416,54 +451,6 @@ export function PackingSessionsPage() {
   }
 
   // keep handleOpenDetail used via anchor below
-
-  function openPayRuleEdit(record: { id: string; resiNumber: string; packingPayRuleId?: string | null; packingPayBreakdown?: { ruleName?: string; payType?: string; amount?: number; quantity?: number; total?: number; manualOverride?: boolean } | null; packingPayAmount?: number | null }) {
-    if (!selected || selected.paidAt || selected.paymentId) {
-      alert('Pay rule tidak bisa diubah karena sesi sudah dibayar.')
-      return
-    }
-    if (payRules.length === 0) {
-      alert('Belum ada pay rule tersedia.')
-      return
-    }
-    setPayRuleEditTarget(record)
-    setPayRuleEditSelectedId(record.packingPayRuleId ?? '')
-  }
-
-  function closePayRuleEdit() {
-    if (payRuleBusyId) return
-    setPayRuleEditTarget(null)
-    setPayRuleEditSelectedId('')
-  }
-
-  async function handleConfirmPayRuleEdit() {
-    if (!payRuleEditTarget) return
-    const recordId = payRuleEditTarget.id
-    const ruleId = payRuleEditSelectedId
-    if (!selected || selected.paidAt || selected.paymentId) {
-      alert('Pay rule tidak bisa diubah karena sesi sudah dibayar.')
-      return
-    }
-    if (!ruleId) {
-      alert('Pilih pay rule terlebih dahulu.')
-      return
-    }
-    setPayRuleBusyId(recordId)
-    try {
-      const updated = await updatePackingRecordingPayRuleApi(recordId, ruleId)
-      setRecords((prev: typeof records) => prev.map((record: typeof records[number]) => (record.id === (updated as unknown as { id: string }).id ? (updated as unknown as typeof records[number]) : record)))
-      const refreshedSessions = await readPackingSessionsApi(100)
-      setSessions(refreshedSessions as PackingWorkSession[])
-      const refreshedSelected = refreshedSessions.find((session) => session.id === selected.id)
-      if (refreshedSelected) setSelected(refreshedSelected as PackingWorkSession)
-      setPayRuleEditTarget(null)
-      setPayRuleEditSelectedId('')
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Gagal mengubah pay rule.')
-    } finally {
-      setPayRuleBusyId(null)
-    }
-  }
 
   function handleExportAll() {
     const rows = totals.selectedSessions
@@ -474,20 +461,6 @@ export function PackingSessionsPage() {
     const csv = ['session_id,packer_name,packer_code,status,bayar,paid_at,paket,upah,mulai,ended', ...rows.map((s) => `${s.id},${s.packerNameSnapshot},${s.packerCodeSnapshot},${s.status},${s.paidAt ? 'dibayar' : 'belum'},${s.paidAt ?? ''},${s.completedPackingCount},${s.totalPayAmount},${s.startedAt},${s.endedAt ?? ''}`)].join('\n')
     const scope = selectedSessionIds.size > 0 ? 'selected' : 'filtered'
     downloadTextFile(`packing-sessions-${scope}-${new Date().toISOString().slice(0, 10)}.csv`, csv, 'text/csv;charset=utf-8')
-  }
-
-  function handleExportPayments() {
-    if (payments.length === 0) {
-      alert('Belum ada pembayaran.')
-      return
-    }
-    const csv = ['payment_no,packer_name,packer_code,sesi,paket,subtotal,penyesuaian,upah,metode,paid_at,note,adjustment_detail', ...payments.map((p) => {
-      const subtotal = p.subtotalAmount ?? p.totalAmount
-      const adj = p.adjustmentTotal ?? 0
-      const detail = (p.adjustments ?? []).map((item) => `${item.kind === 'add' ? '+' : '-'}${item.label} Rp${item.amount}`).join('|').replace(/,/g, ';')
-      return `${p.paymentNo},${p.packerNameSnapshot},${p.packerCodeSnapshot},${p.totalSessions},${p.totalPackages},${subtotal},${adj},${p.totalAmount},${p.paymentMethod},${p.paidAt},${(p.note ?? '').replace(/,/g, ';')},${detail}`
-    })].join('\n')
-    downloadTextFile(`packing-payments-${new Date().toISOString().slice(0, 10)}.csv`, csv, 'text/csv;charset=utf-8')
   }
 
   function toggleSessionSelection(sessionId: string) {
@@ -516,15 +489,6 @@ export function PackingSessionsPage() {
       }
       return next
     })
-  }
-
-  function handleExportDetail() {
-    if (!selected || records.length === 0) {
-      alert('Tidak ada data untuk export.')
-      return
-    }
-    const csv = recordsToCsv(records)
-    downloadTextFile(`packing-session-${selected.packerCodeSnapshot}-${selected.id.slice(0, 8)}.csv`, csv, 'text/csv;charset=utf-8')
   }
 
   function openPayDialog() {
@@ -564,6 +528,31 @@ export function PackingSessionsPage() {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount)
   }
 
+  // ── Kamus label Indonesia (satu sumber) ──────────────────────────
+  function formatPaymentMethodLabel(method: string | null | undefined) {
+    if (method === 'transfer') return 'Transfer'
+    if (method === 'other') return 'Lainnya'
+    return 'Tunai'
+  }
+
+  function formatPackingSessionStatus(status: PackingWorkSession['status']) {
+    if (status === 'active') return 'Aktif'
+    if (status === 'cancelled') return 'Dibatalkan'
+    return 'Ditutup'
+  }
+
+  function formatDateTimeWIB(iso: string | null | undefined) {
+    if (!iso) return '—'
+    try {
+      const d = new Date(iso)
+      const date = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+      const time = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+      return `${date}, ${time} WIB`
+    } catch {
+      return String(iso)
+    }
+  }
+
   function formatPeriode(startedAt: string, endedAt: string | null) {
     try {
       const s = new Date(startedAt)
@@ -574,30 +563,6 @@ export function PackingSessionsPage() {
       return `${start} → ${end}`
     } catch {
       return `${new Date(startedAt).toLocaleDateString('id-ID')} → ${endedAt ? new Date(endedAt).toLocaleDateString('id-ID') : '—'}`
-    }
-  }
-
-  function paymentSessionLookup(payment: PackingPayment) {
-    const byId = new Map(sessions.map((s) => [s.id, s] as const))
-    return payment.sessionIds.map((id) => byId.get(id)).filter(Boolean) as PackingWorkSession[]
-  }
-
-  function formatLongDate(iso: string) {
-    try {
-      const d = new Date(iso)
-      const date = d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-      const time = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
-      return `${date} pukul ${time} WIB`
-    } catch {
-      return new Date(iso).toLocaleString('id-ID')
-    }
-  }
-
-  function formatShortDate(iso: string) {
-    try {
-      return new Date(iso).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
-    } catch {
-      return new Date(iso).toLocaleDateString('id-ID')
     }
   }
 
@@ -660,44 +625,6 @@ export function PackingSessionsPage() {
     }
 
     lines.push(`Coba dicek dulu ya. Kalau datanya sudah sesuai, kabari admin supaya pembayaran yang belum selesai bisa diproses 😊`, ``, `Makasih banyak sudah bantu proses packing 🙏`)
-    return lines.join('\n')
-  }
-
-  function buildPaymentShareText(payment: PackingPayment) {
-    const linked = paymentSessionLookup(payment)
-    const metodeLabel = payment.paymentMethod === 'cash' ? 'Tunai' : payment.paymentMethod === 'transfer' ? 'Transfer' : 'Lainnya'
-    const firstName = payment.packerNameSnapshot.split(' ')[0]
-    const subtotal = payment.subtotalAmount ?? payment.totalAmount
-    const adjustments = payment.adjustments ?? []
-    const adjustmentTotal = payment.adjustmentTotal ?? 0
-    const lines = [
-      `Halo Kak ${firstName} 👋`,
-      ``,
-      `Kabar baik — pembayaran upah packing kamu sudah selesai diproses ✓`,
-      ``,
-      `Petugas: ${payment.packerNameSnapshot} (${payment.packerCodeSnapshot})`,
-      `No. Pembayaran: ${payment.paymentNo}`,
-      `Tanggal bayar: ${formatLongDate(payment.paidAt)}`,
-      `Metode: ${metodeLabel} (${payment.paymentMethod})`,
-      payment.note ? `Catatan: ${payment.note}` : null,
-      ``,
-      `Subtotal upah: ${formatCurrency(subtotal)}`,
-      ...adjustments.map((item) => `${item.kind === 'add' ? '+' : '−'} ${item.label}: ${formatCurrency(item.amount)}`),
-      adjustmentTotal !== 0 ? `Penyesuaian: ${adjustmentTotal > 0 ? '+' : '−'}${formatCurrency(Math.abs(adjustmentTotal)).replace('Rp', 'Rp')}` : null,
-      `Total dibayar: ${formatCurrency(payment.totalAmount)}`,
-      `Rincian: ${payment.totalSessions} sesi • ${payment.totalPackages} paket`,
-      ``,
-    ].filter(Boolean) as string[]
-    if (linked.length > 0) {
-      lines.push(`Detail sesi:`)
-      linked.forEach((s, idx) => {
-        lines.push(`${idx + 1}. ${formatShortDate(s.startedAt)} • ${s.completedPackingCount} paket • ${formatCurrency(s.totalPayAmount)}`)
-      })
-      lines.push(``)
-    } else if (payment.sessionIds.length > 0) {
-      lines.push(`Detail sesi tidak tersedia di perangkat ini.`, `ID sesi: ${payment.sessionIds.slice(0, 5).join(', ')}${payment.sessionIds.length > 5 ? '…' : ''}`, ``)
-    }
-    lines.push(`Dibayar oleh: ${payment.paidByOperatorName} (${payment.paidByOperatorCode})`, ``, `Mohon dicek dan konfirmasi ya. Terima kasih banyak atas kerja kerasnya 🙏`)
     return lines.join('\n')
   }
 
@@ -766,14 +693,11 @@ export function PackingSessionsPage() {
       }
       const payment = await createPackingPaymentApi({ sessionIds: payPreview.sessions.map((s) => s.id), paymentMethod: payMethod, note: payNote.trim() || null, adjustments: manual, ledgerAdjustmentIds: ledgerIds })
       setLastPayment(payment as PackingPayment)
-      const t = buildPaymentShareText(payment as PackingPayment)
-      setShareDraft({ title: `Pembayaran ${payment.paymentNo}`, text: t })
       setShowPayDialog(false)
       setSelectedSessionIds(new Set())
       setPayAdjustments([])
       setCheckedLedgerIds(new Set())
       await load()
-      await loadPayments()
     } catch (e) {
       if (e instanceof Error && e.message.startsWith('Penyesuaian')) {
         setPayError(e.message)
@@ -811,48 +735,66 @@ export function PackingSessionsPage() {
   }
 
   async function handleConfirmDraft(draft: PackingPaymentDraft) {
-    if (!confirm(`Konfirmasi pembayaran ${draft.draftNo}? Sesi akan ditandai dibayar dan tidak bisa diubah.`)) return
-    try {
-      const result = await confirmPackingPaymentDraftApi(draft.id)
-      setLastPayment(result.payment as PackingPayment)
-      const t = buildPaymentShareText(result.payment as PackingPayment)
-      setShareDraft({ title: `Pembayaran ${result.payment.paymentNo}`, text: t })
-      setSelectedSessionIds(new Set())
-      await load()
-      await loadPayments()
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Gagal konfirmasi draft.')
-      await refreshPending()
-    }
+    askConfirm({
+      title: `Konfirmasi ${draft.draftNo}?`,
+      body: `${draft.packerNameSnapshot} · ${draft.totalSessions} sesi · ${draft.totalPackages} paket · estimasi ${formatCurrency(draft.estimatedTotal)} (${formatPaymentMethodLabel(draft.paymentMethod)}). Sesi ditandai dibayar dan tidak bisa diubah.`,
+      confirmLabel: 'Konfirmasi bayar',
+      onConfirm: async () => {
+        try {
+          const result = await confirmPackingPaymentDraftApi(draft.id)
+          setLastPayment(result.payment as PackingPayment)
+          setSelectedSessionIds(new Set())
+          await load()
+        } catch (e) {
+          alert(e instanceof Error ? e.message : 'Gagal konfirmasi draft.')
+          await refreshPending()
+        }
+      },
+    })
   }
 
   async function handleCancelDraft(draft: PackingPaymentDraft) {
-    if (!confirm(`Batalkan draft ${draft.draftNo}? Sesi akan bebas dipilih lagi.`)) return
-    try {
-      await cancelPackingPaymentDraftApi(draft.id)
-      await load()
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Gagal membatalkan draft.')
-    }
+    askConfirm({
+      title: `Batalkan ${draft.draftNo}?`,
+      body: `${draft.totalSessions} sesi kembali bebas dipilih. Kasbon/bonus yang ikut draft tetap menunggu.`,
+      confirmLabel: 'Batalkan draft',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await cancelPackingPaymentDraftApi(draft.id)
+          await load()
+        } catch (e) {
+          alert(e instanceof Error ? e.message : 'Gagal membatalkan draft.')
+        }
+      },
+    })
   }
 
   async function handleCancelLedger(item: PackerAdjustment) {
-    if (!confirm(`Batalkan catatan "${item.label}" (${formatCurrency(item.amount)})?`)) return
-    try {
-      await cancelPackerAdjustmentApi(item.id)
-      setCheckedLedgerIds((prev) => {
-        const next = new Set(prev)
-        next.delete(item.id)
-        return next
-      })
-      await refreshPending()
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Gagal membatalkan catatan.')
-    }
+    askConfirm({
+      title: 'Batalkan catatan?',
+      body: `"${item.label}" (${item.kind === 'add' ? '+' : '−'}${formatCurrency(item.amount)}) untuk ${item.packerNameSnapshot} tidak akan disarankan lagi saat bayar.`,
+      confirmLabel: 'Batalkan catatan',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await cancelPackerAdjustmentApi(item.id)
+          setCheckedLedgerIds((prev) => {
+            const next = new Set(prev)
+            next.delete(item.id)
+            return next
+          })
+          await refreshPending()
+        } catch (e) {
+          alert(e instanceof Error ? e.message : 'Gagal membatalkan catatan.')
+        }
+      },
+    })
   }
 
   function openLedgerDialog(presetPacker = 'all') {
     setLedgerError(null)
+    setLedgerFieldErrors({})
     setLedgerKind('deduct')
     setLedgerLabel('')
     setLedgerAmount('')
@@ -863,23 +805,17 @@ export function PackingSessionsPage() {
 
   async function handleCreateLedger() {
     const [name, code] = ledgerPacker.split('::')
-    if (!name || !code) {
-      setLedgerError('Pilih petugas dulu.')
-      return
-    }
     const amount = parseAdjustmentAmount(ledgerAmount)
-    if (!ledgerLabel.trim()) {
-      setLedgerError('Keterangan wajib diisi (mis: Kasbon, Bonus rapi).')
-      return
-    }
-    if (amount <= 0) {
-      setLedgerError('Nominal harus lebih dari Rp 0.')
-      return
-    }
+    const fieldErrors: { packer?: string; label?: string; amount?: string } = {}
+    if (!name || !code) fieldErrors.packer = 'Pilih petugas dulu.'
+    if (!ledgerLabel.trim()) fieldErrors.label = 'Keterangan wajib diisi (mis: Kasbon, Bonus rapi).'
+    if (amount <= 0) fieldErrors.amount = 'Nominal harus lebih dari Rp 0.'
+    setLedgerFieldErrors(fieldErrors)
+    if (Object.keys(fieldErrors).length > 0) return
     setLedgerBusy(true)
     setLedgerError(null)
     try {
-      await createPackerAdjustmentApi({ packerOperatorName: name, packerOperatorCode: code, label: ledgerLabel.trim().slice(0, 100), kind: ledgerKind, amount, note: ledgerNote.trim() || null })
+      const created = await createPackerAdjustmentApi({ packerOperatorName: name, packerOperatorCode: code, label: ledgerLabel.trim().slice(0, 100), kind: ledgerKind, amount, note: ledgerNote.trim() || null })
       setShowLedgerDialog(false)
       await refreshPending()
       // Jika modal bayar sedang terbuka untuk packer yang sama, centang otomatis
@@ -895,6 +831,12 @@ export function PackingSessionsPage() {
           }
           return merged
         })
+      } else if (created && (created as PackerAdjustment).id) {
+        // Sorot catatan baru di section Pending.
+        const newId = (created as PackerAdjustment).id
+        setHighlightLedgerId(newId)
+        scrollToPending()
+        window.setTimeout(() => setHighlightLedgerId((current) => (current === newId ? null : current)), 2400)
       }
     } catch (e) {
       setLedgerError(e instanceof Error ? e.message : 'Gagal mencatat.')
@@ -931,7 +873,7 @@ export function PackingSessionsPage() {
                 <pre className="max-h-[50vh] overflow-auto whitespace-pre-wrap break-words rounded-[4px] border border-[#dddddd] bg-[#f6f5f4] p-4 font-['Inter'] text-[13px] leading-6 text-[#31302e]">{shareDraft.text}</pre>
                 <div className="flex flex-wrap justify-end gap-2">
                   <Button type="button" variant="ghost" onClick={() => void copyText(shareDraft.text, 'draft')} className="h-9 rounded-full border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">
-                    <HugeiconsIcon icon={Copy01Icon} size={16} strokeWidth={1.9} /> {copiedKey === 'draft' ? 'Copied' : 'Copy'}
+                    <HugeiconsIcon icon={Copy01Icon} size={16} strokeWidth={1.9} /> {copiedKey === 'draft' ? 'Tersalin ✓' : 'Salin'}
                   </Button>
                   <Button type="button" variant="ghost" onClick={() => shareToWhatsApp(shareDraft.text)} className="h-9 rounded-full border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">
                     <HugeiconsIcon icon={SentIcon} size={16} strokeWidth={1.9} /> WhatsApp
@@ -942,6 +884,21 @@ export function PackingSessionsPage() {
                 </div>
               </div>
             ) : null}
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={Boolean(confirmAction)} onOpenChange={(open) => { if (!open && !confirmAction?.busy) setConfirmAction(null) }}>
+          <DialogContent showCloseButton={false} className="packing-modal max-w-md gap-0 overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_23px_52px_rgba(0,0,0,0.08),0_4px_18px_rgba(0,0,0,0.06)]">
+            <div className="grid gap-4 p-6">
+              <div className="grid gap-1.5">
+                <DialogTitle className="font-['Inter'] text-[18px] font-semibold text-[#000000]">{confirmAction?.title ?? 'Konfirmasi'}</DialogTitle>
+                <DialogDescription className="font-['Inter'] text-[13px] leading-5 text-[#615d59]">{confirmAction?.body ?? ''}</DialogDescription>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="ghost" onClick={() => setConfirmAction(null)} disabled={Boolean(confirmAction?.busy)} className="h-9 rounded-[8px] border border-[#e6e6e6] bg-white px-5 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Batal</Button>
+                <Button type="button" onClick={() => void runConfirmAction()} disabled={Boolean(confirmAction?.busy)} className={`h-9 rounded-[8px] px-5 font-['Inter'] text-[13px] font-semibold text-white disabled:opacity-40 ${confirmAction?.danger ? 'bg-[#991b1b] hover:bg-[#7f1d1d]' : 'bg-[#000000] hover:bg-[#31302e]'}`}>{confirmAction?.busy ? 'Memproses...' : confirmAction?.confirmLabel ?? 'Ya'}</Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
 
@@ -999,7 +956,7 @@ export function PackingSessionsPage() {
                       ))}
                     </ul>
                     <div className="flex gap-2 border-t border-[#e6e6e6] bg-white p-2">
-                      <Button type="button" variant="ghost" onClick={() => { const t = buildSelectionShareText(); if (t) void copyText(t, 'selection') }} className="h-7 flex-1 rounded-[8px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Copy01Icon} size={14} strokeWidth={1.9} /> {copiedKey === 'selection' ? 'Copied' : 'Copy ringkasan'}</Button>
+                      <Button type="button" variant="ghost" onClick={() => { const t = buildSelectionShareText(); if (t) void copyText(t, 'selection') }} className="h-7 flex-1 rounded-[8px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Copy01Icon} size={14} strokeWidth={1.9} /> {copiedKey === 'selection' ? 'Tersalin ✓' : 'Salin ringkasan'}</Button>
                       <Button type="button" variant="ghost" onClick={() => { const t = buildSelectionShareText(); if (t) setShareDraft({ title: 'Ringkasan packing', text: t }) }} className="h-7 flex-1 rounded-[8px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={SentIcon} size={14} strokeWidth={1.9} /> WA</Button>
                     </div>
                   </div>
@@ -1008,16 +965,17 @@ export function PackingSessionsPage() {
                   <button type="button" onClick={() => setAdjustOpen((v) => !v)} aria-expanded={adjustOpen} className="flex w-full items-center gap-2.5 px-4 py-3 text-left hover:bg-[#fbfaf9]">
                     <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#000000] font-['Inter'] text-[11px] font-bold text-white">2</span>
                     <span className="min-w-0 flex-1">
-                      <span className="block font-['Inter'] text-[13px] font-semibold text-[#000000]">Penyesuaian</span>
+                      <span className="block font-['Inter'] text-[13px] font-semibold text-[#000000]">Potongan & Bonus</span>
                       <span className="block truncate font-['Inter'] text-[12px] tabular-nums text-[#a39e98]">{activePayAdjustments.length === 0 ? 'Tidak ada — total = subtotal upah' : `${activePayAdjustments.length} aktif · ${payAdjustmentSummary.adjustmentTotal > 0 ? '+' : payAdjustmentSummary.adjustmentTotal < 0 ? '−' : ''}${formatCurrency(Math.abs(payAdjustmentSummary.adjustmentTotal))}`}</span>
                     </span>
                     <span className={`shrink-0 font-['Inter'] text-[14px] text-[#615d59] transition-transform ${adjustOpen ? 'rotate-180' : ''}`} aria-hidden="true">▾</span>
                   </button>
                   {adjustOpen ? (
                   <div className="grid gap-2 border-t border-[#e6e6e6] px-4 py-3">
-                  <p className="font-['Inter'] text-[12px] leading-5 text-[#615d59]">Centang kasbon/bonus yang <span className="font-medium text-[#31302e]">tersimpan</span>, atau tambah baris <span className="font-medium text-[#31302e]">manual</span> sekali pakai.</p>
+                  <p className="font-['Inter'] text-[12px] leading-5 text-[#615d59]">A. Centang <span className="font-medium text-[#31302e]">catatan tersimpan</span> (kasbon/bonus yang dicatat sebelumnya). B. Tambah <span className="font-medium text-[#31302e]">baris manual</span> sekali pakai khusus pembayaran ini.</p>
                   {payLedgerOptions.length > 0 ? (
                     <div className="grid gap-1.5">
+                      <p className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">A · Dari catatan tersimpan</p>
                       {payLedgerOptions.map((item) => {
                         const checked = checkedLedgerIds.has(item.id)
                         return (
@@ -1025,7 +983,7 @@ export function PackingSessionsPage() {
                             <input type="checkbox" className="h-4 w-4 shrink-0 rounded border-[#dddddd] accent-[#000000]" checked={checked} onChange={() => setCheckedLedgerIds((prev) => { const next = new Set(prev); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next })} aria-label={`Ikutkan ${item.label}`} />
                             <span className="min-w-0 flex-1">
                               <span className="block truncate font-['Inter'] text-[12px] text-[#31302e]" title={item.label}>{item.label}</span>
-                              <span className="block font-['Inter'] text-[11px] text-[#a39e98]">Tersimpan · oleh {item.createdByOperatorName ?? '-'}</span>
+                              <span className="block font-['Inter'] text-[11px] text-[#a39e98]">Catatan tersimpan · oleh {item.createdByOperatorName ?? '-'} · {formatDateTimeWIB(item.createdAt)}</span>
                             </span>
                             <span className={`shrink-0 font-['Inter'] text-[12px] font-semibold tabular-nums ${item.kind === 'add' ? 'text-[#000000]' : 'text-[#991b1b]'}`}>{item.kind === 'add' ? '+' : '−'}{formatCurrency(item.amount)}</span>
                           </label>
@@ -1035,6 +993,7 @@ export function PackingSessionsPage() {
                   ) : null}
                   {payAdjustmentSummary.items.length > 0 ? (
                     <div className="grid gap-2">
+                      <p className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">B · Tambahan sekali ini saja</p>
                       {payAdjustmentSummary.items.map((item) => (
                         <div key={item.id} className="grid grid-cols-[76px_1fr] gap-2 rounded-[8px] border border-dashed border-[#8f8a84] bg-white p-2">
                           <select value={item.kind} onChange={(e) => updatePayAdjustmentRow(item.id, { kind: e.target.value as 'add' | 'deduct' })} className="h-8 rounded-[4px] border border-[#e6e6e6] bg-white px-1 font-['Inter'] text-[12px] font-medium text-[#000000] focus:outline-none" aria-label="Tipe penyesuaian">
@@ -1043,14 +1002,14 @@ export function PackingSessionsPage() {
                           </select>
                           <div className="grid gap-2">
                             <div className="flex gap-2">
-                              <Input value={item.label} onChange={(e) => updatePayAdjustmentRow(item.id, { label: e.target.value })} placeholder="mis: Bonus rapi / Koreksi kurang bayar" className="h-8 flex-1 rounded-[4px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" maxLength={100} aria-label="Keterangan penyesuaian" />
+                              <Input value={item.label} onChange={(e) => updatePayAdjustmentRow(item.id, { label: e.target.value })} placeholder="mis: Bonus rapi / Koreksi kurang bayar" className="h-8 min-w-0 flex-1 rounded-[4px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" maxLength={100} aria-label="Keterangan penyesuaian" />
                               <Button type="button" variant="ghost" size="icon" onClick={() => removePayAdjustmentRow(item.id)} className="h-8 w-8 shrink-0 rounded-[4px] border border-[#e6e6e6] text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" aria-label="Hapus penyesuaian">
                                 <HugeiconsIcon icon={Delete02Icon} size={15} strokeWidth={1.9} />
                               </Button>
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="font-['Inter'] text-[12px] text-[#a39e98]">Rp</span>
-                              <Input value={item.amount} onChange={(e) => updatePayAdjustmentRow(item.id, { amount: e.target.value })} inputMode="numeric" placeholder="0" className="h-8 flex-1 rounded-[4px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[13px] tabular-nums placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" aria-label="Nominal penyesuaian" />
+                              <Input value={item.amount} onChange={(e) => updatePayAdjustmentRow(item.id, { amount: e.target.value })} inputMode="numeric" placeholder="0" className="h-8 min-w-0 flex-1 rounded-[4px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[13px] tabular-nums placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" aria-label="Nominal penyesuaian" />
                               <span className={`shrink-0 font-['Inter'] text-[12px] font-semibold tabular-nums ${item.parsedAmount > 0 ? (item.kind === 'add' ? 'text-[#000000]' : 'text-[#991b1b]') : 'text-[#a39e98]'}`}>{item.parsedAmount > 0 ? `${item.kind === 'add' ? '+' : '−'}${formatCurrency(item.parsedAmount)}` : 'Rp 0'}</span>
                             </div>
                           </div>
@@ -1064,9 +1023,6 @@ export function PackingSessionsPage() {
                   <div className="flex flex-wrap gap-1.5">
                     <button type="button" onClick={addPayAdjustmentRow} disabled={payAdjustments.length >= 10} className="inline-flex h-7 items-center rounded-[8px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40">+ Baris manual</button>
                     <button type="button" onClick={() => openLedgerDialog(payPreview.packerKey)} className="inline-flex h-7 items-center rounded-[8px] border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">+ Catat kasbon/bonus</button>
-                    {['Bonus rapi', 'Kasbon', 'Kurang bayar lalu'].map((preset) => (
-                      <button key={preset} type="button" onClick={() => { if (payAdjustments.length >= 10) { alert('Maksimal 10 baris penyesuaian.'); return } const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; setPayAdjustments((prev) => [...prev, { id, kind: preset === 'Bonus rapi' || preset === 'Kurang bayar lalu' ? 'add' : 'deduct', label: preset, amount: '' }]) }} className="h-7 rounded-full border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]">{preset}</button>
-                    ))}
                   </div>
                   {payAdjustmentSummary.finalTotal < 0 ? <p className="font-['Inter'] text-[12px] font-medium text-red-600">Total tidak boleh negatif. Kurangi potongan.</p> : null}
                   </div>
@@ -1099,47 +1055,50 @@ export function PackingSessionsPage() {
         </Dialog>
 
         <Dialog open={showLedgerDialog} onOpenChange={setShowLedgerDialog}>
-          <DialogContent showCloseButton={false} className="packing-modal max-w-md gap-0 overflow-hidden rounded-[12px] border border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_23px_52px_rgba(0,0,0,0.08),0_4px_18px_rgba(0,0,0,0.06)]">
-            <div className="border-b border-[#e6e6e6] bg-white p-6">
+          <DialogContent showCloseButton={false} className="packing-modal flex max-h-[88vh] max-w-md flex-col gap-0 overflow-hidden rounded-[16px] border border-[#e6e6e6] bg-white p-0 font-['Inter'] shadow-[0_23px_52px_rgba(0,0,0,0.08),0_4px_18px_rgba(0,0,0,0.06)]">
+            <div className="shrink-0 border-b border-[#e6e6e6] bg-white px-6 py-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="grid gap-1.5">
-                  <DialogTitle className="font-['Inter'] text-[20px] font-semibold leading-none tracking-[-0.5px] text-[#000000]">Catat kasbon / bonus</DialogTitle>
-                  <DialogDescription className="font-['Inter'] text-[12px] leading-5 text-[#615d59]">Tersimpan sebagai pending per petugas. Otomatis disarankan saat bayar nanti — tanpa harus bayar sekarang.</DialogDescription>
+                  <DialogTitle className="font-['Inter'] text-[18px] font-semibold leading-7 tracking-[-0.125px] text-[#000000]">Catat kasbon / bonus</DialogTitle>
+                  <DialogDescription className="font-['Inter'] text-[13px] leading-5 text-[#615d59]">Tersimpan sebagai pending per petugas — otomatis disarankan saat bayar, tanpa harus bayar sekarang.</DialogDescription>
                 </div>
                 <Button type="button" variant="ghost" size="icon" onClick={() => setShowLedgerDialog(false)} className="h-8 w-8 shrink-0 rounded-[8px] border border-[#e6e6e6] bg-white text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]">
                   <HugeiconsIcon icon={Cancel01Icon} size={16} strokeWidth={1.9} />
                 </Button>
               </div>
             </div>
-            <div className="grid gap-4 bg-[#f6f5f4] p-5">
+            <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto bg-[#f6f5f4] p-6">
               <div className="grid gap-1.5">
                 <Label className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Petugas</Label>
-                <NativeSelect value={ledgerPacker} onChange={setLedgerPacker} options={packerOptions.map((op) => ({ value: `${op.name}::${op.code}`, label: op.label }))} placeholder="Pilih petugas" placeholderValue="" />
+                <NativeSelect value={ledgerPacker} onChange={(value) => { setLedgerPacker(value); setLedgerFieldErrors((prev) => ({ ...prev, packer: undefined })) }} options={packerOptions.map((op) => ({ value: `${op.name}::${op.code}`, label: op.label }))} placeholder="Pilih petugas" placeholderValue="" className="w-full min-w-0" />
+                {ledgerFieldErrors.packer ? <p className="font-['Inter'] text-[12px] font-medium text-[#991b1b]">{ledgerFieldErrors.packer}</p> : null}
               </div>
               <div className="grid gap-1.5">
                 <Label className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Tipe</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button type="button" onClick={() => setLedgerKind('deduct')} className={`h-9 rounded-[8px] border font-['Inter'] text-[13px] font-medium ${ledgerKind === 'deduct' ? 'border-[#000000] bg-[#000000] text-white' : 'border-[#e6e6e6] bg-white text-[#31302e] hover:bg-[#f6f5f4]'}`}>− Kurang (kasbon)</button>
-                  <button type="button" onClick={() => setLedgerKind('add')} className={`h-9 rounded-[8px] border font-['Inter'] text-[13px] font-medium ${ledgerKind === 'add' ? 'border-[#000000] bg-[#000000] text-white' : 'border-[#e6e6e6] bg-white text-[#31302e] hover:bg-[#f6f5f4]'}`}>+ Tambah (bonus)</button>
+                <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Tipe catatan">
+                  <button type="button" role="radio" aria-checked={ledgerKind === 'deduct'} onClick={() => setLedgerKind('deduct')} className={`h-10 rounded-[8px] border font-['Inter'] text-[13px] font-medium transition-colors ${ledgerKind === 'deduct' ? 'border-[#000000] bg-[#000000] text-white' : 'border-[#e6e6e6] bg-white text-[#31302e] hover:bg-[#f6f5f4]'}`}>− Kurang (kasbon)</button>
+                  <button type="button" role="radio" aria-checked={ledgerKind === 'add'} onClick={() => setLedgerKind('add')} className={`h-10 rounded-[8px] border font-['Inter'] text-[13px] font-medium transition-colors ${ledgerKind === 'add' ? 'border-[#000000] bg-[#000000] text-white' : 'border-[#e6e6e6] bg-white text-[#31302e] hover:bg-[#f6f5f4]'}`}>+ Tambah (bonus)</button>
                 </div>
               </div>
               <div className="grid gap-1.5">
-                <Label className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Keterangan</Label>
-                <Input value={ledgerLabel} onChange={(e) => setLedgerLabel(e.target.value)} placeholder="mis: Kasbon 20 Jan / Bonus rapi" maxLength={100} className="h-9 rounded-[4px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" />
+                <Label className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Nominal (Rp)</Label>
+                <Input value={ledgerAmount} onChange={(e) => { setLedgerAmount(e.target.value); setLedgerFieldErrors((prev) => ({ ...prev, amount: undefined })) }} inputMode="numeric" placeholder="0" aria-invalid={Boolean(ledgerFieldErrors.amount)} className={`h-10 rounded-[4px] border bg-white px-3 font-['Inter'] text-[15px] font-semibold tabular-nums placeholder:font-normal placeholder:text-[#a39e98] focus-visible:ring-0 ${ledgerFieldErrors.amount ? 'border-[#991b1b] focus-visible:border-[#991b1b]' : 'border-[#e6e6e6] focus-visible:border-[#8f8a84]'}`} />
+                {ledgerFieldErrors.amount ? <p className="font-['Inter'] text-[12px] font-medium text-[#991b1b]">{ledgerFieldErrors.amount}</p> : parseAdjustmentAmount(ledgerAmount) > 0 ? <p className="font-['Inter'] text-[12px] tabular-nums text-[#615d59]">= {formatCurrency(parseAdjustmentAmount(ledgerAmount))}</p> : null}
               </div>
               <div className="grid gap-1.5">
-                <Label className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Nominal (Rp)</Label>
-                <Input value={ledgerAmount} onChange={(e) => setLedgerAmount(e.target.value)} inputMode="numeric" placeholder="0" className="h-9 rounded-[4px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[13px] tabular-nums placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" />
+                <Label className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Keterangan</Label>
+                <Input value={ledgerLabel} onChange={(e) => { setLedgerLabel(e.target.value); setLedgerFieldErrors((prev) => ({ ...prev, label: undefined })) }} placeholder="mis: Kasbon 20 Jan / Bonus rapi" maxLength={100} aria-invalid={Boolean(ledgerFieldErrors.label)} className={`h-10 rounded-[4px] border bg-white px-3 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:ring-0 ${ledgerFieldErrors.label ? 'border-[#991b1b] focus-visible:border-[#991b1b]' : 'border-[#e6e6e6] focus-visible:border-[#8f8a84]'}`} />
+                {ledgerFieldErrors.label ? <p className="font-['Inter'] text-[12px] font-medium text-[#991b1b]">{ledgerFieldErrors.label}</p> : null}
               </div>
               <div className="grid gap-1.5">
                 <Label className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Catatan (opsional)</Label>
-                <Input value={ledgerNote} onChange={(e) => setLedgerNote(e.target.value)} placeholder="mis: titip ke mandor" maxLength={200} className="h-9 rounded-[4px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" />
+                <Input value={ledgerNote} onChange={(e) => setLedgerNote(e.target.value)} placeholder="mis: titip ke mandor" maxLength={200} className="h-10 rounded-[4px] border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" />
               </div>
               {ledgerError ? <Alert variant="destructive" className="font-['Inter'] text-[13px]"><p>{ledgerError}</p></Alert> : null}
-              <div className="flex justify-end gap-2 border-t border-[#e6e6e6] bg-white -mx-5 -mb-5 px-5 py-3">
-                <Button type="button" variant="ghost" onClick={() => setShowLedgerDialog(false)} disabled={ledgerBusy} className="h-8 rounded-[8px] border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Batal</Button>
-                <Button type="button" onClick={() => void handleCreateLedger()} disabled={ledgerBusy} className="h-8 rounded-[8px] bg-[#000000] px-5 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#31302e] disabled:opacity-40">{ledgerBusy ? 'Menyimpan...' : 'Simpan catatan'}</Button>
-              </div>
+            </div>
+            <div className="grid shrink-0 grid-cols-2 gap-2 border-t border-[#e6e6e6] bg-white p-4">
+              <Button type="button" variant="ghost" onClick={() => setShowLedgerDialog(false)} disabled={ledgerBusy} className="h-10 rounded-full border border-[#e6e6e6] bg-white font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Batal</Button>
+              <Button type="button" onClick={() => void handleCreateLedger()} disabled={ledgerBusy} className="h-10 rounded-full bg-[#000000] font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e] disabled:opacity-40">{ledgerBusy ? 'Menyimpan...' : 'Simpan catatan'}</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -1147,154 +1106,7 @@ export function PackingSessionsPage() {
     )
   }
 
-  // ── Detail view ───────────────────────────────────────────────────
-  if (selected) {
-    const selectedIsPaid = Boolean(selected.paidAt)
-    const selectedCanDelete = canDeleteSession(selected)
-    const paymentLabel = selectedIsPaid ? formatCurrency(selected.paidAmount ?? selected.totalPayAmount) : 'Belum dibayar'
-
-    return (
-      <div className="packing-page mx-auto max-w-[1240px] bg-[#f6f5f4] px-4 py-8 font-['Inter'] sm:px-6 lg:py-10 xl:px-8">
-        <section className="mb-6 grid gap-4">
-          <button type="button" onClick={() => setSelected(null)} className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-[#dddddd] bg-white px-3 py-2 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-white">
-            <HugeiconsIcon icon={ArrowLeft01Icon} size={16} strokeWidth={1.9} /> Riwayat Sesi Packing
-          </button>
-          <div className="overflow-hidden rounded-2xl border border-[#dddddd] bg-white">
-            <div className="flex flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-end lg:justify-between">
-              <div className="min-w-0">
-                <div className="inline-flex rounded-full border border-[#dddddd] bg-white px-2.5 py-1 font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#615d59]">Detail sesi</div>
-                <h1 className="mt-3 max-w-3xl truncate font-['Inter'] text-[34px] font-bold leading-[1.05] tracking-[-1px] text-[#000000] sm:text-[40px]">{selected.packerNameSnapshot}</h1>
-                <p className="mt-3 max-w-3xl font-['Inter'] text-[15px] leading-6 text-[#615d59]">{formatPeriode(selected.startedAt, selected.endedAt)} · dibuat oleh {selected.createdByOperatorName ? `${selected.createdByOperatorName} (${selected.createdByOperatorCode ?? '-'})` : '-'}</p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <span className={`inline-flex rounded-full border px-2.5 py-1 font-['Inter'] text-[12px] font-semibold ${selected.status === 'closed' ? 'border-[#000000] bg-[#000000] text-white' : 'border-[#dddddd] bg-white text-[#615d59]'}`}>{selected.status}</span>
-                  <span className={`inline-flex rounded-full border px-2.5 py-1 font-['Inter'] text-[12px] font-semibold ${selectedIsPaid ? 'border-[#000000] bg-[#000000] text-white' : 'border-[#dddddd] bg-white text-[#615d59]'}`}>{selectedIsPaid ? 'Dibayar' : 'Belum dibayar'}</span>
-                  <span className="inline-flex rounded-full border border-[#dddddd] bg-[#f6f5f4] px-2.5 py-1 font-['Inter'] text-[12px] font-medium text-[#31302e]">{selected.packerCodeSnapshot}</span>
-                  <span className="inline-flex rounded-full border border-[#dddddd] bg-white px-2.5 py-1 font-['Inter'] text-[12px] font-medium text-[#615d59]">{selected.id.slice(0, 12)}</span>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2 lg:justify-end">
-                <Button type="button" variant="ghost" onClick={handleExportDetail} disabled={records.length === 0} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={Download01Icon} size={16} strokeWidth={1.9} /> Export</Button>
-                <Button type="button" variant="ghost" onClick={() => { window.sessionStorage.setItem('pakti.historyPackingSessionId', selected.id); navigateTo('history') }} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">History</Button>
-                {selected.status === 'active' ? <Button type="button" variant="ghost" onClick={() => void handleClose(selected.id)} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Tutup</Button> : null}
-                {selectedCanDelete ? <Button type="button" variant="ghost" onClick={() => void handleDeleteSession(selected)} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Delete02Icon} size={16} strokeWidth={1.9} /> Hapus</Button> : null}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="grid gap-3 sm:grid-cols-3">
-          <StatCard label="Paket" value={String(selected.completedPackingCount)} subLabel="completed" icon={Package01Icon} />
-          <StatCard label="Upah" value={formatCurrency(selected.totalPayAmount)} subLabel="total sesi" icon={DollarCircleIcon} />
-          <StatCard label="Payment" value={paymentLabel} subLabel={selectedIsPaid ? 'sudah dibayar' : 'menunggu'} icon={DollarCircleIcon} />
-        </section>
-
-        <section className="mt-5 overflow-hidden rounded-xl border border-[#dddddd] bg-white">
-          <div className="flex flex-col gap-3 border-b border-[#dddddd] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-            <div>
-              <h2 className="font-['Inter'] text-[20px] font-semibold leading-snug tracking-[-0.125px] text-[#000000]">Detail paket sesi</h2>
-              <p className="mt-1 font-['Inter'] text-[13px] leading-5 text-[#615d59]">Daftar paket completed yang masuk ke sesi ini. Produk dibersihkan dari metadata Shopee.</p>
-            </div>
-            <span className="inline-flex w-fit items-center rounded-full border border-[#dddddd] bg-white px-2.5 py-1 font-['Inter'] text-[11px] font-semibold text-[#615d59]">{detailLoading ? 'Loading...' : `${records.length} record`}</span>
-          </div>
-          {detailLoading ? (
-            <div className="grid gap-2 p-6">
-              <div className="h-10 animate-pulse rounded-lg bg-[#f6f5f4]" />
-              <div className="h-20 animate-pulse rounded-lg bg-[#f6f5f4]" />
-              <div className="h-20 animate-pulse rounded-lg bg-[#f6f5f4]" />
-            </div>
-          ) : records.length === 0 ? (
-            <div className="px-6 py-14 text-center">
-              <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[#f6f5f4] text-[#615d59]">
-                <HugeiconsIcon icon={Package01Icon} size={20} strokeWidth={1.9} />
-              </div>
-              <div className="mt-3 font-['Inter'] text-[15px] font-semibold text-[#000000]">Belum ada paket completed di sesi ini</div>
-              <div className="mt-1 font-['Inter'] text-[13px] text-[#615d59]">Sesi kosong yang sudah closed bisa dihapus dari halaman ini.</div>
-              {selectedCanDelete ? <Button type="button" variant="ghost" onClick={() => void handleDeleteSession(selected)} className="mt-4 h-9 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">Hapus sesi kosong</Button> : null}
-            </div>
-          ) : (
-            <div className="overflow-x-auto scrollbar-thin">
-              <table className="w-full min-w-[860px] border-collapse">
-                <thead className="bg-[#f6f5f4]">
-                  <tr className="text-left">
-                    <Th className="w-[56px]">No</Th>
-                    <Th>Paket</Th>
-                    <Th>Produk</Th>
-                    <Th className="text-right">Upah</Th>
-                    <Th>Waktu</Th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#e6e6e6] bg-white">
-                  {records.map((rec: typeof records[number], index: number) => {
-                    const r = rec as unknown as { id: string; resiNumber: string; orderNumber?: string | null; mediaType?: string; packingPayAmount?: number | null; packingPayRuleId?: string | null; packingPayBreakdown?: { ruleName?: string; payType?: string; amount?: number; quantity?: number; total?: number; manualOverride?: boolean } | null; orderSnapshot?: { items?: SessionOrderItem[] } | null; startTime?: string }
-                    const itemsLabel = r.orderSnapshot?.items ? formatSessionOrderItems(r.orderSnapshot.items) : '-'
-                    const currentRule = payRules.find((rule) => rule.id === r.packingPayRuleId)
-                    const currentRuleName = currentRule?.name ?? r.packingPayBreakdown?.ruleName ?? '-'
-                    const canEditRule = !selectedIsPaid && payRules.length > 0
-                    return (
-                      <tr key={r.id ?? `${r.resiNumber}-${index}`} className="bg-white transition-colors hover:bg-[#fbfaf9]">
-                        <Td className="font-['Inter'] text-[13px] text-[#a39e98]">{String(index + 1).padStart(2, '0')}</Td>
-                        <Td>
-                          <div className="grid gap-1">
-                            <span className="font-['Inter'] text-[13px] font-semibold text-[#000000]">{r.resiNumber}</span>
-                            <span className="font-['Inter'] text-[12px] text-[#a39e98]">{r.orderNumber ? `Order ${r.orderNumber}` : 'Order -'} · {r.mediaType ?? 'video'}</span>
-                          </div>
-                        </Td>
-                        <Td>
-                          <p className="max-w-[56rem] font-['Inter'] text-[13px] leading-5 text-[#31302e] [overflow-wrap:anywhere]">{itemsLabel}</p>
-                          <div className="mt-2 inline-flex items-center gap-1.5">
-                            <span className="rounded-full bg-[#f6f5f4] px-2 py-0.5 font-['Inter'] text-[12px] font-medium text-[#31302e] ring-1 ring-[#e6e6e6]">{currentRuleName}</span>
-                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]" onClick={() => openPayRuleEdit({ id: r.id, resiNumber: r.resiNumber, packingPayRuleId: r.packingPayRuleId, packingPayBreakdown: r.packingPayBreakdown, packingPayAmount: r.packingPayAmount })} disabled={!canEditRule || payRuleBusyId === r.id} title={selectedIsPaid ? 'Terkunci: sudah dibayar' : !canEditRule ? 'Tidak ada pay rule' : 'Ubah pay rule'} aria-label={`Ubah pay rule ${r.resiNumber}`}>
-                              {payRuleBusyId === r.id ? <span className="font-['Inter'] text-[11px]">...</span> : <HugeiconsIcon icon={selectedIsPaid ? LockPasswordIcon : Edit02Icon} size={14} strokeWidth={1.9} />}
-                            </Button>
-                            {payRuleBusyId === r.id ? <span className="font-['Inter'] text-[11px] text-[#a39e98]">menyimpan...</span> : null}
-                          </div>
-                        </Td>
-                        <Td className="text-right font-['Inter'] text-[13px] font-medium tabular-nums text-[#000000]">{r.packingPayAmount != null ? formatCurrency(r.packingPayAmount) : '-'}</Td>
-                        <Td className="font-['Inter'] text-[12px] text-[#a39e98]">{r.startTime ? new Date(r.startTime).toLocaleString('id-ID') : '-'}</Td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-
-        <Dialog open={Boolean(payRuleEditTarget)} onOpenChange={(open) => { if (!open) closePayRuleEdit() }}>
-          <DialogContent showCloseButton={false} className="packing-modal max-w-md gap-0 overflow-hidden rounded-2xl border-[#dddddd] bg-white p-0 font-['Inter'] shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
-            <div className="border-b border-[#dddddd] p-6">
-              <div className="flex items-start justify-between gap-5">
-                <div className="grid gap-1">
-                  <DialogTitle className="font-['Inter'] text-[18px] font-semibold text-[#000000]">Ubah Pay Rule</DialogTitle>
-                  <DialogDescription className="font-['Inter'] text-[13px] leading-5 text-[#615d59]">Pilih pay rule baru untuk paket ini. Perubahan akan menghitung ulang upah paket dan total sesi.</DialogDescription>
-                </div>
-                <Button type="button" variant="ghost" size="icon" onClick={closePayRuleEdit} className="h-9 w-9 shrink-0 rounded-lg text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]">
-                  <HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.9} />
-                </Button>
-              </div>
-            </div>
-            {payRuleEditTarget ? (
-              <div className="grid gap-4 p-6">
-                <div className="rounded-[4px] border border-[#dddddd] bg-[#f6f5f4] px-3 py-3">
-                  <p className="font-['Inter'] text-[13px] font-semibold text-[#000000]">{payRuleEditTarget.resiNumber}</p>
-                  <p className="mt-1 font-['Inter'] text-[12px] leading-5 text-[#615d59]">Saat ini: {payRuleEditTarget.packingPayBreakdown?.ruleName ?? '-'} · {payRuleEditTarget.packingPayBreakdown?.payType ?? '-'} · {payRuleEditTarget.packingPayAmount != null ? formatCurrency(payRuleEditTarget.packingPayAmount) : '-'}{payRuleEditTarget.packingPayBreakdown?.manualOverride ? ' · manual' : ''}</p>
-                </div>
-                <div className="grid gap-1.5">
-                  <Label className="font-['Inter'] text-[12px] font-medium text-[#000000]">Pay rule baru</Label>
-                  <NativeSelect value={payRuleEditSelectedId} onChange={setPayRuleEditSelectedId} options={payRules.map((rule) => ({ value: rule.id, label: `${rule.name} · ${formatCurrency(rule.amount)} · ${rule.payType}${rule.active ? '' : ' · nonaktif'}` }))} placeholder="Pilih pay rule" placeholderValue="" />
-                  <p className="font-['Inter'] text-[12px] text-[#a39e98]">Rule aktif dengan prioritas lebih tinggi akan dipakai otomatis untuk paket baru; pilihan di sini overrides manual.</p>
-                </div>
-                <div className="flex justify-end gap-2 pt-1">
-                  <Button type="button" variant="ghost" onClick={closePayRuleEdit} disabled={Boolean(payRuleBusyId)} className="h-10 rounded-full border border-[#dddddd] bg-white px-5 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">Batal</Button>
-                  <Button type="button" onClick={() => void handleConfirmPayRuleEdit()} disabled={Boolean(payRuleBusyId) || !payRuleEditSelectedId || payRuleEditSelectedId === (payRuleEditTarget.packingPayRuleId ?? '')} className="h-10 rounded-full bg-[#000000] px-6 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e] disabled:opacity-40">{payRuleBusyId ? 'Menyimpan...' : 'Simpan'}</Button>
-                </div>
-              </div>
-            ) : null}
-          </DialogContent>
-        </Dialog>
-      </div>
-    )
-  }
+  // Detail sesi dibuka di halaman PackingSessionDetailPage (navigasi via handleOpenDetail).
 
   return (
     <div className="packing-page mx-auto max-w-[1240px] bg-[#f6f5f4] px-4 py-8 font-['Inter'] sm:px-6 lg:py-10 xl:px-8">
@@ -1305,11 +1117,17 @@ export function PackingSessionsPage() {
           <p className="mt-3 max-w-2xl font-['Inter'] text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Kelola sesi packing per petugas, catat kasbon/bonus kapan saja, simpan pending, lalu bayar atau share ringkasan.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center rounded-full border border-[#dddddd] bg-white px-2.5 py-1 font-['Inter'] text-[11px] font-semibold text-[#615d59]">{loading ? 'Loading' : 'Ready'}</span>
-          <Button type="button" variant="ghost" onClick={() => void load()} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={RefreshIcon} size={16} strokeWidth={1.9} /> Refresh</Button>
           <Button type="button" variant="ghost" onClick={() => openLedgerDialog()} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Edit02Icon} size={16} strokeWidth={1.9} /> Catat kasbon/bonus</Button>
-          <Button type="button" variant="ghost" onClick={handleExportAll} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Download01Icon} size={16} strokeWidth={1.9} /> Export Sesi</Button>
-          <Button type="button" variant="ghost" onClick={handleExportPayments} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Download01Icon} size={16} strokeWidth={1.9} /> Export Bayar</Button>
+          <Button type="button" variant="ghost" onClick={() => navigateTo('packing-payments')} className="h-10 rounded-lg bg-[#000000] px-4 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]">Riwayat Bayar</Button>
+          <div ref={headerMenuRef} className="relative">
+            <Button type="button" variant="ghost" onClick={() => setShowHeaderMenu((v) => !v)} className="grid h-10 w-10 place-items-center rounded-lg border border-[#dddddd] bg-white text-[#31302e] hover:bg-[#f6f5f4]" aria-label="Menu lainnya">⋯</Button>
+            {showHeaderMenu ? (
+              <div className="absolute right-0 top-[calc(100%+6px)] z-20 grid w-44 gap-1 rounded-[12px] border border-[#e6e6e6] bg-white p-1 shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
+                <button type="button" onClick={() => { setShowHeaderMenu(false); void load() }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={RefreshIcon} size={14} strokeWidth={1.9} /> Refresh</button>
+                <button type="button" onClick={() => { setShowHeaderMenu(false); handleExportAll() }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Download01Icon} size={14} strokeWidth={1.9} /> Export Sesi</button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </section>
 
@@ -1331,40 +1149,46 @@ export function PackingSessionsPage() {
             <span className="ml-2 inline-flex rounded-full bg-[#000000] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-white">barusan dibayar</span>
           </p>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="ghost" onClick={() => void copyText(buildPaymentShareText(lastPayment), `last-${lastPayment.id}`)} className="h-9 rounded-full border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">{copiedKey === `last-${lastPayment.id}` ? 'Copied' : 'Copy'}</Button>
-            <Button type="button" variant="ghost" onClick={() => setShareDraft({ title: `Pembayaran ${lastPayment.paymentNo}`, text: buildPaymentShareText(lastPayment) })} className="h-9 rounded-full border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">WA</Button>
+            <Button type="button" variant="ghost" onClick={() => navigateTo('packing-payments')} className="h-9 rounded-full bg-[#000000] px-4 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]">Lihat di Riwayat</Button>
             <Button type="button" variant="ghost" onClick={() => setLastPayment(null)} className="h-9 rounded-full px-4 font-['Inter'] text-[13px] text-[#615d59] hover:bg-[#f6f5f4]">Tutup</Button>
           </div>
         </div>
       ) : null}
 
-      <section className="mt-5 overflow-hidden rounded-xl border border-[#dddddd] bg-white">
+      {lockedSummary.sessionCount > 0 ? (
+        <div className="mb-4 flex flex-col gap-2 rounded-xl border border-[#000000] bg-[#000000] p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="font-['Inter'] text-[13px] font-medium leading-5 text-white">🔒 {lockedSummary.sessionCount} sesi terkunci di {lockedSummary.draftCount} draft pending — tidak bisa dibayar, digabung, atau dihapus sampai draft dikonfirmasi/dibatalkan.</p>
+          <Button type="button" variant="ghost" onClick={() => scrollToPending()} className="h-9 shrink-0 rounded-lg bg-white px-4 font-['Inter'] text-[13px] font-semibold text-[#000000] hover:bg-[#f6f5f4]">Lihat Pending</Button>
+        </div>
+      ) : null}
+
+      <section ref={daftarSectionRef} className="mt-5 scroll-mt-4 overflow-hidden rounded-xl border border-[#dddddd] bg-white">
         <div className="flex flex-col gap-3 border-b border-[#dddddd] bg-[#fbfaf9] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div className="min-w-0">
-            <h2 className="font-['Inter'] text-[14px] font-semibold leading-none text-[#000000]">Daftar Sesi</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="font-['Inter'] text-[14px] font-semibold leading-none text-[#000000]">Daftar Sesi</h2>
+              {lockedSummary.sessionCount > 0 ? (
+                <button type="button" onClick={() => scrollToPending()} className="inline-flex items-center rounded-full bg-[#000000] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-white hover:bg-[#31302e]">🔒 {lockedSummary.sessionCount} terkunci · Lihat Pending</button>
+              ) : null}
+            </div>
             <p className="mt-1 truncate font-['Inter'] text-[12px] leading-none text-[#615d59]">
               {selectedSessionIds.size > 0
-                ? `${totals.selectedSessions.length} sesi · ${totals.totalPaket} paket · ${formatCurrency(totals.totalUpah)}${payPreview && !payPreview.valid ? ` · ${payPreview.mixedPacker ? 'pilih 1 petugas saja' : payPreview.notClosedCount > 0 ? `${payPreview.notClosedCount} sesi belum closed` : payPreview.alreadyPaidCount > 0 ? `${payPreview.alreadyPaidCount} sesi sudah dibayar` : payPreview.lockedCount > 0 ? `${payPreview.lockedCount} sesi terkunci pending` : ''}` : deletePreview.invalidCount > 0 ? ` · ${deletePreview.deletable.length} bisa dihapus, ${deletePreview.invalidCount} dilewati` : ''}${canMergeSelected ? ' · bisa digabung' : ''}`
+                ? `${totals.selectedSessions.length} sesi · ${totals.totalPaket} paket · ${formatCurrency(totals.totalUpah)}${canMergeSelected ? ' · bisa digabung' : ''}`
                 : `Menampilkan ${filtered.length} dari ${sessions.length} sesi · ${groupedSessions.length} petugas`}
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-1.5">
             <span className="inline-flex h-7 items-center rounded-lg border border-[#dddddd] bg-[#f6f5f4] px-3 font-['Inter'] text-[12px] font-medium text-[#615d59]">{selectedSessionIds.size} terpilih</span>
+            <Button type="button" variant="ghost" onClick={selectPayableSessions} disabled={filtered.length === 0} title="Centang hanya sesi closed, belum dibayar, dan tidak terkunci" className="h-7 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40">Pilih bisa dibayar</Button>
             <Button type="button" variant="ghost" onClick={selectAllFilteredSessions} disabled={filtered.length === 0} className="h-7 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40">Pilih semua</Button>
             <Button type="button" variant="ghost" onClick={() => setSelectedSessionIds(new Set())} disabled={selectedSessionIds.size === 0} className="h-7 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40">Reset pilihan</Button>
             {selectedSessionIds.size > 0 ? (
               <>
                 <span className="mx-1 hidden h-7 w-px bg-[#e6e6e6] sm:block" aria-hidden="true" />
-                <Button type="button" onClick={openPayDialog} disabled={payPreview ? !payPreview.valid : true} className="h-7 rounded-lg bg-[#000000] px-3.5 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#31302e] disabled:opacity-40"><HugeiconsIcon icon={DollarCircleIcon} size={14} strokeWidth={1.9} /> Bayar</Button>
-                <div ref={moreMenuRef} className="relative">
-                  <Button type="button" variant="ghost" onClick={() => setShowMoreMenu((v) => !v)} className="grid h-7 w-7 place-items-center rounded-lg border border-[#e6e6e6] bg-white text-[#31302e] hover:bg-[#f6f5f4]" aria-label="Aksi lainnya">⋯</Button>
-                  {showMoreMenu ? (
-                    <div className="absolute right-0 top-[calc(100%+6px)] z-20 grid w-40 gap-1 rounded-[12px] border border-[#e6e6e6] bg-white p-1 shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
-                      <button type="button" onClick={() => { setShowMoreMenu(false); void handleMergeSelected() }} disabled={!canMergeSelected || mergeBusy} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={Package01Icon} size={14} strokeWidth={1.9} /> {mergeBusy ? 'Menggabung...' : 'Gabung'}</button>
-                      <button type="button" onClick={() => { setShowMoreMenu(false); void handleDeleteSelectedSessions() }} disabled={deleteBusy || deletePreview.deletable.length === 0} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left font-['Inter'] text-[13px] font-medium text-[#991b1b] hover:bg-[#fee2e2] disabled:opacity-40"><HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={1.9} /> {deleteBusy ? 'Menghapus...' : 'Hapus'}</button>
-                    </div>
-                  ) : null}
-                </div>
+                <Button type="button" onClick={openPayDialog} disabled={payPreview ? !payPreview.valid : true} title={payPreview && !payPreview.valid ? 'Pilihan tidak valid untuk dibayar' : 'Bayar sesi terpilih'} className="h-7 rounded-lg bg-[#000000] px-3.5 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#31302e] disabled:opacity-40"><HugeiconsIcon icon={DollarCircleIcon} size={14} strokeWidth={1.9} /> Bayar</Button>
+                <Button type="button" variant="ghost" onClick={() => void handleMergeSelected()} disabled={!canMergeSelected || mergeBusy} title={canMergeSelected ? 'Gabung sesi terpilih' : 'Hanya sesi 1 petugas + 1 tanggal yang belum dibayar'} className="h-7 rounded-lg border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={Package01Icon} size={14} strokeWidth={1.9} /> {mergeBusy ? 'Menggabung...' : 'Gabung'}</Button>
+                <Button type="button" variant="ghost" onClick={() => void handleDeleteSelectedSessions()} disabled={deleteBusy || deletePreview.deletable.length === 0} title={deletePreview.deletable.length > 0 ? 'Hapus sesi kosong terpilih' : 'Tidak ada sesi kosong yang bisa dihapus'} className="h-7 rounded-lg border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#991b1b] hover:bg-[#fee2e2] disabled:opacity-40"><HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={1.9} /> {deleteBusy ? 'Menghapus...' : 'Hapus'}</Button>
+                <Button type="button" variant="ghost" onClick={() => { const t = buildSelectionShareText(); if (t) setShareDraft({ title: 'Ringkasan packing', text: t }) }} disabled={totals.selectedSessions.length === 0} className="h-7 rounded-lg border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={SentIcon} size={14} strokeWidth={1.9} /> Share</Button>
               </>
             ) : null}
           </div>
@@ -1375,17 +1199,36 @@ export function PackingSessionsPage() {
               <span className="pointer-events-none absolute inset-y-0 left-0 grid w-8 place-items-center text-[#a39e98]">
                 <HugeiconsIcon icon={Search01Icon} size={15} strokeWidth={1.9} />
               </span>
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari packer / kode / ID sesi..." className="h-8 w-full rounded-[4px] border-[#e6e6e6] bg-white pl-8 pr-3 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" aria-label="Cari sesi" />
+              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari packer / kode / ID sesi / no. bayar / no. draft..." className="h-8 w-full rounded-[4px] border-[#e6e6e6] bg-white pl-8 pr-3 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0" aria-label="Cari sesi" />
             </label>
             <div className="flex flex-wrap gap-2">
               <NativeSelect compact value={packerFilter} onChange={setPackerFilter} options={packerOptions.map((op) => ({ value: `${op.name}::${op.code}`, label: op.label }))} placeholder="Semua petugas" icon={UserGroupIcon} />
               <NativeSelect compact value={paidFilter} onChange={(value) => setPaidFilter(value as typeof paidFilter)} options={[{ value: 'unpaid', label: 'Belum dibayar' }, { value: 'paid', label: 'Sudah dibayar' }]} placeholder="Semua bayar" icon={DollarCircleIcon} />
-              <NativeSelect compact value={statusFilter} onChange={(value) => setStatusFilter(value as typeof statusFilter)} options={[{ value: 'active', label: 'active' }, { value: 'closed', label: 'closed' }, { value: 'cancelled', label: 'cancelled' }]} placeholder="Semua status" />
+              <NativeSelect compact value={statusFilter} onChange={(value) => setStatusFilter(value as typeof statusFilter)} options={[{ value: 'active', label: 'Aktif' }, { value: 'closed', label: 'Ditutup' }, { value: 'cancelled', label: 'Dibatalkan' }]} placeholder="Semua status" />
               <Button type="button" variant="ghost" onClick={() => { setSearch(''); setStatusFilter('all'); setPackerFilter('all'); setPaidFilter('unpaid') }} className="inline-flex h-8 items-center gap-2 rounded-lg border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={1.9} /> Reset filter</Button>
             </div>
           </div>
         </div>
 
+        {selectedSessionIds.size > 0 && payPreview && !payPreview.valid ? (
+          <div className="flex flex-col gap-2 border-b border-[#f5c518] bg-[#fff8e1] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <p className="font-['Inter'] text-[12px] leading-5 text-[#5f4b00]">
+              {payPreview.mixedPacker
+                ? 'Pilihan campur beberapa petugas — pembayaran harus 1 petugas.'
+                : payPreview.notClosedCount > 0
+                  ? `${payPreview.notClosedCount} sesi belum Ditutup — hanya sesi Ditutup yang bisa dibayar.`
+                  : payPreview.alreadyPaidCount > 0
+                    ? `${payPreview.alreadyPaidCount} sesi sudah dibayar.`
+                    : `${payPreview.lockedCount} sesi terkunci di draft pending.`}
+            </p>
+            <div className="flex shrink-0 gap-1.5">
+              {payPreview.lockedCount > 0 ? (
+                <Button type="button" variant="ghost" onClick={() => scrollToPending()} className="h-8 rounded-lg border border-[#8f8a84] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Lihat Pending</Button>
+              ) : null}
+              <Button type="button" variant="ghost" onClick={deselectInvalidSessions} className="h-8 rounded-lg bg-[#000000] px-3 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#31302e]">Keluarkan yang tak valid</Button>
+            </div>
+          </div>
+        ) : null}
         {loading ? (
           <div className="grid gap-2 p-6">
             <div className="h-10 animate-pulse rounded-lg bg-[#f6f5f4]" />
@@ -1402,7 +1245,8 @@ export function PackingSessionsPage() {
             <Button type="button" variant="ghost" onClick={() => { setSearch(''); setStatusFilter('all'); setPackerFilter('all'); setPaidFilter('unpaid') }} className="mt-4 h-9 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">Reset filter</Button>
           </div>
         ) : (
-          <div className="overflow-x-auto scrollbar-thin">
+          <>
+          <div className="hidden overflow-x-auto scrollbar-thin md:block">
             <table className="w-full min-w-[860px] border-collapse">
               <thead className="bg-[#f6f5f4]">
                 <tr className="text-left">
@@ -1429,7 +1273,7 @@ export function PackingSessionsPage() {
                             <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#000000] font-['Inter'] text-[11px] font-semibold uppercase text-white">{getInitials(group.name)}</span>
                             <div className="min-w-0">
                               <p className="truncate font-['Inter'] text-[13px] font-semibold text-[#000000]">{group.name}</p>
-                              <p className="font-['Inter'] text-[12px] text-[#a39e98]">{group.code} · {group.sessions.length} sesi · {group.totalPaket} paket · {group.unpaidSessions} belum · {group.paidSessions} sudah</p>
+                              <p className="font-['Inter'] text-[12px] text-[#a39e98]">{group.code} · {group.sessions.length} sesi · {group.totalPaket} paket · {group.unpaidSessions} belum dibayar · {group.paidSessions} sudah{group.lockedSessions > 0 ? ` · 🔒 ${group.lockedSessions} terkunci` : ''}</p>
                             </div>
                           </div>
                           <div className="grid shrink-0 gap-0.5 text-right">
@@ -1441,19 +1285,17 @@ export function PackingSessionsPage() {
                     </tr>
                     {group.sessions.map((s) => (
                       <tr key={s.id} className="bg-white transition-colors hover:bg-[#fbfaf9]">
-                        <Td className="px-4"><input type="checkbox" className="h-4 w-4 rounded border-[#dddddd] accent-[#000000] disabled:opacity-30" checked={selectedSessionIds.has(s.id)} disabled={lockedSessionDraftNo.has(s.id)} title={lockedSessionDraftNo.get(s.id) ? `Terkunci di ${lockedSessionDraftNo.get(s.id)}` : undefined} onChange={() => toggleSessionSelection(s.id)} aria-label={`Pilih sesi ${s.packerNameSnapshot}`} /></Td>
+                        <Td className="px-4"><input type="checkbox" className="h-4 w-4 rounded border-[#dddddd] accent-[#000000] disabled:opacity-30" checked={selectedSessionIds.has(s.id)} disabled={lockedSessionDraftNo.has(s.id)} title={lockedSessionDraftNo.get(s.id) ? `Terkunci di ${lockedSessionDraftNo.get(s.id)?.draftNo}` : undefined} onChange={() => toggleSessionSelection(s.id)} aria-label={`Pilih sesi ${s.packerNameSnapshot}`} /></Td>
                         <Td>
                           <div className="ml-4 grid gap-1 border-l border-[#e6e6e6] pl-3">
                             <span className="font-['Inter'] text-[13px] font-medium text-[#000000]">{formatSessionDateLabel(s.startedAt)}</span>
-                            {s.createdByOperatorName && (s.createdByOperatorName !== s.packerOperatorName || s.createdByOperatorCode !== s.packerOperatorCode) ? (
-                              <span className="font-['Inter'] text-[11px] text-[#615d59]">Atas nama: {s.createdByOperatorName} ({s.createdByOperatorCode})</span>
-                            ) : null}
+                            <span className="font-['Inter'] text-[11px] text-[#a39e98]">{formatPackingSessionStatus(s.status)}{s.createdByOperatorName && (s.createdByOperatorName !== s.packerOperatorName || s.createdByOperatorCode !== s.packerOperatorCode) ? ` · Atas nama ${s.createdByOperatorName} (${s.createdByOperatorCode})` : ''}</span>
                           </div>
                         </Td>
                         <Td>
                           <div className="flex flex-wrap gap-1.5">
-                            {s.paidAt ? <span className="inline-flex rounded-lg bg-[#000000] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-white">Dibayar</span> : lockedSessionDraftNo.has(s.id) ? <span className="inline-flex rounded-lg border border-[#8f8a84] bg-[#f6f5f4] px-2 py-0.5 font-['Inter'] text-[11px] font-medium text-[#31302e]" title={`Terkunci di ${lockedSessionDraftNo.get(s.id)}`}>Pending</span> : <span className="inline-flex rounded-lg border border-[#8f8a84] bg-white px-2 py-0.5 font-['Inter'] text-[11px] font-medium text-[#615d59]">Belum</span>}
-                            {s.status === 'active' && !s.createdBySessionId ? <span className="inline-flex rounded-lg border border-[#dddddd] bg-white px-2 py-0.5 font-['Inter'] text-[11px] font-medium text-[#615d59]">Menggantung</span> : null}
+                            {s.paidAt ? <span className="inline-flex rounded-lg bg-[#000000] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-white">Dibayar</span> : lockedSessionDraftNo.has(s.id) ? <button type="button" onClick={() => scrollToPending(lockedSessionDraftNo.get(s.id)?.draftId)} title={`Terkunci di ${lockedSessionDraftNo.get(s.id)?.draftNo} — klik untuk lihat`} className="inline-flex items-center gap-1 rounded-lg border border-[#000000] bg-[#000000] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-white hover:bg-[#31302e]">🔒 {lockedSessionDraftNo.get(s.id)?.draftNo}</button> : <span className="inline-flex rounded-lg border border-[#8f8a84] bg-white px-2 py-0.5 font-['Inter'] text-[11px] font-medium text-[#615d59]">Belum dibayar</span>}
+                            {s.status === 'active' ? <span className="inline-flex rounded-lg border border-[#dddddd] bg-white px-2 py-0.5 font-['Inter'] text-[11px] font-medium text-[#615d59]">Aktif</span> : null}
                           </div>
                         </Td>
                         <Td className="text-right">
@@ -1464,7 +1306,10 @@ export function PackingSessionsPage() {
                         </Td>
                         <Td className="font-['Inter'] text-[12px] text-[#615d59]" title={`${new Date(s.startedAt).toLocaleString('id-ID')} → ${s.endedAt ? new Date(s.endedAt).toLocaleString('id-ID') : '— masih aktif'}`}>{formatPeriode(s.startedAt, s.endedAt)}</Td>
                         <Td className="px-5">
-                          <div className="flex justify-end">
+                          <div className="flex justify-end gap-1.5">
+                            {s.status === 'active' ? (
+                              <button type="button" onClick={() => askConfirm({ title: 'Tutup sesi ini?', body: `${s.packerNameSnapshot} · ${s.completedPackingCount} paket · ${formatCurrency(s.totalPayAmount)}. Sesi Ditutup tidak bisa diisi lagi.`, confirmLabel: 'Tutup sesi', onConfirm: () => handleCloseSessionInline(s.id) })} className="inline-flex h-8 items-center rounded-lg bg-[#000000] px-3 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#31302e]">Tutup</button>
+                            ) : null}
                             <a href={getPackingSessionDetailPath(s.id)} onClick={(e) => { e.preventDefault(); handleOpenDetail(s) }} className="inline-flex h-8 items-center rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Detail</a>
                           </div>
                         </Td>
@@ -1476,62 +1321,150 @@ export function PackingSessionsPage() {
               </tbody>
             </table>
           </div>
+          <div className="grid gap-2 p-3 md:hidden">
+            {groupedSessions.map((group) => (
+              <div key={group.key} className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
+                <button
+                  type="button"
+                  onClick={() => toggleGroupSelection(group.sessions)}
+                  className="flex w-full items-center gap-2.5 bg-[#fbfaf9] px-3 py-2.5 text-left"
+                  aria-label={`Pilih semua sesi ${group.name}`}
+                >
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#000000] font-['Inter'] text-[12px] font-semibold uppercase text-white">{getInitials(group.name)}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-['Inter'] text-[13px] font-semibold text-[#000000]">{group.name}</span>
+                    <span className="block font-['Inter'] text-[11px] text-[#a39e98]">{group.sessions.length} sesi · {group.totalPaket} paket{group.lockedSessions > 0 ? ` · 🔒 ${group.lockedSessions}` : ''}</span>
+                  </span>
+                  <span className="shrink-0 font-['Inter'] text-[13px] font-semibold tabular-nums text-[#000000]">{formatCurrency(group.totalUpah)}</span>
+                </button>
+                <ul className="divide-y divide-[#e6e6e6]">
+                  {group.sessions.map((s) => {
+                    const locked = lockedSessionDraftNo.get(s.id)
+                    return (
+                      <li key={s.id} className="flex items-center gap-2.5 px-3 py-2.5">
+                        <input type="checkbox" className="h-5 w-5 shrink-0 rounded border-[#dddddd] accent-[#000000] disabled:opacity-30" checked={selectedSessionIds.has(s.id)} disabled={Boolean(locked)} onChange={() => toggleSessionSelection(s.id)} aria-label={`Pilih sesi ${s.packerNameSnapshot} ${formatSessionDateLabel(s.startedAt)}`} />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-['Inter'] text-[13px] font-medium text-[#000000]">{formatSessionDateLabel(s.startedAt)}</p>
+                          <p className="mt-0.5 font-['Inter'] text-[11px] tabular-nums text-[#a39e98]">{s.completedPackingCount} paket · {formatCurrency(s.totalPayAmount)}</p>
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {s.paidAt ? <span className="inline-flex rounded-md bg-[#000000] px-1.5 py-px font-['Inter'] text-[10px] font-semibold text-white">Dibayar</span> : locked ? <span className="inline-flex rounded-md bg-[#000000] px-1.5 py-px font-['Inter'] text-[10px] font-semibold text-white">🔒 {locked.draftNo}</span> : <span className="inline-flex rounded-md border border-[#8f8a84] bg-white px-1.5 py-px font-['Inter'] text-[10px] font-medium text-[#615d59]">Belum dibayar</span>}
+                            {s.status === 'active' ? <span className="inline-flex rounded-md border border-[#dddddd] bg-white px-1.5 py-px font-['Inter'] text-[10px] font-medium text-[#615d59]">Aktif</span> : null}
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 flex-col gap-1">
+                          {s.status === 'active' ? (
+                            <button type="button" onClick={() => askConfirm({ title: 'Tutup sesi ini?', body: `${s.packerNameSnapshot} · ${s.completedPackingCount} paket · ${formatCurrency(s.totalPayAmount)}. Sesi Ditutup tidak bisa diisi lagi.`, confirmLabel: 'Tutup sesi', onConfirm: () => handleCloseSessionInline(s.id) })} className="h-8 rounded-lg bg-[#000000] px-3 font-['Inter'] text-[12px] font-medium text-white">Tutup</button>
+                          ) : null}
+                          <a href={getPackingSessionDetailPath(s.id)} onClick={(e) => { e.preventDefault(); handleOpenDetail(s) }} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e]">Detail</a>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
+          </>
         )}
         {filtered.length > 0 ? <p className="border-t border-[#dddddd] bg-[#fbfaf9] px-4 py-3 font-['Inter'] text-[12px] text-[#a39e98] sm:px-5">Menampilkan {filtered.length} dari {sessions.length} sesi · Centang untuk hitung total & share.</p> : null}
       </section>
 
-      <section className="mt-5 overflow-hidden rounded-xl border border-[#dddddd] bg-white">
-        <div className="flex flex-col gap-3 border-b border-[#dddddd] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-          <div>
-            <h2 className="font-['Inter'] text-[16px] font-semibold text-[#000000]">Pending</h2>
-            <p className="mt-1 font-['Inter'] text-[12px] text-[#a39e98]">{drafts.length} draft pembayaran · {pendingLedger.length} kasbon/bonus menunggu · sesi di draft terkunci</p>
+      <section ref={pendingSectionRef} className={`mt-5 scroll-mt-4 overflow-hidden rounded-xl border bg-white transition-shadow ${pendingFlash ? 'border-[#000000] shadow-[0_0_0_3px_rgba(0,0,0,0.25)]' : 'border-[#e6e6e6]'}`}>
+        <div className="flex flex-col gap-2 border-b border-[#e6e6e6] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="font-['Inter'] text-[14px] font-semibold leading-none text-[#000000]">Pending</h2>
+              {drafts.length + pendingLedger.length > 0 ? (
+                <span className="inline-flex rounded-full border border-[#e6e6e6] bg-white px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-[#000000]">{drafts.length + pendingLedger.length} menunggu</span>
+              ) : null}
+            </div>
+            <p className="mt-1 font-['Inter'] text-[12px] leading-4 text-[#a39e98]">Draft yang dikonfirmasi menjadi pembayaran. Sesi di dalam draft terkunci sampai draft selesai.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="ghost" onClick={() => openLedgerDialog()} className="h-9 rounded-full border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Edit02Icon} size={16} strokeWidth={1.9} /> Catat kasbon/bonus</Button>
-            <Button type="button" variant="ghost" onClick={() => void refreshPending()} disabled={draftsLoading || ledgerLoading} className="h-9 rounded-full border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={RefreshIcon} size={16} strokeWidth={1.9} /> {draftsLoading || ledgerLoading ? 'Memuat...' : 'Refresh'}</Button>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <Button type="button" variant="ghost" onClick={() => void refreshPending()} disabled={draftsLoading || ledgerLoading} className="grid h-10 w-10 place-items-center rounded-full border border-[#e6e6e6] bg-white text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40" aria-label="Refresh pending" title="Refresh"><HugeiconsIcon icon={RefreshIcon} size={16} strokeWidth={1.9} /></Button>
           </div>
         </div>
         {drafts.length === 0 && pendingLedger.length === 0 ? (
-          <div className="px-6 py-10 text-center">
-            <div className="mt-1 font-['Inter'] text-[14px] font-medium text-[#000000]">Tidak ada yang pending</div>
-            <div className="mt-1 font-['Inter'] text-[12px] text-[#a39e98]">Kasbon/bonus yang baru ingat bisa dicatat kapan saja. Pembayaran bisa disimpan sebagai draft tanpa konfirmasi.</div>
+          <div className="grid justify-items-center gap-3 rounded-xl bg-[#f6f5f4] px-6 py-8 text-center">
+            <div className="font-['Inter'] text-[15px] font-medium leading-6 text-[#000000]">Tidak ada yang pending — semua beres ✓</div>
+            <div>
+              <Button type="button" variant="ghost" onClick={() => daftarSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="h-9 rounded-lg bg-[#000000] px-4 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]">Pilih sesi untuk draft</Button>
+            </div>
+            <div className="max-w-md font-['Inter'] text-[13px] leading-5 text-[#615d59]">Kasbon yang baru ingat bisa dicatat lewat tombol di atas halaman. Pembayaran bisa disimpan sebagai draft tanpa konfirmasi.</div>
           </div>
         ) : (
-          <div className="grid gap-0 lg:grid-cols-2">
-            <div className="border-b border-[#dddddd] lg:border-b-0 lg:border-r">
-              <p className="border-b border-[#e6e6e6] bg-[#fbfaf9] px-4 py-2.5 font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98] sm:px-5">Draft pembayaran ({drafts.length})</p>
+          <div className="grid gap-6 bg-[#f6f5f4] p-4 sm:p-6 lg:grid-cols-5">
+            <div className="lg:col-span-3">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="font-['Inter'] text-[12px] font-semibold uppercase tracking-[0.125px] text-[#615d59]">Draft pembayaran ({drafts.length})</p>
+                {drafts.length > 0 ? <span className="font-['Inter'] text-[12px] tabular-nums text-[#a39e98]">estimasi {formatCurrency(pendingTotals.draftEstimasi)}</span> : null}
+              </div>
               {drafts.length === 0 ? (
-                <p className="px-4 py-4 font-['Inter'] text-[12px] text-[#a39e98] sm:px-5">Belum ada draft. Pilih sesi → Bayar → Simpan pending.</p>
+                <p className="rounded-xl border border-[#e6e6e6] bg-white px-6 py-8 text-center font-['Inter'] text-[13px] text-[#615d59]">Belum ada draft. Pilih sesi → Bayar → Simpan pending.</p>
               ) : (
-                <ul className="divide-y divide-[#e6e6e6]">
+                <ul className="grid gap-4">
                   {drafts.map((draft) => {
                     const expanded = expandedDraftId === draft.id
                     const allAdj = [...draft.adjustments, ...draft.ledgerItems]
+                    const sticker = packerSticker(`${draft.packerOperatorName}::${draft.packerOperatorCode}`)
                     return (
-                      <li key={draft.id} className="px-4 py-3 sm:px-5">
-                        <div className="flex items-start justify-between gap-3">
-                          <button type="button" onClick={() => setExpandedDraftId(expanded ? null : draft.id)} className="min-w-0 flex-1 text-left">
-                            <p className="truncate font-['Inter'] text-[13px] font-semibold text-[#000000]">{draft.draftNo} · {draft.packerNameSnapshot}</p>
-                            <p className="mt-0.5 font-['Inter'] text-[12px] tabular-nums text-[#615d59]">{draft.totalSessions} sesi · {draft.totalPackages} paket · estimasi {formatCurrency(draft.estimatedTotal)}</p>
-                            <p className="mt-0.5 font-['Inter'] text-[11px] text-[#a39e98]">oleh {draft.createdByOperatorName ?? '-'} · {new Date(draft.createdAt).toLocaleString('id-ID')}</p>
+                      <li key={draft.id} className="overflow-hidden rounded-xl border border-[#e6e6e6] bg-white">
+                        <div className="flex items-center gap-4 p-6 pb-5">
+                          <button type="button" onClick={() => setExpandedDraftId(expanded ? null : draft.id)} className="grid h-10 w-10 shrink-0 place-items-center rounded-full font-['Inter'] text-[13px] font-semibold uppercase" style={{ backgroundColor: sticker.bg, color: sticker.fg }} aria-expanded={expanded} aria-label={expanded ? 'Tutup rincian draft' : 'Buka rincian draft'}>
+                            {draft.packerNameSnapshot.trim().charAt(0).toUpperCase()}
                           </button>
-                          <div className="flex shrink-0 gap-1">
-                            <Button type="button" variant="ghost" size="sm" onClick={() => void handleConfirmDraft(draft)} className="h-8 rounded-lg bg-[#000000] px-3 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#31302e]">Konfirmasi</Button>
-                            <Button type="button" variant="ghost" size="sm" onClick={() => void handleCancelDraft(draft)} className="h-8 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] text-[#991b1b] hover:bg-[#fee2e2]">Batal</Button>
+                          <button type="button" onClick={() => setExpandedDraftId(expanded ? null : draft.id)} className="min-w-0 flex-1 text-left" aria-expanded={expanded}>
+                            <p className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.125px] text-[#a39e98]">Draft · {draft.draftNo}</p>
+                            <p className="mt-1 flex items-center gap-1.5 font-['Inter'] text-[15px] font-semibold leading-6 text-[#000000]"><span className="truncate">{draft.packerNameSnapshot}</span><span aria-hidden="true" className={`shrink-0 text-[10px] text-[#a39e98] transition-transform ${expanded ? 'rotate-180' : ''}`}>▾</span></p>
+                            <p className="mt-1 truncate font-['Inter'] text-[13px] tabular-nums text-[#615d59]">{draft.totalSessions} sesi · {draft.totalPackages} paket · {formatPaymentMethodLabel(draft.paymentMethod)}</p>
+                          </button>
+                          <div className="grid shrink-0 justify-items-end gap-1">
+                            <span className="font-['Inter'] text-[20px] font-bold tabular-nums leading-6 tracking-[-0.25px] text-[#000000]">{formatCurrency(draft.estimatedTotal)}</span>
+                            <span className="font-['Inter'] text-[11px] uppercase tracking-[0.125px] text-[#a39e98]">estimasi</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between gap-3 border-t border-[#e6e6e6] px-6 py-3">
+                          <span className="truncate font-['Inter'] text-[12px] text-[#a39e98]">oleh {draft.createdByOperatorName ?? '-'} · {formatDateTimeWIB(draft.createdAt)}</span>
+                          <div className="flex shrink-0 gap-2">
+                            <Button type="button" variant="ghost" size="sm" onClick={() => void handleCancelDraft(draft)} className="h-9 rounded-lg border border-[#e6e6e6] bg-white px-3.5 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Batal</Button>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => void handleConfirmDraft(draft)} className="h-9 rounded-full bg-[#000000] px-6 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]">Konfirmasi</Button>
                           </div>
                         </div>
                         {expanded ? (
-                          <div className="mt-2 rounded-[8px] border border-[#e6e6e6] bg-[#f6f5f4] p-3">
-                            <p className="font-['Inter'] text-[12px] text-[#615d59]">Subtotal {formatCurrency(draft.subtotalSnapshot)}{draft.adjustmentTotalSnapshot !== 0 ? ` · penyesuaian ${draft.adjustmentTotalSnapshot > 0 ? '+' : '−'}${formatCurrency(Math.abs(draft.adjustmentTotalSnapshot))}` : ''} · metode {draft.paymentMethod}</p>
+                          <div className="grid gap-2 border-t border-[#e6e6e6] bg-white px-6 py-4">
+                            <p className="font-['Inter'] text-[12px] font-semibold uppercase tracking-[0.125px] text-[#a39e98]">Rincian</p>
+                            <div className="flex justify-between font-['Inter'] text-[12px] text-[#615d59]"><span>Subtotal upah</span><span className="tabular-nums font-medium text-[#000000]">{formatCurrency(draft.subtotalSnapshot)}</span></div>
+                            <div className="flex justify-between font-['Inter'] text-[12px] text-[#615d59]"><span>Metode</span><span className="font-medium text-[#000000]">{formatPaymentMethodLabel(draft.paymentMethod)}</span></div>
                             {allAdj.length > 0 ? (
-                              <ul className="mt-1.5 grid gap-1">
+                              <ul className="grid gap-1 border-t border-[#f0efed] pt-2">
                                 {allAdj.map((item, idx) => (
-                                  <li key={`${draft.id}-adj-${idx}`} className="flex justify-between gap-2 font-['Inter'] text-[12px] text-[#31302e]"><span className="truncate">{item.kind === 'add' ? '+' : '−'} {item.label}</span><span className="shrink-0 tabular-nums">{formatCurrency(item.amount)}</span></li>
+                                  <li key={`${draft.id}-adj-${idx}`} className="flex justify-between gap-2 font-['Inter'] text-[12px] text-[#31302e]"><span className="truncate">{item.kind === 'add' ? '+' : '−'} {item.label}</span><span className={`shrink-0 tabular-nums font-medium ${item.kind === 'add' ? 'text-[#000000]' : 'text-[#991b1b]'}`}>{item.kind === 'add' ? '+' : '−'}{formatCurrency(item.amount)}</span></li>
                                 ))}
                               </ul>
                             ) : null}
-                            {draft.note ? <p className="mt-1.5 font-['Inter'] text-[12px] text-[#615d59]">Catatan: {draft.note}</p> : null}
-                            <p className="mt-1.5 font-['Inter'] text-[11px] text-[#a39e98]">Sesi: {draft.sessionIds.map((id) => id.slice(0, 8)).join(', ')}</p>
+                            {draft.note ? <p className="font-['Inter'] text-[12px] text-[#615d59]">Catatan: {draft.note}</p> : null}
+                            <div className="flex flex-wrap gap-1.5 border-t border-[#f0efed] pt-2">
+                              {draft.sessionIds.map((sid) => {
+                                const s = sessions.find((row) => row.id === sid)
+                                return (
+                                  <button
+                                    key={sid}
+                                    type="button"
+                                    title={s ? `${formatSessionDateLabel(s.startedAt)} · ${s.completedPackingCount} paket · ${formatCurrency(s.totalPayAmount)}` : sid}
+                                    onClick={() => {
+                                      setPackerFilter(`${draft.packerOperatorName}::${draft.packerOperatorCode}`)
+                                      setPaidFilter('all')
+                                      setStatusFilter('all')
+                                      setSearch(sid)
+                                      daftarSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                                    }}
+                                    className="rounded-full border border-[#dddddd] bg-[#f6f5f4] px-2 py-0.5 font-['Inter'] text-[11px] tabular-nums text-[#31302e] hover:bg-[#efedeb]"
+                                  >
+                                    {s ? `${new Date(s.startedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} · ${s.completedPackingCount} pkt` : sid.slice(0, 8)}
+                                  </button>
+                                )
+                              })}
+                            </div>
                           </div>
                         ) : null}
                       </li>
@@ -1540,21 +1473,29 @@ export function PackingSessionsPage() {
                 </ul>
               )}
             </div>
-            <div>
-              <p className="border-b border-[#e6e6e6] bg-[#fbfaf9] px-4 py-2.5 font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98] sm:px-5">Kasbon & bonus menunggu ({pendingLedger.length})</p>
+            <div className="lg:col-span-2">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="font-['Inter'] text-[12px] font-semibold uppercase tracking-[0.125px] text-[#615d59]">Kasbon & bonus menunggu ({pendingLedger.length})</p>
+                {pendingLedger.length > 0 ? <span className="font-['Inter'] text-[12px] tabular-nums text-[#a39e98]">net {pendingTotals.ledgerNet >= 0 ? '+' : '−'}{formatCurrency(Math.abs(pendingTotals.ledgerNet))}</span> : null}
+              </div>
               {pendingLedger.length === 0 ? (
-                <p className="px-4 py-4 font-['Inter'] text-[12px] text-[#a39e98] sm:px-5">Belum ada catatan. Baru ingat ada kasbon? Catat di sini.</p>
+                <p className="rounded-xl border border-[#e6e6e6] bg-white px-6 py-8 text-center font-['Inter'] text-[13px] text-[#615d59]">Belum ada catatan kasbon/bonus.</p>
               ) : (
-                <ul className="max-h-[320px] divide-y divide-[#e6e6e6] overflow-y-auto">
-                  {pendingLedger.map((item) => (
-                    <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5">
-                      <div className="min-w-0">
-                        <p className="truncate font-['Inter'] text-[13px] font-medium text-[#000000]">{item.kind === 'add' ? '+' : '−'} {item.label}</p>
-                        <p className="mt-0.5 truncate font-['Inter'] text-[11px] text-[#a39e98]">{item.packerNameSnapshot} ({item.packerCodeSnapshot}) · {formatCurrency(item.amount)} · oleh {item.createdByOperatorName ?? '-'}</p>
-                      </div>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => void handleCancelLedger(item)} className="h-8 shrink-0 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] text-[#991b1b] hover:bg-[#fee2e2]">Batalkan</Button>
-                    </li>
-                  ))}
+                <ul className="grid max-h-[460px] gap-3 overflow-y-auto pr-0.5">
+                  {pendingLedger.map((item) => {
+                    const dot = item.kind === 'add' ? '#1aae39' : '#dd5b00'
+                    return (
+                      <li key={item.id} className={`flex items-center gap-3 rounded-xl border bg-white p-4 transition-shadow ${highlightLedgerId === item.id ? 'border-[#000000] shadow-[0_0_0_3px_rgba(0,0,0,0.15)]' : 'border-[#e6e6e6]'}`}>
+                        <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: dot }} />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-['Inter'] text-[14px] font-semibold leading-6 text-[#000000]">{item.label}</p>
+                          <p className="mt-0.5 truncate font-['Inter'] text-[12px] text-[#a39e98]">{item.packerNameSnapshot} · dicatat {formatDateTimeWIB(item.createdAt)}{item.note ? ` · ${item.note}` : ''}</p>
+                        </div>
+                        <span className="shrink-0 font-['Inter'] text-[15px] font-semibold tabular-nums text-[#000000]">{item.kind === 'add' ? '+' : '−'}{formatCurrency(item.amount)}</span>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => void handleCancelLedger(item)} title="Batalkan catatan" aria-label={`Batalkan ${item.label}`} className="h-8 w-8 shrink-0 rounded-lg border border-[#e6e6e6] text-[#a39e98] hover:bg-[#f6f5f4] hover:text-[#000000]">✕</Button>
+                      </li>
+                    )
+                  })}
                 </ul>
               )}
             </div>
@@ -1562,110 +1503,32 @@ export function PackingSessionsPage() {
         )}
       </section>
 
-      <section className="mt-5 overflow-hidden rounded-xl border border-[#dddddd] bg-white">
-        <div className="flex flex-col gap-3 border-b border-[#dddddd] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-          <div>
-            <h2 className="font-['Inter'] text-[16px] font-semibold text-[#000000]">Riwayat Pembayaran</h2>
-            <p className="mt-1 font-['Inter'] text-[12px] text-[#a39e98]">{payments.length} pembayaran · terbaru di atas</p>
-          </div>
-          <Button type="button" variant="ghost" onClick={() => void loadPayments()} disabled={paymentsLoading} className="h-9 rounded-full border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={RefreshIcon} size={16} strokeWidth={1.9} /> {paymentsLoading ? 'Memuat...' : 'Refresh'}</Button>
-        </div>
-        {payments.length === 0 ? (
-          <div className="px-6 py-14 text-center">
-            <div className="mx-auto grid h-11 w-11 place-items-center rounded-xl bg-[#f6f5f4] text-[#615d59]">
-              <HugeiconsIcon icon={DollarCircleIcon} size={20} strokeWidth={1.9} />
-            </div>
-            <div className="mt-3 font-['Inter'] text-[14px] font-medium text-[#000000]">Belum ada pembayaran</div>
-            <div className="mt-1 font-['Inter'] text-[12px] text-[#a39e98]">Pembayaran yang dibuat dari sesi terpilih akan muncul di sini.</div>
-          </div>
-        ) : (
-          <div className="overflow-x-auto scrollbar-thin">
-            <table className="w-full min-w-[980px] border-collapse">
-              <thead className="bg-[#f6f5f4]">
-                <tr className="text-left">
-                  <Th>No. Bayar</Th>
-                  <Th>Petugas</Th>
-                  <Th className="text-center">Sesi</Th>
-                  <Th className="text-right">Paket</Th>
-                  <Th className="text-right">Total</Th>
-                  <Th>Metode</Th>
-                  <Th>Waktu</Th>
-                  <Th className="px-5 text-right">Aksi</Th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#e6e6e6]">
-                {payments.map((p) => (
-                  <tr key={p.id} className="bg-white transition-colors hover:bg-[#fbfaf9]">
-                    <Td className="font-['Inter'] text-[13px] font-medium text-[#000000]">{p.paymentNo}</Td>
-                    <Td>
-                      <div className="grid gap-0.5">
-                        <span className="font-['Inter'] text-[13px] font-medium text-[#000000]">{p.packerNameSnapshot}</span>
-                        <span className="font-['Inter'] text-[12px] text-[#a39e98]">{p.packerCodeSnapshot}</span>
-                      </div>
-                    </Td>
-                    <Td className="text-center font-['Inter'] text-[13px] tabular-nums text-[#000000]">{p.totalSessions}</Td>
-                    <Td className="text-right font-['Inter'] text-[13px] tabular-nums text-[#000000]">{p.totalPackages}</Td>
-                    <Td className="text-right">
-                      <div className="grid gap-0.5">
-                        <span className="font-['Inter'] text-[13px] font-semibold tabular-nums text-[#000000]">{formatCurrency(p.totalAmount)}</span>
-                        {(p.adjustmentTotal ?? 0) !== 0 ? <span className="font-['Inter'] text-[11px] tabular-nums text-[#615d59]">subtotal {formatCurrency(p.subtotalAmount ?? p.totalAmount)} {(p.adjustmentTotal ?? 0) > 0 ? '+' : '−'}{formatCurrency(Math.abs(p.adjustmentTotal ?? 0))}</span> : null}
-                      </div>
-                    </Td>
-                    <Td><span className="inline-flex rounded-full border border-[#dddddd] bg-[#f6f5f4] px-2 py-0.5 font-['Inter'] text-[12px] font-medium text-[#31302e]">{p.paymentMethod}</span></Td>
-                    <Td className="font-['Inter'] text-[12px] text-[#615d59]">{new Date(p.paidAt).toLocaleString('id-ID')}</Td>
-                    <Td className="px-5">
-                      <div className="flex justify-end gap-1">
-                        <Button type="button" variant="ghost" size="sm" onClick={() => { const t = buildPaymentShareText(p); void copyText(t, `pay-${p.id}`) }} className="h-8 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] text-[#31302e] hover:bg-[#f6f5f4]">{copiedKey === `pay-${p.id}` ? 'Copied' : 'Copy'}</Button>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => { const t = buildPaymentShareText(p); setShareDraft({ title: `Pembayaran ${p.paymentNo}`, text: t }) }} className="h-8 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] text-[#31302e] hover:bg-[#f6f5f4]">WA</Button>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => downloadTextFile(`pembayaran-${p.paymentNo}.txt`, buildPaymentShareText(p), 'text/plain;charset=utf-8')} className="h-8 rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] text-[#31302e] hover:bg-[#f6f5f4]">TXT</Button>
-                      </div>
-                    </Td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
 
       {renderDialogs()}
     </div>
   )
 }
 
-function cleanSessionOrderText(value: string | null | undefined) {
-  const text = value?.replace(/\s+/g, ' ').trim()
-  if (!text) return null
-
-  return text
-    .replace(/\s*x\s*\d+.+$/i, '')
-    .replace(/\s*(?:variasi\s*:|variation\s*:|varian\s*:|pesan\s*:|rp\s*\d|cod\b|perlu dikirim\b|menunggu\b|hemat kargo\b|spx\b).*$/i, '')
-    .replace(/\s*x\s*\d+\s*$/i, '')
-    .trim() || null
-}
-
-function formatSessionOrderItems(items: SessionOrderItem[]) {
-  const seen = new Set<string>()
-  const labels: string[] = []
-
-  for (const item of items) {
-    const productName = cleanSessionOrderText(item.productName)
-    if (!productName) continue
-    const variationName = cleanSessionOrderText(item.variationName)
-    const quantity = Number.isFinite(Number(item.quantity)) && Number(item.quantity) > 0 ? Math.floor(Number(item.quantity)) : 1
-    const key = `${productName.toLowerCase()}|${variationName?.toLowerCase() ?? ''}|${quantity}`
-    if (seen.has(key)) continue
-    seen.add(key)
-    labels.push(`${productName} x${quantity}`)
-  }
-
-  return labels.join(', ') || '-'
-}
-
 function getInitials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean)
   if (parts.length === 0) return '?'
   return parts.slice(0, 2).map((part) => part[0]).join('')
+}
+
+// Sticker palette dekoratif (Notion DS): hanya untuk dot/tile kategori, bukan aksi.
+const PACKER_STICKERS = [
+  { bg: '#62aef0', fg: '#ffffff' },
+  { bg: '#d6b6f6', fg: '#391c57' },
+  { bg: '#ff64c8', fg: '#ffffff' },
+  { bg: '#dd5b00', fg: '#ffffff' },
+  { bg: '#2a9d99', fg: '#ffffff' },
+  { bg: '#1aae39', fg: '#ffffff' },
+] as const
+
+function packerSticker(key: string) {
+  let hash = 0
+  for (let i = 0; i < key.length; i += 1) hash = (hash * 31 + key.charCodeAt(i)) >>> 0
+  return PACKER_STICKERS[hash % PACKER_STICKERS.length] ?? PACKER_STICKERS[0]
 }
 
 function StatCard({ label, value, subLabel, icon }: { label: string; value: string; subLabel?: string; icon: typeof Package01Icon }) {
@@ -1695,15 +1558,15 @@ function Td({ children, className = '', title }: { children: ReactNode; classNam
   return <td title={title} className={`bg-white px-4 py-3 align-top font-['Inter'] text-[14px] text-[#31302e] ${className}`}>{children}</td>
 }
 
-function NativeSelect({ value, onChange, options, placeholder, placeholderValue = 'all', icon, compact }: { value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }>; placeholder?: string; placeholderValue?: string; icon?: typeof UserGroupIcon; compact?: boolean }) {
+function NativeSelect({ value, onChange, options, placeholder, placeholderValue = 'all', icon, compact, className = '' }: { value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }>; placeholder?: string; placeholderValue?: string; icon?: typeof UserGroupIcon; compact?: boolean; className?: string }) {
   return (
-    <label className={`relative inline-flex items-center rounded-lg border bg-white text-[#000000] ${compact ? 'h-8 border-[#e6e6e6]' : 'h-10 border-[#dddddd]'}`}>
+    <label className={`relative inline-flex min-w-0 items-center rounded-lg border bg-white text-[#000000] ${compact ? 'h-8 border-[#e6e6e6]' : 'h-10 border-[#dddddd]'} ${className}`}>
       {icon ? (
         <span className="pointer-events-none absolute left-3 grid place-items-center text-[#31302e]">
           <HugeiconsIcon icon={icon} size={17} strokeWidth={1.9} />
         </span>
       ) : null}
-      <select value={value} onChange={(e) => onChange(e.target.value)} className={`h-full appearance-none rounded-lg bg-transparent font-['Inter'] font-medium focus:outline-none focus:ring-0 ${compact ? 'text-[12px]' : 'text-[13px]'} ${icon ? 'pl-9 pr-8' : 'px-3 pr-8'}`}>
+      <select value={value} onChange={(e) => onChange(e.target.value)} className={`h-full w-full min-w-0 max-w-full overflow-hidden text-ellipsis appearance-none rounded-lg bg-transparent font-['Inter'] font-medium focus:outline-none focus:ring-0 ${compact ? 'text-[12px]' : 'text-[13px]'} ${icon ? 'pl-9 pr-8' : 'px-3 pr-8'}`}>
         {placeholder ? <option value={placeholderValue}>{placeholder}</option> : null}
         {options.map((option) => (
           <option key={option.value} value={option.value}>

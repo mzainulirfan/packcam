@@ -27,6 +27,10 @@
       "destination": "/packing-sessions/index.html"
     },
     {
+      "source": "/packing-payments",
+      "destination": "/packing-payments/index.html"
+    },
+    {
       "source": "/shopee-inspection",
       "destination": "/shopee-inspection/index.html"
     },
