@@ -29,6 +29,7 @@
     "test:packing-session": "tsx scripts/unit-packing-session.ts",
     "test:packing-payment": "tsx scripts/unit-packing-payment.ts",
     "test:packing-pending": "tsx scripts/unit-packing-pending.ts",
+    "test:packing-photo": "tsx scripts/unit-packing-photo.ts",
     "test:chat-send": "tsx scripts/unit-chat-send.ts",
     "test:shipping": "tsx scripts/unit-shipping-chat.ts",
     "prebuild": "npm run clean:build",

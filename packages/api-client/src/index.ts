@@ -686,6 +686,19 @@ export function updatePackingRecordingPayRuleApi(recordingId: string, ruleId: st
   }).then(normalizeRecordingRow)
 }
 
+export function uploadPackingPhotoApi(payload: { resiNumber: string; packingSessionId: string; note?: string | null; photo: Blob }) {
+  const formData = new FormData()
+  formData.append('photo', payload.photo, `packing-${payload.resiNumber}.jpg`)
+  formData.append('resiNumber', payload.resiNumber)
+  formData.append('packingSessionId', payload.packingSessionId)
+  if (payload.note) formData.append('note', payload.note)
+
+  return requestApi<ServerRecordingRow>('/api/recordings/packing-photo', {
+    method: 'POST',
+    body: formData,
+  }).then(normalizeRecordingRow)
+}
+
 export function prepareServerRecordingShareFileApi(recordingId: string) {
   return requestApi<{ fileName: string; filePath: string; mimeType: string }>(
     `/api/recordings/${encodeURIComponent(recordingId)}/share-file`,

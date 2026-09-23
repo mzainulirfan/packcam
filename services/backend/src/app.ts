@@ -8,7 +8,7 @@ import multer from 'multer'
 import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
 import type { AppSettings, ShopeeOrder } from '@pakti/types'
 
-import { calculatePackingPayForOrder, clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, cancelPackerAdjustment, cancelPackingPaymentDraft, closePackingSession, confirmPackingPaymentDraft, createPackerAdjustment, createPackingPayment, createPackingPaymentDraft, createPackingPayRule, createPackingSession, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deletePackingPayRule, deletePackingSession, deleteRecording, deleteSessionById, deleteShopeeOrderByOrderNumber, finalizeRecording, getActivePackingSession, getBootstrapStatus, getChatSendStats, getHealthSnapshot, getNextPendingShippingChatSend, getPackingPaymentById, getPackingPaymentDraftById, getPackingSessionById, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, getShopeeOrderStats, getShippingChatSendStats, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPackerAdjustments, listPackingOperators, listPackingPayRules, listPackingPaymentDrafts, listPackingPayments, listPackingSessions, listPendingChatSends, listRecentChatSends, listRecentShippingChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, mergePackingSessions, prepareBundledRecordingChatSend, prepareReadyRecordingChatSendsForToday, prepareRecordingShareFile, prepareShippingChatSends, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, reopenPackingSession, resolveSession, resetOperatorPassword, retryChatSend, retryShippingChatSend, saveSettings, saveSystemConfig, updateChatSendStatus, updatePackingPayRule, updatePackingRecordingPayRule, updateSessionTaskType, updateShippingChatSendStatus, upsertOperatorProfile } from './store'
+import { calculatePackingPayForOrder, clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, cancelPackerAdjustment, cancelPackingPaymentDraft, closePackingSession, confirmPackingPaymentDraft, createPackerAdjustment, createPackingPayment, createPackingPaymentDraft, createPackingPayRule, createPackingSession, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deletePackingPayRule, deletePackingSession, deleteRecording, deleteSessionById, deleteShopeeOrderByOrderNumber, finalizeRecording, getActivePackingSession, getBootstrapStatus, getChatSendStats, getHealthSnapshot, getNextPendingShippingChatSend, getPackingPaymentById, getPackingPaymentDraftById, getPackingSessionById, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, getShopeeOrderStats, getShippingChatSendStats, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPackerAdjustments, listPackingOperators, listPackingPayRules, listPackingPaymentDrafts, listPackingPayments, listPackingSessions, listPendingChatSends, listRecentChatSends, listRecentShippingChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, mergePackingSessions, prepareBundledRecordingChatSend, prepareReadyRecordingChatSendsForToday, prepareRecordingShareFile, prepareShippingChatSends, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, reopenPackingSession, resolveSession, resetOperatorPassword, retryChatSend, retryShippingChatSend, savePackingPhotoRecord, saveSettings, saveSystemConfig, updateChatSendStatus, updatePackingPayRule, updatePackingRecordingPayRule, updateSessionTaskType, updateShippingChatSendStatus, upsertOperatorProfile } from './store'
 import type { ShippingChatOrderInput } from './store/shippingChatSendStore'
 import { clearSessionCookie, getCookie, normalizeRole, readStringField, sendError, sendOk, setSessionCookie } from './http'
 import type { HttpSession } from './http'
@@ -1206,6 +1206,36 @@ app.post('/api/recordings/:id/finalize', (req, res) => {
     return sendOk(res, finalized)
   } catch (error) {
     return sendError(res, 400, error instanceof Error ? error.message : 'Gagal finalize recording.')
+  }
+})
+
+app.post('/api/recordings/packing-photo', requireSession, upload.single('photo'), (req, res) => {
+  const session = getRequestSession(req)
+  if (!session) {
+    return sendError(res, 401, 'Sesi login diperlukan.')
+  }
+  if (session.taskType !== 'packing') {
+    return sendError(res, 403, 'Mode packing diperlukan untuk simpan foto packing.')
+  }
+
+  try {
+    if (!req.file) {
+      return sendError(res, 400, 'Field photo wajib diisi.')
+    }
+    if (!req.file.mimetype.startsWith('image/')) {
+      return sendError(res, 400, 'File harus berupa gambar.')
+    }
+    const saved = savePackingPhotoRecord({
+      resiNumber: typeof req.body?.resiNumber === 'string' ? req.body.resiNumber : '',
+      operatorName: session.operatorName,
+      operatorCode: session.operatorCode,
+      packingSessionId: typeof req.body?.packingSessionId === 'string' ? req.body.packingSessionId : '',
+      photo: req.file.buffer,
+      note: typeof req.body?.note === 'string' ? req.body.note : null,
+    })
+    return sendOk(res, saved)
+  } catch (error) {
+    return sendError(res, 400, error instanceof Error ? error.message : 'Gagal menyimpan foto packing.')
   }
 })
 

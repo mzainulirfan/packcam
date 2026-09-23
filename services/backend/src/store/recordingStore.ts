@@ -467,6 +467,79 @@ export function createRecordingDraft(input: RecordingDraftInput) {
   return getRecordingById(id)
 }
 
+const MAX_PACKING_PHOTO_BYTES = 20 * 1024 * 1024
+
+/** Simpan foto packing dalam sekali tembak: validasi QC + duplikat + sesi, tulis file, langsung completed. */
+export function savePackingPhotoRecord(input: {
+  resiNumber: string
+  operatorName: string
+  operatorCode: string
+  packingSessionId: string
+  photo: Buffer
+  note?: string | null
+}) {
+  const resiNumber = String(input.resiNumber ?? '').trim()
+  if (!resiNumber) {
+    throw new Error('Resi tidak boleh kosong.')
+  }
+  if (!input.photo || input.photo.length === 0) {
+    throw new Error('File foto wajib diisi.')
+  }
+  if (input.photo.length > MAX_PACKING_PHOTO_BYTES) {
+    throw new Error('Ukuran foto maksimal 20MB.')
+  }
+
+  const duplicate = db().prepare(
+    `SELECT id FROM recordings WHERE resi_number = ? AND task_type = 'packing' AND status = 'completed' LIMIT 1`,
+  ).get(resiNumber) as { id: string } | undefined
+  if (duplicate) {
+    throw new Error('Packing resi ini sudah tersimpan.')
+  }
+
+  const draft = createRecordingDraft({
+    resiNumber,
+    taskType: 'packing',
+    operatorName: input.operatorName,
+    operatorCode: input.operatorCode,
+    mediaType: 'photo',
+    mimeType: 'image/jpeg',
+    packingSessionId: input.packingSessionId,
+    status: 'recording',
+    note: input.note ?? null,
+  })
+  if (!draft) {
+    throw new Error('Gagal membuat draft recording.')
+  }
+
+  const created = getRecordingById(draft.id)
+  if (!created) {
+    throw new Error('Gagal membuat draft recording.')
+  }
+
+  const finalPath = getUploadedFilePath(created)
+  try {
+    fs.mkdirSync(path.dirname(finalPath), { recursive: true })
+    fs.writeFileSync(finalPath, input.photo)
+  } catch {
+    try {
+      deleteRecording(created.id)
+    } catch {
+      // Abaikan kegagalan bersih-bersih.
+    }
+    throw new Error('Gagal menyimpan file foto.')
+  }
+
+  try {
+    return finalizeRecording(created.id, { fileSizeBytes: input.photo.length, endTime: nowIso(), note: input.note ?? null })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : ''
+    if (/UNIQUE|unique/i.test(message)) {
+      throw new Error('Packing resi ini sudah tersimpan.', { cause: error })
+    }
+    throw error
+  }
+}
+
 export function finalizeRecording(
   id: string,
   payload: { fileSizeBytes?: number | null; endTime?: string; note?: string | null },

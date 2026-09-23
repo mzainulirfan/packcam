@@ -18,10 +18,7 @@ import {
   closePackingSessionApi,
   createPackingSessionApi,
   reopenPackingSessionApi,
-  readPackingPreviewByResiApi,
-  createServerRecordingDraftApi,
-  appendServerRecordingChunkApi,
-  finalizeServerRecordingApi,
+  uploadPackingPhotoApi,
   deleteServerRecordingApi,
   readRecentShopeeOrdersApi,
   readServerSettingsApi,
@@ -42,7 +39,6 @@ import {
   readShopeeChatSendsByRecordingIdsApi,
 } from '@pakti/api-client'
 import { DEFAULT_APP_SETTINGS } from '@pakti/shared/defaults'
-import { buildDailyVideoPath, buildRecordingFileName } from '@pakti/shared/videoPath'
 import type { AppSettings, OperatorProfile, OperatorSession, PackingWorkSession, RecordingRow, ShopeeOrder, SystemConfig, WorkTask } from '@pakti/types'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -137,6 +133,7 @@ const ACTIVE_TAB_STORAGE_KEY = 'pakti_mobile_active_tab'
 const THEME_STORAGE_KEY = 'pakti_mobile_theme'
 const PENDING_PHOTO_RESI_KEY = 'pakti_mobile_pending_photo_resi'
 const MIN_PHOTO_BYTES = 20 * 1024
+const MAX_PHOTO_DIMENSION = 1600
 
 type ThemeMode = 'light' | 'dark'
 
@@ -177,8 +174,6 @@ function App() {
   const [selectedPackerKey, setSelectedPackerKey] = useState('')
   const [packingSessionBusy, setPackingSessionBusy] = useState(false)
   const [packingMediaType, setPackingMediaType] = useState<'video' | 'photo'>('photo')
-  const [packingPreview, setPackingPreview] = useState<{ order: ShopeeOrder; pay: { amount: number; quantity: number; breakdown: unknown; rule: import('@pakti/types').PackingPayRule } } | null>(null)
-  const [, setPackingPreviewBusy] = useState(false)
   const [photoCaptureBusy, setPhotoCaptureBusy] = useState(false)
   const [lastPhotoResi, setLastPhotoResi] = useState<string | null>(null)
   const [lastPhotoId, setLastPhotoId] = useState<string | null>(null)
@@ -1523,63 +1518,28 @@ function App() {
     }
   }, [activePackingSession, selectedPackerKey, switchablePackingOperators])
 
-  useEffect(() => {
-    if (!isPackingMode || !activePackingSession || !scanResi.trim() || recordingSession.state.mode !== 'idle') {
-      queueMicrotask(() => setPackingPreview(null))
-      return
-    }
-    let cancelled = false
-    const resi = scanResi.trim()
-    const timer = window.setTimeout(() => {
-      setPackingPreviewBusy(true)
-      readPackingPreviewByResiApi(resi)
-        .then((data) => {
-          if (!cancelled) setPackingPreview(data)
-        })
-        .catch(() => {
-          if (!cancelled) setPackingPreview(null)
-        })
-        .finally(() => {
-          if (!cancelled) setPackingPreviewBusy(false)
-        })
-    }, 320)
-    return () => {
-      cancelled = true
-      window.clearTimeout(timer)
-    }
-  }, [isPackingMode, activePackingSession, scanResi, recordingSession.state.mode])
-
   const stagePhotoCapture = useCallback(async (overrideResi?: string) => {
     const rawResi = (overrideResi ?? scanResi).trim()
     if (!session || packingMediaType !== 'photo' || !canUsePackingFlow || photoCaptureBusy || photoBusyRef.current || !scanVideoElement || !rawResi) return
     photoBusyRef.current = true
     const resiNumber = rawResi
     if (session.taskType === 'packing') {
-      // Dua cek independen jalan paralel: status QC + duplikat packing.
-      const [progress, existing] = await Promise.all([
-        resolveLatestTaskProgress(resiNumber),
-        findRecordingByResi(resiNumber, 'packing'),
-      ])
-      const qcCompleted = progress?.qc?.status === 'completed' || recordings.some((r) => r.resiNumber.trim() === resiNumber.trim() && r.taskType === 'qc' && r.status === 'completed')
-      if (!qcCompleted) {
+      // Tolak instan yang jelas-jelas duplikat dari cache lokal (gratis).
+      // Validasi otoritatif (QC + duplikat) dikerjakan server dalam 1 request simpan.
+      const localDuplicate = recordings.find(
+        (r) => r.resiNumber.trim() === resiNumber && r.taskType === 'packing' && !(lastPhotoId && r.id === lastPhotoId),
+      )
+      if (localDuplicate) {
         photoBusyRef.current = false
         playScanFeedback('warning')
         rejectResi(resiNumber)
-        showScanNotice({ kind: 'warning', title: 'QC belum selesai', message: getPackingQcMessage(progress?.qc?.status) })
-        clearPendingPhotoState(resiNumber)
-        return
-      }
-      if (existing && !(lastPhotoId && existing.id === lastPhotoId)) {
-        photoBusyRef.current = false
-        playScanFeedback('warning')
-        rejectResi(resiNumber)
-        const notice = getDuplicateScanNotice({ existing, taskType: 'packing', taskProgressQcStatus: progress?.qc?.status, formatTask })
+        const notice = getDuplicateScanNotice({ existing: localDuplicate, taskType: 'packing', taskProgressQcStatus: undefined, formatTask })
         showScanNotice({ kind: 'warning', title: notice.title, message: notice.message })
         clearPendingPhotoState(resiNumber)
         return
       }
     }
-    // Kunci sesi packing saat validasi lolos agar finalize tidak terikat sesi yang diganti di tengah jalan.
+    // Kunci sesi packing saat scan diterima agar tersimpan ke sesi yang benar.
     const lockedPackingSessionId = session.taskType === 'packing' ? (activePackingSession?.id ?? null) : null
     setPhotoCaptureBusy(true)
     try {
@@ -1587,52 +1547,34 @@ function App() {
       if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
         throw new Error('Kamera belum siap. Tunggu gambar muncul lalu coba lagi.')
       }
+      // Downscale agar upload kecil (maks 1600px, q0.85): simpan sekali tembak jadi cepat.
+      const scale = Math.min(1, MAX_PHOTO_DIMENSION / Math.max(video.videoWidth, video.videoHeight))
       const canvas = document.createElement('canvas')
-      canvas.width = video.videoWidth
-      canvas.height = video.videoHeight
+      canvas.width = Math.max(1, Math.round(video.videoWidth * scale))
+      canvas.height = Math.max(1, Math.round(video.videoHeight * scale))
       const ctx = canvas.getContext('2d')
       if (!ctx) throw new Error('Canvas tidak tersedia.')
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-      const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92))
+      const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85))
       if (!blob) throw new Error('Gagal mengambil foto.')
       if (blob.size < MIN_PHOTO_BYTES) {
         throw new Error('Foto tidak valid (terlalu kecil/gelap). Arahkan kamera ke paket lalu coba lagi.')
       }
-      const startedAt = new Date()
-      const fileName = buildRecordingFileName(resiNumber, settings.videoFormat, 'packing', startedAt, 'photo')
-      const filePath = buildDailyVideoPath(settings, resiNumber, 'packing', startedAt, 'photo')
-      const draft = await createServerRecordingDraftApi({
-        resiNumber,
-        taskType: 'packing',
-        operatorName: session.operatorName,
-        operatorCode: session.operatorCode,
-        startedAt: startedAt.toISOString(),
-        fileName,
-        filePath,
-        mediaType: 'photo',
-        mimeType: 'image/jpeg',
-        packingSessionId: lockedPackingSessionId,
-      })
-      await appendServerRecordingChunkApi(draft.id, blob)
-      const finalized = await finalizeServerRecordingApi(draft.id, { endTime: new Date().toISOString(), fileSizeBytes: blob.size })
+      // Sekali tembak: validasi QC + duplikat + simpan di server dalam 1 round-trip.
+      const saved = await uploadPackingPhotoApi({ resiNumber, packingSessionId: lockedPackingSessionId ?? '', photo: blob })
       playScanFeedback('success')
-      const previewAmount = packingPreview && packingPreview.order?.trackingNumber?.trim() === resiNumber
-        ? (packingPreview.pay as unknown as { amount: number }).amount
-        : null
+      const savedPay = (saved as unknown as { packingPayAmount?: number | null }).packingPayAmount
       showScanNotice({
         kind: 'success',
         title: 'Foto packing tersimpan',
-        message: previewAmount != null ? `Resi ${resiNumber} · ${formatRupiah(previewAmount)}` : `Resi ${resiNumber} sudah tersimpan.`,
+        message: savedPay != null ? `Resi ${resiNumber} · ${formatRupiah(savedPay)}` : `Resi ${resiNumber} sudah tersimpan.`,
       })
       setLastPhotoResi(resiNumber)
-      setLastPhotoId(draft.id)
+      setLastPhotoId(saved.id)
       // Hapus input hanya jika masih resi ini (bisa sudah tertimpa scan berikutnya).
       setScanResi((current) => (current.trim() === resiNumber ? '' : current))
       if (readPendingPhotoResi() === resiNumber) writePendingPhotoResi(null)
-      setPackingPreview(null)
-      if (finalized) {
-        mergeRecordingsForResi(resiNumber, [finalized])
-      }
+      mergeRecordingsForResi(resiNumber, [saved])
       if (activePackingSession) void readPackingSessionApi(activePackingSession.id).then(setActivePackingSession).catch(() => void refreshActivePackingSession())
     } catch (error) {
       playScanFeedback('warning')
@@ -1642,7 +1584,7 @@ function App() {
       photoBusyRef.current = false
       setPhotoCaptureBusy(false)
     }
-  }, [activePackingSession, canUsePackingFlow, clearPendingPhotoState, findRecordingByResi, lastPhotoId, mergeRecordingsForResi, packingMediaType, packingPreview, photoCaptureBusy, playScanFeedback, readPendingPhotoResi, recordings, refreshActivePackingSession, rejectResi, resolveLatestTaskProgress, scanResi, scanVideoElement, session, settings, showScanNotice, writePendingPhotoResi])
+  }, [activePackingSession, canUsePackingFlow, clearPendingPhotoState, lastPhotoId, mergeRecordingsForResi, packingMediaType, photoCaptureBusy, playScanFeedback, readPendingPhotoResi, recordings, refreshActivePackingSession, rejectResi, scanResi, scanVideoElement, session, showScanNotice, writePendingPhotoResi])
 
   // Otomatis ambil dan simpan foto ketika scan berhasil di mode foto.
   useEffect(() => {
