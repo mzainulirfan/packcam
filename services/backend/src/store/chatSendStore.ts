@@ -525,13 +525,13 @@ export function updateChatSendStatus(id: string, status: Exclude<ChatSendStatus,
   }
 
   const timestamp = nowIso()
-  const nextAttempts = status === 'prepared' || status === 'failed' ? row.attempts + 1 : row.attempts
+  const nextAttempts = status === 'failed' ? row.attempts + 1 : row.attempts
   db().prepare(
     `UPDATE recording_chat_sends
      SET status = ?,
          attempts = ?,
           error_message = ?,
-         prepared_at = CASE WHEN ? = 'prepared' THEN ? ELSE prepared_at END,
+         prepared_at = CASE WHEN ? IN ('prepared', 'sent') THEN COALESCE(prepared_at, ?) ELSE prepared_at END,
          sent_at = CASE WHEN ? = 'sent' THEN ? ELSE sent_at END,
          updated_at = ?
      WHERE id = ?`,

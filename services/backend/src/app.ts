@@ -891,7 +891,7 @@ app.get('/api/shopee/shipping-chat/next', requireSessionOrExtensionKey, (_req, r
   return sendOk(res, getNextPendingShippingChatSend())
 })
 
-app.get('/api/shopee/shipping-chat/recent', requireSession, (req, res) => {
+app.get('/api/shopee/shipping-chat/recent', requireSessionOrExtensionKey, (req, res) => {
   const query = req.query as Record<string, string | string[] | undefined>
   const limit = Number(readQueryString(query.limit) || 20)
   return sendOk(res, listRecentShippingChatSends(Number.isFinite(limit) ? limit : 20))
@@ -933,7 +933,7 @@ app.post('/api/shopee/shipping-chat/:id/cancelled', requireSessionOrExtensionKey
   }
 })
 
-app.post('/api/shopee/shipping-chat/:id/retry', requireSession, (req, res) => {
+app.post('/api/shopee/shipping-chat/:id/retry', requireSessionOrExtensionKey, (req, res) => {
   try {
     const params = req.params as Record<string, string | undefined>
     return sendOk(res, retryShippingChatSend(params.id ?? ''))
@@ -1354,7 +1354,7 @@ app.get('/api/chat-sends/pending', requireSessionOrExtensionKey, (req, res) => {
   sendOk(res, listPendingChatSends(getPublicApiBaseUrl(req)))
 })
 
-app.get('/api/chat-sends/recent', requireSession, (req, res) => {
+app.get('/api/chat-sends/recent', requireSessionOrExtensionKey, (req, res) => {
   const query = req.query as Record<string, string | string[] | undefined>
   const limit = Number(readQueryString(query.limit) || 20)
   sendOk(res, listRecentChatSends(Number.isFinite(limit) ? limit : 20, getPublicApiBaseUrl(req)))
@@ -1407,7 +1407,7 @@ app.post('/api/chat-sends/:id/cancelled', requireSessionOrExtensionKey, (req, re
   }
 })
 
-app.post('/api/chat-sends/:id/retry', requireSession, (req, res) => {
+app.post('/api/chat-sends/:id/retry', requireSessionOrExtensionKey, (req, res) => {
   try {
     const params = req.params as Record<string, string | undefined>
     return sendOk(res, retryChatSend(params.id ?? ''))

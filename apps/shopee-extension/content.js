@@ -1309,7 +1309,7 @@ async function fillWebchatSearchAndAttach(job) {
       if (!sent) {
         throw new Error('Tombol kirim Shopee Webchat tidak ditemukan.')
       }
-      await requestPaktiApi(`/api/shopee/shipping-chat/${encodeURIComponent(job.id)}/prepared`, config, { method: 'POST' })
+      // prepared_at diisi otomatis oleh endpoint sent — cukup 1 call.
       await requestPaktiApi(`/api/shopee/shipping-chat/${encodeURIComponent(job.id)}/sent`, config, { method: 'POST' })
       
       // Bersihkan pencarian untuk job berikutnya
@@ -1408,11 +1408,7 @@ async function fillWebchatSearchAndAttach(job) {
       if (!sent) {
         throw new Error('Tombol kirim Shopee Webchat tidak ditemukan.')
       }
-      await fetch(`${base}/api/chat-sends/${encodeURIComponent(job.id)}/prepared`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json', ...(stored.apiKey ? { 'X-Pakti-Extension-Key': stored.apiKey } : {}) },
-      }).catch(() => undefined)
+      // prepared_at diisi otomatis oleh endpoint sent — cukup 1 call.
       const sentResponse = await fetch(`${base}/api/chat-sends/${encodeURIComponent(job.id)}/sent`, {
         method: 'POST',
         credentials: 'include',

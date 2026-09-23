@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="id">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,26 +10,27 @@
     <main class="popup-shell">
       <header class="popup-header">
         <div>
-          <p class="eyebrow">[+] Pakti Extension</p>
+          <p class="eyebrow">Pakti Extension</p>
           <h1>Shopee Webchat</h1>
         </div>
-        <span class="badge">webchat only</span>
+        <span class="badge" id="pageModeBadge">mengecek...</span>
       </header>
 
       <p class="muted">Sinkron order dan proses chat Shopee hanya melalui tab Webchat.</p>
 
       <section class="panel compact">
         <div class="status-grid">
-          <span>Active tab</span>
-          <strong id="pageModeText">checking...</strong>
+          <span>Tab aktif</span>
+          <strong id="pageModeText">mengecek...</strong>
         </div>
       </section>
 
-      <section class="panel">
-        <div class="panel-head">
-          <h2>Config</h2>
-          <span class="hint">required</span>
-        </div>
+      <details class="panel" id="configPanel">
+        <summary class="panel-head">
+          <h2>Konfigurasi</h2>
+          <span class="hint" id="configHint">tersimpan</span>
+        </summary>
+        <div class="panel-body">
         <label>
           API Base URL
           <input id="apiBaseUrl" type="url" placeholder="https://api-pakti.zakado.id" />
@@ -37,48 +38,56 @@
 
         <label>
           Extension API Key
-          <input id="apiKey" type="password" placeholder="SHOPEE_EXTENSION_API_KEY" />
+          <span class="input-row">
+            <input id="apiKey" type="password" placeholder="SHOPEE_EXTENSION_API_KEY" />
+            <button id="toggleKeyButton" type="button" class="secondary icon" aria-label="Tampilkan API key">👁</button>
+          </span>
         </label>
 
-        <button id="saveButton" type="button" class="secondary">[save-config]</button>
-      </section>
+        <button id="saveButton" type="button" class="secondary">Simpan konfigurasi</button>
+        </div>
+      </details>
 
-      <section class="panel">
+      <section class="panel" id="orderPanel">
         <div class="panel-head">
-          <h2>Order tools</h2>
-          <span class="hint">seller page</span>
+          <h2>Order Shopee</h2>
+          <span class="hint">halaman seller</span>
         </div>
         <div class="actions single">
-          <button id="syncButton" type="button">[extract-sync]</button>
-          <button id="prepareShippingChatsButton" type="button" class="secondary">[prepare-shipping]</button>
+          <button id="syncButton" type="button">Sync order Siap Dikirim</button>
+          <button id="openOrderPageButton" type="button" class="secondary">Buka halaman Siap Dikirim</button>
+          <button id="prepareShippingChatsButton" type="button" class="secondary">Siapkan shipping chat</button>
+          <button id="openShippingPageButton" type="button" class="secondary">Buka Pesanan Dikirim</button>
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel" id="webchatPanel">
         <div class="panel-head">
-          <h2>Webchat tools</h2>
+          <h2>Webchat</h2>
           <span class="hint">/new-webchat</span>
         </div>
         <div class="actions single">
-          <button id="autoPrepareButton" type="button" class="secondary">[auto-prepare-video]</button>
-          <button id="loadChatJobsButton" type="button" class="secondary">[load-pending]</button>
+          <button id="openWebchatButton" type="button" class="secondary">Buka Shopee Webchat</button>
+          <button id="autoPrepareButton" type="button" class="secondary">Siapkan video hari ini</button>
+          <button id="loadChatJobsButton" type="button" class="secondary">Muat antrean chat</button>
           <label>
-            Pending Chat Job
+            Antrean chat menunggu
             <select id="chatJobSelect" disabled>
               <option value="">Belum ada job dimuat</option>
             </select>
           </label>
-          <button id="prepareChatButton" type="button">[send-selected-chat]</button>
-          <button id="markSentButton" type="button" class="secondary" disabled>[mark-sent-manual]</button>
+          <button id="prepareChatButton" type="button">Kirim chat terpilih</button>
+          <button id="reloadTabButton" type="button" class="secondary">Reload tab Shopee</button>
+          <button id="retryFailedButton" type="button" class="secondary">Coba lagi yang gagal</button>
         </div>
       </section>
 
       <section class="panel preview" aria-live="polite">
         <div class="panel-head">
           <h2>Status</h2>
-          <span class="hint">live log</span>
+          <span class="hint">log terakhir</span>
         </div>
-        <pre id="statusText">Ready.</pre>
+        <pre id="statusText">Siap.</pre>
       </section>
     </main>
 

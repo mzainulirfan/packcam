@@ -137,6 +137,8 @@ export function HistoryPage() {
     }
   })
   const [chatSendByRecordingId, setChatSendByRecordingId] = useState<Map<string, RecordingChatSend>>(new Map())
+  const [selectedQueueResi, setSelectedQueueResi] = useState<Set<string>>(() => new Set())
+  const [bulkQueueProgress, setBulkQueueProgress] = useState<{ done: number; total: number } | null>(null)
   const [shopeeOrderByResi, setShopeeOrderByResi] = useState<Map<string, ShopeeOrder>>(new Map())
   const [shopeeOrderByOrderNumber, setShopeeOrderByOrderNumber] = useState<Map<string, ShopeeOrder>>(new Map())
 
@@ -652,6 +654,35 @@ export function HistoryPage() {
     }
   }
 
+  function getQueueEligibility(group: HistoryRecordingGroup) {
+    const chatSend = group.records.map((r) => visibleChatSendByRecordingId.get(r.id)).find(Boolean)
+    if (group.latest.status !== 'completed') return { eligible: false as const }
+    if (chatSend?.status === 'pending' || chatSend?.status === 'sent') return { eligible: false as const }
+    return { eligible: true as const }
+  }
+
+  function toggleQueueResi(resiNumber: string) {
+    setSelectedQueueResi((current) => {
+      const next = new Set(current)
+      if (next.has(resiNumber)) next.delete(resiNumber)
+      else next.add(resiNumber)
+      return next
+    })
+  }
+
+  function toggleQueuePage() {
+    const eligible = pageItems.filter((group) => getQueueEligibility(group).eligible).map((group) => group.resiNumber)
+    setSelectedQueueResi((current) => {
+      const allSelected = eligible.length > 0 && eligible.every((resi) => current.has(resi))
+      if (allSelected) {
+        const next = new Set(current)
+        for (const resi of eligible) next.delete(resi)
+        return next
+      }
+      return new Set([...current, ...eligible])
+    })
+  }
+
   async function handlePrepareShopeeChat(record: LocalRecordingRecord, shopeeOrder = getShopeeOrderForRecord(record)) {
     if (preparingChatSendId) {
       return
@@ -661,10 +692,7 @@ export function HistoryPage() {
       setPreparingChatSendId(record.id)
       let job: RecordingChatSend
       try {
-        job = await prepareShopeeChatSendApi(record.id, null, {
-          buyerUsername: shopeeOrder?.buyerUsername ?? null,
-          orderNumber: shopeeOrder?.orderNumber ?? null,
-        })
+        job = await prepareChatSendForRecord(record, shopeeOrder)
       } catch (error) {
         const message = error instanceof Error ? error.message : ''
         if (!message.includes('Isi username pembeli Shopee')) {
@@ -675,13 +703,8 @@ export function HistoryPage() {
           throw error
         }
         job = await prepareShopeeChatSendApi(record.id, null, { buyerUsername, orderNumber: shopeeOrder?.orderNumber ?? null })
+        applyPreparedChatJob(record, job)
       }
-      setChatSendByRecordingId((prev) => {
-        const next = new Map(prev)
-        next.set(job.recordingId, job)
-        next.set(record.id, job)
-        return next
-      })
       notify.save(
         'Job Shopee Chat siap',
         `Job untuk ${job.buyerUsername} (${job.resiNumber}) siap. Shopee Webchat dibuka — cek tab Webchat yang sudah ada, tidak perlu klik extension lagi (otomatis isi chat).`,
@@ -694,6 +717,84 @@ export function HistoryPage() {
       )
     } finally {
       setPreparingChatSendId(null)
+    }
+  }
+
+  /** Inti prepare 1 resi TANPA prompt dan TANPA buka tab — dipakai bulk antrean. */
+  async function prepareChatSendForRecord(record: LocalRecordingRecord, shopeeOrder = getShopeeOrderForRecord(record)) {
+    const job = await prepareShopeeChatSendApi(record.id, null, {
+      buyerUsername: shopeeOrder?.buyerUsername ?? null,
+      orderNumber: shopeeOrder?.orderNumber ?? null,
+    })
+    applyPreparedChatJob(record, job)
+    return job
+  }
+
+  function applyPreparedChatJob(record: LocalRecordingRecord, job: RecordingChatSend) {
+    setChatSendByRecordingId((prev) => {
+      const next = new Map(prev)
+      next.set(job.recordingId, job)
+      next.set(record.id, job)
+      return next
+    })
+  }
+
+  function openShopeeWebchat() {
+    window.open('https://seller.shopee.co.id/new-webchat/conversations', 'pakti-shopee-webchat')
+  }
+
+  async function handleBulkQueueSelected() {
+    const resiList = Array.from(selectedQueueResi)
+    if (resiList.length === 0 || bulkQueueProgress) {
+      return
+    }
+
+    const byResi = new Map(docStatusFilteredGroups.map((group) => [group.resiNumber, group] as const))
+    const ok: string[] = []
+    const needUsername: string[] = []
+    const skipped: string[] = []
+    const failed: Array<{ resi: string; message: string }> = []
+
+    setBulkQueueProgress({ done: 0, total: resiList.length })
+    try {
+      for (const resi of resiList) {
+        const group = byResi.get(resi)
+        if (!group) {
+          skipped.push(resi)
+        } else {
+          const chatSend = group.records.map((r) => visibleChatSendByRecordingId.get(r.id)).find(Boolean)
+          if (group.latest.status !== 'completed' || chatSend?.status === 'pending' || chatSend?.status === 'sent') {
+            skipped.push(resi)
+          } else {
+            try {
+              await prepareChatSendForRecord(group.latest)
+              ok.push(resi)
+            } catch (error) {
+              const message = error instanceof Error ? error.message : 'Gagal.'
+              if (message.includes('Isi username pembeli Shopee')) {
+                needUsername.push(resi)
+              } else {
+                failed.push({ resi, message })
+              }
+            }
+          }
+        }
+        setBulkQueueProgress({ done: ok.length + needUsername.length + skipped.length + failed.length, total: resiList.length })
+      }
+    } finally {
+      setBulkQueueProgress(null)
+      setSelectedQueueResi(new Set())
+    }
+
+    const parts: string[] = []
+    if (ok.length > 0) parts.push(`${ok.length} masuk antrean`)
+    if (skipped.length > 0) parts.push(`${skipped.length} dilewati (sudah antre/terkirim)`)
+    if (needUsername.length > 0) parts.push(`${needUsername.length} butuh username: ${needUsername.slice(0, 5).join(', ')}${needUsername.length > 5 ? '…' : ''}`)
+    if (failed.length > 0) parts.push(`${failed.length} gagal: ${failed.slice(0, 3).map((f) => `${f.resi} (${f.message})`).join('; ')}`)
+    if (failed.length > 0 || needUsername.length > 0) {
+      notify.error('Antrean selesai dengan catatan', parts.join(' · ') || 'Tidak ada yang diproses.')
+    } else {
+      notify.save('Masuk antrean', `${parts.join(' · ') || 'Tidak ada yang diproses.'} Buka tab Webchat agar terkirim otomatis.`)
     }
   }
 
@@ -895,8 +996,23 @@ export function HistoryPage() {
                 <h2 className="font-['Inter'] text-[14px] font-semibold leading-none text-[#000000]">Dokumentasi paket</h2>
                 <p className="mt-1 font-['Inter'] text-[12px] leading-none text-[#a39e98]">{isRefreshingHistory ? 'Memperbarui data terbaru...' : 'Klik nomor resi atau baris untuk melihat detail dokumentasi.'}</p>
               </div>
-              <span className="inline-flex items-center rounded-full border border-[#e6e6e6] bg-white px-2.5 py-1 font-['Inter'] text-[11px] font-semibold text-[#31302e]">{docStatusFilteredGroups.length} hasil</span>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <Button type="button" variant="ghost" size="sm" onClick={toggleQueuePage} disabled={pageItems.length === 0} title="Centang semua resi di halaman ini yang bisa diantrekan" className="h-8 rounded-lg border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40">Pilih halaman</Button>
+                <span className="inline-flex items-center rounded-full border border-[#e6e6e6] bg-white px-2.5 py-1 font-['Inter'] text-[11px] font-semibold text-[#31302e]">{docStatusFilteredGroups.length} hasil</span>
+              </div>
             </div>
+            {selectedQueueResi.size > 0 ? (
+              <div className="flex flex-col gap-2 border-b border-[#000000] bg-[#000000] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                <p className="font-['Inter'] text-[13px] font-medium leading-5 text-white">
+                  {selectedQueueResi.size} resi dipilih{bulkQueueProgress ? ` · memproses ${bulkQueueProgress.done}/${bulkQueueProgress.total}…` : ' · masukkan ke antrean video sekaligus, tanpa buka tab.'}
+                </p>
+                <div className="flex shrink-0 flex-wrap gap-1.5">
+                  <Button type="button" variant="ghost" size="sm" onClick={() => openShopeeWebchat()} className="h-8 rounded-lg bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#000000] hover:bg-[#f6f5f4]">Buka Webchat</Button>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedQueueResi(new Set())} disabled={Boolean(bulkQueueProgress)} className="h-8 rounded-lg border border-white/40 bg-transparent px-3 font-['Inter'] text-[12px] font-medium text-white hover:bg-white/10 disabled:opacity-40">Batal</Button>
+                  <Button type="button" size="sm" onClick={() => void handleBulkQueueSelected()} disabled={Boolean(bulkQueueProgress)} className="h-8 rounded-lg bg-white px-4 font-['Inter'] text-[12px] font-semibold text-[#000000] hover:bg-[#f6f5f4] disabled:opacity-40">{bulkQueueProgress ? `Memproses ${bulkQueueProgress.done}/${bulkQueueProgress.total}…` : `Masukkan ${selectedQueueResi.size} ke antrean`}</Button>
+                </div>
+              </div>
+            ) : null}
             <div className="min-w-0 p-0">
               {isLoadingHistory ? <HistorySkeleton /> : null}
 
@@ -924,12 +1040,24 @@ export function HistoryPage() {
                         className={`grid cursor-pointer gap-3 rounded-[12px] border bg-white p-4 transition-colors ${isSelected ? 'border-[#000000] bg-[#f6f5f4]' : 'border-[#e6e6e6] hover:border-[#d8d5d1] hover:bg-[#fbfaf9]'}`}
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <div className="grid min-w-0 gap-0.5">
-                            <span className="font-['Inter'] text-[14px] font-semibold leading-tight tracking-[-0.2px] text-[#000000]">{group.resiNumber}</span>
-                            {shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())?.orderNumber ? (
-                              <span className="truncate font-['Inter'] text-[12px] text-[#615d59]">{shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())!.orderNumber}</span>
-                            ) : null}
-                            <span className="font-['Inter'] text-[11px] text-[#a39e98]">{formatCompactDateTime(group.latest.updatedAt)}</span>
+                          <div className="flex min-w-0 flex-1 items-start gap-1">
+                            <label className="-m-2 grid h-11 w-11 shrink-0 cursor-pointer place-items-center p-2" onClick={(event) => event.stopPropagation()} title={groupChatSend?.status === 'sent' ? 'Sudah terkirim' : groupChatSend?.status === 'pending' ? 'Sudah dalam antrean' : `Pilih resi ${group.resiNumber} untuk antrean`}>
+                              <input
+                                type="checkbox"
+                                className="h-5 w-5 rounded border-[#dddddd] accent-[#000000] disabled:cursor-not-allowed disabled:opacity-40"
+                                checked={selectedQueueResi.has(group.resiNumber)}
+                                disabled={groupChatSend?.status === 'sent' || groupChatSend?.status === 'pending'}
+                                onChange={() => toggleQueueResi(group.resiNumber)}
+                                aria-label={`Pilih resi ${group.resiNumber} untuk antrean`}
+                              />
+                            </label>
+                            <div className="grid min-w-0 gap-0.5">
+                              <span className="font-['Inter'] text-[14px] font-semibold leading-tight tracking-[-0.2px] text-[#000000]">{group.resiNumber}</span>
+                              {shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())?.orderNumber ? (
+                                <span className="truncate font-['Inter'] text-[12px] text-[#615d59]">{shopeeOrderByResi.get(group.resiNumber.trim().toLowerCase())!.orderNumber}</span>
+                              ) : null}
+                              <span className="font-['Inter'] text-[11px] text-[#a39e98]">{formatCompactDateTime(group.latest.updatedAt)}</span>
+                            </div>
                           </div>
                           <div className="flex flex-col items-end gap-1">
                             <DocumentationStatus group={group} />
@@ -966,6 +1094,17 @@ export function HistoryPage() {
                   <table className="w-full min-w-[760px] border-collapse">
                     <thead className="bg-[#f6f5f4]">
                       <tr className="text-left">
+                        <Th className="w-[60px] px-2">
+                          <label className="grid h-11 w-11 cursor-pointer place-items-center" onClick={(event) => event.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              className="h-5 w-5 rounded border-[#dddddd] accent-[#000000]"
+                              checked={pageItems.length > 0 && pageItems.filter((group) => getQueueEligibility(group).eligible).every((group) => selectedQueueResi.has(group.resiNumber))}
+                              onChange={toggleQueuePage}
+                              aria-label="Pilih semua resi di halaman ini"
+                            />
+                          </label>
+                        </Th>
                         <Th className="px-5">Paket</Th>
                         <Th>Operator</Th>
                         <Th>Dokumentasi</Th>
@@ -991,6 +1130,18 @@ export function HistoryPage() {
                               }}
                               className={`cursor-pointer outline-none transition-colors ${isSelected ? 'bg-[#f6f5f4]' : 'bg-white hover:bg-[#fbfaf9]'}`}
                             >
+                              <Td className="w-[60px] px-2">
+                                <label className="grid h-11 w-11 cursor-pointer place-items-center" onClick={(event) => event.stopPropagation()} title={tableGroupChatSend?.status === 'sent' ? 'Sudah terkirim' : tableGroupChatSend?.status === 'pending' ? 'Sudah dalam antrean' : `Pilih resi ${group.resiNumber} untuk antrean`}>
+                                  <input
+                                    type="checkbox"
+                                    className="h-5 w-5 rounded border-[#dddddd] accent-[#000000] disabled:cursor-not-allowed disabled:opacity-40"
+                                    checked={selectedQueueResi.has(group.resiNumber)}
+                                    disabled={tableGroupChatSend?.status === 'sent' || tableGroupChatSend?.status === 'pending'}
+                                    onChange={() => toggleQueueResi(group.resiNumber)}
+                                    aria-label={`Pilih resi ${group.resiNumber} untuk antrean`}
+                                  />
+                                </label>
+                              </Td>
                               <Td className="px-5 py-4">
                                 <div className="grid gap-0.5">
                                   <span className="font-['Inter'] text-[14px] font-semibold leading-tight text-[#000000]">{group.resiNumber}</span>
@@ -1029,7 +1180,7 @@ export function HistoryPage() {
                         })
                       ) : !isLoadingHistory && !historyError ? (
                         <tr>
-                          <td colSpan={5} className="p-6">
+                          <td colSpan={6} className="p-6">
                             <EmptyHistoryState hasActiveFilters={hasActiveFilters} onReset={clearFilters} />
                           </td>
                         </tr>
