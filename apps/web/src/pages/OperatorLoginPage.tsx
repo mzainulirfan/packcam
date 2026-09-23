@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { EyeIcon, EyeOffIcon } from 'lucide-react'
 
 import { authOperatorByUsername } from '../app/operatorSession'
 import { navigateTo } from '../app/uiState'
@@ -113,17 +114,18 @@ export function OperatorLoginPage() {
                   }}
                   placeholder="Password"
                   autoComplete="current-password"
-                  className="h-8 rounded-[4px] border-[#e6e6e6] bg-white px-3 pr-16 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0"
+                  className="h-8 rounded-[4px] border-[#e6e6e6] bg-white px-3 pr-10 font-['Inter'] text-[13px] placeholder:text-[#a39e98] focus-visible:border-[#8f8a84] focus-visible:ring-0"
                 />
                 <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
-                  className="absolute right-1 top-1/2 h-6 -translate-y-1/2 rounded-[4px] bg-white px-2 font-['Inter'] text-[11px] font-medium text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]"
+                  size="icon"
+                  className="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2 rounded-[4px] bg-white text-[#615d59] hover:bg-[#f6f5f4] hover:text-[#000000]"
                   onClick={() => setShowPassword((current) => !current)}
                   aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                  title={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
                 >
-                  {showPassword ? 'Sembunyikan' : 'Tampilkan'}
+                  {showPassword ? <EyeOffIcon size={15} /> : <EyeIcon size={15} />}
                 </Button>
               </div>
             </div>
