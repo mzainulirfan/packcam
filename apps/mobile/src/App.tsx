@@ -2,7 +2,6 @@ import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } fro
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   ArrowDataTransferVerticalIcon,
-  Camera01Icon,
   Copy01Icon,
   EyeIcon,
   EyeOffIcon,
@@ -168,7 +167,6 @@ function App() {
   const [photoCaptureBusy, setPhotoCaptureBusy] = useState(false)
   const [lastPhotoResi, setLastPhotoResi] = useState<string | null>(null)
   const [lastPhotoId, setLastPhotoId] = useState<string | null>(null)
-  const [skipAutoPhoto, setSkipAutoPhoto] = useState(false)
   const [showSwitchDialog, setShowSwitchDialog] = useState(false)
   const [switchModalTab, setSwitchModalTab] = useState<'resume' | 'switch'>('resume')
   const [resumeSearch, setResumeSearch] = useState('')
@@ -314,9 +312,13 @@ function App() {
         ? 'Menyimpan'
         : scanBusy
           ? 'Memproses'
-          : recordingSession.state.lastSavedResi
-            ? 'Video tersimpan'
-            : `Siap scan ${scanModeLabel}`
+          : isPackingMode && packingMediaType === 'photo'
+            ? lastPhotoResi
+              ? `Foto tersimpan: ${lastPhotoResi}`
+              : `Siap scan ${scanModeLabel}`
+            : recordingSession.state.lastSavedResi
+              ? 'Video tersimpan'
+              : `Siap scan ${scanModeLabel}`
   const scanStatusDescription = recordingSession.state.mode === 'recording'
     ? 'Tekan stop setelah paket selesai direkam.'
     : recordingSession.state.mode === 'stopping' || recordingSession.state.mode === 'saving'
@@ -346,6 +348,9 @@ function App() {
     active: Boolean(session) && activeTab === 'scan' && canUsePackingFlow,
     recordingState: recordingSession.state,
     stopRecording: recordingSession.stopRecording,
+    onStuckDrop: (resiNumber) => {
+      showScanNotice({ kind: 'warning', title: 'Antrean dibuang', message: `Resi ${resiNumber} dilepas karena penyimpanan sebelumnya macet. Scan ulang.` })
+    },
   })
 
   useEffect(() => {
@@ -875,10 +880,14 @@ function App() {
     }
   }, [])
 
-  /** Bersihkan semua status foto tertunda agar efek auto-capture tidak loop. */
-  const clearPendingPhotoState = useCallback(() => {
-    setScanResi('')
-    setSkipAutoPhoto(true)
+  /** Bersihkan status foto agar efek auto-capture tidak loop. Hanya hapus jika input masih resi ini. */
+  const clearPendingPhotoState = useCallback((resiNumber?: string) => {
+    if (resiNumber) {
+      const normalized = resiNumber.trim()
+      setScanResi((current) => (current.trim() === normalized ? '' : current))
+    } else {
+      setScanResi('')
+    }
     try {
       window.sessionStorage.removeItem(PENDING_PHOTO_RESI_KEY)
     } catch {
@@ -1173,12 +1182,6 @@ function App() {
           setWatermarkResi(resiNumber)
           setScanResi(resiNumber)
           writePendingPhotoResi(resiNumber)
-          playScanFeedback('success')
-          showScanNotice({
-            kind: 'success',
-            title: 'Mengambil foto',
-            message: `Resi ${resiNumber} sedang disimpan otomatis...`,
-          })
           return 'started'
         } catch (error) {
           setWatermarkResi((current) => (current === resiNumber ? null : current))
@@ -1224,13 +1227,11 @@ function App() {
         setWatermarkResi(resiNumber)
         await recordingSession.startRecording(resiNumber)
 
-        playScanFeedback('success')
-
         if (source === 'camera') {
           showScanNotice({
             kind: 'success',
-            title: 'Scan berhasil',
-            message: `Resi ${resiNumber} masuk ke ${formatTask(session.taskType)}.`,
+            title: 'Merekam',
+            message: `Resi ${resiNumber} masuk ke ${formatTask(session.taskType)}. Tekan stop setelah selesai.`,
           })
         }
 
@@ -1525,16 +1526,18 @@ function App() {
       const qcCompleted = progress?.qc?.status === 'completed' || recordings.some((r) => r.resiNumber.trim() === resiNumber.trim() && r.taskType === 'qc' && r.status === 'completed')
       if (!qcCompleted) {
         photoBusyRef.current = false
+        playScanFeedback('warning')
         showScanNotice({ kind: 'warning', title: 'QC belum selesai', message: getPackingQcMessage(progress?.qc?.status) })
-        clearPendingPhotoState()
+        clearPendingPhotoState(resiNumber)
         return
       }
       const existing = await findRecordingByResi(resiNumber, 'packing')
       if (existing && !(lastPhotoId && existing.id === lastPhotoId)) {
         photoBusyRef.current = false
+        playScanFeedback('warning')
         const notice = getDuplicateScanNotice({ existing, taskType: 'packing', taskProgressQcStatus: progress?.qc?.status, formatTask })
         showScanNotice({ kind: 'warning', title: notice.title, message: notice.message })
-        clearPendingPhotoState()
+        clearPendingPhotoState(resiNumber)
         return
       }
     }
@@ -1574,26 +1577,35 @@ function App() {
       })
       await appendServerRecordingChunkApi(draft.id, blob)
       await finalizeServerRecordingApi(draft.id, { endTime: new Date().toISOString(), fileSizeBytes: blob.size })
-      showScanNotice({ kind: 'success', title: 'Foto packing tersimpan', message: `Resi ${resiNumber} · ${packingPreview ? formatRupiah((packingPreview.pay as unknown as { amount: number }).amount) : formatRupiah(1500)}` })
+      playScanFeedback('success')
+      const previewAmount = packingPreview && packingPreview.order?.trackingNumber?.trim() === resiNumber
+        ? (packingPreview.pay as unknown as { amount: number }).amount
+        : null
+      showScanNotice({
+        kind: 'success',
+        title: 'Foto packing tersimpan',
+        message: previewAmount != null ? `Resi ${resiNumber} · ${formatRupiah(previewAmount)}` : `Resi ${resiNumber} sudah tersimpan.`,
+      })
       setLastPhotoResi(resiNumber)
       setLastPhotoId(draft.id)
-      setScanResi('')
-      writePendingPhotoResi(null)
+      // Hapus input hanya jika masih resi ini (bisa sudah tertimpa scan berikutnya).
+      setScanResi((current) => (current.trim() === resiNumber ? '' : current))
+      if (readPendingPhotoResi() === resiNumber) writePendingPhotoResi(null)
       setPackingPreview(null)
       if (activePackingSession) void readPackingSessionApi(activePackingSession.id).then(setActivePackingSession).catch(() => void refreshActivePackingSession())
       void refreshHistory()
     } catch (error) {
+      playScanFeedback('warning')
       showScanNotice({ kind: 'warning', title: 'Gagal simpan foto', message: normalizeError(error) })
-      clearPendingPhotoState()
+      clearPendingPhotoState(resiNumber)
     } finally {
       photoBusyRef.current = false
       setPhotoCaptureBusy(false)
     }
-  }, [activePackingSession, canUsePackingFlow, clearPendingPhotoState, findRecordingByResi, lastPhotoId, packingMediaType, packingPreview, photoCaptureBusy, recordings, refreshActivePackingSession, refreshHistory, resolveLatestTaskProgress, scanResi, scanVideoElement, session, settings, showScanNotice, writePendingPhotoResi])
+  }, [activePackingSession, canUsePackingFlow, clearPendingPhotoState, findRecordingByResi, lastPhotoId, packingMediaType, packingPreview, photoCaptureBusy, playScanFeedback, readPendingPhotoResi, recordings, refreshActivePackingSession, refreshHistory, resolveLatestTaskProgress, scanResi, scanVideoElement, session, settings, showScanNotice, writePendingPhotoResi])
 
   // Otomatis ambil dan simpan foto ketika scan berhasil di mode foto.
   useEffect(() => {
-    if (skipAutoPhoto) { queueMicrotask(() => setSkipAutoPhoto(false)); return }
     if (!isPackingMode || packingMediaType !== 'photo' || !scanResi.trim() || photoCaptureBusy || scanBusy || !canUsePackingFlow || recordingSession.state.mode !== 'idle' || !scanVideoElement) return
     const resi = scanResi.trim()
     if (lastPhotoResi === resi && lastPhotoId) {
@@ -1606,7 +1618,7 @@ function App() {
       void stagePhotoCapture(resi)
     }, 450)
     return () => window.clearTimeout(timer)
-  }, [scanResi, packingMediaType, isPackingMode, photoCaptureBusy, scanBusy, canUsePackingFlow, recordingSession.state.mode, scanVideoElement, lastPhotoId, lastPhotoResi, skipAutoPhoto, stagePhotoCapture, recordings])
+  }, [scanResi, packingMediaType, isPackingMode, photoCaptureBusy, scanBusy, canUsePackingFlow, recordingSession.state.mode, scanVideoElement, lastPhotoId, lastPhotoResi, stagePhotoCapture, recordings])
 
   const pendingPhotoRestoredRef = useRef(false)
   // Pulihkan foto tertunda (HP di-background/dimuat ulang sebelum capture jalan).
@@ -1666,7 +1678,6 @@ function App() {
       }
       setWatermarkResi((current) => (current === record.resiNumber ? null : current))
       clearRejectedResi(record.resiNumber)
-      setSkipAutoPhoto(false)
       await refreshHistory()
       showScanNotice({
         kind: 'success',
@@ -2092,12 +2103,14 @@ function App() {
                 ) : null}
               </div>
               <div className="flex shrink-0 items-center gap-1">
-                {isPackingMode && activePackingSession ? (
+                {isPackingMode ? (
                   <button
                     type="button"
                     role="switch"
                     aria-checked={packingMediaType === 'photo'}
                     aria-label="Toggle foto atau video"
+                    title={activePackingSession ? 'Ganti mode bukti' : 'Mulai sesi dulu untuk ganti mode'}
+                    disabled={!activePackingSession || recordingSession.state.mode !== 'idle' || photoCaptureBusy}
                     className={packingMediaType === 'photo' ? 'packing-scan-toggle is-photo' : 'packing-scan-toggle'}
                     onClick={() => setPackingMediaType((prev) => (prev === 'photo' ? 'video' : 'photo'))}
                   >
@@ -2208,9 +2221,16 @@ function App() {
               </div>
             ) : null}
             {isPackingMode && packingMediaType === 'photo' ? (
-              <Button type="button" className="packing-scan-cta" disabled={!canUsePackingFlow || photoCaptureBusy || !scanResi.trim() || !scanVideoElement || recordingSession.state.mode === 'error'} onClick={() => void stagePhotoCapture()}>
-                <HugeiconsIcon icon={Camera01Icon} size={16} /> {photoCaptureBusy ? 'Menyimpan...' : 'Ambil & simpan foto'}
-              </Button>
+              <div className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-3" aria-live="polite">
+                <p className="m-0 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Foto otomatis</p>
+                <p className="m-0 mt-1 text-sm font-bold leading-tight text-[var(--op-ink)]">
+                  {photoCaptureBusy
+                    ? `Menyimpan foto ${scanResi.trim() || '…'}…`
+                    : scanResi.trim()
+                      ? `Resi ${scanResi.trim()} — foto jalan otomatis…`
+                      : 'Scan resi, foto tersimpan sendiri'}
+                </p>
+              </div>
             ) : (
               <Button
                 type="button"
@@ -2218,6 +2238,8 @@ function App() {
                 disabled={
                   scanBusy ||
                   !canUsePackingFlow ||
+                  !cameraState.stream ||
+                  Boolean(cameraState.error) ||
                   recordingSession.state.mode === 'stopping' ||
                   recordingSession.state.mode === 'saving' ||
                   recordingSession.state.mode === 'error' ||

@@ -14,6 +14,7 @@ type UseScanQueueParams = {
   active: boolean
   recordingState: ScanQueueRecordingState
   stopRecording: () => Promise<unknown>
+  onStuckDrop?: (resiNumber: string) => void
 }
 
 async function waitForNextQueueTurn() {
@@ -22,7 +23,7 @@ async function waitForNextQueueTurn() {
   })
 }
 
-export function useScanQueue({ active, recordingState, stopRecording }: UseScanQueueParams) {
+export function useScanQueue({ active, recordingState, stopRecording, onStuckDrop }: UseScanQueueParams) {
   const pendingScanResiRef = useRef<string[]>([])
   const rejectedResiRef = useRef<string | null>(null)
   const scanQueueBusyRef = useRef(false)
@@ -34,6 +35,15 @@ export function useScanQueue({ active, recordingState, stopRecording }: UseScanQ
   const processCameraScanQueueRef = useRef<(() => Promise<void>) | null>(null)
   const activeRef = useRef(active)
   const recordingStateRef = useRef(recordingState)
+  const onStuckDropRef = useRef(onStuckDrop)
+
+  useEffect(() => {
+    activeRef.current = active
+  }, [active])
+
+  useEffect(() => {
+    onStuckDropRef.current = onStuckDrop
+  }, [onStuckDrop])
 
   useEffect(() => {
     activeRef.current = active
@@ -138,6 +148,11 @@ export function useScanQueue({ active, recordingState, stopRecording }: UseScanQ
             queueStuckSinceRef.current = null
             pendingScanResiRef.current.shift()
             rejectResi(nextResi)
+            try {
+              onStuckDropRef.current?.(nextResi)
+            } catch {
+              // Abaikan kegagalan notice.
+            }
             continue
           }
           await waitForNextQueueTurn()
