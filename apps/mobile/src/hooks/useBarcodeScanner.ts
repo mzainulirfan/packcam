@@ -17,7 +17,37 @@ type DetectorLike = {
 
 declare global {
   interface Window {
-    BarcodeDetector?: new () => DetectorLike
+    BarcodeDetector?: new (options?: { formats?: string[] }) => DetectorLike
+  }
+}
+
+// Format barcode resi umum (J&T, JNE, SPX, GoSend, dsb): batasi agar detect() jauh lebih cepat.
+const PREFERRED_BARCODE_FORMATS = [
+  'code_128',
+  'qr_code',
+  'code_39',
+  'ean_13',
+  'ean_8',
+  'itf',
+  'codabar',
+  'pdf417',
+  'aztec',
+  'data_matrix',
+]
+
+async function resolveScanFormats(): Promise<string[] | undefined> {
+  try {
+    const detectorWithFormats = window.BarcodeDetector as unknown as {
+      getSupportedFormats?: () => Promise<string[]>
+    }
+    if (typeof detectorWithFormats.getSupportedFormats !== 'function') {
+      return undefined
+    }
+    const supported = await detectorWithFormats.getSupportedFormats()
+    const matched = PREFERRED_BARCODE_FORMATS.filter((format) => supported.includes(format))
+    return matched.length > 0 ? matched : undefined
+  } catch {
+    return undefined
   }
 }
 
@@ -25,13 +55,21 @@ function supportsBarcodeDetector() {
   return typeof window !== 'undefined' && 'BarcodeDetector' in window
 }
 
-function createDetector(): DetectorLike | null {
+function createDetector(formats?: string[]): DetectorLike | null {
   if (!supportsBarcodeDetector()) {
     return null
   }
 
-  const BarcodeDetectorCtor = window.BarcodeDetector as unknown as new () => DetectorLike
-  return new BarcodeDetectorCtor()
+  const BarcodeDetectorCtor = window.BarcodeDetector as unknown as new (options?: { formats?: string[] }) => DetectorLike
+  try {
+    return formats ? new BarcodeDetectorCtor({ formats }) : new BarcodeDetectorCtor()
+  } catch {
+    try {
+      return new BarcodeDetectorCtor()
+    } catch {
+      return null
+    }
+  }
 }
 
 export function useBarcodeScanner({
@@ -71,13 +109,7 @@ export function useBarcodeScanner({
 
     const video = element
 
-    const detector = createDetector()
-    if (!detector) {
-      onUnsupportedRef.current?.()
-      return
-    }
-
-    const activeDetector = detector
+    let activeDetector: DetectorLike | null = null
     const canvas = document.createElement('canvas')
     const context = canvas.getContext('2d', { willReadFrequently: true })
     let cancelled = false
@@ -85,7 +117,7 @@ export function useBarcodeScanner({
     let scanning = false
 
     async function scanFrame() {
-      if (cancelled || scanning || !video.videoWidth || !video.videoHeight || !context) {
+      if (cancelled || scanning || !activeDetector || !video.videoWidth || !video.videoHeight || !context) {
         return
       }
 
@@ -129,7 +161,17 @@ export function useBarcodeScanner({
       void scanFrame()
     }, intervalMs)
 
-    void scanFrame()
+    // Siapkan detector (batasi format resi) lalu langsung scan frame pertama tanpa tunggu interval.
+    void (async () => {
+      const formats = await resolveScanFormats()
+      if (cancelled) return
+      activeDetector = createDetector(formats)
+      if (!activeDetector) {
+        onUnsupportedRef.current?.()
+        return
+      }
+      void scanFrame()
+    })()
 
     return () => {
       cancelled = true

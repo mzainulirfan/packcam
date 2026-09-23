@@ -302,7 +302,7 @@ function App() {
       ? recordingSession.state.activeResi ?? watermarkResi ?? (scanResi.trim() || null)
       : null
   const currentRecordingResi = activeRecordingResi ?? recordingSession.state.savingResi
-  const scannerIntervalMs = recordingSession.state.mode === 'recording' ? 700 : 360
+  const scannerIntervalMs = recordingSession.state.mode === 'recording' ? 700 : 180
   const scanModeLabel = isPackingMode ? 'Packing' : 'QC'
   const scanStatusLabel = cameraState.error
     ? 'Kamera error'
@@ -1141,8 +1141,11 @@ function App() {
         return 'error'
       }
 
-      const taskProgress = session.taskType === 'packing' ? await resolveLatestTaskProgress(resiNumber) : null
-      if (session.taskType === 'packing' && taskProgress?.qc?.status !== 'completed') {
+      // Foto packing: terima langsung tanpa round-trip server. Satu-satunya validasi
+      // (QC + duplikat) dikerjakan sekali di stagePhotoCapture tepat sebelum simpan.
+      const isPhotoPacking = session.taskType === 'packing' && packingMediaType === 'photo'
+      const taskProgress = !isPhotoPacking && session.taskType === 'packing' ? await resolveLatestTaskProgress(resiNumber) : null
+      if (!isPhotoPacking && session.taskType === 'packing' && taskProgress?.qc?.status !== 'completed') {
         playScanFeedback('warning')
         showScanNotice({
           kind: 'warning',
@@ -1155,29 +1158,10 @@ function App() {
       }
 
       // Foto packing tidak memakai MediaRecorder: scan resi langsung memicu capture dan simpan.
-      if (session.taskType === 'packing' && packingMediaType === 'photo') {
+      if (isPhotoPacking) {
         setScanBusy(true)
         void primeScanFeedbackAudio()
         try {
-          const existingPhoto = await findRecordingByResi(resiNumber, session.taskType)
-          if (existingPhoto) {
-            playScanFeedback('warning')
-            rejectResi(resiNumber)
-            const duplicateNotice = getDuplicateScanNotice({
-              existing: existingPhoto,
-              taskType: session.taskType,
-              taskProgressQcStatus: taskProgress?.qc?.status,
-              formatTask,
-            })
-            showScanNotice({
-              kind: 'warning',
-              title: duplicateNotice.title,
-              message: duplicateNotice.message,
-            })
-            setWatermarkResi((current) => (current === resiNumber ? null : current))
-            setScanResi('')
-            return 'duplicate'
-          }
           clearRejectedResi()
           setWatermarkResi(resiNumber)
           setScanResi(resiNumber)
@@ -1522,19 +1506,24 @@ function App() {
     photoBusyRef.current = true
     const resiNumber = rawResi
     if (session.taskType === 'packing') {
-      const progress = await resolveLatestTaskProgress(resiNumber)
+      // Dua cek independen jalan paralel: status QC + duplikat packing.
+      const [progress, existing] = await Promise.all([
+        resolveLatestTaskProgress(resiNumber),
+        findRecordingByResi(resiNumber, 'packing'),
+      ])
       const qcCompleted = progress?.qc?.status === 'completed' || recordings.some((r) => r.resiNumber.trim() === resiNumber.trim() && r.taskType === 'qc' && r.status === 'completed')
       if (!qcCompleted) {
         photoBusyRef.current = false
         playScanFeedback('warning')
+        rejectResi(resiNumber)
         showScanNotice({ kind: 'warning', title: 'QC belum selesai', message: getPackingQcMessage(progress?.qc?.status) })
         clearPendingPhotoState(resiNumber)
         return
       }
-      const existing = await findRecordingByResi(resiNumber, 'packing')
       if (existing && !(lastPhotoId && existing.id === lastPhotoId)) {
         photoBusyRef.current = false
         playScanFeedback('warning')
+        rejectResi(resiNumber)
         const notice = getDuplicateScanNotice({ existing, taskType: 'packing', taskProgressQcStatus: progress?.qc?.status, formatTask })
         showScanNotice({ kind: 'warning', title: notice.title, message: notice.message })
         clearPendingPhotoState(resiNumber)
@@ -1576,7 +1565,7 @@ function App() {
         packingSessionId: lockedPackingSessionId,
       })
       await appendServerRecordingChunkApi(draft.id, blob)
-      await finalizeServerRecordingApi(draft.id, { endTime: new Date().toISOString(), fileSizeBytes: blob.size })
+      const finalized = await finalizeServerRecordingApi(draft.id, { endTime: new Date().toISOString(), fileSizeBytes: blob.size })
       playScanFeedback('success')
       const previewAmount = packingPreview && packingPreview.order?.trackingNumber?.trim() === resiNumber
         ? (packingPreview.pay as unknown as { amount: number }).amount
@@ -1592,8 +1581,10 @@ function App() {
       setScanResi((current) => (current.trim() === resiNumber ? '' : current))
       if (readPendingPhotoResi() === resiNumber) writePendingPhotoResi(null)
       setPackingPreview(null)
+      if (finalized) {
+        mergeRecordingsForResi(resiNumber, [finalized])
+      }
       if (activePackingSession) void readPackingSessionApi(activePackingSession.id).then(setActivePackingSession).catch(() => void refreshActivePackingSession())
-      void refreshHistory()
     } catch (error) {
       playScanFeedback('warning')
       showScanNotice({ kind: 'warning', title: 'Gagal simpan foto', message: normalizeError(error) })
@@ -1602,7 +1593,7 @@ function App() {
       photoBusyRef.current = false
       setPhotoCaptureBusy(false)
     }
-  }, [activePackingSession, canUsePackingFlow, clearPendingPhotoState, findRecordingByResi, lastPhotoId, packingMediaType, packingPreview, photoCaptureBusy, playScanFeedback, readPendingPhotoResi, recordings, refreshActivePackingSession, refreshHistory, resolveLatestTaskProgress, scanResi, scanVideoElement, session, settings, showScanNotice, writePendingPhotoResi])
+  }, [activePackingSession, canUsePackingFlow, clearPendingPhotoState, findRecordingByResi, lastPhotoId, mergeRecordingsForResi, packingMediaType, packingPreview, photoCaptureBusy, playScanFeedback, readPendingPhotoResi, recordings, refreshActivePackingSession, rejectResi, resolveLatestTaskProgress, scanResi, scanVideoElement, session, settings, showScanNotice, writePendingPhotoResi])
 
   // Otomatis ambil dan simpan foto ketika scan berhasil di mode foto.
   useEffect(() => {
@@ -1616,7 +1607,7 @@ function App() {
     }
     const timer = window.setTimeout(() => {
       void stagePhotoCapture(resi)
-    }, 450)
+    }, 120)
     return () => window.clearTimeout(timer)
   }, [scanResi, packingMediaType, isPackingMode, photoCaptureBusy, scanBusy, canUsePackingFlow, recordingSession.state.mode, scanVideoElement, lastPhotoId, lastPhotoResi, stagePhotoCapture, recordings])
 
