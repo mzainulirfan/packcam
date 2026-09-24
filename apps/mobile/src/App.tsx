@@ -543,6 +543,12 @@ function App() {
         return
       }
 
+      // Bunyi deteksi khusus mode QC (packing tetap hening sampai simpan).
+      if (session.taskType === 'qc') {
+        void primeScanFeedbackAudio()
+        void playScanFeedback('success', 'history')
+      }
+
       setScanResi(normalizedValue)
       enqueueCameraScan(normalizedValue)
       void processCameraScanQueue()
