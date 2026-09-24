@@ -448,6 +448,11 @@ function App() {
       try {
         const audio = getPackingSuccessAudio()
         if (audio) {
+          // Jangan restart bunyi yang masih berjalan agar tidak terpotong.
+          // Sukses baru saat bunyi aktif diabaikan (1 bunyi per paket).
+          if (!audio.paused && !audio.ended) {
+            return
+          }
           audio.currentTime = 0
           await audio.play()
           return
