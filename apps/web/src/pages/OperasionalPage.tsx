@@ -76,8 +76,8 @@ export function OperasionalPage() {
     <div className="packing-page mx-auto max-w-[1240px] bg-[#f6f5f4] px-4 py-8 font-['Inter'] sm:px-6 lg:py-10 xl:px-8">
       <section className="mb-7 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div>
-          <div className="font-['Inter'] text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Operasional / Ringkasan Harian</div>
-          <h1 className="mt-2 font-['Inter'] text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">Operasional</h1>
+          <div className="font-['Inter'] text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Dashboard / Ringkasan Harian</div>
+          <h1 className="mt-2 font-['Inter'] text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">Dashboard</h1>
           <p className="mt-3 max-w-2xl font-['Inter'] text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Target vs realisasi hari berjalan: QC, packing, upah, dan antrean chat dalam satu layar.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

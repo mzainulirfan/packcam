@@ -1,5 +1,13 @@
 export type PageId = 'scan' | 'history' | 'operasional' | 'packing-sessions' | 'packing-session-detail' | 'packing-payments' | 'shopee' | 'shopee-inspection' | 'settings' | 'users' | 'health' | 'admin'
-export type NavGroupId = 'operasional' | 'administrasi'
+export type NavGroupId = 'operasional' | 'packing' | 'shopee' | 'administrasi' | 'system'
+
+export const NAV_GROUPS: Array<{ id: NavGroupId; label: string }> = [
+  { id: 'operasional', label: 'Operasional' },
+  { id: 'packing', label: 'Packing & Upah' },
+  { id: 'shopee', label: 'Shopee' },
+  { id: 'administrasi', label: 'Administrasi' },
+  { id: 'system', label: 'System' },
+]
 
 export const PAGE_PATHS: Record<PageId, string> = {
   scan: '/scan',
@@ -59,84 +67,72 @@ export const NAV_ITEMS: Array<{
   id: PageId
   label: string
   hint: string
-  icon: 'scan' | 'history' | 'settings' | 'users' | 'health' | 'admin'
   group: NavGroupId
 }> = [
   {
     id: 'scan',
     label: 'Scan',
-    hint: 'Pintu masuk operator',
-    icon: 'scan',
+    hint: 'Scan resi & rekam',
     group: 'operasional',
   },
   {
     id: 'history',
     label: 'History',
-    hint: 'Riwayat dokumentasi',
-    icon: 'history',
+    hint: 'Arsip dokumentasi',
     group: 'operasional',
   },
   {
     id: 'operasional',
-    label: 'Operasional',
+    label: 'Dashboard',
     hint: 'Ringkasan harian',
-    icon: 'history',
     group: 'operasional',
   },
   {
     id: 'packing-sessions',
     label: 'Sesi Packing',
-    hint: 'Riwayat sesi & payroll',
-    icon: 'history',
-    group: 'operasional',
+    hint: 'Sesi kerja & upah',
+    group: 'packing',
   },
   {
     id: 'packing-payments',
     label: 'Riwayat Bayar',
     hint: 'Arsip pembayaran upah',
-    icon: 'history',
-    group: 'operasional',
+    group: 'packing',
   },
   {
     id: 'shopee',
     label: 'Shopee',
-    hint: 'Auto chat & order sync',
-    icon: 'admin',
-    group: 'administrasi',
+    hint: 'Order sync & auto chat',
+    group: 'shopee',
   },
   {
     id: 'shopee-inspection',
     label: 'Hasil Shopee',
-    hint: 'Hasil grep/inspek',
-    icon: 'history',
-    group: 'operasional',
+    hint: 'Verifikasi order tersync',
+    group: 'shopee',
   },
   {
     id: 'users',
     label: 'Users',
     hint: 'Kelola operator',
-    icon: 'users',
     group: 'administrasi',
   },
   {
     id: 'settings',
     label: 'Settings',
     hint: 'Konfigurasi dasar',
-    icon: 'settings',
     group: 'administrasi',
   },
   {
     id: 'health',
     label: 'Health',
     hint: 'Diagnosa runtime',
-    icon: 'health',
-    group: 'administrasi',
+    group: 'system',
   },
   {
     id: 'admin',
     label: 'Admin',
     hint: 'Audit server',
-    icon: 'admin',
-    group: 'administrasi',
+    group: 'system',
   },
 ]

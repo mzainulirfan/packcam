@@ -5,6 +5,7 @@ import {
   Activity01Icon,
   ArrowRightFromLineIcon,
   Clock01Icon,
+  DashboardSquare01Icon,
   DollarCircleIcon,
   Package01Icon,
   QrCodeIcon,
@@ -14,7 +15,7 @@ import {
   ShoppingBagCheckIcon,
   UserGroupIcon,
 } from '@hugeicons/core-free-icons'
-import { getPagePath, NAV_ITEMS, type NavGroupId, type PageId } from './app/navigation'
+import { getPagePath, NAV_GROUPS, NAV_ITEMS, type PageId } from './app/navigation'
 import { logoutOperator, useOperatorSession } from './app/operatorSession'
 import { navigateTo, useActivePage, useRouteState } from './app/uiState'
 import { startRealtimeBridge, stopRealtimeBridge } from './app/realtime'
@@ -34,7 +35,7 @@ const PAGE_ICONS: Record<PageId, typeof QrCodeIcon> = {
   'packing-sessions': Package01Icon,
   'packing-session-detail': Package01Icon,
   'packing-payments': DollarCircleIcon,
-  operasional: Activity01Icon,
+  operasional: DashboardSquare01Icon,
   'shopee-inspection': ShoppingBagCheckIcon,
   shopee: ShoppingBag01Icon,
   settings: Settings01Icon,
@@ -98,16 +99,10 @@ function App() {
     [isAdmin],
   )
   const sidebarSections = useMemo(() => {
-    const sectionOrder: Array<{ id: NavGroupId | 'system'; label: string; items: PageId[] }> = [
-      { id: 'operasional', label: 'Operasional', items: ['scan', 'history', 'operasional', 'packing-sessions', 'packing-payments', 'shopee-inspection'] },
-      { id: 'administrasi', label: 'Administrasi', items: ['shopee', 'users', 'settings'] },
-      { id: 'system', label: 'System', items: ['health', 'admin'] },
-    ]
-
-    return sectionOrder
+    return NAV_GROUPS
       .map((section) => ({
         ...section,
-        items: visibleNavItems.filter((item) => section.items.includes(item.id)),
+        items: visibleNavItems.filter((item) => item.group === section.id),
       }))
       .filter((section) => section.items.length > 0)
   }, [visibleNavItems])

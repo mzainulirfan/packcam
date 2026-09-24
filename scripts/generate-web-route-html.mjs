@@ -52,7 +52,7 @@ const routes = [
   {
     path: '/operasional',
     output: 'operasional/index.html',
-    title: 'Pakti · Operasional Harian',
+    title: 'Pakti · Dashboard Operasional',
     description: 'Ringkasan harian QC, packing, upah, dan antrean chat Packing.',
     robots: 'noindex, nofollow',
   },
