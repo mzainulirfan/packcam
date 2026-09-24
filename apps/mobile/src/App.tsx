@@ -80,11 +80,13 @@ type TabKey = 'scan' | 'history' | 'session'
 type LoginFormState = {
   operatorName: string
   password: string
+  rememberMe: boolean
 }
 
 const initialLoginForm: LoginFormState = {
   operatorName: '',
   password: '',
+  rememberMe: false,
 }
 
 function normalizeError(error: unknown) {
@@ -814,6 +816,7 @@ function App() {
       const result = await loginServerOperatorApi({
         operatorName: loginForm.operatorName.trim(),
         password: loginForm.password,
+        rememberMe: loginForm.rememberMe,
       })
 
       setSession(result.session)
@@ -1790,6 +1793,22 @@ function App() {
                 </button>
               </div>
             </div>
+
+            <label htmlFor="mobile-remember" className="flex cursor-pointer items-start gap-2.5 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 py-2.5">
+              <input
+                id="mobile-remember"
+                type="checkbox"
+                checked={loginForm.rememberMe}
+                onChange={(event) => {
+                  setLoginForm((current) => ({ ...current, rememberMe: event.target.checked }))
+                }}
+                className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-black"
+              />
+              <span className="grid gap-0.5">
+                <span className="text-[13px] font-bold">Ingat saya di perangkat ini</span>
+                <span className="text-[12px] leading-relaxed text-[var(--op-mute)]">Tetap login walau browser ditutup. Jangan centang di perangkat bersama.</span>
+              </span>
+            </label>
 
             {bootError ? (
               <Alert variant="destructive" className="rounded-[4px]">
