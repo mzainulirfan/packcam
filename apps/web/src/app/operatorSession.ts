@@ -134,8 +134,8 @@ function isSameProfile(left: OperatorProfile, right: OperatorProfile) {
   return isSameIdentity(left, right)
 }
 
-export async function loginOperator(operatorName: string, password: string) {
-  return authOperatorByUsername(operatorName, password)
+export async function loginOperator(operatorName: string, password: string, rememberMe = false) {
+  return authOperatorByUsername(operatorName, password, rememberMe)
 }
 
 export async function upsertOperatorProfile(
@@ -192,12 +192,14 @@ export async function authOperator(
   operatorCode: string,
   password: string,
   role: OperatorRole = 'operator',
+  rememberMe = false,
 ) {
   const result = await loginServerOperatorApi({
     operatorName: operatorName.trim(),
     operatorCode: operatorCode.trim(),
     password: password.trim(),
     role,
+    rememberMe,
   })
 
   currentSession = result.session
@@ -206,10 +208,11 @@ export async function authOperator(
   return result.session
 }
 
-export async function authOperatorByUsername(operatorName: string, password: string) {
+export async function authOperatorByUsername(operatorName: string, password: string, rememberMe = false) {
   const result = await loginServerOperatorApi({
     operatorName: operatorName.trim(),
     password: password.trim(),
+    rememberMe,
   })
 
   currentSession = result.session

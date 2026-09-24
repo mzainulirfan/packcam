@@ -356,6 +356,7 @@ export function loginServerOperatorApi(payload: {
   operatorCode?: string
   password: string
   role?: OperatorRole
+  rememberMe?: boolean
 }) {
   return requestApi<{ session: OperatorSession; profile: OperatorProfile }>('/api/auth/login', {
     method: 'POST',

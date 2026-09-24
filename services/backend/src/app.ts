@@ -86,6 +86,12 @@ function getRequestSession(req: Request) {
   return resolveSession(getCookie(req, 'pakti_session'))
 }
 
+function refreshPersistentSessionCookie(req: Request, res: Response, session: HttpSession | null) {
+  if (session?.persistent) {
+    setSessionCookie(res, session.sessionId, req, { persistent: true })
+  }
+}
+
 function requireSession(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const session = getRequestSession(req)
   if (!session) {
@@ -93,6 +99,7 @@ function requireSession(req: AuthenticatedRequest, res: Response, next: NextFunc
   }
 
   req.session = session
+  refreshPersistentSessionCookie(req, res, session)
   return next()
 }
 
@@ -107,6 +114,7 @@ function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFuncti
   }
 
   req.session = session
+  refreshPersistentSessionCookie(req, res, session)
   return next()
 }
 
@@ -316,6 +324,7 @@ app.post('/api/auth/login', (req, res) => {
   const operatorCode = typeof req.body?.operatorCode === 'string' ? req.body.operatorCode.trim() : ''
   const password = readStringField(req.body?.password, 'password')
   const role = normalizeRole(req.body?.role)
+  const rememberMe = req.body?.rememberMe === true
 
   if (!operatorName || !password) {
     return sendError(res, 400, 'Username dan password wajib diisi.')
@@ -332,10 +341,11 @@ app.post('/api/auth/login', (req, res) => {
       operatorCode,
       password,
       role,
+      persistent: rememberMe,
     })
 
     clearLoginAttempts(rateLimitKey)
-    setSessionCookie(res, result.session.sessionId, req)
+    setSessionCookie(res, result.session.sessionId, req, { persistent: rememberMe })
 
     return sendOk(res, {
       session: result.session,
@@ -360,6 +370,7 @@ app.post('/api/auth/logout', (req, res) => {
 app.get('/api/session', (req, res) => {
   const sessionId = getCookie(req, 'pakti_session')
   const session = resolveSession(sessionId)
+  refreshPersistentSessionCookie(req, res, session)
   return sendOk(res, { session })
 })
 
@@ -368,6 +379,8 @@ app.put('/api/session/task', (req, res) => {
   if (!session) {
     return sendError(res, 401, 'Sesi login diperlukan.')
   }
+
+  refreshPersistentSessionCookie(req, res, session)
 
   if (session.role !== 'admin') {
     return sendError(res, 403, 'Hanya admin yang dapat mengganti task aktif.')

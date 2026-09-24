@@ -21,6 +21,7 @@ export const SCHEMA_SQL = [
     operator_code TEXT NOT NULL,
     role TEXT NOT NULL,
     task_type TEXT NOT NULL DEFAULT 'packing',
+    persistent INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`,

@@ -60,6 +60,11 @@ function ensureTaskColumns(database: SQLiteDatabase) {
   )
 }
 
+function ensureSessionColumns(database: SQLiteDatabase) {
+  ensureColumn(database, 'operator_sessions', 'persistent', 'INTEGER NOT NULL DEFAULT 0')
+  database.exec(`UPDATE operator_sessions SET persistent = 0 WHERE persistent IS NULL`)
+}
+
 function ensureOrderColumns(database: SQLiteDatabase) {
   ensureColumn(database, 'orders', 'shipping_channel', 'TEXT')
 }
@@ -201,6 +206,7 @@ export function getDb() {
   db.pragma('foreign_keys = ON')
   applySchema(db)
   ensureTaskColumns(db)
+  ensureSessionColumns(db)
   ensureOrderColumns(db)
   ensurePackingColumns(db)
   ensurePackingPaymentTable(db)

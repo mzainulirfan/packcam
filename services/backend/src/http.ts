@@ -6,6 +6,7 @@ export type HttpSession = {
   operatorCode: string
   role: 'admin' | 'operator'
   taskType: 'qc' | 'packing'
+  persistent: boolean
   createdAt: string
   updatedAt: string
 }
@@ -91,10 +92,26 @@ function readCookieAttributes(req?: Request) {
   ]
 }
 
-export function setSessionCookie(res: Response, sessionId: string, req?: Request) {
+const DEFAULT_SESSION_TTL_HOURS = 168
+
+export function getSessionTtlHours() {
+  const parsed = Number(process.env.SESSION_TTL_HOURS ?? DEFAULT_SESSION_TTL_HOURS)
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_SESSION_TTL_HOURS
+  }
+
+  return parsed
+}
+
+export function getSessionCookieMaxAgeSeconds() {
+  return Math.floor(getSessionTtlHours() * 60 * 60)
+}
+
+export function setSessionCookie(res: Response, sessionId: string, req?: Request, options?: { persistent?: boolean }) {
   const cookie = [
     `pakti_session=${encodeURIComponent(sessionId)}`,
     ...readCookieAttributes(req),
+    ...(options?.persistent ? [`Max-Age=${getSessionCookieMaxAgeSeconds()}`] : []),
   ].join('; ')
 
   res.setHeader('Set-Cookie', cookie)

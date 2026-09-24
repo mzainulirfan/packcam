@@ -36,6 +36,7 @@ export function OperatorLoginPage() {
   const [operatorName, setOperatorName] = useState('')
   const [operatorPassword, setOperatorPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [messageTone, setMessageTone] = useState<MessageTone>('info')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -54,7 +55,7 @@ export function OperatorLoginPage() {
     setIsSubmitting(true)
 
     try {
-      await authOperatorByUsername(name, password)
+      await authOperatorByUsername(name, password, rememberMe)
       navigateTo('scan')
     } catch (error) {
       setMessageTone('error')
@@ -129,6 +130,20 @@ export function OperatorLoginPage() {
                 </Button>
               </div>
             </div>
+
+            <label htmlFor="operator-remember" className="flex cursor-pointer items-start gap-2.5 rounded-[8px] border border-[#e6e6e6] bg-[#fbfaf9] px-3 py-2.5">
+              <input
+                id="operator-remember"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(event) => setRememberMe(event.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-black"
+              />
+              <span className="grid gap-0.5">
+                <span className="font-['Inter'] text-[13px] font-medium text-[#000000]">Ingat saya di perangkat ini</span>
+                <span className="font-['Inter'] text-[12px] leading-5 text-[#615d59]">Tetap login walau browser ditutup. Jangan centang di perangkat bersama.</span>
+              </span>
+            </label>
 
             {message && messageTone === 'error' ? (
               <Alert variant="destructive" className="rounded-[8px] border-[#fecaca] bg-[#fee2e2] font-['Inter'] text-[13px]">
