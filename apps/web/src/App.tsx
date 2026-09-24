@@ -16,6 +16,7 @@ import {
   UserGroupIcon,
 } from '@hugeicons/core-free-icons'
 import { getPagePath, NAV_GROUPS, NAV_ITEMS, type PageId } from './app/navigation'
+import { useNavBadges } from './app/navBadges'
 import { logoutOperator, useOperatorSession } from './app/operatorSession'
 import { navigateTo, useActivePage, useRouteState } from './app/uiState'
 import { startRealtimeBridge, stopRealtimeBridge } from './app/realtime'
@@ -86,6 +87,7 @@ function App() {
   })
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const isAdmin = operatorSession?.role === 'admin'
+  const navBadges = useNavBadges(Boolean(operatorSession))
 
   const activeItem = useMemo(
     () => {
@@ -261,6 +263,14 @@ function App() {
                             <span className="nav-tab__label">{item.label}</span>
                             <span className="nav-tab__hint">{item.hint}</span>
                           </span>
+                          {item.id === 'packing-sessions' && navBadges.hasActivePackingSession ? (
+                            <span className="nav-badge nav-badge--dot" title="Sesi packing aktif" aria-label="Sesi packing aktif" />
+                          ) : null}
+                          {item.id === 'shopee' && navBadges.pendingChatCount > 0 ? (
+                            <span className="nav-badge" title={`${navBadges.pendingChatCount} chat menunggu`}>
+                              {navBadges.pendingChatCount > 99 ? '99+' : navBadges.pendingChatCount}
+                            </span>
+                          ) : null}
                         </a>
                       </li>
                     )})}

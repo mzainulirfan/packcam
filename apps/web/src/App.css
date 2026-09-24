@@ -282,6 +282,32 @@
   color: #615d59;
 }
 
+.nav-badge {
+  align-self: center;
+  flex: 0 0 auto;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #000000;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
+  tabular-nums: true;
+}
+
+.nav-badge--dot {
+  min-width: 0;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border-radius: 999px;
+  background: #1aae39;
+  line-height: 0;
+}
+
 /* locked state retained but simplified */
 .nav-tab--locked {
   opacity: 0.45;

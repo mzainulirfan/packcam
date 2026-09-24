@@ -1,12 +1,10 @@
 export type PageId = 'scan' | 'history' | 'operasional' | 'packing-sessions' | 'packing-session-detail' | 'packing-payments' | 'shopee' | 'shopee-inspection' | 'settings' | 'users' | 'health' | 'admin'
-export type NavGroupId = 'operasional' | 'packing' | 'shopee' | 'administrasi' | 'system'
+export type NavGroupId = 'operasional' | 'shopee' | 'administrasi'
 
 export const NAV_GROUPS: Array<{ id: NavGroupId; label: string }> = [
   { id: 'operasional', label: 'Operasional' },
-  { id: 'packing', label: 'Packing & Upah' },
   { id: 'shopee', label: 'Shopee' },
   { id: 'administrasi', label: 'Administrasi' },
-  { id: 'system', label: 'System' },
 ]
 
 export const PAGE_PATHS: Record<PageId, string> = {
@@ -70,6 +68,12 @@ export const NAV_ITEMS: Array<{
   group: NavGroupId
 }> = [
   {
+    id: 'operasional',
+    label: 'Dashboard',
+    hint: 'Ringkasan harian',
+    group: 'operasional',
+  },
+  {
     id: 'scan',
     label: 'Scan',
     hint: 'Scan resi & rekam',
@@ -82,22 +86,16 @@ export const NAV_ITEMS: Array<{
     group: 'operasional',
   },
   {
-    id: 'operasional',
-    label: 'Dashboard',
-    hint: 'Ringkasan harian',
-    group: 'operasional',
-  },
-  {
     id: 'packing-sessions',
     label: 'Sesi Packing',
     hint: 'Sesi kerja & upah',
-    group: 'packing',
+    group: 'operasional',
   },
   {
     id: 'packing-payments',
     label: 'Riwayat Bayar',
     hint: 'Arsip pembayaran upah',
-    group: 'packing',
+    group: 'operasional',
   },
   {
     id: 'shopee',
@@ -127,12 +125,12 @@ export const NAV_ITEMS: Array<{
     id: 'health',
     label: 'Health',
     hint: 'Diagnosa runtime',
-    group: 'system',
+    group: 'administrasi',
   },
   {
     id: 'admin',
     label: 'Admin',
     hint: 'Audit server',
-    group: 'system',
+    group: 'administrasi',
   },
 ]
