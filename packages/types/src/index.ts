@@ -29,6 +29,7 @@ export type OperatorSession = {
   role: OperatorRole
   taskType: WorkTask
   loggedInAt: string
+  sessionId?: string
 }
 
 export type OperatorProfile = {

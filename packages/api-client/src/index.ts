@@ -7,6 +7,43 @@ type ApiResponse<T> = {
 }
 
 export const SESSION_INVALID_EVENT = 'pakti:session-invalid'
+export const SESSION_TOKEN_KEY = 'pakti.sessionToken'
+
+function readStoredSessionToken() {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return null
+  }
+
+  try {
+    return window.localStorage.getItem(SESSION_TOKEN_KEY)
+  } catch {
+    return null
+  }
+}
+
+let sessionToken: string | null = readStoredSessionToken()
+
+export function getSessionToken() {
+  return sessionToken
+}
+
+export function setSessionToken(token: string | null) {
+  sessionToken = token?.trim() ? token.trim() : null
+
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return
+  }
+
+  try {
+    if (sessionToken) {
+      window.localStorage.setItem(SESSION_TOKEN_KEY, sessionToken)
+    } else {
+      window.localStorage.removeItem(SESSION_TOKEN_KEY)
+    }
+  } catch {
+    // Ignore storage failures.
+  }
+}
 
 const configuredApiBaseUrl = (import.meta.env?.VITE_API_BASE_URL ?? '').trim().replace(/\/+$/, '')
 const API_BASE_URL = configuredApiBaseUrl || (import.meta.env?.PROD ? 'https://api-pakti.zakado.id' : '')
@@ -183,13 +220,19 @@ function normalizeScanLogRow(log: ServerScanLogRow): ScanLogRow {
 }
 
 async function requestApi<T>(path: string, init: RequestInit = {}) {
+  const headers: Record<string, string> = {
+    ...(init.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+    ...((init.headers ?? {}) as Record<string, string>),
+  }
+
+  if (sessionToken && !headers.Authorization && !headers.authorization) {
+    headers.Authorization = `Bearer ${sessionToken}`
+  }
+
   const response = await fetch(buildApiUrl(path), {
     credentials: 'include',
     ...init,
-    headers: {
-      ...(init.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
-      ...(init.headers ?? {}),
-    },
+    headers,
   })
 
   const bodyText = await response.text()

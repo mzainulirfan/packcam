@@ -7,6 +7,7 @@ import {
   readServerOperatorProfilesApi,
   readServerSessionApi,
   resetServerOperatorPasswordApi,
+  setSessionToken,
   upsertServerOperatorProfileApi,
   updateServerSessionTaskApi,
 } from '@pakti/api-client'
@@ -34,6 +35,9 @@ async function loadServerState() {
   try {
     const [sessionResponse, profiles] = await Promise.all([readServerSessionApi(), readServerOperatorProfilesApi()])
     currentSession = sessionResponse.session
+    if (!currentSession) {
+      setSessionToken(null)
+    }
     currentProfiles = sortProfiles(dedupeProfiles(profiles))
   } catch {
     currentSession = null
@@ -203,6 +207,7 @@ export async function authOperator(
   })
 
   currentSession = result.session
+  setSessionToken(rememberMe ? (result.session.sessionId ?? null) : null)
   mergeProfile(result.profile)
   emitChange()
   return result.session
@@ -216,6 +221,7 @@ export async function authOperatorByUsername(operatorName: string, password: str
   })
 
   currentSession = result.session
+  setSessionToken(rememberMe ? (result.session.sessionId ?? null) : null)
   mergeProfile(result.profile)
   emitChange()
   return result.session
@@ -226,6 +232,7 @@ export function logoutOperator() {
   isHydrated = false
   currentProfiles = []
   loadPromise = null
+  setSessionToken(null)
   if (typeof window !== 'undefined') {
     try {
       window.sessionStorage.removeItem('pakti.operatorStore')

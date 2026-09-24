@@ -29,6 +29,7 @@ import {
   readServerRecordingsApi,
   readServerSessionApi,
   readServerSystemConfigApi,
+  setSessionToken,
   updateServerSessionTaskApi,
   buildApiUrl,
   prepareShopeeChatSendApi,
@@ -651,6 +652,9 @@ function App() {
         }
 
         setSession(sessionPayload.session)
+        if (!sessionPayload.session) {
+          setSessionToken(null)
+        }
         setSystemConfig(config)
         setSettings(appSettings)
       } catch (error) {
@@ -820,6 +824,7 @@ function App() {
       })
 
       setSession(result.session)
+      setSessionToken(loginForm.rememberMe ? (result.session.sessionId ?? null) : null)
       void primeScanFeedbackAudio()
       setLoginForm((current) => ({ ...current, password: '' }))
       setActiveTab('scan')
@@ -838,6 +843,7 @@ function App() {
       // Logout should still clear the local session.
     } finally {
       setSession(null)
+      setSessionToken(null)
       setActivePackingSession(null)
       setPackingOperators([])
       setSelectedPackerKey('')

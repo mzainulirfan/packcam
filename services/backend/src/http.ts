@@ -34,6 +34,21 @@ export function getCookie(req: Request, name: string) {
   return parseCookies(req.headers.cookie).get(name) ?? null
 }
 
+export function getBearerToken(req: Request) {
+  const header = req.headers.authorization
+  if (!header) {
+    return null
+  }
+
+  const match = header.match(/^Bearer\s+(.+)$/i)
+  const token = match?.[1]?.trim()
+  return token ? token : null
+}
+
+export function getRequestSessionId(req: Request) {
+  return getCookie(req, 'pakti_session') ?? getBearerToken(req)
+}
+
 export function sendError(res: Response, statusCode: number, message: string) {
   return res.status(statusCode).json({
     ok: false,

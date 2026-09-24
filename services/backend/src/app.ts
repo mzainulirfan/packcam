@@ -10,7 +10,7 @@ import type { AppSettings, ShopeeOrder } from '@pakti/types'
 
 import { calculatePackingPayForOrder, clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, cancelPackerAdjustment, cancelPackingPaymentDraft, closePackingSession, confirmPackingPaymentDraft, createPackerAdjustment, createPackingPayment, createPackingPaymentDraft, createPackingPayRule, createPackingSession, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deletePackingPayRule, deletePackingSession, deleteRecording, deleteSessionById, deleteShopeeOrderByOrderNumber, finalizeRecording, getActivePackingSession, getBootstrapStatus, getChatSendStats, getDashboardSummary, getHealthSnapshot, getNextPendingShippingChatSend, getPackingPaymentById, getPackingPaymentDraftById, getPackingSessionById, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, getShopeeOrderStats, getShippingChatSendStats, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPackerAdjustments, listPackingOperators, listPackingPayRules, listPackingPaymentDrafts, listPackingPayments, listPackingSessions, listPendingChatSends, listRecentChatSends, listRecentShippingChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, mergePackingSessions, prepareBundledRecordingChatSend, prepareReadyRecordingChatSendsForToday, prepareRecordingShareFile, prepareShippingChatSends, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, reopenPackingSession, resolveSession, resetOperatorPassword, retryChatSend, retryShippingChatSend, savePackingPhotoRecord, saveSettings, saveSystemConfig, updateChatSendStatus, updatePackingPayRule, updatePackingRecordingPayRule, updateSessionTaskType, updateShippingChatSendStatus, upsertOperatorProfile } from './store'
 import type { ShippingChatOrderInput } from './store/shippingChatSendStore'
-import { clearSessionCookie, getCookie, normalizeRole, readStringField, sendError, sendOk, setSessionCookie } from './http'
+import { clearSessionCookie, getRequestSessionId, normalizeRole, readStringField, sendError, sendOk, setSessionCookie } from './http'
 import type { HttpSession } from './http'
 import { ensureServerStorage, getUploadsDir } from './db'
 import { subscribeBackendRealtime } from './realtime'
@@ -83,7 +83,7 @@ function isAllowedCorsOrigin(origin: string) {
 }
 
 function getRequestSession(req: Request) {
-  return resolveSession(getCookie(req, 'pakti_session'))
+  return resolveSession(getRequestSessionId(req))
 }
 
 function refreshPersistentSessionCookie(req: Request, res: Response, session: HttpSession | null) {
@@ -358,7 +358,7 @@ app.post('/api/auth/login', (req, res) => {
 })
 
 app.post('/api/auth/logout', (req, res) => {
-  const sessionId = getCookie(req, 'pakti_session')
+  const sessionId = getRequestSessionId(req)
   if (sessionId) {
     deleteSessionById(sessionId)
   }
@@ -368,8 +368,7 @@ app.post('/api/auth/logout', (req, res) => {
 })
 
 app.get('/api/session', (req, res) => {
-  const sessionId = getCookie(req, 'pakti_session')
-  const session = resolveSession(sessionId)
+  const session = resolveSession(getRequestSessionId(req))
   refreshPersistentSessionCookie(req, res, session)
   return sendOk(res, { session })
 })

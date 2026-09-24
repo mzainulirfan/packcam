@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
 import type { Response } from 'node:http'
+import type { Request } from 'express'
 import { fileURLToPath } from 'node:url'
 
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url))
@@ -19,7 +20,7 @@ delete process.env.SESSION_TTL_HOURS
 const { getDb } = await import('../services/backend/src/db.ts')
 const { authenticateOperator, createSession, getSessionById, resolveSession } = await import('../services/backend/src/store/sessionStore.ts')
 const { upsertOperatorProfile } = await import('../services/backend/src/store/operatorStore.ts')
-const { clearSessionCookie, getSessionCookieMaxAgeSeconds, getSessionTtlHours, setSessionCookie } = await import('../services/backend/src/http.ts')
+const { clearSessionCookie, getBearerToken, getRequestSessionId, getSessionCookieMaxAgeSeconds, getSessionTtlHours, setSessionCookie } = await import('../services/backend/src/http.ts')
 
 const database = getDb()
 
@@ -95,4 +96,35 @@ test('sesi kedaluwarsa tetap ditolak walau persistent', () => {
   database.prepare(`UPDATE operator_sessions SET updated_at = ? WHERE session_id = ?`).run('2020-01-01T00:00:00.000Z', remembered.sessionId)
   assert.equal(resolveSession(remembered.sessionId), null)
   assert.equal(getSessionById(remembered.sessionId), null)
+})
+
+function mockRequest(headers: Record<string, string | undefined>) {
+  return { headers } as unknown as Request
+}
+
+test('getBearerToken mem-parsing header Authorization', () => {
+  assert.equal(getBearerToken(mockRequest({})), null)
+  assert.equal(getBearerToken(mockRequest({ authorization: 'Token abc' })), null)
+  assert.equal(getBearerToken(mockRequest({ authorization: 'Bearer abc-123' })), 'abc-123')
+  assert.equal(getBearerToken(mockRequest({ authorization: 'bearer   xyz  ' })), 'xyz')
+})
+
+test('getRequestSessionId mengutamakan cookie lalu bearer', () => {
+  assert.equal(getRequestSessionId(mockRequest({})), null)
+  assert.equal(
+    getRequestSessionId(mockRequest({ authorization: 'Bearer token-1' })),
+    'token-1',
+  )
+  assert.equal(
+    getRequestSessionId(mockRequest({ cookie: 'pakti_session=cookie-9', authorization: 'Bearer token-1' })),
+    'cookie-9',
+  )
+})
+
+test('sesi persistent bisa di-resolve via bearer token', () => {
+  const remembered = createSession('Operator Bearer', 'OP04', 'operator', 'packing', true)
+  const viaBearer = resolveSession(getRequestSessionId(mockRequest({ authorization: `Bearer ${remembered.sessionId}` })))
+  assert.ok(viaBearer)
+  assert.equal(viaBearer?.persistent, true)
+  assert.equal(resolveSession(getRequestSessionId(mockRequest({ authorization: 'Bearer tidak-ada' }))), null)
 })
