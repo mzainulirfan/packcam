@@ -1003,12 +1003,12 @@ export function HistoryPage() {
             </div>
             {selectedQueueResi.size > 0 ? (
               <div className="flex flex-col gap-2 border-b border-[#000000] bg-[#000000] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-                <p className="font-['Inter'] text-[13px] font-medium leading-5 text-white">
+                <p className="font-['Inter'] text-[13px] font-medium leading-5 text-white hover:text-white">
                   {selectedQueueResi.size} resi dipilih{bulkQueueProgress ? ` · memproses ${bulkQueueProgress.done}/${bulkQueueProgress.total}…` : ' · masukkan ke antrean video sekaligus, tanpa buka tab.'}
                 </p>
                 <div className="flex shrink-0 flex-wrap gap-1.5">
                   <Button type="button" variant="ghost" size="sm" onClick={() => openShopeeWebchat()} className="h-8 rounded-lg bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#000000] hover:bg-[#f6f5f4]">Buka Webchat</Button>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedQueueResi(new Set())} disabled={Boolean(bulkQueueProgress)} className="h-8 rounded-lg border border-white/40 bg-transparent px-3 font-['Inter'] text-[12px] font-medium text-white hover:bg-white/10 disabled:opacity-40">Batal</Button>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedQueueResi(new Set())} disabled={Boolean(bulkQueueProgress)} className="h-8 rounded-lg border border-white/40 bg-transparent px-3 font-['Inter'] text-[12px] font-medium text-white hover:text-white hover:bg-white/10 disabled:opacity-40">Batal</Button>
                   <Button type="button" size="sm" onClick={() => void handleBulkQueueSelected()} disabled={Boolean(bulkQueueProgress)} className="h-8 rounded-lg bg-white px-4 font-['Inter'] text-[12px] font-semibold text-[#000000] hover:bg-[#f6f5f4] disabled:opacity-40">{bulkQueueProgress ? `Memproses ${bulkQueueProgress.done}/${bulkQueueProgress.total}…` : `Masukkan ${selectedQueueResi.size} ke antrean`}</Button>
                 </div>
               </div>
@@ -1069,7 +1069,7 @@ export function HistoryPage() {
 
                         <div className="flex items-center justify-between gap-3 border-t border-[#e6e6e6] pt-3">
                           <div className="flex min-w-0 items-center gap-2">
-                            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#000000] text-[11px] font-semibold text-white">{getInitials(formatOperatorForCurrentSession(group.latest.operatorName, group.latest.operatorCode, currentOperatorName, currentOperatorCode))}</span>
+                            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#000000] text-[11px] font-semibold text-white hover:text-white">{getInitials(formatOperatorForCurrentSession(group.latest.operatorName, group.latest.operatorCode, currentOperatorName, currentOperatorCode))}</span>
                             <span className="truncate font-['Inter'] text-[12px] text-[#615d59]">{formatOperatorForCurrentSession(group.latest.operatorName, group.latest.operatorCode, currentOperatorName, currentOperatorCode)}</span>
                             <ChatDeliveryStatusAction
                               chatSend={groupChatSend}
@@ -1230,7 +1230,7 @@ export function HistoryPage() {
                             size="sm"
                             className={
                               p === currentPage
-                                ? "h-8 min-w-8 rounded-lg bg-[#000000] px-2 font-['Inter'] text-[13px] font-semibold text-white hover:bg-[#000000]"
+                                ? "h-8 min-w-8 rounded-lg bg-[#000000] px-2 font-['Inter'] text-[13px] font-semibold text-white hover:text-white hover:bg-[#000000]"
                                 : "h-8 min-w-8 rounded-lg border border-[#dddddd] bg-white px-2 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]"
                             }
                             onClick={() => setPage(p as number)}
@@ -1324,7 +1324,7 @@ export function HistoryPage() {
                         <Button
                           type="button"
                           variant="ghost"
-                          className="h-auto justify-between rounded-[8px] border border-[#000000] bg-[#000000] px-3 py-2.5 text-left font-['Inter'] text-white hover:bg-[#31302e]"
+                          className="h-auto justify-between rounded-[8px] border border-[#000000] bg-[#000000] px-3 py-2.5 text-left font-['Inter'] text-white hover:text-white hover:bg-[#31302e]"
                           onClick={() => {
                             setRepeatQcResi(selectedGroup.resiNumber)
                             navigateTo('scan')
@@ -1478,7 +1478,7 @@ export function HistoryPage() {
                 )}
 
                 <div className="flex flex-col gap-2 sm:flex-row">
-                  <Button type="button" className="h-9 rounded-full bg-[#0075de] px-4 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#005bab]" onClick={handleDownloadPreview} disabled={!previewUrl || downloadingRecordId !== null}>
+                  <Button type="button" className="h-9 rounded-full bg-[#0075de] px-4 font-['Inter'] text-[13px] font-medium text-white hover:text-white hover:bg-[#005bab]" onClick={handleDownloadPreview} disabled={!previewUrl || downloadingRecordId !== null}>
                     <HugeiconsIcon icon={Download01Icon} size={16} strokeWidth={1.9} /> {previewTarget && downloadingRecordId === previewTarget.id ? 'Menyiapkan...' : previewTarget.shareFileReady ? 'Download' : 'Menyiapkan video'}
                   </Button>
                   <Button type="button" variant="ghost" className="h-9 rounded-full border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]" onClick={() => void handleCopyText(previewTarget.filePath, 'Path file')}>
@@ -1533,7 +1533,7 @@ export function HistoryPage() {
                           <Button type="button" variant="ghost" size="sm" className="h-8 rounded-full border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] text-[#31302e] hover:bg-[#f6f5f4]" onClick={() => void handleCopyText(record.filePath, 'Path file')}>
                             <HugeiconsIcon icon={Copy01Icon} size={14} strokeWidth={1.9} /> Copy path
                           </Button>
-                          <Button type="button" size="sm" className="h-8 rounded-full bg-[#0075de] px-3 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#005bab]" disabled={downloadingRecordId !== null} onClick={() => handleDownloadRecord(record)}>
+                          <Button type="button" size="sm" className="h-8 rounded-full bg-[#0075de] px-3 font-['Inter'] text-[12px] font-medium text-white hover:text-white hover:bg-[#005bab]" disabled={downloadingRecordId !== null} onClick={() => handleDownloadRecord(record)}>
                             <HugeiconsIcon icon={Download01Icon} size={14} strokeWidth={1.9} /> {downloadingRecordId === record.id ? 'Menyiapkan...' : record.shareFileReady ? 'Download' : 'Menyiapkan video'}
                           </Button>
                           <Button type="button" variant="ghost" size="sm" className="h-8 rounded-full border border-[#fecaca] bg-[#fee2e2] px-3 font-['Inter'] text-[12px] font-medium text-[#991b1b] hover:bg-[#fecaca]" disabled={deletingRecordId !== null} onClick={() => setDeleteTarget(record)}>
@@ -1577,7 +1577,7 @@ export function HistoryPage() {
                 <Button type="button" variant="ghost" disabled={Boolean(deletingRecordId)} onClick={() => setDeleteTarget(null)} className="h-9 rounded-full border border-[#e6e6e6] bg-white px-5 font-['Inter'] text-[13px] text-[#31302e] hover:bg-[#f6f5f4]">
                   Batal
                 </Button>
-                <Button type="button" variant="ghost" disabled={Boolean(deletingRecordId)} onClick={() => void handleConfirmDeleteRecord()} className="h-9 rounded-full bg-[#991b1b] px-5 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#7f1d1d]">
+                <Button type="button" variant="ghost" disabled={Boolean(deletingRecordId)} onClick={() => void handleConfirmDeleteRecord()} className="h-9 rounded-full bg-[#991b1b] px-5 font-['Inter'] text-[13px] font-medium text-white hover:text-white hover:bg-[#7f1d1d]">
                   <HugeiconsIcon icon={Delete02Icon} size={16} strokeWidth={1.9} /> {deletingRecordId ? 'Menghapus...' : 'Hapus recording'}
                 </Button>
               </div>
@@ -1660,7 +1660,7 @@ function EmptyHistoryState({ hasActiveFilters, onReset }: { hasActiveFilters: bo
       </div>
       <div className="mt-3 font-['Inter'] text-[14px] font-medium text-[#000000]">{hasActiveFilters ? 'Dokumentasi tidak ditemukan' : 'Belum ada dokumentasi'}</div>
       <p className="mx-auto mt-1 max-w-md font-['Inter'] text-[13px] leading-5 text-[#615d59]">{hasActiveFilters ? 'Tidak ada dokumentasi yang cocok dengan filter atau nomor resi tersebut.' : 'Dokumentasi QC dan packing yang sudah direkam akan muncul di halaman ini.'}</p>
-      <Button type="button" variant="ghost" className={`mt-4 h-9 rounded-lg px-4 font-['Inter'] text-[13px] font-medium ${hasActiveFilters ? 'border border-[#dddddd] bg-white text-[#31302e] hover:bg-[#f6f5f4]' : 'bg-[#0075de] text-white hover:bg-[#005bab]'}`} onClick={hasActiveFilters ? onReset : () => navigateTo('scan')}>
+      <Button type="button" variant="ghost" className={`mt-4 h-9 rounded-lg px-4 font-['Inter'] text-[13px] font-medium ${hasActiveFilters ? 'border border-[#dddddd] bg-white text-[#31302e] hover:bg-[#f6f5f4]' : 'bg-[#0075de] text-white hover:text-white hover:bg-[#005bab]'}`} onClick={hasActiveFilters ? onReset : () => navigateTo('scan')}>
         {hasActiveFilters ? 'Reset' : 'Scan'}
       </Button>
     </div>
@@ -1670,7 +1670,7 @@ function EmptyHistoryState({ hasActiveFilters, onReset }: { hasActiveFilters: bo
 function OperatorCell({ value }: { value: string }) {
   return (
     <div className="flex min-w-0 items-center gap-2.5 font-['Inter'] text-[13px] text-[#31302e]">
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#000000] text-[11px] font-semibold text-white">{getInitials(value)}</span>
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#000000] text-[11px] font-semibold text-white hover:text-white">{getInitials(value)}</span>
       <span className="truncate font-medium">{value}</span>
     </div>
   )

@@ -296,7 +296,7 @@ function DangerAction({
         <strong className="block text-[14px] font-semibold text-[#000000]">{title}</strong>
         <small className="mt-1 block text-[12px] leading-5 text-[#615d59]">{description}</small>
       </span>
-      <Button type="button" variant={destructive ? 'destructive' : 'outline'} className={`h-9 shrink-0 rounded-lg px-3 text-[13px] font-medium ${destructive ? 'bg-black text-white hover:bg-[#31302e]' : 'border-[#e6e6e6] bg-white text-[#615d59] hover:bg-[#fbfaf9]'}`} onClick={onClick}>
+      <Button type="button" variant={destructive ? 'destructive' : 'outline'} className={`h-9 shrink-0 rounded-lg px-3 text-[13px] font-medium ${destructive ? 'bg-black text-white hover:text-white hover:bg-[#31302e]' : 'border-[#e6e6e6] bg-white text-[#615d59] hover:bg-[#fbfaf9]'}`} onClick={onClick}>
         <HugeiconsIcon icon={Delete02Icon} size={15} strokeWidth={1.9} />
         {actionLabel}
       </Button>
@@ -344,7 +344,7 @@ function ConfirmDialog({
           <Button
             type="button"
             variant={tone === 'danger' ? 'destructive' : 'default'}
-            className={`h-9 rounded-full px-6 text-[13px] font-medium ${tone === 'danger' ? 'bg-black text-white hover:bg-[#31302e]' : 'bg-[#0075de] text-white hover:bg-[#005bab]'}`}
+            className={`h-9 rounded-full px-6 text-[13px] font-medium ${tone === 'danger' ? 'bg-black text-white hover:text-white hover:bg-[#31302e]' : 'bg-[#0075de] text-white hover:text-white hover:bg-[#005bab]'}`}
             onClick={() => void onConfirm()}
             disabled={disabled}
           >

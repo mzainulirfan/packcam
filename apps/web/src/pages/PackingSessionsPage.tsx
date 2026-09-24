@@ -896,7 +896,7 @@ export function PackingSessionsPage() {
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="ghost" onClick={() => setConfirmAction(null)} disabled={Boolean(confirmAction?.busy)} className="h-9 rounded-[8px] border border-[#e6e6e6] bg-white px-5 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Batal</Button>
-                <Button type="button" onClick={() => void runConfirmAction()} disabled={Boolean(confirmAction?.busy)} className={`h-9 rounded-[8px] px-5 font-['Inter'] text-[13px] font-semibold text-white disabled:opacity-40 ${confirmAction?.danger ? 'bg-[#991b1b] hover:bg-[#7f1d1d]' : 'bg-[#000000] hover:bg-[#31302e]'}`}>{confirmAction?.busy ? 'Memproses...' : confirmAction?.confirmLabel ?? 'Ya'}</Button>
+                <Button type="button" onClick={() => void runConfirmAction()} disabled={Boolean(confirmAction?.busy)} className={`h-9 rounded-[8px] px-5 font-['Inter'] text-[13px] font-semibold text-white hover:text-white disabled:opacity-40 ${confirmAction?.danger ? 'bg-[#991b1b] hover:bg-[#7f1d1d]' : 'bg-[#000000] hover:bg-[#31302e]'}`}>{confirmAction?.busy ? 'Memproses...' : confirmAction?.confirmLabel ?? 'Ya'}</Button>
               </div>
             </div>
           </DialogContent>
@@ -911,7 +911,7 @@ export function PackingSessionsPage() {
                   <DialogDescription className="font-['Inter'] text-[12px] leading-5 text-[#615d59]">1 petugas · sesi closed & belum dibayar · bisa simpan pending dulu</DialogDescription>
                   {payPreview ? (
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                      <span className="inline-flex max-w-full truncate rounded-full bg-[#000000] px-2.5 py-1 font-['Inter'] text-[11px] font-semibold text-white">{payPreview.packerLabel}</span>
+                      <span className="inline-flex max-w-full truncate rounded-full bg-[#000000] px-2.5 py-1 font-['Inter'] text-[11px] font-semibold text-white hover:text-white">{payPreview.packerLabel}</span>
                       <span className="inline-flex rounded-full border border-[#e6e6e6] bg-[#f6f5f4] px-2.5 py-1 font-['Inter'] text-[11px] font-medium tabular-nums text-[#31302e]">{payPreview.count} sesi · {payPreview.totalPaket} paket</span>
                     </div>
                   ) : null}
@@ -939,7 +939,7 @@ export function PackingSessionsPage() {
               <div className="grid gap-5 p-5">
                 <section className="grid gap-2">
                   <div className="flex items-baseline gap-2">
-                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#000000] font-['Inter'] text-[11px] font-bold text-white">1</span>
+                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#000000] font-['Inter'] text-[11px] font-bold text-white hover:text-white">1</span>
                     <h3 className="font-['Inter'] text-[13px] font-semibold text-[#000000]">Sesi yang dibayar</h3>
                     <span className="font-['Inter'] text-[12px] tabular-nums text-[#a39e98]">{formatCurrency(payPreview.totalUpah)}</span>
                   </div>
@@ -963,7 +963,7 @@ export function PackingSessionsPage() {
                 </section>
                 <section className="overflow-hidden rounded-[8px] border border-[#e6e6e6] bg-white">
                   <button type="button" onClick={() => setAdjustOpen((v) => !v)} aria-expanded={adjustOpen} className="flex w-full items-center gap-2.5 px-4 py-3 text-left hover:bg-[#fbfaf9]">
-                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#000000] font-['Inter'] text-[11px] font-bold text-white">2</span>
+                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#000000] font-['Inter'] text-[11px] font-bold text-white hover:text-white">2</span>
                     <span className="min-w-0 flex-1">
                       <span className="block font-['Inter'] text-[13px] font-semibold text-[#000000]">Potongan & Bonus</span>
                       <span className="block truncate font-['Inter'] text-[12px] tabular-nums text-[#a39e98]">{activePayAdjustments.length === 0 ? 'Tidak ada — total = subtotal upah' : `${activePayAdjustments.length} aktif · ${payAdjustmentSummary.adjustmentTotal > 0 ? '+' : payAdjustmentSummary.adjustmentTotal < 0 ? '−' : ''}${formatCurrency(Math.abs(payAdjustmentSummary.adjustmentTotal))}`}</span>
@@ -1030,7 +1030,7 @@ export function PackingSessionsPage() {
                 </section>
                 <section className="grid gap-2">
                   <div className="flex items-baseline gap-2">
-                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#000000] font-['Inter'] text-[11px] font-bold text-white">3</span>
+                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#000000] font-['Inter'] text-[11px] font-bold text-white hover:text-white">3</span>
                     <h3 className="font-['Inter'] text-[13px] font-semibold text-[#000000]">Pembayaran</h3>
                   </div>
                   <div className="grid grid-cols-3 gap-1.5 rounded-[8px] border border-[#e6e6e6] bg-white p-1.5" role="radiogroup" aria-label="Metode pembayaran">
@@ -1047,7 +1047,7 @@ export function PackingSessionsPage() {
               <div className="grid shrink-0 gap-2 border-t border-[#e6e6e6] bg-white p-4 sm:grid-cols-[auto_1fr_1fr] sm:items-center">
                 <Button type="button" variant="ghost" onClick={() => setShowPayDialog(false)} disabled={payBusy || draftBusy} className="h-10 rounded-[8px] border border-[#e6e6e6] bg-white px-5 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Batal</Button>
                 <Button type="button" variant="ghost" onClick={() => void handleSaveDraft()} disabled={payBusy || draftBusy || !payPreview.valid || payAdjustmentSummary.finalTotal < 0} className="h-10 rounded-[8px] border border-[#000000] bg-white px-5 font-['Inter'] text-[13px] font-semibold text-[#000000] hover:bg-[#f6f5f4] disabled:opacity-40">{draftBusy ? 'Menyimpan...' : 'Simpan pending'}</Button>
-                <Button type="button" onClick={() => void handleConfirmPay()} disabled={payBusy || draftBusy || !payPreview.valid || payAdjustmentSummary.finalTotal < 0} className="h-10 rounded-[8px] bg-[#000000] px-5 font-['Inter'] text-[13px] font-semibold text-white hover:bg-[#31302e] disabled:opacity-40">{payBusy ? 'Memproses...' : `Bayar ${formatCurrency(Math.max(0, payAdjustmentSummary.finalTotal))}`}</Button>
+                <Button type="button" onClick={() => void handleConfirmPay()} disabled={payBusy || draftBusy || !payPreview.valid || payAdjustmentSummary.finalTotal < 0} className="h-10 rounded-[8px] bg-[#000000] px-5 font-['Inter'] text-[13px] font-semibold text-white hover:text-white hover:bg-[#31302e] disabled:opacity-40">{payBusy ? 'Memproses...' : `Bayar ${formatCurrency(Math.max(0, payAdjustmentSummary.finalTotal))}`}</Button>
               </div>
               </>
             ) : null}
@@ -1076,8 +1076,8 @@ export function PackingSessionsPage() {
               <div className="grid gap-1.5">
                 <Label className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Tipe</Label>
                 <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Tipe catatan">
-                  <button type="button" role="radio" aria-checked={ledgerKind === 'deduct'} onClick={() => setLedgerKind('deduct')} className={`h-10 rounded-[8px] border font-['Inter'] text-[13px] font-medium transition-colors ${ledgerKind === 'deduct' ? 'border-[#000000] bg-[#000000] text-white' : 'border-[#e6e6e6] bg-white text-[#31302e] hover:bg-[#f6f5f4]'}`}>− Kurang (kasbon)</button>
-                  <button type="button" role="radio" aria-checked={ledgerKind === 'add'} onClick={() => setLedgerKind('add')} className={`h-10 rounded-[8px] border font-['Inter'] text-[13px] font-medium transition-colors ${ledgerKind === 'add' ? 'border-[#000000] bg-[#000000] text-white' : 'border-[#e6e6e6] bg-white text-[#31302e] hover:bg-[#f6f5f4]'}`}>+ Tambah (bonus)</button>
+                  <button type="button" role="radio" aria-checked={ledgerKind === 'deduct'} onClick={() => setLedgerKind('deduct')} className={`h-10 rounded-[8px] border font-['Inter'] text-[13px] font-medium transition-colors ${ledgerKind === 'deduct' ? 'border-[#000000] bg-[#000000] text-white hover:text-white' : 'border-[#e6e6e6] bg-white text-[#31302e] hover:bg-[#f6f5f4]'}`}>− Kurang (kasbon)</button>
+                  <button type="button" role="radio" aria-checked={ledgerKind === 'add'} onClick={() => setLedgerKind('add')} className={`h-10 rounded-[8px] border font-['Inter'] text-[13px] font-medium transition-colors ${ledgerKind === 'add' ? 'border-[#000000] bg-[#000000] text-white hover:text-white' : 'border-[#e6e6e6] bg-white text-[#31302e] hover:bg-[#f6f5f4]'}`}>+ Tambah (bonus)</button>
                 </div>
               </div>
               <div className="grid gap-1.5">
@@ -1098,7 +1098,7 @@ export function PackingSessionsPage() {
             </div>
             <div className="grid shrink-0 grid-cols-2 gap-2 border-t border-[#e6e6e6] bg-white p-4">
               <Button type="button" variant="ghost" onClick={() => setShowLedgerDialog(false)} disabled={ledgerBusy} className="h-10 rounded-full border border-[#e6e6e6] bg-white font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Batal</Button>
-              <Button type="button" onClick={() => void handleCreateLedger()} disabled={ledgerBusy} className="h-10 rounded-full bg-[#000000] font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e] disabled:opacity-40">{ledgerBusy ? 'Menyimpan...' : 'Simpan catatan'}</Button>
+              <Button type="button" onClick={() => void handleCreateLedger()} disabled={ledgerBusy} className="h-10 rounded-full bg-[#000000] font-['Inter'] text-[13px] font-medium text-white hover:text-white hover:bg-[#31302e] disabled:opacity-40">{ledgerBusy ? 'Menyimpan...' : 'Simpan catatan'}</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -1118,7 +1118,7 @@ export function PackingSessionsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" variant="ghost" onClick={() => openLedgerDialog()} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]"><HugeiconsIcon icon={Edit02Icon} size={16} strokeWidth={1.9} /> Catat kasbon/bonus</Button>
-          <Button type="button" variant="ghost" onClick={() => navigateTo('packing-payments')} className="h-10 rounded-lg bg-[#000000] px-4 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]">Riwayat Bayar</Button>
+          <Button type="button" variant="ghost" onClick={() => navigateTo('packing-payments')} className="h-10 rounded-lg bg-[#000000] px-4 font-['Inter'] text-[13px] font-medium text-white hover:text-white hover:bg-[#31302e]">Riwayat Bayar</Button>
           <div ref={headerMenuRef} className="relative">
             <Button type="button" variant="ghost" onClick={() => setShowHeaderMenu((v) => !v)} className="grid h-10 w-10 place-items-center rounded-lg border border-[#dddddd] bg-white text-[#31302e] hover:bg-[#f6f5f4]" aria-label="Menu lainnya">⋯</Button>
             {showHeaderMenu ? (
@@ -1146,10 +1146,10 @@ export function PackingSessionsPage() {
             <span className="font-semibold text-[#000000]">{lastPayment.paymentNo}</span>
             <span className="mx-1 text-[#a39e98]">·</span>
             {lastPayment.packerNameSnapshot} ({lastPayment.packerCodeSnapshot}) · {lastPayment.totalSessions} sesi · {lastPayment.totalPackages} paket · {formatCurrency(lastPayment.totalAmount)}{(lastPayment.adjustmentTotal ?? 0) !== 0 ? ` (subtotal ${formatCurrency(lastPayment.subtotalAmount ?? lastPayment.totalAmount)})` : ''}
-            <span className="ml-2 inline-flex rounded-full bg-[#000000] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-white">barusan dibayar</span>
+            <span className="ml-2 inline-flex rounded-full bg-[#000000] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-white hover:text-white">barusan dibayar</span>
           </p>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="ghost" onClick={() => navigateTo('packing-payments')} className="h-9 rounded-full bg-[#000000] px-4 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]">Lihat di Riwayat</Button>
+            <Button type="button" variant="ghost" onClick={() => navigateTo('packing-payments')} className="h-9 rounded-full bg-[#000000] px-4 font-['Inter'] text-[13px] font-medium text-white hover:text-white hover:bg-[#31302e]">Lihat di Riwayat</Button>
             <Button type="button" variant="ghost" onClick={() => setLastPayment(null)} className="h-9 rounded-full px-4 font-['Inter'] text-[13px] text-[#615d59] hover:bg-[#f6f5f4]">Tutup</Button>
           </div>
         </div>
@@ -1157,7 +1157,7 @@ export function PackingSessionsPage() {
 
       {lockedSummary.sessionCount > 0 ? (
         <div className="mb-4 flex flex-col gap-2 rounded-xl border border-[#000000] bg-[#000000] p-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="font-['Inter'] text-[13px] font-medium leading-5 text-white">🔒 {lockedSummary.sessionCount} sesi terkunci di {lockedSummary.draftCount} draft pending — tidak bisa dibayar, digabung, atau dihapus sampai draft dikonfirmasi/dibatalkan.</p>
+          <p className="font-['Inter'] text-[13px] font-medium leading-5 text-white hover:text-white">🔒 {lockedSummary.sessionCount} sesi terkunci di {lockedSummary.draftCount} draft pending — tidak bisa dibayar, digabung, atau dihapus sampai draft dikonfirmasi/dibatalkan.</p>
           <Button type="button" variant="ghost" onClick={() => scrollToPending()} className="h-9 shrink-0 rounded-lg bg-white px-4 font-['Inter'] text-[13px] font-semibold text-[#000000] hover:bg-[#f6f5f4]">Lihat Pending</Button>
         </div>
       ) : null}
@@ -1168,7 +1168,7 @@ export function PackingSessionsPage() {
             <div className="flex items-center gap-2">
               <h2 className="font-['Inter'] text-[14px] font-semibold leading-none text-[#000000]">Daftar Sesi</h2>
               {lockedSummary.sessionCount > 0 ? (
-                <button type="button" onClick={() => scrollToPending()} className="inline-flex items-center rounded-full bg-[#000000] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-white hover:bg-[#31302e]">🔒 {lockedSummary.sessionCount} terkunci · Lihat Pending</button>
+                <button type="button" onClick={() => scrollToPending()} className="inline-flex items-center rounded-full bg-[#000000] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-white hover:text-white hover:bg-[#31302e]">🔒 {lockedSummary.sessionCount} terkunci · Lihat Pending</button>
               ) : null}
             </div>
             <p className="mt-1 truncate font-['Inter'] text-[12px] leading-none text-[#615d59]">
@@ -1185,7 +1185,7 @@ export function PackingSessionsPage() {
             {selectedSessionIds.size > 0 ? (
               <>
                 <span className="mx-1 hidden h-7 w-px bg-[#e6e6e6] sm:block" aria-hidden="true" />
-                <Button type="button" onClick={openPayDialog} disabled={payPreview ? !payPreview.valid : true} title={payPreview && !payPreview.valid ? 'Pilihan tidak valid untuk dibayar' : 'Bayar sesi terpilih'} className="h-7 rounded-lg bg-[#000000] px-3.5 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#31302e] disabled:opacity-40"><HugeiconsIcon icon={DollarCircleIcon} size={14} strokeWidth={1.9} /> Bayar</Button>
+                <Button type="button" onClick={openPayDialog} disabled={payPreview ? !payPreview.valid : true} title={payPreview && !payPreview.valid ? 'Pilihan tidak valid untuk dibayar' : 'Bayar sesi terpilih'} className="h-7 rounded-lg bg-[#000000] px-3.5 font-['Inter'] text-[12px] font-medium text-white hover:text-white hover:bg-[#31302e] disabled:opacity-40"><HugeiconsIcon icon={DollarCircleIcon} size={14} strokeWidth={1.9} /> Bayar</Button>
                 <Button type="button" variant="ghost" onClick={() => void handleMergeSelected()} disabled={!canMergeSelected || mergeBusy} title={canMergeSelected ? 'Gabung sesi terpilih' : 'Hanya sesi 1 petugas + 1 tanggal yang belum dibayar'} className="h-7 rounded-lg border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={Package01Icon} size={14} strokeWidth={1.9} /> {mergeBusy ? 'Menggabung...' : 'Gabung'}</Button>
                 <Button type="button" variant="ghost" onClick={() => void handleDeleteSelectedSessions()} disabled={deleteBusy || deletePreview.deletable.length === 0} title={deletePreview.deletable.length > 0 ? 'Hapus sesi kosong terpilih' : 'Tidak ada sesi kosong yang bisa dihapus'} className="h-7 rounded-lg border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#991b1b] hover:bg-[#fee2e2] disabled:opacity-40"><HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={1.9} /> {deleteBusy ? 'Menghapus...' : 'Hapus'}</Button>
                 <Button type="button" variant="ghost" onClick={() => { const t = buildSelectionShareText(); if (t) setShareDraft({ title: 'Ringkasan packing', text: t }) }} disabled={totals.selectedSessions.length === 0} className="h-7 rounded-lg border border-[#e6e6e6] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4] disabled:opacity-40"><HugeiconsIcon icon={SentIcon} size={14} strokeWidth={1.9} /> Share</Button>
@@ -1225,7 +1225,7 @@ export function PackingSessionsPage() {
               {payPreview.lockedCount > 0 ? (
                 <Button type="button" variant="ghost" onClick={() => scrollToPending()} className="h-8 rounded-lg border border-[#8f8a84] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Lihat Pending</Button>
               ) : null}
-              <Button type="button" variant="ghost" onClick={deselectInvalidSessions} className="h-8 rounded-lg bg-[#000000] px-3 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#31302e]">Keluarkan yang tak valid</Button>
+              <Button type="button" variant="ghost" onClick={deselectInvalidSessions} className="h-8 rounded-lg bg-[#000000] px-3 font-['Inter'] text-[12px] font-medium text-white hover:text-white hover:bg-[#31302e]">Keluarkan yang tak valid</Button>
             </div>
           </div>
         ) : null}
@@ -1270,7 +1270,7 @@ export function PackingSessionsPage() {
                         <div className="flex items-center justify-between gap-4">
                           <div className="flex min-w-0 items-center gap-3">
                             <input type="checkbox" className="h-4 w-4 rounded border-[#dddddd] accent-[#000000]" checked={allGroupSelected} ref={(node) => { if (node) node.indeterminate = someGroupSelected }} onChange={() => toggleGroupSelection(group.sessions)} aria-label={`Pilih semua sesi ${group.name}`} />
-                            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#000000] font-['Inter'] text-[11px] font-semibold uppercase text-white">{getInitials(group.name)}</span>
+                            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#000000] font-['Inter'] text-[11px] font-semibold uppercase text-white hover:text-white">{getInitials(group.name)}</span>
                             <div className="min-w-0">
                               <p className="truncate font-['Inter'] text-[13px] font-semibold text-[#000000]">{group.name}</p>
                               <p className="font-['Inter'] text-[12px] text-[#a39e98]">{group.code} · {group.sessions.length} sesi · {group.totalPaket} paket · {group.unpaidSessions} belum dibayar · {group.paidSessions} sudah{group.lockedSessions > 0 ? ` · 🔒 ${group.lockedSessions} terkunci` : ''}</p>
@@ -1294,7 +1294,7 @@ export function PackingSessionsPage() {
                         </Td>
                         <Td>
                           <div className="flex flex-wrap gap-1.5">
-                            {s.paidAt ? <span className="inline-flex rounded-lg bg-[#000000] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-white">Dibayar</span> : lockedSessionDraftNo.has(s.id) ? <button type="button" onClick={() => scrollToPending(lockedSessionDraftNo.get(s.id)?.draftId)} title={`Terkunci di ${lockedSessionDraftNo.get(s.id)?.draftNo} — klik untuk lihat`} className="inline-flex items-center gap-1 rounded-lg border border-[#000000] bg-[#000000] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-white hover:bg-[#31302e]">🔒 {lockedSessionDraftNo.get(s.id)?.draftNo}</button> : <span className="inline-flex rounded-lg border border-[#8f8a84] bg-white px-2 py-0.5 font-['Inter'] text-[11px] font-medium text-[#615d59]">Belum dibayar</span>}
+                            {s.paidAt ? <span className="inline-flex rounded-lg bg-[#000000] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-white hover:text-white">Dibayar</span> : lockedSessionDraftNo.has(s.id) ? <button type="button" onClick={() => scrollToPending(lockedSessionDraftNo.get(s.id)?.draftId)} title={`Terkunci di ${lockedSessionDraftNo.get(s.id)?.draftNo} — klik untuk lihat`} className="inline-flex items-center gap-1 rounded-lg border border-[#000000] bg-[#000000] px-2 py-0.5 font-['Inter'] text-[11px] font-semibold text-white hover:text-white hover:bg-[#31302e]">🔒 {lockedSessionDraftNo.get(s.id)?.draftNo}</button> : <span className="inline-flex rounded-lg border border-[#8f8a84] bg-white px-2 py-0.5 font-['Inter'] text-[11px] font-medium text-[#615d59]">Belum dibayar</span>}
                             {s.status === 'active' ? <span className="inline-flex rounded-lg border border-[#dddddd] bg-white px-2 py-0.5 font-['Inter'] text-[11px] font-medium text-[#615d59]">Aktif</span> : null}
                           </div>
                         </Td>
@@ -1308,7 +1308,7 @@ export function PackingSessionsPage() {
                         <Td className="px-5">
                           <div className="flex justify-end gap-1.5">
                             {s.status === 'active' ? (
-                              <button type="button" onClick={() => askConfirm({ title: 'Tutup sesi ini?', body: `${s.packerNameSnapshot} · ${s.completedPackingCount} paket · ${formatCurrency(s.totalPayAmount)}. Sesi Ditutup tidak bisa diisi lagi.`, confirmLabel: 'Tutup sesi', onConfirm: () => handleCloseSessionInline(s.id) })} className="inline-flex h-8 items-center rounded-lg bg-[#000000] px-3 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#31302e]">Tutup</button>
+                              <button type="button" onClick={() => askConfirm({ title: 'Tutup sesi ini?', body: `${s.packerNameSnapshot} · ${s.completedPackingCount} paket · ${formatCurrency(s.totalPayAmount)}. Sesi Ditutup tidak bisa diisi lagi.`, confirmLabel: 'Tutup sesi', onConfirm: () => handleCloseSessionInline(s.id) })} className="inline-flex h-8 items-center rounded-lg bg-[#000000] px-3 font-['Inter'] text-[12px] font-medium text-white hover:text-white hover:bg-[#31302e]">Tutup</button>
                             ) : null}
                             <a href={getPackingSessionDetailPath(s.id)} onClick={(e) => { e.preventDefault(); handleOpenDetail(s) }} className="inline-flex h-8 items-center rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Detail</a>
                           </div>
@@ -1330,7 +1330,7 @@ export function PackingSessionsPage() {
                   className="flex w-full items-center gap-2.5 bg-[#fbfaf9] px-3 py-2.5 text-left"
                   aria-label={`Pilih semua sesi ${group.name}`}
                 >
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#000000] font-['Inter'] text-[12px] font-semibold uppercase text-white">{getInitials(group.name)}</span>
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#000000] font-['Inter'] text-[12px] font-semibold uppercase text-white hover:text-white">{getInitials(group.name)}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-['Inter'] text-[13px] font-semibold text-[#000000]">{group.name}</span>
                     <span className="block font-['Inter'] text-[11px] text-[#a39e98]">{group.sessions.length} sesi · {group.totalPaket} paket{group.lockedSessions > 0 ? ` · 🔒 ${group.lockedSessions}` : ''}</span>
@@ -1347,13 +1347,13 @@ export function PackingSessionsPage() {
                           <p className="truncate font-['Inter'] text-[13px] font-medium text-[#000000]">{formatSessionDateLabel(s.startedAt)}</p>
                           <p className="mt-0.5 font-['Inter'] text-[11px] tabular-nums text-[#a39e98]">{s.completedPackingCount} paket · {formatCurrency(s.totalPayAmount)}</p>
                           <div className="mt-1 flex flex-wrap gap-1">
-                            {s.paidAt ? <span className="inline-flex rounded-md bg-[#000000] px-1.5 py-px font-['Inter'] text-[10px] font-semibold text-white">Dibayar</span> : locked ? <span className="inline-flex rounded-md bg-[#000000] px-1.5 py-px font-['Inter'] text-[10px] font-semibold text-white">🔒 {locked.draftNo}</span> : <span className="inline-flex rounded-md border border-[#8f8a84] bg-white px-1.5 py-px font-['Inter'] text-[10px] font-medium text-[#615d59]">Belum dibayar</span>}
+                            {s.paidAt ? <span className="inline-flex rounded-md bg-[#000000] px-1.5 py-px font-['Inter'] text-[10px] font-semibold text-white hover:text-white">Dibayar</span> : locked ? <span className="inline-flex rounded-md bg-[#000000] px-1.5 py-px font-['Inter'] text-[10px] font-semibold text-white hover:text-white">🔒 {locked.draftNo}</span> : <span className="inline-flex rounded-md border border-[#8f8a84] bg-white px-1.5 py-px font-['Inter'] text-[10px] font-medium text-[#615d59]">Belum dibayar</span>}
                             {s.status === 'active' ? <span className="inline-flex rounded-md border border-[#dddddd] bg-white px-1.5 py-px font-['Inter'] text-[10px] font-medium text-[#615d59]">Aktif</span> : null}
                           </div>
                         </div>
                         <div className="flex shrink-0 flex-col gap-1">
                           {s.status === 'active' ? (
-                            <button type="button" onClick={() => askConfirm({ title: 'Tutup sesi ini?', body: `${s.packerNameSnapshot} · ${s.completedPackingCount} paket · ${formatCurrency(s.totalPayAmount)}. Sesi Ditutup tidak bisa diisi lagi.`, confirmLabel: 'Tutup sesi', onConfirm: () => handleCloseSessionInline(s.id) })} className="h-8 rounded-lg bg-[#000000] px-3 font-['Inter'] text-[12px] font-medium text-white">Tutup</button>
+                            <button type="button" onClick={() => askConfirm({ title: 'Tutup sesi ini?', body: `${s.packerNameSnapshot} · ${s.completedPackingCount} paket · ${formatCurrency(s.totalPayAmount)}. Sesi Ditutup tidak bisa diisi lagi.`, confirmLabel: 'Tutup sesi', onConfirm: () => handleCloseSessionInline(s.id) })} className="h-8 rounded-lg bg-[#000000] px-3 font-['Inter'] text-[12px] font-medium text-white hover:text-white">Tutup</button>
                           ) : null}
                           <a href={getPackingSessionDetailPath(s.id)} onClick={(e) => { e.preventDefault(); handleOpenDetail(s) }} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#dddddd] bg-white px-3 font-['Inter'] text-[12px] font-medium text-[#31302e]">Detail</a>
                         </div>
@@ -1388,7 +1388,7 @@ export function PackingSessionsPage() {
           <div className="grid justify-items-center gap-3 rounded-xl bg-[#f6f5f4] px-6 py-8 text-center">
             <div className="font-['Inter'] text-[15px] font-medium leading-6 text-[#000000]">Tidak ada yang pending — semua beres ✓</div>
             <div>
-              <Button type="button" variant="ghost" onClick={() => daftarSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="h-9 rounded-lg bg-[#000000] px-4 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]">Pilih sesi untuk draft</Button>
+              <Button type="button" variant="ghost" onClick={() => daftarSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="h-9 rounded-lg bg-[#000000] px-4 font-['Inter'] text-[13px] font-medium text-white hover:text-white hover:bg-[#31302e]">Pilih sesi untuk draft</Button>
             </div>
             <div className="max-w-md font-['Inter'] text-[13px] leading-5 text-[#615d59]">Kasbon yang baru ingat bisa dicatat lewat tombol di atas halaman. Pembayaran bisa disimpan sebagai draft tanpa konfirmasi.</div>
           </div>
@@ -1427,7 +1427,7 @@ export function PackingSessionsPage() {
                           <span className="truncate font-['Inter'] text-[12px] text-[#a39e98]">oleh {draft.createdByOperatorName ?? '-'} · {formatDateTimeWIB(draft.createdAt)}</span>
                           <div className="flex shrink-0 gap-2">
                             <Button type="button" variant="ghost" size="sm" onClick={() => void handleCancelDraft(draft)} className="h-9 rounded-lg border border-[#e6e6e6] bg-white px-3.5 font-['Inter'] text-[13px] font-medium text-[#31302e] hover:bg-[#f6f5f4]">Batal</Button>
-                            <Button type="button" variant="ghost" size="sm" onClick={() => void handleConfirmDraft(draft)} className="h-9 rounded-full bg-[#000000] px-6 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]">Konfirmasi</Button>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => void handleConfirmDraft(draft)} className="h-9 rounded-full bg-[#000000] px-6 font-['Inter'] text-[13px] font-medium text-white hover:text-white hover:bg-[#31302e]">Konfirmasi</Button>
                           </div>
                         </div>
                         {expanded ? (

@@ -137,7 +137,7 @@ export function OperatorLoginPage() {
               </Alert>
             ) : null}
 
-            <Button type="submit" size="lg" className="h-8 w-full rounded-[8px] bg-[#000000] font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]" disabled={isSubmitting}>
+            <Button type="submit" size="lg" className="h-8 w-full rounded-[8px] bg-[#000000] font-['Inter'] text-[13px] font-medium text-white hover:text-white hover:bg-[#31302e]" disabled={isSubmitting}>
               {isSubmitting ? 'Memproses...' : 'Masuk'}
             </Button>
           </form>

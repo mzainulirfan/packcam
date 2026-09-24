@@ -1,4 +1,4 @@
-import type { AppSettings, OperatorProfile, OperatorRole, OperatorSession, PackerAdjustment, PackerAdjustmentStatus, PackingPayment, PackingPaymentDraft, PackingPaymentDraftStatus, PackingPaymentMethod, PackingPayRule, PackingPayRuleMatchType, PackingPayType, PackingPayStatus, PackingWorkSession, RecordingChatSend, RecordingMediaType, RecordingRow, ScanLogRow, ShippingChatSend, ShopeeOrder, SystemConfig } from '@pakti/types'
+import type { AppSettings, DashboardSummary, OperatorProfile, OperatorRole, OperatorSession, PackerAdjustment, PackerAdjustmentStatus, PackingPayment, PackingPaymentDraft, PackingPaymentDraftStatus, PackingPaymentMethod, PackingPayRule, PackingPayRuleMatchType, PackingPayType, PackingPayStatus, PackingWorkSession, RecordingChatSend, RecordingMediaType, RecordingRow, ScanLogRow, ShippingChatSend, ShopeeOrder, SystemConfig } from '@pakti/types'
 
 type ApiResponse<T> = {
   ok: boolean
@@ -436,6 +436,11 @@ export function readPackingPaymentsApi(limit = 50) {
 
 export function readPackingPaymentApi(id: string) {
   return requestApi<PackingPayment>(`/api/packing-payments/${encodeURIComponent(id)}`)
+}
+
+export function readDashboardSummaryApi(date?: string) {
+  const suffix = date ? `?date=${encodeURIComponent(date)}` : ''
+  return requestApi<DashboardSummary>(`/api/dashboard/summary${suffix}`)
 }
 
 export function createPackingPaymentApi(payload: { sessionIds: string[]; paymentMethod?: PackingPaymentMethod | string | null; note?: string | null; adjustments?: Array<{ label: string; kind: 'add' | 'deduct'; amount: number }>; ledgerAdjustmentIds?: string[] }) {

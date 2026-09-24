@@ -167,7 +167,7 @@ export function WelcomePage() {
               </AlertDescription>
             </Alert>
 
-            <Button type="button" size="lg" className="h-10 w-full rounded-lg bg-[#000000] font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]" onClick={() => window.location.reload()}>
+            <Button type="button" size="lg" className="h-10 w-full rounded-lg bg-[#000000] font-['Inter'] text-[13px] font-medium text-white hover:text-white hover:bg-[#31302e]" onClick={() => window.location.reload()}>
               Masuk
             </Button>
           </CardContent>
@@ -211,7 +211,7 @@ export function WelcomePage() {
                 <div className="auth-opencode__note">
                   Bootstrap sudah selesai. Masuk ke halaman login untuk menggunakan akun admin yang sudah ada.
                 </div>
-                <Button type="button" size="lg" className="h-10 w-full rounded-lg bg-[#000000] font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]" onClick={() => window.location.reload()}>
+                <Button type="button" size="lg" className="h-10 w-full rounded-lg bg-[#000000] font-['Inter'] text-[13px] font-medium text-white hover:text-white hover:bg-[#31302e]" onClick={() => window.location.reload()}>
                   Masuk
                 </Button>
               </div>
@@ -289,7 +289,7 @@ export function WelcomePage() {
                   </Alert>
                 ) : null}
 
-                <Button type="submit" size="lg" className="h-10 w-full rounded-lg bg-[#000000] font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]" disabled={isSubmitting}>
+                <Button type="submit" size="lg" className="h-10 w-full rounded-lg bg-[#000000] font-['Inter'] text-[13px] font-medium text-white hover:text-white hover:bg-[#31302e]" disabled={isSubmitting}>
                   {isSubmitting ? 'Membuat akun...' : 'Buat admin'}
                 </Button>
               </form>

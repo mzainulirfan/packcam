@@ -18,6 +18,7 @@ import {
   deleteServerRecordingApi,
   finalizeServerRecordingApi,
   readActivePackingSessionApi,
+  readDashboardSummaryApi,
   readPackingOperatorsApi,
   readPackingPreviewByResiApi,
   readServerSettingsApi,
@@ -26,7 +27,8 @@ import {
 } from '@pakti/api-client'
 import { getRecordingTaskProgress, refreshRecordingsFromServer } from '@pakti/shared/recordings'
 import { logScanEvent } from '@pakti/shared'
-import type { PackingWorkSession, ShopeeOrder } from '@pakti/types'
+import type { DashboardSummary, PackingWorkSession, ShopeeOrder } from '@pakti/types'
+import { navigateTo } from '../app/uiState'
 import { clearRepeatQcResi, readRepeatQcResi } from '../app/repeatQcState'
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner'
 import { useCameraDevices } from '../hooks/useCameraDevices'
@@ -69,6 +71,7 @@ export function ScanPage() {
   const [packingCaptureLoading, setPackingCaptureLoading] = useState(false)
   const [lastPhotoResi, setLastPhotoResi] = useState<string | null>(null)
   const [lastPhotoId, setLastPhotoId] = useState<string | null>(null)
+  const [shiftSummary, setShiftSummary] = useState<DashboardSummary | null>(null)
   const [photoStaging, setPhotoStaging] = useState<{ resi: string; blob: Blob; previewUrl: string; startedAt: Date } | null>(null)
   const [skipAutoPhoto, setSkipAutoPhoto] = useState(false)
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null)
@@ -93,6 +96,21 @@ export function ScanPage() {
     packingSessionId: activePackingSession?.id ?? null,
     mediaType: packingMediaType,
   })
+  const prevRecordingModeRef = useRef(recordingSession.state.mode)
+
+  useEffect(() => {
+    const prev = prevRecordingModeRef.current
+    prevRecordingModeRef.current = recordingSession.state.mode
+    // Muat sekali saat mount; muat ulang tiap ada rekaman yang selesai tersimpan.
+    if (prev !== 'idle' && recordingSession.state.mode !== 'idle') return
+    let cancelled = false
+    void readDashboardSummaryApi().then((data) => {
+      if (!cancelled) setShiftSummary(data)
+    }).catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [recordingSession.state.mode])
   const isTaskSwitchLocked =
     recordingSession.state.mode === 'recording' ||
     recordingSession.state.mode === 'stopping' ||
@@ -578,10 +596,27 @@ export function ScanPage() {
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-[#dddddd] bg-white px-3 py-1.5 font-['Inter'] text-[12px] font-semibold text-[#000000]">{activeTask.toUpperCase()} {isPackingTask && packingMediaType === 'photo' ? '· Foto' : ''}</span>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-[#dddddd] bg-white px-3 py-1.5 font-['Inter'] text-[12px] font-medium text-[#31302e]"><HugeiconsIcon icon={UserGroupIcon} size={14} strokeWidth={1.9} />{operatorSession?.operatorName || operatorSession?.operatorCode || 'operator'}</span>
-          <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-['Inter'] text-[12px] font-semibold ${recordingSession.state.mode === 'recording' || recordingSession.state.mode === 'saving' ? 'border-[#000000] bg-[#000000] text-white' : 'border-[#dddddd] bg-white text-[#615d59]'}`}>{recordingSession.state.mode}</span>
+          <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-['Inter'] text-[12px] font-semibold ${recordingSession.state.mode === 'recording' || recordingSession.state.mode === 'saving' ? 'border-[#000000] bg-[#000000] text-white hover:text-white' : 'border-[#dddddd] bg-white text-[#615d59]'}`}>{recordingSession.state.mode}</span>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-[#dddddd] bg-[#f6f5f4] px-3 py-1.5 font-['Inter'] text-[12px] font-medium tabular-nums text-[#000000]"><HugeiconsIcon icon={Clock01Icon} size={14} strokeWidth={1.9} />{recordingElapsedLabel}</span>
         </div>
       </section>
+
+      {shiftSummary ? (
+        <button
+          type="button"
+          onClick={() => navigateTo('operasional')}
+          title="Buka ringkasan operasional"
+          className="mb-4 flex w-full items-center justify-between gap-3 rounded-xl border border-[#dddddd] bg-white px-4 py-3 text-left hover:bg-[#fbfaf9]"
+        >
+          <span className="font-['Inter'] text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Shift hari ini</span>
+          <span className="font-['Inter'] text-[13px] tabular-nums text-[#31302e]">
+            QC <strong className="font-semibold text-[#000000]">{shiftSummary.qcCompleted}</strong>
+            {' · '}Packing <strong className="font-semibold text-[#000000]">{shiftSummary.packingCompleted}</strong>
+            {' · '}{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(shiftSummary.payTotal)}
+            <span className="ml-2 text-[#a39e98]">Detail →</span>
+          </span>
+        </button>
+      ) : null}
 
       {scanAlert ? <Alert variant={scanAlert.kind === 'error' ? 'destructive' : scanAlert.kind === 'success' ? 'success' : 'info'} className="mb-4 rounded-lg border-[#dddddd] bg-white font-['Inter'] text-[13px]"><p className="text-[#31302e]">{scanAlert.message}</p></Alert> : null}
       {isPackingTask && packingMediaType === 'photo' && !activePackingSession ? <Alert variant="info" className="mb-4 rounded-lg border-[#dddddd] bg-white font-['Inter'] text-[13px]"><p className="text-[#31302e]">Foto packing butuh sesi aktif. Pilih petugas di panel sesi packing.</p></Alert> : null}
@@ -614,7 +649,7 @@ export function ScanPage() {
             <div className="overflow-hidden rounded-xl border border-[#dddddd] bg-white">
               <div className="flex items-center justify-between gap-3 border-b border-[#dddddd] bg-[#fbfaf9] px-4 py-3">
                 <h2 className="font-['Inter'] text-[13px] font-semibold text-[#000000]">Status</h2>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-black px-2.5 py-1 font-['Inter'] text-[11px] font-semibold tabular-nums text-white"><HugeiconsIcon icon={Clock01Icon} size={12} strokeWidth={1.9} />{recordingElapsedLabel}</span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-black px-2.5 py-1 font-['Inter'] text-[11px] font-semibold tabular-nums text-white hover:text-white"><HugeiconsIcon icon={Clock01Icon} size={12} strokeWidth={1.9} />{recordingElapsedLabel}</span>
               </div>
               <div className="grid gap-3 p-4">
                 <p className="rounded-[4px] border border-[#dddddd] bg-[#f6f5f4] px-3 py-2 font-['Inter'] text-[13px] leading-5 text-[#31302e]">{recordingSession.state.message}</p>
@@ -637,7 +672,7 @@ export function ScanPage() {
                     {(['qc', 'packing'] as const).map((taskType) => {
                       const isActive = activeTask === taskType
                       return (
-                        <Button key={taskType} type="button" variant={isActive ? 'default' : 'outline'} size="sm" className={`h-8 rounded-full px-4 font-['Inter'] text-[12px] font-medium ${isActive ? 'bg-black text-white hover:bg-black' : 'border-[#dddddd] bg-white text-[#615d59] hover:bg-[#f6f5f4]'}`} disabled={isTaskSwitchLocked || isActive} onClick={() => handleTaskSwitch(taskType)}>
+                        <Button key={taskType} type="button" variant={isActive ? 'default' : 'outline'} size="sm" className={`h-8 rounded-full px-4 font-['Inter'] text-[12px] font-medium ${isActive ? 'bg-black text-white hover:text-white hover:bg-black' : 'border-[#dddddd] bg-white text-[#615d59] hover:bg-[#f6f5f4]'}`} disabled={isTaskSwitchLocked || isActive} onClick={() => handleTaskSwitch(taskType)}>
                           {isActive ? '●' : '○'} {taskType.toUpperCase()}
                         </Button>
                       )
@@ -667,8 +702,8 @@ export function ScanPage() {
                           {packingSessionLoading ? 'Proses...' : 'Akhiri sesi'}
                         </Button>
                         <div className="flex gap-1 rounded-lg border border-[#dddddd] bg-[#f6f5f4] p-1">
-                          <Button type="button" variant={packingMediaType === 'video' ? 'default' : 'ghost'} size="sm" className={`flex-1 h-7 rounded-md font-['Inter'] text-[12px] font-medium ${packingMediaType === 'video' ? 'bg-black text-white' : 'text-[#615d59]'}`} onClick={() => setPackingMediaType('video')}>Video</Button>
-                          <Button type="button" variant={packingMediaType === 'photo' ? 'default' : 'ghost'} size="sm" className={`flex-1 h-7 rounded-md font-['Inter'] text-[12px] font-medium ${packingMediaType === 'photo' ? 'bg-black text-white' : 'text-[#615d59]'}`} onClick={() => setPackingMediaType('photo')}>Foto</Button>
+                          <Button type="button" variant={packingMediaType === 'video' ? 'default' : 'ghost'} size="sm" className={`flex-1 h-7 rounded-md font-['Inter'] text-[12px] font-medium ${packingMediaType === 'video' ? 'bg-black text-white hover:text-white' : 'text-[#615d59]'}`} onClick={() => setPackingMediaType('video')}>Video</Button>
+                          <Button type="button" variant={packingMediaType === 'photo' ? 'default' : 'ghost'} size="sm" className={`flex-1 h-7 rounded-md font-['Inter'] text-[12px] font-medium ${packingMediaType === 'photo' ? 'bg-black text-white hover:text-white' : 'text-[#615d59]'}`} onClick={() => setPackingMediaType('photo')}>Foto</Button>
                         </div>
                       </div>
                       <div className="grid gap-2 border-t border-dashed border-[#dddddd] pt-3">
@@ -686,7 +721,7 @@ export function ScanPage() {
                               })}
                             </SelectContent>
                           </Select>
-                          <Button type="button" size="sm" className="h-8 rounded-full bg-black px-4 font-['Inter'] text-[12px] font-medium text-white hover:bg-black" disabled={packingSessionLoading || !selectedPackerKey} onClick={() => void handleSwitchPackingSession()}>Ganti</Button>
+                          <Button type="button" size="sm" className="h-8 rounded-full bg-black px-4 font-['Inter'] text-[12px] font-medium text-white hover:text-white hover:bg-black" disabled={packingSessionLoading || !selectedPackerKey} onClick={() => void handleSwitchPackingSession()}>Ganti</Button>
                         </div>
                         <p className="font-['Inter'] text-[11px] text-[#a39e98]">Sesi lama otomatis ditutup.</p>
                       </div>
@@ -706,13 +741,13 @@ export function ScanPage() {
                           })}
                         </SelectContent>
                       </Select>
-                      <Button type="button" size="sm" className="h-9 rounded-lg bg-[#000000] font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]" disabled={packingSessionLoading || !selectedPackerKey} onClick={() => void handleCreatePackingSession()}>
+                      <Button type="button" size="sm" className="h-9 rounded-lg bg-[#000000] font-['Inter'] text-[13px] font-medium text-white hover:text-white hover:bg-[#31302e]" disabled={packingSessionLoading || !selectedPackerKey} onClick={() => void handleCreatePackingSession()}>
                         {packingSessionLoading ? 'Membuat...' : 'Mulai sesi packing'}
                       </Button>
                       {!isPhotoPackingMode ? (
                         <div className="flex gap-1 rounded-lg border border-[#dddddd] bg-[#f6f5f4] p-1">
-                          <Button type="button" size="sm" className={`flex-1 h-7 rounded-md font-['Inter'] text-[12px] font-medium ${packingMediaType === 'video' ? 'bg-black text-white' : 'bg-transparent text-[#615d59]'}`} onClick={() => setPackingMediaType('video')}>Video</Button>
-                          <Button type="button" size="sm" className={`flex-1 h-7 rounded-md font-['Inter'] text-[12px] font-medium ${packingMediaType === 'photo' ? 'bg-black text-white' : 'bg-transparent text-[#615d59]'}`} onClick={() => setPackingMediaType('photo')}>Foto</Button>
+                          <Button type="button" size="sm" className={`flex-1 h-7 rounded-md font-['Inter'] text-[12px] font-medium ${packingMediaType === 'video' ? 'bg-black text-white hover:text-white' : 'bg-transparent text-[#615d59]'}`} onClick={() => setPackingMediaType('video')}>Video</Button>
+                          <Button type="button" size="sm" className={`flex-1 h-7 rounded-md font-['Inter'] text-[12px] font-medium ${packingMediaType === 'photo' ? 'bg-black text-white hover:text-white' : 'bg-transparent text-[#615d59]'}`} onClick={() => setPackingMediaType('photo')}>Foto</Button>
                         </div>
                       ) : null}
                     </div>
@@ -730,7 +765,7 @@ export function ScanPage() {
                 </div>
                 <p className="mt-2 font-['Inter'] text-[12px] text-[#615d59]">Resi {photoStaging.resi} · {packingPreview ? `Rp${new Intl.NumberFormat('id-ID').format(packingPreview.pay.amount)}` : ''}</p>
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  <Button type="button" size="sm" className="h-8 rounded-full bg-black font-['Inter'] text-[12px] font-medium text-white hover:bg-black" disabled={packingCaptureLoading} onClick={() => void confirmPhotoStaging()}>
+                  <Button type="button" size="sm" className="h-8 rounded-full bg-black font-['Inter'] text-[12px] font-medium text-white hover:text-white hover:bg-black" disabled={packingCaptureLoading} onClick={() => void confirmPhotoStaging()}>
                     {packingCaptureLoading ? 'Menyimpan...' : 'Gunakan foto ✓'}
                   </Button>
                   <Button type="button" variant="outline" size="sm" className="h-8 rounded-full border-[#dddddd] bg-white font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]" disabled={packingCaptureLoading} onClick={() => { setSkipAutoPhoto(true); clearPhotoStaging(); setScanAlert({ kind: 'info', message: 'Ulangi foto — posisikan paket lalu klik Foto manual, tidak otomatis.' }) }}>
@@ -760,8 +795,8 @@ export function ScanPage() {
 
         <div className={`overflow-hidden rounded-xl border border-[#dddddd] bg-black ${isPhotoPackingMode ? 'flex h-[calc(100vh-160px)] min-h-[480px] flex-col lg:h-[calc(100vh-180px)]' : 'lg:sticky lg:top-4'}`}>
           <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-black px-4 py-3">
-            <h2 className="font-['Inter'] text-[13px] font-semibold text-white">Preview kamera</h2>
-            <span className={`inline-flex items-center rounded-full border px-2.5 py-1 font-['Inter'] text-[11px] font-semibold ${scanMode === 'full-frame' ? 'border-white/20 bg-white/10 text-white' : 'border-white/20 bg-white text-black'}`}>{scanMode === 'full-frame' ? 'Full-frame' : 'Center-first'}</span>
+            <h2 className="font-['Inter'] text-[13px] font-semibold text-white hover:text-white">Preview kamera</h2>
+            <span className={`inline-flex items-center rounded-full border px-2.5 py-1 font-['Inter'] text-[11px] font-semibold ${scanMode === 'full-frame' ? 'border-white/20 bg-white/10 text-white hover:text-white' : 'border-white/20 bg-white text-black'}`}>{scanMode === 'full-frame' ? 'Full-frame' : 'Center-first'}</span>
           </div>
 
           <div className="grid gap-3 bg-[#f6f5f4] p-3">
@@ -781,8 +816,8 @@ export function ScanPage() {
               <div className="grid gap-1.5">
                 <Label className="font-['Inter'] text-[11px] font-medium text-[#000000]">Mode scan</Label>
                 <div className="flex gap-1 rounded-lg border border-[#dddddd] bg-[#f6f5f4] p-1">
-                  <Button type="button" variant={scanMode === 'center-first' ? 'default' : 'ghost'} size="sm" className={`flex-1 h-7 rounded-md font-['Inter'] text-[12px] font-medium ${scanMode === 'center-first' ? 'bg-black text-white' : 'text-[#615d59]'}`} onClick={() => setScanMode('center-first')}>Cepat</Button>
-                  <Button type="button" variant={scanMode === 'full-frame' ? 'default' : 'ghost'} size="sm" className={`flex-1 h-7 rounded-md font-['Inter'] text-[12px] font-medium ${scanMode === 'full-frame' ? 'bg-black text-white' : 'text-[#615d59]'}`} onClick={() => setScanMode('full-frame')}>Longgar</Button>
+                  <Button type="button" variant={scanMode === 'center-first' ? 'default' : 'ghost'} size="sm" className={`flex-1 h-7 rounded-md font-['Inter'] text-[12px] font-medium ${scanMode === 'center-first' ? 'bg-black text-white hover:text-white' : 'text-[#615d59]'}`} onClick={() => setScanMode('center-first')}>Cepat</Button>
+                  <Button type="button" variant={scanMode === 'full-frame' ? 'default' : 'ghost'} size="sm" className={`flex-1 h-7 rounded-md font-['Inter'] text-[12px] font-medium ${scanMode === 'full-frame' ? 'bg-black text-white hover:text-white' : 'text-[#615d59]'}`} onClick={() => setScanMode('full-frame')}>Longgar</Button>
                 </div>
               </div>
             </div>
@@ -802,18 +837,18 @@ export function ScanPage() {
                 {isPhotoPackingMode ? (
                   <div className="flex items-center justify-between gap-2 rounded-xl bg-black/60 px-3 py-2 backdrop-blur">
                     <button type="button" onClick={() => { if (activePackingSession) { const el=document.getElementById('web-packing-switch'); el?.focus(); (el as unknown as {showPicker?:()=>void})?.showPicker?.() } }} disabled={!activePackingSession} className="grid flex-1 gap-0.5 text-left">
-                      <span className="font-['Inter'] text-[11px] font-semibold tracking-wide text-white">Sesi Packing — tap untuk ganti</span>
-                      <span className="font-['Inter'] text-[13px] font-bold text-white">{activePackingSession ? activePackingSession.packerNameSnapshot : 'Mulai sesi'}</span>
+                      <span className="font-['Inter'] text-[11px] font-semibold tracking-wide text-white hover:text-white">Sesi Packing — tap untuk ganti</span>
+                      <span className="font-['Inter'] text-[13px] font-bold text-white hover:text-white">{activePackingSession ? activePackingSession.packerNameSnapshot : 'Mulai sesi'}</span>
                       <span className="font-['Inter'] text-[11px] text-white/80">{activePackingSession ? `${activePackingSession.completedPackingCount} paket · ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(activePackingSession.totalPayAmount)}` : 'Tap untuk mulai sesi'}</span>
                     </button>
-                    {activePackingSession ? <Button type="button" variant="outline" size="sm" className="h-7 shrink-0 rounded-full border-white/30 bg-black/40 px-3 font-['Inter'] text-[12px] font-medium text-white backdrop-blur hover:bg-black/60" disabled={packingSessionLoading} onClick={() => void handleClosePackingSession()}>Akhiri</Button> : null}
+                    {activePackingSession ? <Button type="button" variant="outline" size="sm" className="h-7 shrink-0 rounded-full border-white/30 bg-black/40 px-3 font-['Inter'] text-[12px] font-medium text-white hover:text-white backdrop-blur hover:bg-black/60" disabled={packingSessionLoading} onClick={() => void handleClosePackingSession()}>Akhiri</Button> : null}
                   </div>
                 ) : null}
                 <div className="flex items-center gap-2 rounded-full bg-black/50 px-3 py-1.5 backdrop-blur">
-                  <span className="flex items-center gap-1.5 font-['Inter'] text-[11px] font-semibold text-white"><HugeiconsIcon icon={Clock01Icon} size={12} strokeWidth={1.9} />{recordingElapsedLabel}</span>
+                  <span className="flex items-center gap-1.5 font-['Inter'] text-[11px] font-semibold text-white hover:text-white"><HugeiconsIcon icon={Clock01Icon} size={12} strokeWidth={1.9} />{recordingElapsedLabel}</span>
                   <span className="h-3 w-px bg-white/20" />
-                  <span className="font-['Inter'] text-[11px] text-white/80">Tugas: <strong className="font-semibold text-white">{activeTask}</strong></span>
-                  <span className="font-['Inter'] text-[11px] text-white/80">Operator: <strong className="font-semibold text-white">{operatorSession?.operatorName || operatorSession?.operatorCode || '-'}</strong></span>
+                  <span className="font-['Inter'] text-[11px] text-white/80">Tugas: <strong className="font-semibold text-white hover:text-white">{activeTask}</strong></span>
+                  <span className="font-['Inter'] text-[11px] text-white/80">Operator: <strong className="font-semibold text-white hover:text-white">{operatorSession?.operatorName || operatorSession?.operatorCode || '-'}</strong></span>
                   {isPhotoPackingMode && activePackingSession ? (
                     <div className="ml-auto flex gap-1 rounded-full bg-black/40 p-1 backdrop-blur">
                       <button type="button" onClick={() => setPackingMediaType('video')} className="rounded-full px-2.5 py-1 font-['Inter'] text-[11px] text-white/70">Video</button>
@@ -827,20 +862,20 @@ export function ScanPage() {
               photoStaging ? (
                 <div className="w-full max-w-md overflow-hidden rounded-xl border border-white/20 bg-black/80 p-2 backdrop-blur">
                   <img src={photoStaging.previewUrl} alt={`Preview ${photoStaging.resi}`} className="block max-h-[32vh] w-full rounded-lg object-contain" />
-                  <p className="mt-2 truncate text-center font-['Inter'] text-[12px] font-medium text-white">{photoStaging.resi} · cek lalu Gunakan</p>
+                  <p className="mt-2 truncate text-center font-['Inter'] text-[12px] font-medium text-white hover:text-white">{photoStaging.resi} · cek lalu Gunakan</p>
                 </div>
               ) : isSavingFlowVisible ? (
                 <div className="w-full max-w-md rounded-xl border border-white/20 bg-black/70 px-4 py-3 backdrop-blur">
                   {recordingSession.state.mode === 'ready_to_record_next' ? (
                     <div className="grid gap-1 text-center">
-                      <p className="font-['Inter'] text-[13px] font-semibold text-white">Penyimpanan selesai</p>
+                      <p className="font-['Inter'] text-[13px] font-semibold text-white hover:text-white">Penyimpanan selesai</p>
                       <p className="font-['Inter'] text-[12px] text-white/70">Siap merekam resi berikutnya.</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
                         <div className="min-w-0">
-                          <p className="font-['Inter'] text-[13px] font-semibold text-white">{recordingSession.state.mode === 'saving' ? 'Menyimpan video...' : 'Menghentikan rekaman...'}</p>
+                          <p className="font-['Inter'] text-[13px] font-semibold text-white hover:text-white">{recordingSession.state.mode === 'saving' ? 'Menyimpan video...' : 'Menghentikan rekaman...'}</p>
                           <p className="truncate font-['Inter'] text-[12px] text-white/70">{recordingSession.state.mode === 'saving' ? `Resi ${recordingSession.state.savingResi ?? recordingSession.state.activeResi ?? '-'} diproses` : 'Mohon tunggu'}</p>
                         </div>
                       </div>
@@ -856,7 +891,7 @@ export function ScanPage() {
                   <Button type="button" size="sm" className="h-9 rounded-full bg-white px-6 font-['Inter'] text-[13px] font-semibold text-black hover:bg-white/90" onClick={() => void confirmPhotoStaging()} disabled={packingCaptureLoading}>
                     {packingCaptureLoading ? 'Menyimpan...' : 'Gunakan foto ✓'}
                   </Button>
-                  <Button type="button" variant="outline" size="sm" className="h-9 rounded-full border-white/30 bg-black/40 px-6 font-['Inter'] text-[13px] font-medium text-white backdrop-blur hover:bg-black/60" onClick={() => { setSkipAutoPhoto(true); clearPhotoStaging() }} disabled={packingCaptureLoading}>Ulangi</Button>
+                  <Button type="button" variant="outline" size="sm" className="h-9 rounded-full border-white/30 bg-black/40 px-6 font-['Inter'] text-[13px] font-medium text-white hover:text-white backdrop-blur hover:bg-black/60" onClick={() => { setSkipAutoPhoto(true); clearPhotoStaging() }} disabled={packingCaptureLoading}>Ulangi</Button>
                 </div>
               ) : isPackingTask && packingMediaType === 'photo' && activePackingSession ? (
                 <div className="grid gap-2 bg-black/60 p-3 backdrop-blur">
@@ -874,8 +909,8 @@ export function ScanPage() {
                     }}
                   />
                   {packingPreview ? (
-                    <div className="grid gap-1 rounded-lg bg-white/10 p-2 font-['Inter'] text-[12px] text-white">
-                      <div className="flex justify-between gap-2"><span className="text-white/60">Jasa kirim</span><strong className="text-white">{packingPreview.order.shippingChannel ?? '-'}</strong></div>
+                    <div className="grid gap-1 rounded-lg bg-white/10 p-2 font-['Inter'] text-[12px] text-white hover:text-white">
+                      <div className="flex justify-between gap-2"><span className="text-white/60">Jasa kirim</span><strong className="text-white hover:text-white">{packingPreview.order.shippingChannel ?? '-'}</strong></div>
                       <div className="grid gap-1 text-white/80">
                         {packingPreview.order.items.slice(0, 2).map((it, index) => (
                           <div key={it.id ?? `${it.productName}-${it.variationName ?? ''}-${index}`} className="grid min-w-0 gap-0.5">
@@ -885,7 +920,7 @@ export function ScanPage() {
                         ))}
                         {packingPreview.order.items.length > 2 ? <span className="text-[11px] text-white/60">+{packingPreview.order.items.length - 2} lain</span> : null}
                       </div>
-                      <div className="flex justify-between"><span className="text-white/60">Upah</span><strong className="text-white">Rp{new Intl.NumberFormat('id-ID').format(packingPreview.pay.amount)}</strong></div>
+                      <div className="flex justify-between"><span className="text-white/60">Upah</span><strong className="text-white hover:text-white">Rp{new Intl.NumberFormat('id-ID').format(packingPreview.pay.amount)}</strong></div>
                     </div>
                   ) : null}
                   <div className="flex flex-col items-center gap-1 pt-1">
@@ -974,7 +1009,7 @@ function ShopeeOrderPanel({
         <p className="mt-0.5 font-['Inter'] text-[12px] text-[#a39e98]">{loading ? 'Memuat...' : message}</p>
       </div>
       <div className="grid gap-3 p-4">
-        <div className={`flex items-center gap-2 rounded-full border px-3 py-1.5 font-['Inter'] text-[12px] font-medium ${order ? 'border-[#000000] bg-[#000000] text-white' : 'border-[#dddddd] bg-[#f6f5f4] text-[#615d59]'}`}>
+        <div className={`flex items-center gap-2 rounded-full border px-3 py-1.5 font-['Inter'] text-[12px] font-medium ${order ? 'border-[#000000] bg-[#000000] text-white hover:text-white' : 'border-[#dddddd] bg-[#f6f5f4] text-[#615d59]'}`}>
           <HugeiconsIcon icon={order ? QrCodeIcon : Search01Icon} size={14} strokeWidth={1.9} />{loading ? 'Mencari...' : order ? 'Ditemukan' : 'Belum ada'}
         </div>
         {order ? (

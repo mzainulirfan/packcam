@@ -244,7 +244,7 @@ export function PackingPaymentsPage() {
             </div>
             <div className="mt-3 font-['Inter'] text-[14px] font-medium text-[#000000]">Belum ada pembayaran</div>
             <div className="mt-1 font-['Inter'] text-[12px] text-[#a39e98]">Pembayaran yang dibuat dari halaman Sesi Packing akan muncul di sini.</div>
-            <Button type="button" variant="ghost" onClick={() => navigateTo('packing-sessions')} className="mt-4 h-9 rounded-lg bg-[#000000] px-4 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]">Ke Sesi Packing</Button>
+            <Button type="button" variant="ghost" onClick={() => navigateTo('packing-sessions')} className="mt-4 h-9 rounded-lg bg-[#000000] px-4 font-['Inter'] text-[13px] font-medium text-white hover:text-white hover:bg-[#31302e]">Ke Sesi Packing</Button>
           </div>
         ) : filteredPayments.length === 0 ? (
           <div className="px-6 py-14 text-center">
@@ -305,7 +305,7 @@ export function PackingPaymentsPage() {
                         <Td className="font-['Inter'] text-[12px] text-[#615d59]">{formatDateTimeWIB(p.paidAt)}</Td>
                         <Td className="px-5">
                           <div className="flex justify-end gap-1">
-                            <Button type="button" variant="ghost" size="sm" onClick={() => { const t = buildPaymentShareText(p); setShareDraft({ title: `Pembayaran ${p.paymentNo}`, text: t }) }} className="h-8 rounded-lg bg-[#000000] px-4 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#31302e]"><HugeiconsIcon icon={SentIcon} size={14} strokeWidth={1.9} /> Share</Button>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => { const t = buildPaymentShareText(p); setShareDraft({ title: `Pembayaran ${p.paymentNo}`, text: t }) }} className="h-8 rounded-lg bg-[#000000] px-4 font-['Inter'] text-[12px] font-medium text-white hover:text-white hover:bg-[#31302e]"><HugeiconsIcon icon={SentIcon} size={14} strokeWidth={1.9} /> Share</Button>
                           </div>
                         </Td>
                       </tr>

@@ -267,7 +267,7 @@ export function ShopeePage() {
             </label>
             <div className="flex flex-wrap items-center gap-1.5">
               <div className="flex flex-wrap gap-1.5">
-                {QUEUE_MODE_OPTIONS.map((option) => <Button key={option.value} type="button" variant="ghost" size="sm" className={`h-8 rounded-[8px] border px-3 text-[12px] font-medium ${queueMode === option.value ? 'border-[#000000] bg-[#000000] text-white' : 'border-[#e6e6e6] bg-white text-[#31302e] hover:bg-[#f6f5f4]'}`} onClick={() => setQueueMode(option.value)}>{option.label}</Button>)}
+                {QUEUE_MODE_OPTIONS.map((option) => <Button key={option.value} type="button" variant="ghost" size="sm" className={`h-8 rounded-[8px] border px-3 text-[12px] font-medium ${queueMode === option.value ? 'border-[#000000] bg-[#000000] text-white hover:text-white' : 'border-[#e6e6e6] bg-white text-[#31302e] hover:bg-[#f6f5f4]'}`} onClick={() => setQueueMode(option.value)}>{option.label}</Button>)}
               </div>
               <StatusFilter id="shopee-queue-status-filter" value={queueStatusFilter} counts={queueStatusCounts} total={modeFilteredQueueItems.length} onChange={setQueueStatusFilter} />
               <Button type="button" variant="ghost" size="sm" className="grid h-8 w-8 place-items-center rounded-[8px] border border-[#e6e6e6] bg-white p-0 text-[#615d59] hover:bg-[#f6f5f4]" onClick={handleClearQueueFilters} aria-label="Reset filter" title="Reset filter"><HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={1.9} /></Button>
@@ -417,7 +417,7 @@ function PaginationControls({
             type="button"
             variant={item === page ? 'default' : 'outline'}
             size="sm"
-            className={`h-8 min-w-8 rounded-lg px-2 text-[12px] ${item === page ? 'bg-[#0075de] text-white hover:bg-[#005bab]' : 'border-[#dddddd] bg-white text-[#615d59]'}`}
+            className={`h-8 min-w-8 rounded-lg px-2 text-[12px] ${item === page ? 'bg-[#0075de] text-white hover:text-white hover:bg-[#005bab]' : 'border-[#dddddd] bg-white text-[#615d59]'}`}
             onClick={() => onPageChange(item)}
           >
             {item}

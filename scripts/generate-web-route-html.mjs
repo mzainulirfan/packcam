@@ -50,6 +50,13 @@ const routes = [
     robots: 'noindex, nofollow',
   },
   {
+    path: '/operasional',
+    output: 'operasional/index.html',
+    title: 'Pakti · Operasional Harian',
+    description: 'Ringkasan harian QC, packing, upah, dan antrean chat Packing.',
+    robots: 'noindex, nofollow',
+  },
+  {
     path: '/shopee-inspection',
     output: 'shopee-inspection/index.html',
     title: 'Pakti · Hasil Shopee',

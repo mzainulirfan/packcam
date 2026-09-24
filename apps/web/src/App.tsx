@@ -34,6 +34,7 @@ const PAGE_ICONS: Record<PageId, typeof QrCodeIcon> = {
   'packing-sessions': Package01Icon,
   'packing-session-detail': Package01Icon,
   'packing-payments': DollarCircleIcon,
+  operasional: Activity01Icon,
   'shopee-inspection': ShoppingBagCheckIcon,
   shopee: ShoppingBag01Icon,
   settings: Settings01Icon,
@@ -45,6 +46,7 @@ const PAGE_ICONS: Record<PageId, typeof QrCodeIcon> = {
 const ScanPage = lazy(() => import('./pages/ScanPage').then((module) => ({ default: module.ScanPage })))
 const HistoryPage = lazy(() => import('./pages/HistoryPage').then((module) => ({ default: module.HistoryPage })))
 const PackingSessionsPage = lazy(() => import('./pages/PackingSessionsPage').then((module) => ({ default: module.PackingSessionsPage })))
+const OperasionalPage = lazy(() => import('./pages/OperasionalPage').then((module) => ({ default: module.OperasionalPage })))
 const PackingSessionDetailPage = lazy(() => import('./pages/PackingSessionDetailPage').then((module) => ({ default: module.PackingSessionDetailPage })))
 const PackingPaymentsPage = lazy(() => import('./pages/PackingPaymentsPage').then((module) => ({ default: module.PackingPaymentsPage })))
 const ShopeePage = lazy(() => import('./pages/ShopeePage').then((module) => ({ default: module.ShopeePage })))
@@ -58,6 +60,7 @@ const PAGE_COMPONENTS: Record<PageId, ReactElement> = {
   scan: <ScanPage />,
   history: <HistoryPage />,
   'packing-sessions': <PackingSessionsPage />,
+  operasional: <OperasionalPage />,
   'packing-session-detail': <PackingSessionDetailPage />,
   'packing-payments': <PackingPaymentsPage />,
   shopee: <ShopeePage />,
@@ -96,7 +99,7 @@ function App() {
   )
   const sidebarSections = useMemo(() => {
     const sectionOrder: Array<{ id: NavGroupId | 'system'; label: string; items: PageId[] }> = [
-      { id: 'operasional', label: 'Operasional', items: ['scan', 'history', 'packing-sessions', 'packing-payments', 'shopee-inspection'] },
+      { id: 'operasional', label: 'Operasional', items: ['scan', 'history', 'operasional', 'packing-sessions', 'packing-payments', 'shopee-inspection'] },
       { id: 'administrasi', label: 'Administrasi', items: ['shopee', 'users', 'settings'] },
       { id: 'system', label: 'System', items: ['health', 'admin'] },
     ]
@@ -318,7 +321,7 @@ function App() {
             </button>
           </header>
 
-          <main className={activePage === 'users' || activePage === 'settings' || activePage === 'health' || activePage === 'admin' || activePage === 'shopee' || activePage === 'shopee-inspection' || activePage === 'packing-sessions' || activePage === 'packing-session-detail' || activePage === 'packing-payments' || activePage === 'history' || activePage === 'scan' ? 'dashboard-content dashboard-content--notion' : 'dashboard-content'}>
+          <main className={activePage === 'users' || activePage === 'settings' || activePage === 'health' || activePage === 'admin' || activePage === 'shopee' || activePage === 'shopee-inspection' || activePage === 'packing-sessions' || activePage === 'packing-session-detail' || activePage === 'packing-payments' || activePage === 'operasional' || activePage === 'history' || activePage === 'scan' ? 'dashboard-content dashboard-content--notion' : 'dashboard-content'}>
             <Suspense fallback={<PageLoadingPanel />}>{pageContent}</Suspense>
           </main>
         </section>

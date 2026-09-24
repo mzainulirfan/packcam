@@ -480,7 +480,7 @@ function Pagination({ currentPage, totalPages, total, onPageChange }: { currentP
             if (p === totalPages - 1 && currentPage < totalPages - 3) return <span key={p} className="px-1 text-[#a39e98]">...</span>
             return null
           }
-          return <Button key={p} type="button" variant={p === currentPage ? 'default' : 'outline'} size="sm" className={`h-8 min-w-8 rounded-lg px-2 text-[12px] ${p === currentPage ? 'bg-[#0075de] text-white hover:bg-[#005bab]' : 'border-[#dddddd] bg-white text-[#615d59]'}`} onClick={() => onPageChange(p)}>{p}</Button>
+          return <Button key={p} type="button" variant={p === currentPage ? 'default' : 'outline'} size="sm" className={`h-8 min-w-8 rounded-lg px-2 text-[12px] ${p === currentPage ? 'bg-[#0075de] text-white hover:text-white hover:bg-[#005bab]' : 'border-[#dddddd] bg-white text-[#615d59]'}`} onClick={() => onPageChange(p)}>{p}</Button>
         })}
         <Button type="button" variant="outline" size="sm" className="h-8 min-w-8 rounded-lg border-[#dddddd] bg-white px-2" disabled={currentPage >= totalPages} onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}>›</Button>
       </div>

@@ -396,7 +396,7 @@ export function UsersPage() {
           <h1 className="mt-2 font-['Inter'] text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-[#000000] sm:text-[36px]">Kelola pengguna</h1>
           <p className="mt-3 max-w-2xl font-['Inter'] text-[14px] leading-6 text-[#615d59] sm:text-[15px]">Tambah akun, atur role dan tugas, reset password, atau nonaktifkan akses operator dari satu tempat.</p>
         </div>
-        <Button type="button" onClick={openCreateModal} className="inline-flex h-8 shrink-0 items-center justify-center gap-2 rounded-[8px] bg-[#000000] px-3.5 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#31302e] active:scale-[0.98]">
+        <Button type="button" onClick={openCreateModal} className="inline-flex h-8 shrink-0 items-center justify-center gap-2 rounded-[8px] bg-[#000000] px-3.5 font-['Inter'] text-[12px] font-medium text-white hover:text-white hover:bg-[#31302e] active:scale-[0.98]">
           <HugeiconsIcon icon={UserAdd01Icon} size={14} strokeWidth={1.9} /> Tambah user
         </Button>
       </section>
@@ -533,7 +533,7 @@ export function UsersPage() {
                     <tr key={key} className={`bg-white transition-colors hover:bg-[#fbfaf9] ${selectedKey === key ? 'bg-[#f6f5f4]' : ''}`}>
                       <Td className="px-5 py-4">
                         <button type="button" onClick={() => openEditModal(profile)} className="group flex items-center gap-3 text-left">
-                          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-black text-[12px] font-semibold text-white">{getInitials(profile.fullName ?? profile.operatorName)}</span>
+                          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-black text-[12px] font-semibold text-white hover:text-white">{getInitials(profile.fullName ?? profile.operatorName)}</span>
                           <span className="min-w-0 text-left">
                             <span className="block font-['Inter'] text-[14px] font-medium text-[#000000] underline-offset-2 group-hover:underline">{profile.fullName ?? profile.operatorName}</span>
                             <span className="mt-0.5 block font-['Inter'] text-[12px] text-[#a39e98]">@{profile.operatorName}</span>
@@ -658,7 +658,7 @@ export function UsersPage() {
           </div>
           <div className="flex items-center justify-end gap-2 border-t border-[#e6e6e6] bg-white p-4">
             <Button type="button" variant="ghost" onClick={closeFormModal} className="h-10 rounded-lg border border-[#dddddd] bg-white px-4 font-['Inter'] text-[13px] font-medium hover:bg-[#f6f5f4]">Batal</Button>
-            <Button type="button" onClick={() => void handleSaveForm()} disabled={!!nameConflict || !!codeConflict || !fullName.trim() || !operatorName.trim()} className="h-10 rounded-full bg-[#0075de] px-5 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#005bab] disabled:opacity-40">Simpan user</Button>
+            <Button type="button" onClick={() => void handleSaveForm()} disabled={!!nameConflict || !!codeConflict || !fullName.trim() || !operatorName.trim()} className="h-10 rounded-full bg-[#0075de] px-5 font-['Inter'] text-[13px] font-medium text-white hover:text-white hover:bg-[#005bab] disabled:opacity-40">Simpan user</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -691,7 +691,7 @@ export function UsersPage() {
           </div>
           <div className="flex items-center justify-end gap-2 border-t border-[#e6e6e6] bg-white p-4">
             <Button type="button" variant="ghost" onClick={closeConfirmSaveModal} className="h-8 rounded-[8px] border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px]">Kembali</Button>
-            <Button type="button" onClick={() => { if (!pendingSaveAction) return; void commitSaveAction(pendingSaveAction) }} className="h-8 rounded-[8px] bg-[#0075de] px-6 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#005bab]">Simpan sekarang</Button>
+            <Button type="button" onClick={() => { if (!pendingSaveAction) return; void commitSaveAction(pendingSaveAction) }} className="h-8 rounded-[8px] bg-[#0075de] px-6 font-['Inter'] text-[13px] font-medium text-white hover:text-white hover:bg-[#005bab]">Simpan sekarang</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -727,7 +727,7 @@ export function UsersPage() {
           </div>
           <div className="flex items-center justify-end gap-2 border-t border-[#e6e6e6] bg-white p-4">
             <Button type="button" variant="ghost" onClick={() => (setResetTarget(null), setDialogState(null))} disabled={isResetting} className="h-8 rounded-[8px] border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px]">Batal</Button>
-            <Button type="button" onClick={() => void handleResetPassword()} disabled={isResetting} className="h-8 rounded-[8px] bg-[#0075de] px-6 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#005bab] disabled:opacity-40">{isResetting ? 'Menyimpan...' : 'Simpan password'}</Button>
+            <Button type="button" onClick={() => void handleResetPassword()} disabled={isResetting} className="h-8 rounded-[8px] bg-[#0075de] px-6 font-['Inter'] text-[13px] font-medium text-white hover:text-white hover:bg-[#005bab] disabled:opacity-40">{isResetting ? 'Menyimpan...' : 'Simpan password'}</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -753,7 +753,7 @@ export function UsersPage() {
           </div>
           <div className="flex items-center justify-end gap-2 border-t border-[#e6e6e6] bg-white p-4">
             <Button type="button" variant="ghost" onClick={() => (setDeleteTarget(null), setDialogState(null))} className="h-8 rounded-[8px] border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[13px]">Batal</Button>
-            <Button type="button" onClick={() => deleteTarget && void handleDeleteProfile(deleteTarget)} className="h-8 rounded-[8px] bg-black px-6 font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e]">Hapus user</Button>
+            <Button type="button" onClick={() => deleteTarget && void handleDeleteProfile(deleteTarget)} className="h-8 rounded-[8px] bg-black px-6 font-['Inter'] text-[13px] font-medium text-white hover:text-white hover:bg-[#31302e]">Hapus user</Button>
           </div>
         </DialogContent>
       </Dialog>

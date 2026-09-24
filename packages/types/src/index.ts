@@ -178,6 +178,24 @@ export type PackingPaymentDraft = {
   updatedAt: string
 }
 
+export type DashboardOperatorRow = {
+  operatorName: string
+  operatorCode: string
+  name: string
+  packingCount: number
+  payAmount: number
+}
+
+export type DashboardSummary = {
+  date: string
+  qcCompleted: number
+  packingCompleted: number
+  payTotal: number
+  operators: DashboardOperatorRow[]
+  chat: { pending: number; sent: number; failed: number }
+  ordersUpdated: number
+}
+
 export type PackingPayment = {
   id: string
   paymentNo: string

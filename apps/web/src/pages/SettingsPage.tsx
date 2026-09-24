@@ -386,7 +386,7 @@ export function SettingsPage() {
             </label>
 
             <div className="flex justify-end border-t border-[#e6e6e6] pt-4">
-              <Button type="button" onClick={handleSave} className="h-8 rounded-[8px] bg-[#000000] px-5 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#31302e]">
+              <Button type="button" onClick={handleSave} className="h-8 rounded-[8px] bg-[#000000] px-5 font-['Inter'] text-[12px] font-medium text-white hover:text-white hover:bg-[#31302e]">
                 <HugeiconsIcon icon={CheckmarkCircle01Icon} size={14} strokeWidth={1.9} /> Simpan settings
               </Button>
             </div>
@@ -411,7 +411,7 @@ export function SettingsPage() {
                 <div className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a39e98]">Preview</div>
               </div>
               <div className="flex items-center gap-3 bg-white p-4">
-                <div className="grid h-9 w-9 place-items-center rounded-[8px] bg-[#000000] font-['Inter'] text-[12px] font-bold text-white">{systemConfig.brandMark || DEFAULT_SYSTEM_CONFIG.brandMark}</div>
+                <div className="grid h-9 w-9 place-items-center rounded-[8px] bg-[#000000] font-['Inter'] text-[12px] font-bold text-white hover:text-white">{systemConfig.brandMark || DEFAULT_SYSTEM_CONFIG.brandMark}</div>
                 <div className="min-w-0">
                   <div className="truncate font-['Inter'] text-[14px] font-semibold text-[#000000]">{systemConfig.appName || DEFAULT_SYSTEM_CONFIG.appName}</div>
                   <div className="truncate font-['Inter'] text-[12px] text-[#615d59]">{systemConfig.tagline || DEFAULT_SYSTEM_CONFIG.tagline}</div>
@@ -423,7 +423,7 @@ export function SettingsPage() {
               <Button type="button" variant="ghost" onClick={handleResetBranding} className="h-8 rounded-[8px] border border-[#e6e6e6] bg-white px-4 font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]">
                 <HugeiconsIcon icon={RefreshIcon} size={14} strokeWidth={1.9} /> Reset branding
               </Button>
-              <Button type="button" onClick={handleSaveBranding} className="h-8 rounded-[8px] bg-[#000000] px-5 font-['Inter'] text-[12px] font-medium text-white hover:bg-[#31302e]">
+              <Button type="button" onClick={handleSaveBranding} className="h-8 rounded-[8px] bg-[#000000] px-5 font-['Inter'] text-[12px] font-medium text-white hover:text-white hover:bg-[#31302e]">
                 <HugeiconsIcon icon={CheckmarkCircle01Icon} size={14} strokeWidth={1.9} /> Simpan branding
               </Button>
             </div>
