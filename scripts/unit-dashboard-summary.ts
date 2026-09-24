@@ -31,6 +31,8 @@ seedRecording('qc', 'RESI-A', todayJakarta)
 seedRecording('packing', 'RESI-A', todayJakarta, 1500)
 seedRecording('packing', 'RESI-B', todayJakarta, 2000, 'PK02')
 seedRecording('packing', 'RESI-OLD', '2020-01-01', 9999)
+database.prepare(`INSERT INTO operator_profiles (operator_name, operator_code, role, task_type, full_name, last_used_at) VALUES ('sani', 'PK01', 'operator', 'packing', 'Sani Pengepak', ?)`)
+  .run(now)
 
 test('getDashboardSummary menghitung ringkasan hari ini saja', async () => {
   const summary = getDashboardSummary(todayJakarta)
@@ -40,6 +42,14 @@ test('getDashboardSummary menghitung ringkasan hari ini saja', async () => {
   assert.equal(summary.payTotal, 3500)
   assert.equal(summary.operators.length, 2)
   assert.equal(summary.operators[0]?.packingCount, 1)
+})
+
+test('getDashboardSummary menampilkan nama lengkap petugas bila ada', async () => {
+  const summary = getDashboardSummary(todayJakarta)
+  const withProfile = summary.operators.find((op) => op.operatorCode === 'PK01')
+  assert.equal(withProfile?.displayName, 'Sani Pengepak')
+  const withoutProfile = summary.operators.find((op) => op.operatorCode === 'PK02')
+  assert.equal(withoutProfile?.displayName, withoutProfile?.operatorName)
 })
 
 test('getDashboardSummary default ke hari ini dan tanggal invalid ditolak aman', async () => {

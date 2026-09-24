@@ -149,19 +149,20 @@ export function OperasionalPage() {
               <ul className="divide-y divide-[#e6e6e6]">
                 {summary.operators.map((op, idx) => {
                   const sticker = packerSticker(`${op.operatorName}::${op.operatorCode}`)
+                  const displayName = op.displayName || op.name || op.operatorName || ''
                   return (
                     <li key={`${op.operatorName}::${op.operatorCode}`} className="flex items-center gap-3 px-4 py-3 sm:px-5">
                       <span className="w-7 shrink-0 font-['Inter'] text-[13px] font-bold tabular-nums text-[#a39e98]">{String(idx + 1).padStart(2, '0')}</span>
                       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full font-['Inter'] text-[12px] font-semibold uppercase" style={{ backgroundColor: sticker.bg, color: sticker.fg }} aria-hidden="true">
-                        {op.name.trim().charAt(0).toUpperCase()}
+                        {displayName.trim().charAt(0).toUpperCase()}
                       </span>
                       <div className="grid min-w-0 flex-1 gap-1.5">
                         <div className="flex items-baseline justify-between gap-2">
-                          <span className="truncate font-['Inter'] text-[13px] font-semibold text-[#000000]">{op.name} <span className="font-normal text-[#a39e98]">{op.operatorCode}</span></span>
+                          <span className="truncate font-['Inter'] text-[13px] font-semibold text-[#000000]">{displayName} <span className="font-normal text-[#a39e98]">{op.operatorCode}</span></span>
                           <span className="shrink-0 font-['Inter'] text-[13px] font-semibold tabular-nums text-[#000000]">{formatCurrency(op.payAmount)}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[#f0efed]" role="progressbar" aria-valuenow={op.packingCount} aria-valuemax={maxPacking} aria-label={`Paket ${op.name}`}>
+                          <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[#f0efed]" role="progressbar" aria-valuenow={op.packingCount} aria-valuemax={maxPacking} aria-label={`Paket ${displayName}`}>
                             <div className="h-full rounded-full bg-[#000000]" style={{ width: `${Math.max(4, Math.round((op.packingCount / maxPacking) * 100))}%` }} />
                           </div>
                           <span className="shrink-0 font-['Inter'] text-[12px] tabular-nums text-[#615d59]">{op.packingCount} pkt</span>

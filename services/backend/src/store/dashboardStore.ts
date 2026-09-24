@@ -9,6 +9,7 @@ export type DashboardOperatorRow = {
   operatorName: string
   operatorCode: string
   name: string
+  displayName: string
   packingCount: number
   payAmount: number
 }
@@ -49,6 +50,10 @@ export function getDashboardSummary(dateParam?: unknown): DashboardSummary {
   const operatorRows = db().prepare(
     `SELECT packer_operator_name AS operatorName, packer_operator_code AS operatorCode,
             COALESCE(NULLIF(operator_name, ''), packer_operator_name) AS name,
+            COALESCE(NULLIF((SELECT p.full_name FROM operator_profiles p
+              WHERE LOWER(p.operator_name) = LOWER(packer_operator_name)
+                AND LOWER(p.operator_code) = LOWER(packer_operator_code)
+              ORDER BY p.last_used_at DESC LIMIT 1), ''), packer_operator_name) AS displayName,
             COUNT(*) AS packingCount, COALESCE(SUM(packing_pay_amount), 0) AS payAmount
      FROM recordings
      WHERE task_type = 'packing' AND status = 'completed' AND record_date = ?
@@ -76,6 +81,7 @@ export function getDashboardSummary(dateParam?: unknown): DashboardSummary {
       operatorName: row.operatorName,
       operatorCode: row.operatorCode,
       name: row.name,
+      displayName: row.displayName || row.operatorName,
       packingCount: row.packingCount,
       payAmount: row.payAmount,
     })),

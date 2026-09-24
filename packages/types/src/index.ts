@@ -183,6 +183,7 @@ export type DashboardOperatorRow = {
   operatorName: string
   operatorCode: string
   name: string
+  displayName: string
   packingCount: number
   payAmount: number
 }
