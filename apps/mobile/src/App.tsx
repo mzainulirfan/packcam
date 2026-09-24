@@ -74,6 +74,7 @@ import { useScanQueue } from './scan/useScanQueue'
 import { HistoryDeleteDialog } from './tabs/HistoryDeleteDialog'
 import { HistoryDetailSheet } from './tabs/HistoryDetailSheet'
 import { SessionTab } from './tabs/SessionTab'
+import packingSuccessSoundUrl from './assets/jokowi-saya-masih-sanggup-2.mp3'
 import './App.css'
 
 type TabKey = 'scan' | 'history' | 'session'
@@ -88,6 +89,17 @@ const initialLoginForm: LoginFormState = {
   operatorName: '',
   password: '',
   rememberMe: false,
+}
+
+let packingSuccessAudio: HTMLAudioElement | null = null
+
+function getPackingSuccessAudio() {
+  if (!packingSuccessAudio && typeof window !== 'undefined' && typeof window.Audio !== 'undefined') {
+    packingSuccessAudio = new window.Audio(packingSuccessSoundUrl)
+    packingSuccessAudio.preload = 'auto'
+  }
+
+  return packingSuccessAudio
 }
 
 function normalizeError(error: unknown) {
@@ -415,6 +427,12 @@ function App() {
         // Ignore resume failures. Vibration can still provide feedback on supported devices.
       }
     }
+
+    try {
+      getPackingSuccessAudio()?.load()
+    } catch {
+      // Ignore preload failures. The sound will load on first play.
+    }
   }, [])
 
   const playScanFeedback = useCallback(async (kind: 'success' | 'warning', mode: 'default' | 'history' = 'default') => {
@@ -424,6 +442,19 @@ function App() {
 
     if (typeof window === 'undefined') {
       return
+    }
+
+    if (kind === 'success' && mode !== 'history') {
+      try {
+        const audio = getPackingSuccessAudio()
+        if (audio) {
+          audio.currentTime = 0
+          await audio.play()
+          return
+        }
+      } catch {
+        // Fall through to synthesized beeps below.
+      }
     }
 
     const context = scanFeedbackContextRef.current
