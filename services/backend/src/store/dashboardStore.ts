@@ -68,10 +68,15 @@ export function getDashboardSummary(dateParam?: unknown): DashboardSummary {
   ).all(date) as DashboardOperatorRow[]
 
   const channelRows = db().prepare(
-    `SELECT COALESCE(NULLIF(TRIM(shipping_channel), ''), 'Tanpa data') AS channel,
+    `SELECT COALESCE(NULLIF(TRIM(r.shipping_channel), ''),
+                     NULLIF(TRIM((SELECT o.shipping_channel FROM orders o
+                       WHERE o.source = 'shopee'
+                         AND lower(o.tracking_number) = lower(r.resi_number)
+                       ORDER BY o.updated_at DESC LIMIT 1)), ''),
+                     'Tanpa data') AS channel,
             COUNT(*) AS count
-     FROM recordings
-     WHERE task_type = 'packing' AND status = 'completed' AND record_date = ?
+     FROM recordings r
+     WHERE r.task_type = 'packing' AND r.status = 'completed' AND r.record_date = ?
      GROUP BY channel
      ORDER BY count DESC`,
   ).all(date) as DashboardChannelRow[]

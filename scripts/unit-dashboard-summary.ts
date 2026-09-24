@@ -35,6 +35,8 @@ seedRecording('packing', 'RESI-D', todayJakarta, 700, 'PK02')
 seedRecording('packing', 'RESI-OLD', '2020-01-01', 9999)
 database.prepare(`INSERT INTO operator_profiles (operator_name, operator_code, role, task_type, full_name, last_used_at) VALUES ('sani', 'PK01', 'operator', 'packing', 'Sani Pengepak', ?)`)
   .run(now)
+database.prepare(`INSERT INTO orders (id, source, order_number, tracking_number, buyer_username, shipping_channel, order_status, created_at, updated_at) VALUES ('ord-fallback-1', 'shopee', 'ORD-FB-1', 'RESI-D', 'buyer1', 'JNE YES', 'toship', ?, ?)`)
+  .run(now, now)
 
 test('getDashboardSummary menghitung ringkasan hari ini saja', async () => {
   const summary = getDashboardSummary(todayJakarta)
@@ -67,6 +69,23 @@ test('getDashboardSummary mengelompokkan paket per jasa kirim', async () => {
   const byChannel = new Map(summary.byChannel.map((row) => [row.channel, row.count]))
   assert.equal(byChannel.get('SPX Standard'), 2)
   assert.equal(byChannel.get('SPX Hemat'), 1)
-  assert.equal(byChannel.get('Tanpa data'), 1)
+  assert.equal(byChannel.get('JNE YES'), 1)
   assert.equal(summary.byChannel[0]?.channel, 'SPX Standard')
+})
+
+test('getDashboardSummary fallback ke orders bila recording tanpa channel', async () => {
+  const noChannelResi = `RESI-NC-${Math.random().toString(36).slice(2, 8)}`
+  database.prepare(`INSERT INTO recordings (id, resi_number, task_type, operator_name, operator_code, file_name, file_path, media_type, file_size_bytes, record_date, start_time, end_time, duration_seconds, status, note, packing_session_id, packer_operator_name, packer_operator_code, packing_pay_amount, packing_pay_status, created_at, updated_at) VALUES (?, ?, 'packing', 'sani', 'PK01', 't.mp4', 't.mp4', 'video', 100, ?, ?, ?, 5, 'completed', null, null, 'sani', 'PK01', 100, 'calculated', ?, ?)`)
+    .run(`rec_nc_${Date.now()}`, noChannelResi, todayJakarta, now, now, now, now)
+  database.prepare(`INSERT INTO orders (id, source, order_number, tracking_number, buyer_username, shipping_channel, order_status, created_at, updated_at) VALUES (?, 'shopee', 'ORD-NC-1', ?, 'buyer2', 'Gosend Instant', 'toship', ?, ?)`)
+    .run(`ord_nc_${Date.now()}`, noChannelResi, now, now)
+  const summary = getDashboardSummary(todayJakarta)
+  const byChannel = new Map(summary.byChannel.map((row) => [row.channel, row.count]))
+  assert.equal(byChannel.get('Gosend Instant'), 1)
+  const orphanResi = `RESI-ORPHAN-${Math.random().toString(36).slice(2, 8)}`
+  database.prepare(`INSERT INTO recordings (id, resi_number, task_type, operator_name, operator_code, file_name, file_path, media_type, file_size_bytes, record_date, start_time, end_time, duration_seconds, status, note, packing_session_id, packer_operator_name, packer_operator_code, packing_pay_amount, packing_pay_status, created_at, updated_at) VALUES (?, ?, 'packing', 'sani', 'PK01', 't.mp4', 't.mp4', 'video', 100, ?, ?, ?, 5, 'completed', null, null, 'sani', 'PK01', 100, 'calculated', ?, ?)`)
+    .run(`rec_orphan_${Date.now()}`, orphanResi, todayJakarta, now, now, now, now)
+  const relabeled = getDashboardSummary(todayJakarta)
+  const relabeledMap = new Map(relabeled.byChannel.map((row) => [row.channel, row.count]))
+  assert.equal(relabeledMap.get('Tanpa data'), 1)
 })
