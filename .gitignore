@@ -34,4 +34,7 @@ archive
 .vercel
 .env*
 
+# Local knowledge graph cache (regenerable via `graphify update .`)
+graphify-out/
+
 start-backend-env.ps1
