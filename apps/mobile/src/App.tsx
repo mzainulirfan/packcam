@@ -74,7 +74,7 @@ import { useScanQueue } from './scan/useScanQueue'
 import { HistoryDeleteDialog } from './tabs/HistoryDeleteDialog'
 import { HistoryDetailSheet } from './tabs/HistoryDetailSheet'
 import { SessionTab } from './tabs/SessionTab'
-import packingSuccessSoundUrl from './assets/jokowi-saya-masih-sanggup-2.mp3'
+import packingSuccessSoundUrl from './assets/correct.mp3'
 import './App.css'
 
 type TabKey = 'scan' | 'history' | 'session'
