@@ -14,12 +14,18 @@ export type DashboardOperatorRow = {
   payAmount: number
 }
 
+export type DashboardChannelRow = {
+  channel: string
+  count: number
+}
+
 export type DashboardSummary = {
   date: string
   qcCompleted: number
   packingCompleted: number
   payTotal: number
   operators: DashboardOperatorRow[]
+  byChannel: DashboardChannelRow[]
   chat: { pending: number; sent: number; failed: number }
   ordersUpdated: number
 }
@@ -61,6 +67,15 @@ export function getDashboardSummary(dateParam?: unknown): DashboardSummary {
      ORDER BY packingCount DESC`,
   ).all(date) as DashboardOperatorRow[]
 
+  const channelRows = db().prepare(
+    `SELECT COALESCE(NULLIF(TRIM(shipping_channel), ''), 'Tanpa data') AS channel,
+            COUNT(*) AS count
+     FROM recordings
+     WHERE task_type = 'packing' AND status = 'completed' AND record_date = ?
+     GROUP BY channel
+     ORDER BY count DESC`,
+  ).all(date) as DashboardChannelRow[]
+
   const chatRows = db().prepare(
     `SELECT status, COUNT(*) AS count FROM recording_chat_sends
      WHERE date(created_at, '+7 hours') = ?
@@ -84,6 +99,10 @@ export function getDashboardSummary(dateParam?: unknown): DashboardSummary {
       displayName: row.displayName || row.operatorName,
       packingCount: row.packingCount,
       payAmount: row.payAmount,
+    })),
+    byChannel: channelRows.map((row) => ({
+      channel: row.channel || 'Tanpa data',
+      count: row.count ?? 0,
     })),
     chat: {
       pending: chatCount('pending'),

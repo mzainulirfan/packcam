@@ -188,12 +188,18 @@ export type DashboardOperatorRow = {
   payAmount: number
 }
 
+export type DashboardChannelRow = {
+  channel: string
+  count: number
+}
+
 export type DashboardSummary = {
   date: string
   qcCompleted: number
   packingCompleted: number
   payTotal: number
   operators: DashboardOperatorRow[]
+  byChannel: DashboardChannelRow[]
   chat: { pending: number; sent: number; failed: number }
   ordersUpdated: number
 }

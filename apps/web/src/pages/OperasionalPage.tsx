@@ -70,6 +70,8 @@ export function OperasionalPage() {
 
   const isToday = dateOffset === 0
   const maxPacking = Math.max(1, ...(summary?.operators.map((op) => op.packingCount) ?? [1]))
+  const channels = summary?.byChannel ?? []
+  const maxChannel = Math.max(1, ...(channels.map((row) => row.count) ?? [1]))
   const packingGap = Math.max(0, (summary?.qcCompleted ?? 0) - (summary?.packingCompleted ?? 0))
 
   return (
@@ -133,6 +135,28 @@ export function OperasionalPage() {
                 <span className="font-['Inter'] text-[26px] font-bold leading-none tracking-[-0.5px] text-white hover:text-white tabular-nums">{summary.chat.failed}</span>
               </div>
             </div>
+          </section>
+
+          <section className="mt-5 overflow-hidden rounded-xl border border-[#dddddd] bg-white">
+            <div className="flex flex-col gap-1 border-b border-[#dddddd] bg-[#fbfaf9] px-4 py-3 sm:px-5">
+              <h2 className="font-['Inter'] text-[14px] font-semibold leading-none text-[#000000]">Paket per jasa kirim</h2>
+              <p className="font-['Inter'] text-[12px] leading-none text-[#615d59]">{summary.packingCompleted} paket packing</p>
+            </div>
+            {channels.length === 0 ? (
+              <p className="px-4 py-6 text-center font-['Inter'] text-[13px] text-[#615d59] sm:px-5">Belum ada paket packing pada tanggal ini.</p>
+            ) : (
+              <ul className="divide-y divide-[#e6e6e6]">
+                {channels.map((row) => (
+                  <li key={row.channel} className="flex items-center gap-3 px-4 py-3 sm:px-5">
+                    <span className="min-w-0 flex-1 truncate font-['Inter'] text-[13px] font-semibold text-[#000000]">{row.channel}</span>
+                    <div className="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-[#f0efed] sm:w-40" role="progressbar" aria-valuenow={row.count} aria-valuemax={maxChannel} aria-label={`Paket ${row.channel}`}>
+                      <div className="h-full rounded-full bg-[#000000]" style={{ width: `${Math.max(4, Math.round((row.count / maxChannel) * 100))}%` }} />
+                    </div>
+                    <span className="w-16 shrink-0 text-right font-['Inter'] text-[12px] tabular-nums text-[#615d59]">{row.count} pkt</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
 
           <section className="mt-5 overflow-hidden rounded-xl border border-[#dddddd] bg-white">
