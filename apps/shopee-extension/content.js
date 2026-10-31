@@ -1094,7 +1094,14 @@ async function waitForActiveConversation(username, composer = null) {
 function getJobAttachments(job) {
   const attachments = Array.isArray(job.attachments) ? job.attachments : []
   if (attachments.length > 0) {
-    return attachments.filter((attachment) => attachment?.fileUrl)
+    const missingUrl = attachments.filter((attachment) => !attachment?.fileUrl)
+    if (missingUrl.length > 0) {
+      throw new Error(
+        `Lampiran job tidak punya URL file (${missingUrl.length} dari ${attachments.length}). Muat ulang job dari backend Pakti atau cek API Base URL di pengaturan extension.`,
+      )
+    }
+
+    return attachments
   }
 
   return job.videoUrl
@@ -1109,8 +1116,22 @@ function inferAttachmentName(attachment, fallbackName) {
 }
 
 async function downloadJobAttachment(attachment, index, headers) {
-  const response = await fetch(attachment.fileUrl, { credentials: 'include', headers })
+  let response
+  try {
+    response = await fetch(attachment.fileUrl, { credentials: 'include', headers })
+  } catch (error) {
+    throw new Error(
+      `File Shopee gagal diunduh (jaringan/CORS): ${error instanceof Error ? error.message : 'tidak diketahui'}.`,
+    )
+  }
+
   if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw new Error(
+        `File Shopee gagal diunduh (${response.status}): akses file ditolak (URL kedaluwarsa/tidak valid atau API key salah). Pastikan backend Pakti terbaru berjalan; antrean akan mencoba ulang otomatis.`,
+      )
+    }
+
     throw new Error(`File Shopee gagal diunduh (${response.status}).`)
   }
 

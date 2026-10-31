@@ -13,6 +13,7 @@ import type { ShippingChatOrderInput } from './store/shippingChatSendStore'
 import { clearSessionCookie, getRequestSessionId, normalizeRole, readStringField, sendError, sendOk, setSessionCookie } from './http'
 import type { HttpSession } from './http'
 import { ensureServerStorage, getUploadsDir } from './db'
+import { appendFileAccessToken, hasValidFileAccessToken } from './fileAccess'
 import { subscribeBackendRealtime } from './realtime'
 
 const app = express()
@@ -151,10 +152,10 @@ function withPublicChatSendUrls<T extends { videoFilePath: string; attachments?:
   const baseUrl = getPublicApiBaseUrl(req)
   return {
     ...job,
-    videoUrl: `${baseUrl}/files/${job.videoFilePath}`,
+    videoUrl: appendFileAccessToken(`${baseUrl}/files/${job.videoFilePath}`, job.videoFilePath),
     attachments: job.attachments?.map((attachment) => ({
       ...attachment,
-      fileUrl: `${baseUrl}/files/${attachment.filePath}`,
+      fileUrl: appendFileAccessToken(`${baseUrl}/files/${attachment.filePath}`, attachment.filePath),
     })),
   }
 }
@@ -246,6 +247,11 @@ app.use((error: unknown, _req: Request, res: Response, next: NextFunction) => {
 })
 function requireFileAccess(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   if (hasValidExtensionKey(req)) {
+    return next()
+  }
+
+  const token = typeof req.query?.token === 'string' ? req.query.token : null
+  if ((req.method === 'GET' || req.method === 'HEAD') && hasValidFileAccessToken(req.path, token)) {
     return next()
   }
 

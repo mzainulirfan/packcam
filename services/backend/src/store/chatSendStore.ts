@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { ChatSendStatus, RecordingChatSend } from '@pakti/types'
 
 import { ensureServerStorage, getDb } from '../db'
+import { appendFileAccessToken } from '../fileAccess'
 import { broadcastBackendEvent } from '../realtime'
 
 type ChatSendRow = {
@@ -129,9 +130,10 @@ function withAttachmentUrls(attachments: ChatSendAttachment[], apiBaseUrl: strin
   const base = apiBaseUrl.replace(/\/+$/, '')
   return attachments.map((attachment) => {
     const normalizedFilePath = attachment.filePath.startsWith('/') ? attachment.filePath : `/${attachment.filePath}`
+    const fileUrl = apiBaseUrl ? `${base}/files${normalizedFilePath}` : undefined
     return {
       ...attachment,
-      fileUrl: apiBaseUrl ? `${base}/files${normalizedFilePath}` : undefined,
+      fileUrl: fileUrl ? appendFileAccessToken(fileUrl, attachment.filePath) : undefined,
     }
   })
 }
@@ -147,6 +149,7 @@ function getLocalTodayDateString() {
 function mapChatSend(row: ChatSendRow, apiBaseUrl = ''): RecordingChatSend {
   const normalizedFilePath = row.video_file_path.startsWith('/') ? row.video_file_path : `/${row.video_file_path}`
   const attachments = parseAttachments(row.attachment_file_paths, row.video_file_path)
+  const videoUrl = apiBaseUrl ? `${apiBaseUrl.replace(/\/+$/, '')}/files${normalizedFilePath}` : undefined
 
   return {
     id: row.id,
@@ -156,7 +159,7 @@ function mapChatSend(row: ChatSendRow, apiBaseUrl = ''): RecordingChatSend {
     buyerUsername: row.buyer_username,
     taskType: row.task_type,
     videoFilePath: row.video_file_path,
-    videoUrl: apiBaseUrl ? `${apiBaseUrl.replace(/\/+$/, '')}/files${normalizedFilePath}` : undefined,
+    videoUrl: videoUrl ? appendFileAccessToken(videoUrl, row.video_file_path) : undefined,
     attachments: withAttachmentUrls(attachments, apiBaseUrl),
     status: row.status,
     attempts: row.attempts,
