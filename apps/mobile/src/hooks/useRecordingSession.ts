@@ -384,6 +384,99 @@ export function useMobileRecordingSession({ stream, settings, operatorName, oper
     })
   }
 
+  /**
+   * Batalkan rekaman aktif: rekorder dihentikan tanpa menyimpan, chunk yang
+   * sudah jalan ditunggu sampai selesai agar DELETE tidak meninggalkan .part
+   * yatim, lalu draft dihapus dari server. Kamera tetap menyala.
+   */
+  async function cancelRecording() {
+    const recorder = recorderRef.current
+    const session = sessionRef.current
+
+    if (!recorder || !session) {
+      return 'Tidak ada rekaman aktif.'
+    }
+
+    if (modeRef.current === 'stopping' || modeRef.current === 'saving') {
+      return state.message
+    }
+
+    const draftId = session.draft.id
+    const resiNumber = session.draft.resiNumber
+    const pendingUploads = [...session.pendingUploads]
+
+    // Null-kan ref sebelum stop: ondataavailable berhenti upload dan
+    // finalizeRecording() jadi no-op karena tidak ada session lagi.
+    recorderRef.current = null
+    sessionRef.current = null
+    failedDraftIdRef.current = null
+
+    setState((current) => ({
+      ...current,
+      mode: 'stopping',
+      message: 'Membatalkan rekaman...',
+    }))
+
+    await new Promise<void>((resolve) => {
+      if (recorder.state === 'inactive') {
+        resolve()
+        return
+      }
+      recorder.onstop = () => resolve()
+      try {
+        recorder.stop()
+      } catch {
+        resolve()
+      }
+    })
+
+    await Promise.allSettled(pendingUploads)
+
+    try {
+      await deleteServerRecordingApi(draftId)
+    } catch (error) {
+      const message = normalizeMessage(error, 'Draft rekaman tidak bisa dihapus dari server.')
+      void reportServerLastErrorApi(message).catch(() => undefined)
+      // Simpan id draft agar tombol "Buang draft" di layar error mencoba hapus ulang.
+      failedDraftIdRef.current = draftId
+      setState((current) => ({
+        ...current,
+        mode: 'error',
+        activeResi: null,
+        savingResi: null,
+        message,
+      }))
+      stopResolveRef.current?.(message)
+      stopResolveRef.current = null
+      return message
+    }
+
+    logScanEvent(
+      resiNumber,
+      'stop',
+      `Rekaman ${resiNumber} dibatalkan, tidak disimpan.`,
+      {
+        operatorName: operatorIdentity.operatorName,
+        operatorCode: operatorIdentity.operatorCode,
+      },
+      operatorIdentity.taskType,
+    )
+
+    const message = `Rekaman dibatalkan: ${resiNumber}`
+    setState((current) => ({
+      ...current,
+      mode: 'idle',
+      activeResi: null,
+      savingResi: null,
+      startedAt: null,
+      message,
+    }))
+
+    stopResolveRef.current?.(message)
+    stopResolveRef.current = null
+    return message
+  }
+
   function resetError() {
     failedDraftIdRef.current = null
     setState((current) => ({
@@ -421,6 +514,7 @@ export function useMobileRecordingSession({ stream, settings, operatorName, oper
     state,
     startRecording,
     stopRecording,
+    cancelRecording,
     resetError,
     discardErrorDraft,
   }

@@ -1371,6 +1371,35 @@ function App() {
     }
   }
 
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false)
+  const [cancelRecordingBusy, setCancelRecordingBusy] = useState(false)
+
+  /** Batalkan rekaman yang sedang jalan: video dibuang, kamera tetap aktif. */
+  async function handleCancelRecording() {
+    if (cancelRecordingBusy || recordingSession.state.mode !== 'recording') {
+      setCancelConfirmOpen(false)
+      return
+    }
+    setCancelConfirmOpen(false)
+    setCancelRecordingBusy(true)
+    setScanBusy(true)
+    try {
+      await recordingSession.cancelRecording()
+      setScanResi('')
+      playScanFeedback('warning')
+      showScanNotice({
+        kind: 'warning',
+        title: 'Rekaman dibatalkan',
+        message: 'Video tidak disimpan. Scan resi untuk mulai rekaman baru.',
+      })
+    } catch (error) {
+      setBootError(normalizeError(error))
+    } finally {
+      setScanBusy(false)
+      setCancelRecordingBusy(false)
+    }
+  }
+
   const stopScanRecording = useCallback(async () => {
     if (!session) {
       return
@@ -1947,6 +1976,34 @@ function App() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={cancelConfirmOpen} onOpenChange={setCancelConfirmOpen}>
+        <DialogContent className="rounded-[4px] border-border bg-popover text-popover-foreground">
+          <DialogHeader>
+            <div className="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-[4px] border border-destructive/30 bg-[var(--op-canvas)] text-destructive">
+              <HugeiconsIcon icon={ShieldAlertIcon} size={18} />
+            </div>
+            <DialogTitle>Batalkan rekaman?</DialogTitle>
+            <DialogDescription>
+              Video {recordingSession.state.activeResi ? `resi ${recordingSession.state.activeResi}` : 'yang sedang direkam'} dibuang dan tidak masuk history. Kamera tetap menyala.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="border-0 bg-transparent pt-2">
+            <Button type="button" variant="ghost" className="rounded-[4px]" onClick={() => setCancelConfirmOpen(false)}>
+              Lanjut rekam
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="rounded-[4px]"
+              disabled={cancelRecordingBusy || recordingSession.state.mode !== 'recording'}
+              onClick={() => void handleCancelRecording()}
+            >
+              {cancelRecordingBusy ? 'Membatalkan...' : 'Buang rekaman'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ——— SCAN TAB ——— */}
       {activeTab === 'scan' ? (
         <section className={isPackingMode ? 'packing-scan-layout is-packing' : 'packing-scan-layout'}>
@@ -2280,34 +2337,47 @@ function App() {
                 </p>
               </div>
             ) : (
-              <Button
-                type="button"
-                className="packing-scan-cta"
-                disabled={
-                  scanBusy ||
-                  !canUsePackingFlow ||
-                  !cameraState.stream ||
-                  Boolean(cameraState.error) ||
-                  recordingSession.state.mode === 'stopping' ||
-                  recordingSession.state.mode === 'saving' ||
-                  recordingSession.state.mode === 'error' ||
-                  (recordingSession.state.mode === 'idle' && !scanResi.trim())
-                }
-                onClick={() => {
-                  if (recordingSession.state.mode === 'recording') {
-                    void stopScanRecording()
-                    return
+              <>
+                <Button
+                  type="button"
+                  className="packing-scan-cta"
+                  disabled={
+                    scanBusy ||
+                    !canUsePackingFlow ||
+                    !cameraState.stream ||
+                    Boolean(cameraState.error) ||
+                    recordingSession.state.mode === 'stopping' ||
+                    recordingSession.state.mode === 'saving' ||
+                    recordingSession.state.mode === 'error' ||
+                    (recordingSession.state.mode === 'idle' && !scanResi.trim())
                   }
-                  void startScanRecording(scanResi, 'manual').then((result) => {
-                    if (result === 'busy') {
-                      showScanNotice({ kind: 'warning', title: 'Sedang memproses', message: 'Tunggu sebentar lalu coba lagi.' })
+                  onClick={() => {
+                    if (recordingSession.state.mode === 'recording') {
+                      void stopScanRecording()
+                      return
                     }
-                  })
-                }}
-              >
-                <HugeiconsIcon icon={ScanIcon} size={16} />
-                {recordingSession.state.mode === 'recording' ? 'Stop & simpan' : scanPrimaryActionLabel}
-              </Button>
+                    void startScanRecording(scanResi, 'manual').then((result) => {
+                      if (result === 'busy') {
+                        showScanNotice({ kind: 'warning', title: 'Sedang memproses', message: 'Tunggu sebentar lalu coba lagi.' })
+                      }
+                    })
+                  }}
+                >
+                  <HugeiconsIcon icon={ScanIcon} size={16} />
+                  {recordingSession.state.mode === 'recording' ? 'Stop & simpan' : scanPrimaryActionLabel}
+                </Button>
+                {recordingSession.state.mode === 'recording' ? (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    className="mt-2 h-11 w-full rounded-[4px] text-xs font-bold"
+                    disabled={cancelRecordingBusy}
+                    onClick={() => setCancelConfirmOpen(true)}
+                  >
+                    {cancelRecordingBusy ? 'Membatalkan...' : 'Batalkan rekam'}
+                  </Button>
+                ) : null}
+              </>
             )}
           </div>
 
