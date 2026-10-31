@@ -585,6 +585,12 @@ button {
   opacity: 0.45;
 }
 
+.packing-scan-chip--active {
+  border-color: var(--op-ink);
+  background: var(--op-ink);
+  color: var(--op-canvas);
+}
+
 
 
 .packing-scan-layout .camera-preview {

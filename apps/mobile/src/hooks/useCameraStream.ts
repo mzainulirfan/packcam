@@ -9,6 +9,17 @@ type CameraStreamState = {
 
 type FacingMode = 'environment' | 'user'
 
+type TorchConstraint = MediaTrackConstraintSet & { torch?: boolean }
+type TorchConstraints = MediaTrackConstraints & { advanced?: TorchConstraint[] }
+type TorchCapability = MediaTrackCapabilities & { torch?: boolean | boolean[] }
+
+export type TorchControl = {
+  supported: boolean
+  on: boolean
+  busy: boolean
+  toggle: () => Promise<void>
+}
+
 const CAMERA_VIDEO_BASE: MediaTrackConstraints = {
   width: { ideal: 1280, max: 1280 },
   height: { ideal: 720, max: 720 },
@@ -51,10 +62,42 @@ export function useCameraStream(
     error: null,
   })
   const streamRef = useRef<MediaStream | null>(null)
+  const [torch, setTorch] = useState({ supported: false, on: false, busy: false })
+  const torchBusyRef = useRef(false)
 
   useEffect(() => {
     streamRef.current = state.stream
   }, [state.stream])
+
+  // Kapabilitas torch melekat pada track aktif, dan senter fisik ikut mati saat
+  // kamera dibuka ulang (pindah tab / retry), jadi statusnya disinkronkan di sini.
+  useEffect(() => {
+    const track = state.stream?.getVideoTracks()[0]
+    const capability = track?.getCapabilities?.() as TorchCapability | undefined
+    setTorch({ supported: Boolean(capability?.torch), on: false, busy: false })
+  }, [state.stream])
+
+  async function toggleTorch() {
+    const track = streamRef.current?.getVideoTracks()[0]
+    if (!track || torchBusyRef.current) {
+      return
+    }
+
+    torchBusyRef.current = true
+    setTorch((current) => ({ ...current, busy: true }))
+
+    const next = !torch.on
+    try {
+      await track.applyConstraints({ advanced: [{ torch: next }] } as TorchConstraints)
+      setTorch((current) => ({ ...current, supported: true, on: next, busy: false }))
+    } catch {
+      // Constraint ditolak walau kapabilitas mengklaim ada: anggap perangkat ini
+      // tidak bisa dikontrol senternya, tanpa mengganggu alur scan/rekam.
+      setTorch({ supported: false, on: false, busy: false })
+    } finally {
+      torchBusyRef.current = false
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -185,5 +228,12 @@ export function useCameraStream(
     [],
   )
 
-  return state
+  const torchControl: TorchControl = {
+    supported: torch.supported,
+    on: torch.on,
+    busy: torch.busy,
+    toggle: toggleTorch,
+  }
+
+  return { ...state, torch: torchControl }
 }

@@ -5,6 +5,8 @@ import {
   Copy01Icon,
   EyeIcon,
   EyeOffIcon,
+  FlashlightIcon,
+  FlashlightOffIcon,
   HistoryIcon,
   Logout02Icon,
   Moon02Icon,
@@ -2222,6 +2224,20 @@ function App() {
                     <span className={packingMediaType === 'video' ? 'packing-scan-toggle__option is-active' : 'packing-scan-toggle__option'}>Video</span>
                     <span className={packingMediaType === 'photo' ? 'packing-scan-toggle__option is-active' : 'packing-scan-toggle__option'}>Foto</span>
                     <span className="packing-scan-toggle__thumb" aria-hidden="true" />
+                  </button>
+                ) : null}
+                {isPackingMode && cameraState.torch.supported ? (
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={cameraState.torch.on}
+                    aria-label={cameraState.torch.on ? 'Matikan senter' : 'Nyalakan senter'}
+                    title={cameraState.torch.on ? 'Matikan senter' : 'Nyalakan senter'}
+                    disabled={!cameraState.stream || Boolean(cameraState.error) || cameraState.torch.busy}
+                    className={cameraState.torch.on ? 'packing-scan-chip packing-scan-chip--active' : 'packing-scan-chip'}
+                    onClick={() => void cameraState.torch.toggle()}
+                  >
+                    <HugeiconsIcon icon={cameraState.torch.on ? FlashlightIcon : FlashlightOffIcon} size={14} />
                   </button>
                 ) : null}
                 {isAdmin ? (
