@@ -71,7 +71,7 @@ import {
 } from './history/historyUtils'
 import { useMobileHistoryFilters } from './history/useMobileHistoryFilters'
 import { useSharePreparation } from './history/useSharePreparation'
-import { getDuplicateScanNotice, getPackingQcMessage } from './scan/scanCopy'
+import { getDuplicateScanNotice, getPackingQcMessage, isStopSaveBarcode, STOP_SAVE_BARCODE } from './scan/scanCopy'
 import { useScanQueue } from './scan/useScanQueue'
 import { HistoryDeleteDialog } from './tabs/HistoryDeleteDialog'
 import { HistoryDetailSheet } from './tabs/HistoryDetailSheet'
@@ -264,6 +264,8 @@ function App() {
   }, [])
   // Lock sinkron anti double-submit (tap/scan cepat) + resi foto tertunda.
   const scanStartBusyRef = useRef(false)
+  const stopScanRecordingBusyRef = useRef(false)
+  const stopSaveBarcodeBusyRef = useRef(false)
   const photoBusyRef = useRef(false)
 
   const appName = systemConfig?.appName ?? 'Pakti'
@@ -360,7 +362,7 @@ function App() {
               ? 'Video tersimpan'
               : `Siap scan ${scanModeLabel}`
   const scanStatusDescription = recordingSession.state.mode === 'recording'
-    ? 'Tekan stop setelah paket selesai direkam.'
+    ? `Tekan Stop & simpan atau scan barcode ${STOP_SAVE_BARCODE}.`
     : recordingSession.state.mode === 'stopping' || recordingSession.state.mode === 'saving'
       ? 'Jangan tutup halaman sampai video tersimpan.'
       : recordingSession.state.lastSavedResi
@@ -379,7 +381,9 @@ function App() {
 
   const {
     enqueueCameraScan,
+    clearPendingCameraScans,
     processCameraScanQueue,
+    stopCurrentRecording,
     setStartScanRecording,
     isRejectedResi,
     rejectResi,
@@ -542,6 +546,20 @@ function App() {
 
       const normalizedValue = value.trim()
       if (!normalizedValue || isRejectedResi(normalizedValue)) {
+        return
+      }
+
+      if (isStopSaveBarcode(normalizedValue)) {
+        if (recordingSession.state.mode !== 'recording' || stopSaveBarcodeBusyRef.current) {
+          return
+        }
+
+        stopSaveBarcodeBusyRef.current = true
+        rejectResi(normalizedValue)
+        clearPendingCameraScans()
+        void stopScanRecording().finally(() => {
+          stopSaveBarcodeBusyRef.current = false
+        })
         return
       }
 
@@ -1234,6 +1252,19 @@ function App() {
         return 'error'
       }
 
+      if (isStopSaveBarcode(resiNumber)) {
+        if (source === 'manual') {
+          showScanNotice({
+            kind: 'warning',
+            title: 'Barcode perintah',
+            message: `Scan ${STOP_SAVE_BARCODE} saat rekaman berjalan untuk menghentikan dan menyimpan video.`,
+          })
+          setScanResi('')
+        }
+        scanStartBusyRef.current = false
+        return 'error'
+      }
+
       // Foto packing: terima langsung tanpa round-trip server. Satu-satunya validasi
       // (QC + duplikat) dikerjakan sekali di stagePhotoCapture tepat sebelum simpan.
       const isPhotoPacking = session.taskType === 'packing' && packingMediaType === 'photo'
@@ -1406,17 +1437,21 @@ function App() {
     if (!session) {
       return
     }
+    if (stopScanRecordingBusyRef.current) {
+      return
+    }
     // Saat recording, tombol stop harus langsung responsif walau scanBusy masih true.
     if (scanBusy && recordingSession.state.mode !== 'recording') {
       return
     }
 
+    stopScanRecordingBusyRef.current = true
     setScanBusy(true)
     void primeScanFeedbackAudio()
 
     try {
       const stoppedResi = recordingSession.state.activeResi ?? recordingSession.state.savingResi
-      await recordingSession.stopRecording()
+      await stopCurrentRecording()
       if (stoppedResi) {
         // Merge lokal per resi saja, tanpa unduh ulang seluruh history.
         readServerRecordingsByResiApi(stoppedResi)
@@ -1430,8 +1465,9 @@ function App() {
       setBootError(normalizeError(error))
     } finally {
       setScanBusy(false)
+      stopScanRecordingBusyRef.current = false
     }
-  }, [activePackingSession, mergeRecordingsForResi, primeScanFeedbackAudio, refreshActivePackingSession, scanBusy, session, recordingSession])
+  }, [activePackingSession, mergeRecordingsForResi, primeScanFeedbackAudio, refreshActivePackingSession, scanBusy, session, stopCurrentRecording])
 
   async function handleCopyResi(resiNumber: string) {
     try {

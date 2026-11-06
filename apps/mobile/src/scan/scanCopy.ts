@@ -1,5 +1,11 @@
 import type { RecordingRow, WorkTask } from '@pakti/types'
 
+export const STOP_SAVE_BARCODE = 'PAKTI-STOP-SAVE'
+
+export function isStopSaveBarcode(value: string) {
+  return value.trim().toUpperCase() === STOP_SAVE_BARCODE
+}
+
 export function getPackingQcMessage(qcStatus: RecordingRow['status'] | undefined) {
   return qcStatus === 'recording'
     ? 'Resi ini masih di QC. Tunggu selesai dulu.'

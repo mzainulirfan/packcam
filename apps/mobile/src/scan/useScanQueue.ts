@@ -25,6 +25,8 @@ async function waitForNextQueueTurn() {
 
 export function useScanQueue({ active, recordingState, stopRecording, onStuckDrop }: UseScanQueueParams) {
   const pendingScanResiRef = useRef<string[]>([])
+  const queueRevisionRef = useRef(0)
+  const stopRecordingPromiseRef = useRef<Promise<unknown> | null>(null)
   const rejectedResiRef = useRef<string | null>(null)
   const scanQueueBusyRef = useRef(false)
   const scanQueueRetryTimerRef = useRef<number | null>(null)
@@ -73,6 +75,32 @@ export function useScanQueue({ active, recordingState, stopRecording, onStuckDro
 
     pendingScanResiRef.current.push(resiNumber)
   }, [])
+
+  const clearPendingCameraScans = useCallback(() => {
+    queueRevisionRef.current += 1
+    pendingScanResiRef.current = []
+    queueStuckSinceRef.current = null
+    if (scanQueueRetryTimerRef.current !== null) {
+      window.clearTimeout(scanQueueRetryTimerRef.current)
+      scanQueueRetryTimerRef.current = null
+    }
+  }, [])
+
+  const stopCurrentRecording = useCallback(() => {
+    if (stopRecordingPromiseRef.current) {
+      return stopRecordingPromiseRef.current
+    }
+
+    const stopPromise = Promise.resolve()
+      .then(stopRecording)
+      .finally(() => {
+        if (stopRecordingPromiseRef.current === stopPromise) {
+          stopRecordingPromiseRef.current = null
+        }
+      })
+    stopRecordingPromiseRef.current = stopPromise
+    return stopPromise
+  }, [stopRecording])
 
   const isRejectedResi = useCallback((resiNumber: string) => rejectedResiRef.current === resiNumber, [])
 
@@ -125,7 +153,12 @@ export function useScanQueue({ active, recordingState, stopRecording, onStuckDro
             return
           }
 
+          const queueRevision = queueRevisionRef.current
           const result = await startScanRecording(nextResi, 'camera')
+          if (queueRevision !== queueRevisionRef.current) {
+            continue
+          }
+
           if (result === 'queued' || result === 'busy') {
             pendingScanResiRef.current.unshift(nextResi)
           } else {
@@ -133,7 +166,7 @@ export function useScanQueue({ active, recordingState, stopRecording, onStuckDro
           }
 
           if (result === 'queued') {
-            await stopRecording()
+            await stopCurrentRecording()
           }
           await waitForNextQueueTurn()
           continue
@@ -166,7 +199,11 @@ export function useScanQueue({ active, recordingState, stopRecording, onStuckDro
           return
         }
 
+        const queueRevision = queueRevisionRef.current
         const result = await startScanRecording(nextResi, 'camera')
+        if (queueRevision !== queueRevisionRef.current) {
+          continue
+        }
 
         if (result === 'started') {
           return
@@ -186,7 +223,7 @@ export function useScanQueue({ active, recordingState, stopRecording, onStuckDro
         }, 0)
       }
     }
-  }, [stopRecording, rejectResi])
+  }, [stopCurrentRecording, rejectResi])
 
   useEffect(() => {
     processCameraScanQueueRef.current = processCameraScanQueue
@@ -194,6 +231,8 @@ export function useScanQueue({ active, recordingState, stopRecording, onStuckDro
 
   return {
     enqueueCameraScan,
+    clearPendingCameraScans,
+    stopCurrentRecording,
     processCameraScanQueue,
     setStartScanRecording,
     isRejectedResi,
