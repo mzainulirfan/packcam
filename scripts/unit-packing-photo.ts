@@ -31,6 +31,20 @@ function seedAll() {
   upsertOperatorProfile({ operatorName: 'sani', operatorCode: 'PK01', role: 'operator', taskType: 'packing', fullName: 'Sani', password: 'secret123' })
 }
 
+function packingLogin(sessionId = 'dev-1') {
+  const timestamp = new Date().toISOString()
+  return {
+    sessionId,
+    operatorName: 'sani',
+    operatorCode: 'PK01',
+    role: 'operator' as const,
+    taskType: 'packing' as const,
+    persistent: false,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  }
+}
+
 function seedQcCompleted(resi: string) {
   const now = new Date().toISOString()
   database.prepare(`INSERT INTO recordings (id, resi_number, task_type, operator_name, operator_code, file_name, file_path, media_type, file_size_bytes, record_date, start_time, end_time, duration_seconds, status, created_at, updated_at) VALUES (?, ?, 'qc', 'sani', 'PK01', 'qc_test.mp4', 'qc_test.mp4', 'video', 100, ?, ?, ?, 5, 'completed', ?, ?)`)
@@ -47,7 +61,7 @@ test('savePackingPhotoRecord menyimpan sekali tembak dengan upah', async () => {
   seedAll()
   const resi = `RESI-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
   seedQcCompleted(resi)
-  const packingSession = createPackingSession({ packerOperatorName: 'sani', packerOperatorCode: 'PK01', createdBySessionId: 'dev-1' })
+  const packingSession = createPackingSession({ currentSession: packingLogin() })
 
   const saved = savePackingPhotoRecord({
     resiNumber: resi,
@@ -71,7 +85,7 @@ test('savePackingPhotoRecord menolak bila QC belum selesai', async () => {
   resetDb()
   seedAll()
   const resi = `RESI-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
-  const packingSession = createPackingSession({ packerOperatorName: 'sani', packerOperatorCode: 'PK01', createdBySessionId: 'dev-1' })
+  const packingSession = createPackingSession({ currentSession: packingLogin() })
 
   assert.throws(() => savePackingPhotoRecord({
     resiNumber: resi,
@@ -87,7 +101,7 @@ test('savePackingPhotoRecord menolak duplikat packing', async () => {
   seedAll()
   const resi = `RESI-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
   seedQcCompleted(resi)
-  const packingSession = createPackingSession({ packerOperatorName: 'sani', packerOperatorCode: 'PK01', createdBySessionId: 'dev-1' })
+  const packingSession = createPackingSession({ currentSession: packingLogin() })
   const input = {
     resiNumber: resi,
     operatorName: 'sani',
@@ -113,7 +127,7 @@ test('savePackingPhotoRecord menolak sesi packing tidak valid dan file kosong', 
     photo: fakeJpeg(),
   }), /Sesi packing aktif/)
 
-  const packingSession = createPackingSession({ packerOperatorName: 'sani', packerOperatorCode: 'PK01', createdBySessionId: 'dev-1' })
+  const packingSession = createPackingSession({ currentSession: packingLogin() })
   assert.throws(() => savePackingPhotoRecord({
     resiNumber: resi,
     operatorName: 'sani',
@@ -123,12 +137,28 @@ test('savePackingPhotoRecord menolak sesi packing tidak valid dan file kosong', 
   }), /wajib diisi/)
 })
 
+test('savePackingPhotoRecord menolak sesi packing milik akun lain', () => {
+  resetDb()
+  seedAll()
+  const resi = `RESI-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
+  seedQcCompleted(resi)
+  const packingSession = createPackingSession({ currentSession: packingLogin() })
+
+  assert.throws(() => savePackingPhotoRecord({
+    resiNumber: resi,
+    operatorName: 'wildan',
+    operatorCode: 'PK02',
+    packingSessionId: packingSession.id,
+    photo: fakeJpeg(),
+  }), /akun pemiliknya/)
+})
+
 test('file foto tertulis di folder uploads', async () => {
   resetDb()
   seedAll()
   const resi = `RESI-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
   seedQcCompleted(resi)
-  const packingSession = createPackingSession({ packerOperatorName: 'sani', packerOperatorCode: 'PK01', createdBySessionId: 'dev-1' })
+  const packingSession = createPackingSession({ currentSession: packingLogin() })
   const saved = savePackingPhotoRecord({
     resiNumber: resi,
     operatorName: 'sani',

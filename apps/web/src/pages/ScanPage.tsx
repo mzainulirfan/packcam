@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { updateOperatorSessionTask, useOperatorSession } from '../app/operatorSession'
+import { logoutOperator, updateOperatorSessionTask, useOperatorSession } from '../app/operatorSession'
 import { BarcodeInput } from '../components/BarcodeInput'
 import { CameraPreview } from '../components/CameraPreview'
 import { Alert } from '../components/ui/alert'
@@ -19,10 +19,11 @@ import {
   finalizeServerRecordingApi,
   readActivePackingSessionApi,
   readDashboardSummaryApi,
-  readPackingOperatorsApi,
+  readMyPackingSessionsApi,
   readPackingPreviewByResiApi,
   readServerSettingsApi,
   readShopeeOrderByResiApi,
+  reopenPackingSessionApi,
   saveServerSettingsApi,
 } from '@pakti/api-client'
 import { getRecordingTaskProgress, refreshRecordingsFromServer } from '@pakti/shared/recordings'
@@ -62,10 +63,9 @@ export function ScanPage() {
   const [clockText, setClockText] = useState(() => formatClock(new Date()))
   const [scanMode, setScanMode] = useState<ScanMode>(() => readScanMode())
   const [packingMediaType, setPackingMediaType] = useState<'video' | 'photo'>('video')
-  const [packingOperators, setPackingOperators] = useState<Array<{ operatorName: string; operatorCode: string; fullName: string | null }>>([])
   const [activePackingSession, setActivePackingSession] = useState<PackingWorkSession | null>(null)
+  const [recentPackingSessions, setRecentPackingSessions] = useState<PackingWorkSession[]>([])
   const [packingSessionLoading, setPackingSessionLoading] = useState(false)
-  const [selectedPackerKey, setSelectedPackerKey] = useState<string>('')
   const [packingPreview, setPackingPreview] = useState<{ order: ShopeeOrder; pay: { amount: number; quantity: number; breakdown: unknown } } | null>(null)
   const [packingPreviewLoading, setPackingPreviewLoading] = useState(false)
   const [packingCaptureLoading, setPackingCaptureLoading] = useState(false)
@@ -121,25 +121,25 @@ export function ScanPage() {
   const packingSessionLabel = activePackingSession
     ? `${activePackingSession.packerNameSnapshot} (${activePackingSession.packerCodeSnapshot}) · ${activePackingSession.completedPackingCount} paket · ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(activePackingSession.totalPayAmount)}`
     : null
+  const resumablePackingSessions = recentPackingSessions.filter((packingSession) => (
+    packingSession.status === 'active' &&
+    packingSession.id !== activePackingSession?.id &&
+    packingSession.packerOperatorName.trim().toLowerCase() === operatorSession?.operatorName.trim().toLowerCase() &&
+    packingSession.packerOperatorCode.trim().toLowerCase() === operatorSession?.operatorCode.trim().toLowerCase()
+  ))
 
   useEffect(() => {
     if (!isPackingTask) return
     let active = true
     void (async () => {
       try {
-        const [operators, session] = await Promise.all([
-          readPackingOperatorsApi().catch(() => []),
+        const [session, sessions] = await Promise.all([
           readActivePackingSessionApi().catch(() => null),
+          readMyPackingSessionsApi(20).catch(() => []),
         ])
         if (!active) return
-        setPackingOperators(operators as unknown as typeof packingOperators)
         setActivePackingSession(session as PackingWorkSession | null)
-        if (!session && operators.length > 0) {
-          const currentKey = `${operatorSession?.operatorName ?? ''}::${operatorSession?.operatorCode ?? ''}`
-          const matched = (operators as unknown as Array<{ operatorName: string; operatorCode: string }>).find((op) => `${op.operatorName}::${op.operatorCode}` === currentKey)
-          if (matched) setSelectedPackerKey(currentKey)
-          else setSelectedPackerKey(`${(operators[0] as { operatorName: string; operatorCode: string }).operatorName}::${(operators[0] as { operatorName: string; operatorCode: string }).operatorCode}`)
-        }
+        setRecentPackingSessions(sessions as PackingWorkSession[])
       } catch {
         // ignore
       }
@@ -215,7 +215,7 @@ export function ScanPage() {
     onValidScan: (value) => {
       const trimmed = value.trim()
       if (isPackingTask && !activePackingSession) {
-        setScanAlert({ kind: 'error', message: 'Mulai sesi packing dulu sebelum scan. Pilih petugas di panel sesi packing.' })
+        setScanAlert({ kind: 'error', message: 'Mulai atau lanjutkan sesi packing akunmu sebelum scan.' })
         return
       }
       if (isPackingTask && packingMediaType === 'photo') {
@@ -325,16 +325,12 @@ export function ScanPage() {
   }
 
   async function handleCreatePackingSession() {
-    if (!selectedPackerKey) {
-      setScanAlert({ kind: 'error', message: 'Pilih petugas packing dulu.' })
-      return
-    }
-    const [name, code] = selectedPackerKey.split('::')
     setPackingSessionLoading(true)
     try {
-      const session = await createPackingSessionApi({ packerOperatorName: name, packerOperatorCode: code, releaseActive: true })
+      const session = await createPackingSessionApi()
       setActivePackingSession(session)
-      setScanAlert({ kind: 'success', message: `Sesi packing dimulai untuk ${session.packerNameSnapshot}.` })
+      void readMyPackingSessionsApi(20).then(setRecentPackingSessions).catch(() => undefined)
+      setScanAlert({ kind: 'success', message: `Sesi packing akun ${session.packerNameSnapshot} dimulai.` })
       barcodeScanner.focusInput()
     } catch (e) {
       setScanAlert({ kind: 'error', message: e instanceof Error ? e.message : 'Gagal membuat sesi packing.' })
@@ -350,6 +346,7 @@ export function ScanPage() {
       await closePackingSessionApi(activePackingSession.id)
       setActivePackingSession(null)
       setPackingPreview(null)
+      void readMyPackingSessionsApi(20).then(setRecentPackingSessions).catch(() => undefined)
       setScanAlert({ kind: 'info', message: 'Sesi packing diakhiri.' })
     } catch (e) {
       setScanAlert({ kind: 'error', message: e instanceof Error ? e.message : 'Gagal menutup sesi.' })
@@ -358,30 +355,27 @@ export function ScanPage() {
     }
   }
 
-  async function handleSwitchPackingSession() {
-    if (!activePackingSession || !selectedPackerKey) {
-      setScanAlert({ kind: 'error', message: 'Pilih petugas baru dulu.' })
-      return
-    }
-    const [name, code] = selectedPackerKey.split('::')
-    if (!name || !code) {
-      setScanAlert({ kind: 'error', message: 'Pilih petugas valid.' })
-      return
-    }
-    if (name === activePackingSession.packerOperatorName && code === activePackingSession.packerOperatorCode) {
-      setScanAlert({ kind: 'warning', message: 'Pilih petugas lain untuk ganti sesi.' })
-      return
-    }
+  async function handleReopenPackingSession(packingSession: PackingWorkSession) {
     setPackingSessionLoading(true)
     try {
-      const next = await createPackingSessionApi({ packerOperatorName: name, packerOperatorCode: code, releaseActive: true })
-      setActivePackingSession(next)
-      setScanAlert({ kind: 'success', message: `Sesi diganti ke ${next.packerNameSnapshot} (${next.packerCodeSnapshot}); sesi lama belum diakhiri.` })
+      const resumed = await reopenPackingSessionApi(packingSession.id, { releaseActive: true })
+      setActivePackingSession(resumed)
+      void readMyPackingSessionsApi(20).then(setRecentPackingSessions).catch(() => undefined)
+      setScanAlert({ kind: 'success', message: `Sesi packing akunmu dilanjutkan · ${resumed.completedPackingCount} paket.` })
+      barcodeScanner.focusInput()
     } catch (e) {
-      setScanAlert({ kind: 'error', message: e instanceof Error ? e.message : 'Gagal ganti sesi.' })
+      setScanAlert({ kind: 'error', message: e instanceof Error ? e.message : 'Gagal melanjutkan sesi.' })
     } finally {
       setPackingSessionLoading(false)
     }
+  }
+
+  function handleSwitchAccount() {
+    if (isTaskSwitchLocked || packingCaptureLoading || photoStaging) {
+      setScanAlert({ kind: 'warning', message: 'Selesaikan proses rekam atau foto sebelum ganti akun.' })
+      return
+    }
+    logoutOperator()
   }
 
   function clearPhotoStaging() {
@@ -445,9 +439,6 @@ export function ScanPage() {
     try {
       const draft = await createServerRecordingDraftApi({
         resiNumber: resi,
-        taskType: 'packing',
-        operatorName: operatorSession?.operatorName ?? '',
-        operatorCode: operatorSession?.operatorCode ?? '',
         startedAt: startedAt.toISOString(),
         fileName: `packing_${resi}_${startedAt.getTime()}.jpg`,
         filePath: `packing_${resi}_${startedAt.getTime()}.jpg`,
@@ -619,7 +610,7 @@ export function ScanPage() {
       ) : null}
 
       {scanAlert ? <Alert variant={scanAlert.kind === 'error' ? 'destructive' : scanAlert.kind === 'success' ? 'success' : 'info'} className="mb-4 rounded-lg border-[#dddddd] bg-white font-['Inter'] text-[13px]"><p className="text-[#31302e]">{scanAlert.message}</p></Alert> : null}
-      {isPackingTask && packingMediaType === 'photo' && !activePackingSession ? <Alert variant="info" className="mb-4 rounded-lg border-[#dddddd] bg-white font-['Inter'] text-[13px]"><p className="text-[#31302e]">Foto packing butuh sesi aktif. Pilih petugas di panel sesi packing.</p></Alert> : null}
+      {isPackingTask && packingMediaType === 'photo' && !activePackingSession ? <Alert variant="info" className="mb-4 rounded-lg border-[#dddddd] bg-white font-['Inter'] text-[13px]"><p className="text-[#31302e]">Foto packing membutuhkan sesi aktif milik akun yang sedang login.</p></Alert> : null}
 
       <div className={isPhotoPackingMode ? 'flex flex-col gap-4' : 'grid gap-5 lg:grid-cols-[380px_minmax(0,1fr)]'}>
         {!isPhotoPackingMode ? (
@@ -695,6 +686,11 @@ export function ScanPage() {
                   <p className="mt-0.5 font-['Inter'] text-[12px] text-[#a39e98]">{activePackingSession ? packingSessionLabel : 'Scan packing diblokir sampai sesi dimulai.'}</p>
                 </div>
                 <div className="grid gap-3 p-4">
+                  <div className="rounded-lg border border-[#dddddd] bg-[#f6f5f4] px-3 py-2.5">
+                    <span className="font-['Inter'] text-[11px] font-semibold uppercase tracking-[0.06em] text-[#a39e98]">Akun pencatat</span>
+                    <p className="mt-1 font-['Inter'] text-[13px] font-semibold text-[#000000]">{operatorSession?.operatorName} <span className="font-mono font-normal text-[#615d59]">({operatorSession?.operatorCode})</span></p>
+                    <p className="mt-1 font-['Inter'] text-[11px] leading-4 text-[#615d59]">Hasil dan upah selalu masuk ke akun login ini.</p>
+                  </div>
                   {activePackingSession ? (
                     <div className="grid gap-3">
                       <div className="grid gap-2">
@@ -706,44 +702,34 @@ export function ScanPage() {
                           <Button type="button" variant={packingMediaType === 'photo' ? 'default' : 'ghost'} size="sm" className={`flex-1 h-7 rounded-md font-['Inter'] text-[12px] font-medium ${packingMediaType === 'photo' ? 'bg-black text-white hover:text-white' : 'text-[#615d59]'}`} onClick={() => setPackingMediaType('photo')}>Foto</Button>
                         </div>
                       </div>
-                      <div className="grid gap-2 border-t border-dashed border-[#dddddd] pt-3">
-                        <Label className="font-['Inter'] text-[12px] font-medium text-[#000000]">Ganti sesi</Label>
-                        <div className="flex gap-2">
-                          <Select value={selectedPackerKey} onValueChange={setSelectedPackerKey}>
-                            <SelectTrigger className="h-8 flex-1 rounded-[4px] border-[#dddddd] bg-white font-['Inter'] text-[12px]">
-                              <SelectValue placeholder="Pilih petugas baru" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {packingOperators.filter((op) => !(activePackingSession && op.operatorName === activePackingSession.packerOperatorName && op.operatorCode === activePackingSession.packerOperatorCode)).map((op) => {
-                                const key = `${op.operatorName}::${op.operatorCode}`
-                                const label = op.fullName ? `${op.fullName} (${op.operatorCode})` : `${op.operatorName} (${op.operatorCode})`
-                                return <SelectItem key={key} value={key}>{label}</SelectItem>
-                              })}
-                            </SelectContent>
-                          </Select>
-                          <Button type="button" size="sm" className="h-8 rounded-full bg-black px-4 font-['Inter'] text-[12px] font-medium text-white hover:text-white hover:bg-black" disabled={packingSessionLoading || !selectedPackerKey} onClick={() => void handleSwitchPackingSession()}>Ganti</Button>
-                        </div>
-                        <p className="font-['Inter'] text-[11px] text-[#a39e98]">Sesi lama otomatis ditutup.</p>
-                      </div>
+                      <Button type="button" variant="ghost" size="sm" className="h-8 rounded-full font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]" disabled={packingSessionLoading} onClick={handleSwitchAccount}>Ganti akun</Button>
                     </div>
                   ) : (
                     <div className="grid gap-3">
-                      <Label className="font-['Inter'] text-[12px] font-medium text-[#000000]">Petugas Packing</Label>
-                      <Select value={selectedPackerKey} onValueChange={setSelectedPackerKey}>
-                        <SelectTrigger className="h-8 w-full rounded-[4px] border-[#dddddd] bg-white font-['Inter'] text-[12px]">
-                          <SelectValue placeholder="Pilih petugas packing" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {packingOperators.map((op) => {
-                            const key = `${op.operatorName}::${op.operatorCode}`
-                            const label = op.fullName ? `${op.fullName} (${op.operatorCode})` : `${op.operatorName} (${op.operatorCode})`
-                            return <SelectItem key={key} value={key}>{label}</SelectItem>
-                          })}
-                        </SelectContent>
-                      </Select>
-                      <Button type="button" size="sm" className="h-9 rounded-lg bg-[#000000] font-['Inter'] text-[13px] font-medium text-white hover:text-white hover:bg-[#31302e]" disabled={packingSessionLoading || !selectedPackerKey} onClick={() => void handleCreatePackingSession()}>
-                        {packingSessionLoading ? 'Membuat...' : 'Mulai sesi packing'}
+                      {resumablePackingSessions.length > 0 ? (
+                        <div className="grid gap-2">
+                          <Label className="font-['Inter'] text-[12px] font-medium text-[#000000]">Lanjutkan sesi saya</Label>
+                          {resumablePackingSessions.map((packingSession) => (
+                            <button
+                              key={packingSession.id}
+                              type="button"
+                              className="flex items-center justify-between gap-3 rounded-lg border border-[#dddddd] bg-white px-3 py-2.5 text-left transition-colors hover:bg-[#f6f5f4] disabled:opacity-50"
+                              disabled={packingSessionLoading}
+                              onClick={() => void handleReopenPackingSession(packingSession)}
+                            >
+                              <span className="min-w-0 font-['Inter'] text-[12px] text-[#31302e]">
+                                <strong className="block truncate font-semibold text-[#000000]">{new Date(packingSession.startedAt).toLocaleString('id-ID')}</strong>
+                                {packingSession.completedPackingCount} paket · {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(packingSession.totalPayAmount)}
+                              </span>
+                              <span className="shrink-0 font-['Inter'] text-[11px] font-semibold text-[#000000]">Lanjutkan →</span>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                      <Button type="button" size="sm" className="h-9 rounded-lg bg-[#000000] font-['Inter'] text-[13px] font-medium text-white hover:bg-[#31302e] hover:text-white" disabled={packingSessionLoading} onClick={() => void handleCreatePackingSession()}>
+                        {packingSessionLoading ? 'Membuat...' : 'Mulai sesi saya'}
                       </Button>
+                      <Button type="button" variant="outline" size="sm" className="h-9 rounded-lg border-[#dddddd] bg-white font-['Inter'] text-[12px] font-medium text-[#615d59] hover:bg-[#f6f5f4]" disabled={packingSessionLoading} onClick={handleSwitchAccount}>Ganti akun</Button>
                       {!isPhotoPackingMode ? (
                         <div className="flex gap-1 rounded-lg border border-[#dddddd] bg-[#f6f5f4] p-1">
                           <Button type="button" size="sm" className={`flex-1 h-7 rounded-md font-['Inter'] text-[12px] font-medium ${packingMediaType === 'video' ? 'bg-black text-white hover:text-white' : 'bg-transparent text-[#615d59]'}`} onClick={() => setPackingMediaType('video')}>Video</Button>

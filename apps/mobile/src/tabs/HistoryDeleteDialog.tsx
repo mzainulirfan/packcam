@@ -25,7 +25,7 @@ export function HistoryDeleteDialog({
         <DialogHeader>
           <DialogTitle>Hapus dokumentasi?</DialogTitle>
           <DialogDescription>
-            Video {record ? formatTask(record.taskType) : ''} untuk resi <strong>{record?.resiNumber}</strong> akan dihapus. Tindakan ini tidak dapat dibatalkan.
+            {record?.mediaType === 'photo' ? 'Foto' : 'Video'} {record ? formatTask(record.taskType) : ''} untuk resi <strong>{record?.resiNumber}</strong> akan dihapus. Tindakan ini tidak dapat dibatalkan.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

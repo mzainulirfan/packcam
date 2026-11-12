@@ -57,7 +57,8 @@ function makeResi() {
 }
 
 async function seedClosedSession(packerName: string, packerCode: string, payAmount = 1500) {
-  const session = createPackingSession({ packerOperatorName: packerName, packerOperatorCode: packerCode, createdBySessionId: `dev-${Date.now()}-${Math.random().toString(16).slice(2, 6)}` })
+  const loginSession = createSession(packerName, packerCode, 'operator', 'packing')
+  const session = createPackingSession({ currentSession: loginSession })
   const resi = makeResi()
   const now = new Date().toISOString()
   database.prepare(`INSERT INTO recordings (id, resi_number, task_type, operator_name, operator_code, file_name, file_path, media_type, file_size_bytes, record_date, start_time, end_time, duration_seconds, status, note, packing_session_id, packer_operator_name, packer_operator_code, packing_pay_amount, packing_pay_status, created_at, updated_at) VALUES (?, ?, 'packing', ?, ?, 'pack_test.mp4', 'pack_test.mp4', 'video', 100, ?, ?, ?, 5, 'completed', null, ?, ?, ?, ?, ?, ?, ?)`)

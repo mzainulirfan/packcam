@@ -26,6 +26,7 @@
     "test:unit": "tsx scripts/unit-shared.ts",
     "test:web": "tsx scripts/unit-web-scanner.ts",
     "test:mobile-scanner": "tsx scripts/unit-mobile-barcode-scanner.ts",
+    "test:mobile-history": "tsx scripts/unit-mobile-history.ts",
     "test:packing-pay": "tsx scripts/unit-packing-pay.ts",
     "test:packing-session": "tsx scripts/unit-packing-session.ts",
     "test:packing-payment": "tsx scripts/unit-packing-payment.ts",

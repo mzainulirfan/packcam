@@ -49,7 +49,8 @@ function makeResi() {
   return `RESI-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
 }
 async function seedClosedSessionWithPay(packerName: string, packerCode: string, payAmount = 1500) {
-  const session = createPackingSession({ packerOperatorName: packerName, packerOperatorCode: packerCode, createdBySessionId: `dev-${Date.now()}-${Math.random().toString(16).slice(2, 6)}` })
+  const loginSession = createSession(packerName, packerCode, 'operator', 'packing')
+  const session = createPackingSession({ currentSession: loginSession })
   const resi = makeResi()
   const now = new Date().toISOString()
   const qcId = `rec_qc_${Math.random().toString(36).slice(2, 10)}`
@@ -105,7 +106,7 @@ test('createPackingPayment menolak sesi active atau sudah dibayar', async () => 
   resetDb()
   seedOperator('sani', 'PK01')
   const adminSession = seedAdmin()
-  const active = createPackingSession({ packerOperatorName: 'sani', packerOperatorCode: 'PK01', createdBySessionId: 'dev-1' })
+  const active = createPackingSession({ currentSession: createSession('sani', 'PK01', 'operator', 'packing') })
   assert.throws(() => createPackingPayment({ sessionIds: [active.id], paidBySession: adminSession }), /Hanya sesi closed/)
 
   const closed = await seedClosedSessionWithPay('sani', 'PK01', 1500)

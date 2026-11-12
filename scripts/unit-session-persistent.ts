@@ -18,8 +18,9 @@ process.env.PAKTI_DB_PATH = TEST_DB_PATH
 delete process.env.SESSION_TTL_HOURS
 
 const { getDb } = await import('../services/backend/src/db.ts')
-const { authenticateOperator, createSession, getSessionById, resolveSession } = await import('../services/backend/src/store/sessionStore.ts')
+const { authenticateOperator, createSession, deleteSessionById, getSessionById, resolveSession } = await import('../services/backend/src/store/sessionStore.ts')
 const { upsertOperatorProfile } = await import('../services/backend/src/store/operatorStore.ts')
+const { createPackingSession, getPackingSessionById } = await import('../services/backend/src/store/packingSessionStore.ts')
 const { clearSessionCookie, getBearerToken, getRequestSessionId, getSessionCookieMaxAgeSeconds, getSessionTtlHours, setSessionCookie } = await import('../services/backend/src/http.ts')
 
 const database = getDb()
@@ -96,6 +97,27 @@ test('sesi kedaluwarsa tetap ditolak walau persistent', () => {
   database.prepare(`UPDATE operator_sessions SET updated_at = ? WHERE session_id = ?`).run('2020-01-01T00:00:00.000Z', remembered.sessionId)
   assert.equal(resolveSession(remembered.sessionId), null)
   assert.equal(getSessionById(remembered.sessionId), null)
+})
+
+test('logout melepas attachment sesi packing tanpa menutup histori kerja', () => {
+  const suffix = Math.random().toString(36).slice(2, 8)
+  const operatorName = `Packer ${suffix}`
+  const operatorCode = `PK${suffix}`
+  upsertOperatorProfile({
+    operatorName,
+    operatorCode,
+    role: 'operator',
+    taskType: 'packing',
+    password: 'rahasia123',
+  })
+  const loginSession = createSession(operatorName, operatorCode, 'operator', 'packing')
+  const packingSession = createPackingSession({ currentSession: loginSession })
+
+  deleteSessionById(loginSession.sessionId)
+
+  assert.equal(getSessionById(loginSession.sessionId), null)
+  assert.equal(getPackingSessionById(packingSession.id)?.status, 'active')
+  assert.equal(getPackingSessionById(packingSession.id)?.createdBySessionId, null)
 })
 
 function mockRequest(headers: Record<string, string | undefined>) {

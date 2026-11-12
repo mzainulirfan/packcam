@@ -45,6 +45,13 @@ function makeId(prefix: string) {
   return globalThis.crypto?.randomUUID?.() ?? `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`
 }
 
+function isSameOperatorIdentity(leftName: string, leftCode: string, rightName: string, rightCode: string) {
+  return (
+    leftName.trim().toLowerCase() === rightName.trim().toLowerCase() &&
+    leftCode.trim().toLowerCase() === rightCode.trim().toLowerCase()
+  )
+}
+
 function mapPackingSession(row: PackingWorkSessionRow): PackingWorkSession {
   return {
     id: row.id,
@@ -114,8 +121,12 @@ export function listPackingOperators() {
 
 export function getActivePackingSession(session?: HttpSession | null) {
   const args: unknown[] = ['active']
-  const ownerFilter = session ? 'AND s.created_by_session_id = ?' : ''
-  if (session) args.push(session.sessionId)
+  const ownerFilter = session
+    ? `AND s.created_by_session_id = ?
+       AND LOWER(s.packer_operator_name) = LOWER(?)
+       AND LOWER(s.packer_operator_code) = LOWER(?)`
+    : ''
+  if (session) args.push(session.sessionId, session.operatorName, session.operatorCode)
 
   const rows = selectPackingSessions(`WHERE s.status = ? ${ownerFilter}`, args)
   return rows[0] ? mapPackingSession(rows[0]) : null
@@ -132,37 +143,42 @@ export function listPackingSessions(limit = 50) {
   return rows.map(mapPackingSession)
 }
 
+export function listPackingSessionsForOperator(operatorName: string, operatorCode: string, limit = 50) {
+  const safeLimit = Math.min(200, Math.max(1, Math.floor(limit)))
+  const rows = selectPackingSessions(
+    `WHERE LOWER(s.packer_operator_name) = LOWER(?)
+       AND LOWER(s.packer_operator_code) = LOWER(?)`,
+    [operatorName.trim(), operatorCode.trim()],
+  )
+  // Sesi yang dapat dilanjutkan tidak boleh tenggelam oleh histori closed.
+  rows.sort((left, right) => Number(right.status === 'active') - Number(left.status === 'active'))
+  return rows.slice(0, safeLimit).map(mapPackingSession)
+}
+
 export function createPackingSession(input: {
-  packerOperatorName: string
-  packerOperatorCode: string
-  createdBySessionId?: string | null
   note?: string | null
-  releaseActive?: boolean
-  currentSession?: HttpSession | null
+  currentSession: HttpSession
 }) {
-  const packerOperatorName = input.packerOperatorName.trim()
-  const packerOperatorCode = input.packerOperatorCode.trim()
-  if (!packerOperatorName || !packerOperatorCode) {
-    throw new Error('Operator packing wajib dipilih.')
+  if (input.currentSession.taskType !== 'packing') {
+    throw new Error('Mode packing diperlukan untuk memulai sesi packing.')
   }
 
-  const profile = findOperatorProfile(packerOperatorName, packerOperatorCode, 'operator')
-  if (!profile || profile.taskType !== 'packing') {
-    throw new Error('Operator yang dipilih bukan petugas packing.')
+  const profile = findOperatorProfile(
+    input.currentSession.operatorName,
+    input.currentSession.operatorCode,
+    input.currentSession.role,
+  )
+  if (!profile) {
+    throw new Error('Akun login tidak lagi tersedia. Silakan masuk kembali.')
   }
 
-  if (input.currentSession && input.currentSession.role === 'operator' && input.currentSession.taskType === 'packing') {
-    if (profile.operatorName !== input.currentSession.operatorName || profile.operatorCode !== input.currentSession.operatorCode) {
-      throw new Error('Operator packing hanya bisa mengelola sesi miliknya sendiri.')
-    }
+  if (input.currentSession.role === 'operator' && profile.taskType !== 'packing') {
+    throw new Error('Akun ini bukan petugas packing.')
   }
 
-  if (input.createdBySessionId) {
-    const existing = getActivePackingSession({ sessionId: input.createdBySessionId } as HttpSession)
-    if (existing) {
-      releaseActivePackingSession(input.createdBySessionId)
-    }
-  }
+  // Satu sesi login hanya boleh terhubung ke satu sesi packing. Sesi lama tetap
+  // berstatus aktif agar dapat dilanjutkan kembali oleh akun pemiliknya.
+  releasePackingSessionsForLoginSession(input.currentSession.sessionId)
 
   const timestamp = nowIso()
   const id = makeId('packing_session')
@@ -193,9 +209,9 @@ export function createPackingSession(input: {
     null,
     'active',
     input.note?.trim() || null,
-    input.createdBySessionId ?? null,
-    input.currentSession?.operatorName ?? null,
-    input.currentSession?.operatorCode ?? null,
+    input.currentSession.sessionId,
+    input.currentSession.operatorName,
+    input.currentSession.operatorCode,
     timestamp,
     timestamp,
   )
@@ -204,14 +220,17 @@ export function createPackingSession(input: {
   return getPackingSessionById(id)
 }
 
-function releaseActivePackingSession(sessionId: string) {
+export function releasePackingSessionsForLoginSession(sessionId: string) {
   const timestamp = nowIso()
-  db().prepare(
+  const released = db().prepare(
     `UPDATE packing_work_sessions
      SET created_by_session_id = NULL, updated_at = ?
      WHERE status = 'active' AND created_by_session_id = ?`,
   ).run(timestamp, sessionId)
-  broadcastBackendEvent('sessions-updated', { sessionId, action: 'packing-session-released' })
+  if ((released.changes ?? 0) > 0) {
+    broadcastBackendEvent('sessions-updated', { sessionId, action: 'packing-session-released' })
+  }
+  return released.changes ?? 0
 }
 
 export function closePackingSession(id: string, note?: string | null, currentSession?: HttpSession | null) {
@@ -223,8 +242,13 @@ export function closePackingSession(id: string, note?: string | null, currentSes
     return session
   }
 
-  if (currentSession && currentSession.role === 'operator' && currentSession.taskType === 'packing') {
-    if (session.packerOperatorName !== currentSession.operatorName || session.packerOperatorCode !== currentSession.operatorCode) {
+  if (currentSession && currentSession.role !== 'admin') {
+    if (!isSameOperatorIdentity(
+      session.packerOperatorName,
+      session.packerOperatorCode,
+      currentSession.operatorName,
+      currentSession.operatorCode,
+    )) {
       throw new Error('Operator packing hanya bisa menutup sesi miliknya sendiri.')
     }
   }
@@ -254,10 +278,17 @@ export function reopenPackingSession(input: {
     throw new Error('Hanya sesi packing yang belum diakhiri yang bisa dilanjutkan.')
   }
 
-  if (input.currentSession.role === 'operator' && input.currentSession.taskType === 'packing') {
-    if (target.packerOperatorName !== input.currentSession.operatorName || target.packerOperatorCode !== input.currentSession.operatorCode) {
-      throw new Error('Operator packing hanya bisa melanjutkan sesi miliknya sendiri.')
-    }
+  if (input.currentSession.taskType !== 'packing') {
+    throw new Error('Mode packing diperlukan untuk melanjutkan sesi packing.')
+  }
+
+  if (!isSameOperatorIdentity(
+    target.packerOperatorName,
+    target.packerOperatorCode,
+    input.currentSession.operatorName,
+    input.currentSession.operatorCode,
+  )) {
+    throw new Error('Sesi packing hanya bisa dilanjutkan oleh akun pemiliknya.')
   }
 
   if (target.createdBySessionId === input.currentSession.sessionId) {
@@ -274,7 +305,7 @@ export function reopenPackingSession(input: {
       throw new Error('Masih ada sesi packing aktif. Lepas sesi aktif dulu atau aktifkan opsi releaseActive.')
     }
 
-    releaseActivePackingSession(input.currentSession.sessionId)
+    releasePackingSessionsForLoginSession(input.currentSession.sessionId)
   }
 
   const timestamp = nowIso()
@@ -366,6 +397,19 @@ export function assertActivePackingSession(id: string) {
     throw new Error('Sesi packing aktif wajib dipilih sebelum packing.')
   }
 
+  return session
+}
+
+export function assertActivePackingSessionForOperator(id: string, operatorName: string, operatorCode: string) {
+  const session = assertActivePackingSession(id)
+  if (!isSameOperatorIdentity(
+    session.packerOperatorName,
+    session.packerOperatorCode,
+    operatorName,
+    operatorCode,
+  )) {
+    throw new Error('Sesi packing hanya dapat dipakai oleh akun pemiliknya.')
+  }
   return session
 }
 

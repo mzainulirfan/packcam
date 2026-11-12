@@ -8,7 +8,7 @@ import multer from 'multer'
 import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
 import type { AppSettings, ShopeeOrder } from '@pakti/types'
 
-import { calculatePackingPayForOrder, clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, cancelPackerAdjustment, cancelPackingPaymentDraft, closePackingSession, confirmPackingPaymentDraft, createPackerAdjustment, createPackingPayment, createPackingPaymentDraft, createPackingPayRule, createPackingSession, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deletePackingPayRule, deletePackingSession, deleteRecording, deleteSessionById, deleteShopeeOrderByOrderNumber, finalizeRecording, getActivePackingSession, getBootstrapStatus, getChatSendStats, getDashboardSummary, getHealthSnapshot, getNextPendingShippingChatSend, getPackingPaymentById, getPackingPaymentDraftById, getPackingSessionById, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, getShopeeOrderStats, getShippingChatSendStats, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPackerAdjustments, listPackingOperators, listPackingPayRules, listPackingPaymentDrafts, listPackingPayments, listPackingSessions, listPendingChatSends, listRecentChatSends, listRecentShippingChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, mergePackingSessions, prepareBundledRecordingChatSend, prepareReadyRecordingChatSendsForToday, prepareRecordingShareFile, prepareShippingChatSends, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, reopenPackingSession, resolveSession, resetOperatorPassword, retryChatSend, retryShippingChatSend, savePackingPhotoRecord, saveSettings, saveSystemConfig, updateChatSendStatus, updatePackingPayRule, updatePackingRecordingPayRule, updateSessionTaskType, updateShippingChatSendStatus, upsertOperatorProfile } from './store'
+import { calculatePackingPayForOrder, clearAllData, clearLastError, clearScanData, authenticateOperator, appendRecordingChunk, cancelPackerAdjustment, cancelPackingPaymentDraft, closePackingSession, confirmPackingPaymentDraft, createPackerAdjustment, createPackingPayment, createPackingPaymentDraft, createPackingPayRule, createPackingSession, createRecordingDraft, createScanLog, createSession, deleteOperatorProfile, deletePackingPayRule, deletePackingSession, deleteRecording, deleteSessionById, deleteShopeeOrderByOrderNumber, finalizeRecording, getActivePackingSession, getBootstrapStatus, getChatSendStats, getDashboardSummary, getHealthSnapshot, getNextPendingShippingChatSend, getPackingPaymentById, getPackingPaymentDraftById, getPackingSessionById, getRecordingById, getShopeeOrderByOrderNumber, getShopeeOrderByResi, getShopeeOrderStats, getShippingChatSendStats, importShopeeOrders, invalidateCompletedRecordingsForResi, listChatSendsByRecordingIds, listOperatorProfiles, listPackerAdjustments, listPackingOperators, listPackingPayRules, listPackingPaymentDrafts, listPackingPayments, listPackingSessions, listPackingSessionsForOperator, listPendingChatSends, listRecentChatSends, listRecentShippingChatSends, listRecentShopeeOrders, listRecordings, listRecordingsByResi, listScanLogs, listShopeeOrderResisByOrderNumberSearch, mergePackingSessions, prepareBundledRecordingChatSend, prepareReadyRecordingChatSendsForToday, prepareRecordingShareFile, prepareShippingChatSends, readLastError, readSettings, readSystemConfig, reportLastError, recoverRecordingDraft, reopenPackingSession, resolveSession, resetOperatorPassword, retryChatSend, retryShippingChatSend, savePackingPhotoRecord, saveSettings, saveSystemConfig, updateChatSendStatus, updatePackingPayRule, updatePackingRecordingPayRule, updateSessionTaskType, updateShippingChatSendStatus, upsertOperatorProfile } from './store'
 import type { ShippingChatOrderInput } from './store/shippingChatSendStore'
 import { clearSessionCookie, getRequestSessionId, normalizeRole, readStringField, sendError, sendOk, setSessionCookie } from './http'
 import type { HttpSession } from './http'
@@ -177,21 +177,22 @@ function canSessionAccessRecording(session: HttpSession, record: ReturnType<type
     return true
   }
 
+  return isRecordingOwnedBySession(session, record)
+}
+
+function isRecordingOwnedBySession(session: HttpSession, record: ReturnType<typeof listRecordings>[number]) {
   return (
     (record.operator_name ?? '').trim().toLowerCase() === session.operatorName.trim().toLowerCase() &&
     (record.operator_code ?? '').trim().toLowerCase() === session.operatorCode.trim().toLowerCase()
   )
 }
 
-function canSessionActAsOperator(session: HttpSession, operatorName: string, operatorCode: string) {
-  if (session.role === 'admin') {
-    return true
-  }
-
-  return (
-    session.operatorName.trim().toLowerCase() === operatorName.trim().toLowerCase() &&
-    session.operatorCode.trim().toLowerCase() === operatorCode.trim().toLowerCase()
-  )
+function canSessionWriteRecording(session: HttpSession, record: ReturnType<typeof listRecordings>[number]) {
+  // Admin tetap dapat mengelola histori, tetapi hasil packing baru hanya boleh
+  // ditulis oleh akun yang namanya tercatat pada recording tersebut.
+  return record.task_type === 'packing'
+    ? isRecordingOwnedBySession(session, record)
+    : canSessionAccessRecording(session, record)
 }
 
 function isLoginRateLimited(key: string) {
@@ -545,6 +546,20 @@ app.get('/api/packing-sessions', requireSession, (req, res) => {
   sendOk(res, listPackingSessions(Number.isFinite(limit) ? limit : 50))
 })
 
+app.get('/api/packing-sessions/mine', requireSession, (req, res) => {
+  const session = getRequestSession(req)
+  if (!session) {
+    return sendError(res, 401, 'Sesi login diperlukan.')
+  }
+  const query = req.query as Record<string, string | string[] | undefined>
+  const limit = Number(readQueryString(query.limit) || 50)
+  sendOk(res, listPackingSessionsForOperator(
+    session.operatorName,
+    session.operatorCode,
+    Number.isFinite(limit) ? limit : 50,
+  ))
+})
+
 app.get('/api/packing-sessions/:id', requireSession, (req, res) => {
   const params = req.params as Record<string, string | undefined>
   const packingSession = getPackingSessionById(params.id ?? '')
@@ -563,11 +578,7 @@ app.post('/api/packing-sessions', requireSession, (req, res) => {
 
   try {
     const packingSession = createPackingSession({
-      packerOperatorName: readStringField(req.body?.packerOperatorName, 'packerOperatorName'),
-      packerOperatorCode: readStringField(req.body?.packerOperatorCode, 'packerOperatorCode'),
-      createdBySessionId: session.sessionId,
       note: typeof req.body?.note === 'string' ? req.body.note : null,
-      releaseActive: req.body?.releaseActive === true || req.body?.closeActive === true,
       currentSession: session,
     })
     return sendOk(res, packingSession)
@@ -1138,18 +1149,12 @@ app.post('/api/recordings', (req, res) => {
   }
 
   try {
-    const operatorName = readStringField(req.body?.operatorName, 'operatorName')
-    const operatorCode = readStringField(req.body?.operatorCode, 'operatorCode')
-    if (!canSessionActAsOperator(session, operatorName, operatorCode)) {
-      return sendError(res, 403, 'Operator recording tidak sesuai dengan sesi login saat ini.')
-    }
-
     const draft = createRecordingDraft({
       id: typeof req.body?.id === 'string' ? req.body.id : undefined,
       resiNumber: readStringField(req.body?.resiNumber, 'resiNumber'),
-      taskType: req.body?.taskType === 'packing' ? 'packing' : 'qc',
-      operatorName,
-      operatorCode,
+      taskType: session.taskType,
+      operatorName: session.operatorName,
+      operatorCode: session.operatorCode,
       startedAt: typeof req.body?.startedAt === 'string' ? req.body.startedAt : undefined,
       fileName: typeof req.body?.fileName === 'string' ? req.body.fileName.trim() : undefined,
       filePath: typeof req.body?.filePath === 'string' ? req.body.filePath.trim() : undefined,
@@ -1179,7 +1184,7 @@ app.post('/api/recordings/:id/chunks', upload.single('chunk'), (req, res) => {
     return sendError(res, 404, 'Recording tidak ditemukan.')
   }
 
-  if (!canSessionAccessRecording(session, recording)) {
+  if (!canSessionWriteRecording(session, recording)) {
     return sendError(res, 403, 'Recording ini tidak bisa diubah oleh sesi login saat ini.')
   }
 
@@ -1216,7 +1221,7 @@ app.post('/api/recordings/:id/finalize', (req, res) => {
       return sendError(res, 404, 'Recording tidak ditemukan.')
     }
 
-    if (!canSessionAccessRecording(session, recording)) {
+    if (!canSessionWriteRecording(session, recording)) {
       return sendError(res, 403, 'Recording ini tidak bisa difinalisasi oleh sesi login saat ini.')
     }
 
@@ -1275,7 +1280,7 @@ app.post('/api/recordings/:id/recover', (req, res) => {
       return sendError(res, 404, 'Recording tidak ditemukan.')
     }
 
-    if (!canSessionAccessRecording(session, recording)) {
+    if (!canSessionWriteRecording(session, recording)) {
       return sendError(res, 403, 'Recording ini tidak bisa dipulihkan oleh sesi login saat ini.')
     }
 

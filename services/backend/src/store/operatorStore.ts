@@ -228,6 +228,20 @@ export function deleteOperatorProfile(operatorName: string, operatorCode: string
 
   db()
     .prepare(
+      `UPDATE packing_work_sessions
+       SET created_by_session_id = NULL, updated_at = ?
+       WHERE created_by_session_id IN (
+         SELECT session_id
+         FROM operator_sessions
+         WHERE LOWER(operator_name) = LOWER(?)
+           AND LOWER(operator_code) = LOWER(?)
+           AND role = ?
+       )`,
+    )
+    .run(nowIso(), normalizeOperatorName(operatorName), normalizeOperatorCode(operatorCode), role)
+
+  db()
+    .prepare(
       `DELETE FROM operator_sessions
        WHERE LOWER(operator_name) = LOWER(?)
          AND LOWER(operator_code) = LOWER(?)

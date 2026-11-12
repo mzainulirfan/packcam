@@ -6,6 +6,7 @@ import type { HttpSession } from '../http'
 import { getDb, ensureServerStorage } from '../db'
 import { broadcastBackendEvent } from '../realtime'
 import { findOperatorProfile, findProfileByName } from './operatorStore'
+import { releasePackingSessionsForLoginSession } from './packingSessionStore'
 
 type SessionRow = {
   session_id: string
@@ -105,6 +106,7 @@ export function getSessionById(sessionId: string) {
 }
 
 export function deleteSessionById(sessionId: string) {
+  releasePackingSessionsForLoginSession(sessionId)
   db().prepare(`DELETE FROM operator_sessions WHERE session_id = ?`).run(sessionId)
   broadcastBackendEvent('sessions-updated', { sessionId, deleted: true })
 }

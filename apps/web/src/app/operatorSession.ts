@@ -227,22 +227,29 @@ export async function authOperatorByUsername(operatorName: string, password: str
   return result.session
 }
 
-export function logoutOperator() {
-  currentSession = null
-  isHydrated = false
-  currentProfiles = []
-  loadPromise = null
-  setSessionToken(null)
-  if (typeof window !== 'undefined') {
-    try {
-      window.sessionStorage.removeItem('pakti.operatorStore')
-      window.localStorage.removeItem('pakti.operatorStore')
-    } catch {
-      void 0
+export async function logoutOperator() {
+  try {
+    // Token/cookie harus masih tersedia saat request logout agar backend dapat
+    // melepas sesi packing dari sesi login ini sebelum akun berikutnya masuk.
+    await logoutServerOperatorApi()
+  } catch {
+    // Sesi lokal tetap harus dibersihkan jika server tidak dapat dijangkau.
+  } finally {
+    currentSession = null
+    isHydrated = false
+    currentProfiles = []
+    loadPromise = null
+    setSessionToken(null)
+    if (typeof window !== 'undefined') {
+      try {
+        window.sessionStorage.removeItem('pakti.operatorStore')
+        window.localStorage.removeItem('pakti.operatorStore')
+      } catch {
+        void 0
+      }
     }
+    emitChange()
   }
-  emitChange()
-  void logoutServerOperatorApi().catch(() => undefined)
 }
 
 export async function updateOperatorSessionTask(taskType: WorkTask) {

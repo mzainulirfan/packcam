@@ -436,7 +436,7 @@ export function readPackingSessionApi(id: string) {
   return requestApi<PackingWorkSession>(`/api/packing-sessions/${encodeURIComponent(id)}`)
 }
 
-export function createPackingSessionApi(payload: { packerOperatorName: string; packerOperatorCode: string; note?: string | null; releaseActive?: boolean }) {
+export function createPackingSessionApi(payload: { note?: string | null } = {}) {
   return requestApi<PackingWorkSession>('/api/packing-sessions', {
     method: 'POST',
     body: JSON.stringify(payload),
@@ -465,6 +465,10 @@ export function deletePackingSessionApi(id: string) {
 
 export function readPackingSessionsApi(limit = 50) {
   return requestApi<PackingWorkSession[]>(`/api/packing-sessions?limit=${encodeURIComponent(String(limit))}`)
+}
+
+export function readMyPackingSessionsApi(limit = 50) {
+  return requestApi<PackingWorkSession[]>(`/api/packing-sessions/mine?limit=${encodeURIComponent(String(limit))}`)
 }
 
 export function mergePackingSessionsApi(sessionIds: string[]) {
@@ -683,9 +687,6 @@ export function retryShippingChatSendApi(id: string) {
 export function createServerRecordingDraftApi(payload: {
   id?: string
   resiNumber: string
-  taskType: 'qc' | 'packing'
-  operatorName: string
-  operatorCode: string
   startedAt?: string
   fileName?: string
   filePath?: string

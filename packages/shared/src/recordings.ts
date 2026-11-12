@@ -305,9 +305,6 @@ export function setRecordingError(id: string, message: string) {
   void createServerRecordingDraftApi({
     id,
     resiNumber: next.resiNumber,
-    taskType: next.taskType,
-    operatorName: next.operatorName ?? '',
-    operatorCode: next.operatorCode ?? '',
     startedAt: next.startTime,
     fileName: next.fileName,
     filePath: next.filePath,

@@ -5,6 +5,7 @@ import {
   getHistoryEmptyState,
   groupHistoryByDate,
   groupRecordings,
+  matchesRecordingLoginIdentity,
   type HistoryDateFilter,
   type HistorySortOrder,
   type HistoryTaskFilter,
@@ -39,6 +40,17 @@ export function useMobileHistoryFilters({
   const currentOperatorCode = operatorCode?.trim().toLowerCase() ?? ''
   const historyQuery = historyResiQuery.trim()
   const normalizedHistoryQuery = historyQuery.toLowerCase()
+  const historyScopeRecordings = useMemo(() => {
+    if (historyAllAccounts) {
+      return recordings
+    }
+
+    return recordings.filter((record) => matchesRecordingLoginIdentity(
+      record,
+      currentOperatorName,
+      currentOperatorCode,
+    ))
+  }, [currentOperatorCode, currentOperatorName, historyAllAccounts, recordings])
   const queryMatchedResiNumbers = useMemo(() => {
     if (!normalizedHistoryQuery) {
       return new Set<string>()
@@ -102,8 +114,8 @@ export function useMobileHistoryFilters({
   const historyFilterSheetActive = historyDocStatusFilter !== 'all' || historyAllAccounts || historyDateFilter !== 'all' || historySortOrder !== 'newest'
 
   const groupedByDate = useMemo(() => {
-    return groupHistoryByDate(groupedRecordings, historyDocStatusFilter, recordings)
-  }, [groupedRecordings, historyDocStatusFilter, recordings])
+    return groupHistoryByDate(groupedRecordings, historyDocStatusFilter, historyScopeRecordings)
+  }, [groupedRecordings, historyDocStatusFilter, historyScopeRecordings])
 
   const historyEmptyState = useMemo(() => getHistoryEmptyState({
     groupedRecordingsLength: groupedRecordings.length,
@@ -126,6 +138,7 @@ export function useMobileHistoryFilters({
   return {
     groupedRecordings,
     groupedByDate,
+    historyScopeRecordings,
     hasHistoryFilters,
     historyFilterSheetActive,
     historyEmptyState,

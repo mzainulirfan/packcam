@@ -4,6 +4,12 @@ import { Cancel01Icon, Copy01Icon, SentIcon, Share08Icon, TrashIcon } from '@hug
 import { buildServerFileUrl } from '@pakti/api-client'
 import type { RecordingRow, WorkTask } from '@pakti/types'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import {
+  formatOperatorIdentity,
+  getPayLabel,
+  getPayStatusBadge,
+  getRecordingIdentitySummary,
+} from '../history/historyUtils'
 
 type HistoryDetailTarget = {
   resiNumber: string
@@ -191,6 +197,9 @@ export function HistoryDetailSheet({
                 ? 'Antri share'
                 : getShareStatusLabel(record)
             const canShare = record.status === 'completed' && Boolean(record.filePath)
+            const identity = getRecordingIdentitySummary(record)
+            const payLabel = getPayLabel(record)
+            const payStatus = getPayStatusBadge(record)
 
             return (
               <article key={record.id} className="overflow-hidden rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)]">
@@ -223,6 +232,21 @@ export function HistoryDetailSheet({
                     <span className={record.status === 'completed' ? 'text-[12px] font-medium' : 'text-[12px] text-[var(--op-mute)]'}>
                       {formatStatus(record.status)}
                     </span>
+                    {identity.isHistoricalOnBehalf ? (
+                      <span className="rounded-[4px] border border-amber-500/45 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-200">
+                        Atas nama · historis
+                      </span>
+                    ) : null}
+                    {payLabel ? (
+                      <span className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-2 py-0.5 text-[11px] font-medium text-[var(--op-ink)]">
+                        Upah {payLabel}
+                      </span>
+                    ) : null}
+                    {payStatus ? (
+                      <span className="rounded-[4px] border border-amber-500/45 px-2 py-0.5 text-[11px] text-amber-700 dark:text-amber-200">
+                        {payStatus === 'needs_review' ? 'Upah perlu review' : 'Koreksi admin'}
+                      </span>
+                    ) : null}
                     <span className={sharePreparing
                       ? 'rounded-[4px] border border-[var(--op-warning,#ff9f0a)] bg-[var(--op-warning,#ff9f0a)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--op-warning,#ff9f0a)] animate-pulse'
                       : shareFailed
@@ -234,8 +258,25 @@ export function HistoryDetailSheet({
                     </span>
                   </div>
 
+                  <div className="grid gap-1.5 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 py-2 text-[12px]">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="shrink-0 text-[var(--op-mute)]">{record.taskType === 'packing' ? 'Packer / upah' : 'Operator QC'}</span>
+                      <span className="min-w-0 truncate text-right font-medium text-[var(--op-ink)]">
+                        {formatOperatorIdentity(identity.creditedName, identity.creditedCode)}
+                      </span>
+                    </div>
+                    {identity.isHistoricalOnBehalf ? (
+                      <div className="flex items-start justify-between gap-3 text-amber-700 dark:text-amber-200">
+                        <span className="shrink-0">Dicatat oleh</span>
+                        <span className="min-w-0 truncate text-right font-medium">
+                          {formatOperatorIdentity(identity.actorName, identity.actorCode)}
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
+
                   <p className="m-0 text-[12px] leading-snug text-[var(--op-mute)]">
-                    {formatDateTime(record.updatedAt)} · {record.operatorName || '-'}
+                    {formatDateTime(record.updatedAt)}
                     {chatSend ? ` · ${chatSend.status === 'sent' ? 'Shopee terkirim' : chatSend.status === 'prepared' ? 'Shopee siap' : `Shopee ${chatSend.status}`}` : ''}
                   </p>
 

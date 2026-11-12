@@ -18,6 +18,14 @@ export type HistoryEmptyState = {
   taskType?: WorkTask
 }
 
+export type RecordingIdentitySummary = {
+  actorName: string | null
+  actorCode: string | null
+  creditedName: string | null
+  creditedCode: string | null
+  isHistoricalOnBehalf: boolean
+}
+
 export function formatDateTime(value: string | null | undefined) {
   if (!value) {
     return '-'
@@ -46,6 +54,70 @@ export function formatOperatorIdentity(operatorName?: string | null, operatorCod
   }
 
   return name || code || 'operator lain'
+}
+
+function normalizedIdentityPart(value?: string | null) {
+  return value?.trim().toLowerCase() ?? ''
+}
+
+function isSameStoredIdentity(
+  leftName?: string | null,
+  leftCode?: string | null,
+  rightName?: string | null,
+  rightCode?: string | null,
+) {
+  const normalizedLeftName = normalizedIdentityPart(leftName)
+  const normalizedLeftCode = normalizedIdentityPart(leftCode)
+  const normalizedRightName = normalizedIdentityPart(rightName)
+  const normalizedRightCode = normalizedIdentityPart(rightCode)
+
+  if (normalizedLeftCode && normalizedRightCode) {
+    return normalizedLeftCode === normalizedRightCode
+  }
+
+  return Boolean(normalizedLeftName) && normalizedLeftName === normalizedRightName
+}
+
+/**
+ * `operator*` adalah akun login yang mencatat rekaman. Untuk data packing lama,
+ * `packerOperator*` dapat berbeda karena dahulu admin boleh mencatat atas nama
+ * petugas lain. Keduanya tetap ditampilkan sebagai audit, tanpa menulis ulang
+ * histori tersebut.
+ */
+export function getRecordingIdentitySummary(record: RecordingRow): RecordingIdentitySummary {
+  const actorName = record.operatorName?.trim() || null
+  const actorCode = record.operatorCode?.trim() || null
+  const hasStoredPacker = record.taskType === 'packing' && Boolean(record.packerOperatorName?.trim() || record.packerOperatorCode?.trim())
+  const creditedName = hasStoredPacker ? record.packerOperatorName?.trim() || null : actorName
+  const creditedCode = hasStoredPacker ? record.packerOperatorCode?.trim() || null : actorCode
+
+  return {
+    actorName,
+    actorCode,
+    creditedName,
+    creditedCode,
+    isHistoricalOnBehalf: Boolean(
+      hasStoredPacker &&
+      !isSameStoredIdentity(actorName, actorCode, creditedName, creditedCode)
+    ),
+  }
+}
+
+/** History "akun saya" mengikuti akun login yang benar-benar mencatat data. */
+export function matchesRecordingLoginIdentity(
+  record: RecordingRow,
+  currentOperatorName: string,
+  currentOperatorCode: string,
+) {
+  const recordOperatorName = normalizedIdentityPart(record.operatorName)
+  const recordOperatorCode = normalizedIdentityPart(record.operatorCode)
+  const normalizedCurrentName = normalizedIdentityPart(currentOperatorName)
+  const normalizedCurrentCode = normalizedIdentityPart(currentOperatorCode)
+
+  return normalizedCurrentCode
+    ? recordOperatorCode === normalizedCurrentCode ||
+      (recordOperatorName === normalizedCurrentName && recordOperatorCode === '')
+    : Boolean(normalizedCurrentName) && recordOperatorName === normalizedCurrentName
 }
 
 export function formatStatus(status: RecordingRow['status']) {
@@ -99,21 +171,21 @@ export function getMediaLabel(record: RecordingRow) {
 }
 
 export function getPayLabel(record: RecordingRow) {
-  const pay = (record as unknown as { packingPayAmount?: number | null }).packingPayAmount
+  const pay = record.packingPayAmount
   if (pay == null || record.taskType !== 'packing') return null
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(pay)
 }
 
 export function getPayStatusBadge(record: RecordingRow) {
-  const status = (record as unknown as { packingPayStatus?: string | null }).packingPayStatus
+  const status = record.packingPayStatus
   if (status === 'needs_review') return 'needs_review'
   if (status === 'manual_override') return 'override'
   return null
 }
 
 export function getPackerLabel(record: RecordingRow) {
-  const name = (record as unknown as { packerOperatorName?: string | null }).packerOperatorName
-  const code = (record as unknown as { packerOperatorCode?: string | null }).packerOperatorCode
+  const name = record.packerOperatorName
+  const code = record.packerOperatorCode
   if (!name && !code) return null
   return `${name ?? ''}${code ? ` · ${code}` : ''}`.trim()
 }
@@ -168,8 +240,6 @@ export function filterRecordings(input: {
   currentOperatorCode: string
 }) {
   return input.recordings.filter((record) => {
-    const recordOperatorName = record.operatorName?.trim().toLowerCase() ?? ''
-    const recordOperatorCode = record.operatorCode?.trim().toLowerCase() ?? ''
     const matchesTask = input.historyTaskFilter === 'all' ? true : record.taskType === input.historyTaskFilter
     const matchesDate = matchesHistoryDateFilter(record.updatedAt, input.historyDateFilter)
     const normalizedRecordResi = record.resiNumber.trim().toLowerCase()
@@ -178,10 +248,7 @@ export function filterRecordings(input: {
       : true
     const matchesAccount = input.historyAllAccounts
       ? true
-      : input.currentOperatorCode
-        ? recordOperatorCode === input.currentOperatorCode ||
-          (recordOperatorName === input.currentOperatorName && recordOperatorCode === '')
-        : recordOperatorName === input.currentOperatorName
+      : matchesRecordingLoginIdentity(record, input.currentOperatorName, input.currentOperatorCode)
 
     return matchesTask && matchesDate && matchesQuery && matchesAccount
   })
@@ -299,26 +366,25 @@ export function getHistoryEmptyState(input: {
   }
 
   const hasCurrentAccountMatch = input.matchingResiRecords.some((record) => {
-    const recordOperatorName = record.operatorName?.trim().toLowerCase() ?? ''
-    const recordOperatorCode = record.operatorCode?.trim().toLowerCase() ?? ''
-
     return input.historyAllAccounts
       ? true
-      : input.currentOperatorCode
-        ? recordOperatorCode === input.currentOperatorCode ||
-          (recordOperatorName === input.currentOperatorName && recordOperatorCode === '')
-        : recordOperatorName === input.currentOperatorName
+      : matchesRecordingLoginIdentity(record, input.currentOperatorName, input.currentOperatorCode)
   })
 
   if (!hasCurrentAccountMatch && !input.historyAllAccounts) {
+    const identity = input.latestMatchingResiRecord
+      ? getRecordingIdentitySummary(input.latestMatchingResiRecord)
+      : null
     return {
       tone: 'warning',
       title: 'Sudah diproses',
       message: `Resi ini sudah diproses oleh ${formatOperatorIdentity(
-        input.latestMatchingResiRecord?.operatorName,
-        input.latestMatchingResiRecord?.operatorCode,
+        identity?.actorName,
+        identity?.actorCode,
       )}.`,
-      detail: 'Aktifkan mode semua akun bila ingin melihat riwayat lengkapnya.',
+      detail: identity?.isHistoricalOnBehalf
+        ? `Data packing historis ini tercatat atas nama ${formatOperatorIdentity(identity.creditedName, identity.creditedCode)}. Aktifkan mode semua akun untuk audit.`
+        : 'Aktifkan mode semua akun bila ingin melihat riwayat lengkapnya.',
       taskType: input.latestMatchingResiRecord?.taskType,
     }
   }

@@ -20,7 +20,7 @@ import {
 } from '../video/shareVideo'
 import { calculatePackingPayForOrder, calculatePackingPayForRule, getPackingPayRuleById } from './packingPayRuleStore'
 import { assertSessionsNotLocked } from './packingDraftLock'
-import { assertActivePackingSession } from './packingSessionStore'
+import { assertActivePackingSessionForOperator } from './packingSessionStore'
 import { getShopeeOrderByResi } from './orderStore'
 
 type RecordingRow = {
@@ -368,12 +368,29 @@ export function createRecordingDraft(input: RecordingDraftInput) {
   const startTime = startedAt.toISOString()
   const recordDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(startedAt)
   const taskType = normalizeTaskType(input.taskType)
+  const existing = getRecordingById(id)
+  if (existing) {
+    const sameOwner = (
+      (existing.operator_name ?? '').trim().toLowerCase() === input.operatorName.trim().toLowerCase() &&
+      (existing.operator_code ?? '').trim().toLowerCase() === input.operatorCode.trim().toLowerCase()
+    )
+    if (!sameOwner || existing.task_type !== taskType) {
+      throw new Error('ID recording sudah dipakai oleh akun atau task lain.')
+    }
+    if (existing.status === 'completed') {
+      throw new Error('Recording yang sudah selesai tidak dapat ditulis ulang.')
+    }
+  }
   if (taskType === 'packing' && !canStartPackingForResi(input.resiNumber)) {
     throw new Error('Packing hanya bisa dimulai setelah QC selesai untuk resi ini.')
   }
   const mediaType = normalizeMediaType(input.mediaType)
   const packingSession = taskType === 'packing'
-    ? assertActivePackingSession(input.packingSessionId ?? '')
+    ? assertActivePackingSessionForOperator(
+        input.packingSessionId ?? '',
+        input.operatorName,
+        input.operatorCode,
+      )
     : null
   const fileName = input.fileName
     ? sanitizeFileName(input.fileName)

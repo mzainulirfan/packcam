@@ -361,9 +361,6 @@ export function useRecordingSession({ stream, settings, operatorName, operatorCo
       await createServerRecordingDraftApi({
         id: draft.id,
         resiNumber: draft.resiNumber,
-        taskType: draft.taskType,
-        operatorName: draft.operatorName ?? '',
-        operatorCode: draft.operatorCode ?? '',
         startedAt: draft.startTime,
         fileName: draft.fileName,
         filePath: draft.filePath,

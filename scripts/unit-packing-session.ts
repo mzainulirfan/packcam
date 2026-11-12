@@ -16,12 +16,14 @@ process.env.PAKTI_DB_PATH = TEST_DB_PATH
 const { getDb } = await import('../services/backend/src/db.ts')
 const { upsertOperatorProfile } = await import('../services/backend/src/store/operatorStore.ts')
 const { createPackingPayRule } = await import('../services/backend/src/store/packingPayRuleStore.ts')
-const { updatePackingRecordingPayRule } = await import('../services/backend/src/store/recordingStore.ts')
+const { createRecordingDraft, updatePackingRecordingPayRule } = await import('../services/backend/src/store/recordingStore.ts')
 const {
   closePackingSession,
   createPackingSession,
   deletePackingSession,
+  getActivePackingSession,
   getPackingSessionById,
+  listPackingSessionsForOperator,
   reopenPackingSession,
 } = await import('../services/backend/src/store/packingSessionStore.ts')
 
@@ -31,6 +33,7 @@ function resetDb() {
   database.prepare('DELETE FROM recordings').run()
   database.prepare('DELETE FROM packing_work_sessions').run()
   database.prepare('DELETE FROM packing_pay_rules').run()
+  database.prepare('DELETE FROM operator_sessions').run()
   database.prepare('DELETE FROM operator_profiles').run()
 }
 
@@ -45,69 +48,83 @@ function seedPackingOperator(operatorName: string, operatorCode: string, fullNam
   })
 }
 
-test('reopenPackingSession melanjutkan sesi active yang belum diakhiri dan melepas sesi aktif lain', () => {
+function seedAdmin(operatorName = 'admin', operatorCode = 'ADM', fullName = 'Admin') {
+  return upsertOperatorProfile({
+    operatorName,
+    operatorCode,
+    role: 'admin',
+    taskType: 'qc',
+    fullName,
+    password: 'secret123',
+  })
+}
+
+function makeSession(
+  operatorName: string,
+  operatorCode: string,
+  sessionId: string,
+  role: 'admin' | 'operator' = 'operator',
+  taskType: 'packing' | 'qc' = 'packing',
+) {
+  const timestamp = new Date().toISOString()
+  return {
+    sessionId,
+    operatorName,
+    operatorCode,
+    role,
+    taskType,
+    persistent: false,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  }
+}
+
+test('reopenPackingSession melanjutkan sesi milik akun yang sama dan melepas sesi aktif lain', () => {
   resetDb()
   seedPackingOperator('sani', 'PK01', 'Sani')
-  seedPackingOperator('wildan', 'PK02', 'Wildan')
+  const oldLogin = makeSession('sani', 'PK01', 'login-lama')
+  const currentLogin = makeSession('sani', 'PK01', 'login-sekarang')
 
   const saniSession = createPackingSession({
-    packerOperatorName: 'sani',
-    packerOperatorCode: 'PK01',
-    createdBySessionId: 'device-session-1',
+    currentSession: oldLogin,
   })
   assert.ok(saniSession)
 
-  const wildanSession = createPackingSession({
-    packerOperatorName: 'wildan',
-    packerOperatorCode: 'PK02',
-    createdBySessionId: 'device-session-1',
-    releaseActive: true,
+  const otherSaniSession = createPackingSession({
+    currentSession: currentLogin,
   })
-  assert.ok(wildanSession)
-  assert.equal(getPackingSessionById(saniSession.id)?.status, 'active')
-  assert.equal(getPackingSessionById(saniSession.id)?.createdBySessionId, null)
+  assert.ok(otherSaniSession)
 
   const reopened = reopenPackingSession({
     id: saniSession.id,
-    currentSession: {
-      sessionId: 'device-session-1',
-      operatorName: 'admin',
-      operatorCode: 'ADM',
-      role: 'admin',
-      taskType: 'packing',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
+    currentSession: currentLogin,
     releaseActive: true,
   })
 
   assert.equal(reopened?.id, saniSession.id)
   assert.equal(reopened?.status, 'active')
   assert.equal(reopened?.endedAt, null)
-  assert.equal(reopened?.createdBySessionId, 'device-session-1')
-  assert.equal(getPackingSessionById(wildanSession.id)?.status, 'active')
-  assert.equal(getPackingSessionById(wildanSession.id)?.createdBySessionId, null)
+  assert.equal(reopened?.createdBySessionId, 'login-sekarang')
+  assert.equal(getPackingSessionById(otherSaniSession.id)?.status, 'active')
+  assert.equal(getPackingSessionById(otherSaniSession.id)?.createdBySessionId, null)
 })
 
-test('createPackingSession otomatis melepas sesi aktif lama di device yang sama', () => {
+test('createPackingSession mengambil identitas login dan melepas sesi lama pada login yang sama', () => {
   resetDb()
   seedPackingOperator('sani', 'PK01', 'Sani')
-  seedPackingOperator('wildan', 'PK02', 'Wildan')
+  const login = makeSession('sani', 'PK01', 'device-session-1')
 
   const saniSession = createPackingSession({
-    packerOperatorName: 'sani',
-    packerOperatorCode: 'PK01',
-    createdBySessionId: 'device-session-1',
+    currentSession: login,
   })
 
-  const wildanSession = createPackingSession({
-    packerOperatorName: 'wildan',
-    packerOperatorCode: 'PK02',
-    createdBySessionId: 'device-session-1',
+  const nextSaniSession = createPackingSession({
+    currentSession: login,
   })
 
-  assert.equal(wildanSession?.status, 'active')
-  assert.equal(wildanSession?.createdBySessionId, 'device-session-1')
+  assert.equal(nextSaniSession?.status, 'active')
+  assert.equal(nextSaniSession?.packerOperatorName, 'sani')
+  assert.equal(nextSaniSession?.createdBySessionId, 'device-session-1')
   assert.equal(getPackingSessionById(saniSession?.id ?? '')?.status, 'active')
   assert.equal(getPackingSessionById(saniSession?.id ?? '')?.createdBySessionId, null)
 })
@@ -115,11 +132,10 @@ test('createPackingSession otomatis melepas sesi aktif lama di device yang sama'
 test('reopenPackingSession menolak sesi yang sudah diakhiri', () => {
   resetDb()
   seedPackingOperator('sani', 'PK01', 'Sani')
+  const login = makeSession('sani', 'PK01', 'device-session-1')
 
   const saniSession = createPackingSession({
-    packerOperatorName: 'sani',
-    packerOperatorCode: 'PK01',
-    createdBySessionId: 'device-session-1',
+    currentSession: login,
   })
   assert.ok(saniSession)
   // seed 1 paket agar bisa ditutup (guard 0 paket)
@@ -131,40 +147,24 @@ test('reopenPackingSession menolak sesi yang sudah diakhiri', () => {
 
   assert.throws(() => reopenPackingSession({
     id: saniSession.id,
-    currentSession: {
-      sessionId: 'device-session-1',
-      operatorName: 'admin',
-      operatorCode: 'ADM',
-      role: 'admin',
-      taskType: 'packing',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
+    currentSession: login,
   }), /belum diakhiri/)
 })
 
 test('reopenPackingSession bisa mengambil alih sesi active dari session login lama', () => {
   resetDb()
   seedPackingOperator('sani', 'PK01', 'Sani')
+  const oldLogin = makeSession('sani', 'PK01', 'old-login-session')
+  const currentLogin = makeSession('sani', 'PK01', 'current-login-session')
 
   const saniSession = createPackingSession({
-    packerOperatorName: 'sani',
-    packerOperatorCode: 'PK01',
-    createdBySessionId: 'old-login-session',
+    currentSession: oldLogin,
   })
   assert.ok(saniSession)
 
   const resumed = reopenPackingSession({
     id: saniSession.id,
-    currentSession: {
-      sessionId: 'current-login-session',
-      operatorName: 'admin',
-      operatorCode: 'ADM',
-      role: 'admin',
-      taskType: 'packing',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
+    currentSession: currentLogin,
     releaseActive: true,
   })
 
@@ -173,91 +173,121 @@ test('reopenPackingSession bisa mengambil alih sesi active dari session login la
   assert.equal(resumed?.createdBySessionId, 'current-login-session')
 })
 
-test('operator packing hanya bisa buat dan lanjutkan sesi miliknya sendiri', () => {
+test('reopenPackingSession menolak akun lain termasuk admin', () => {
   resetDb()
   seedPackingOperator('sani', 'PK01', 'Sani')
   seedPackingOperator('wildan', 'PK02', 'Wildan')
+  seedAdmin()
 
-  const saniAsSani = createPackingSession({
-    packerOperatorName: 'sani',
-    packerOperatorCode: 'PK01',
-    createdBySessionId: 'sess-sani',
-    currentSession: {
-      sessionId: 'sess-sani',
-      operatorName: 'sani',
-      operatorCode: 'PK01',
-      role: 'operator',
-      taskType: 'packing',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  })
-  assert.ok(saniAsSani)
-  assert.equal(saniAsSani.createdByOperatorName, 'sani')
-  assert.throws(() => createPackingSession({
-    packerOperatorName: 'wildan',
-    packerOperatorCode: 'PK02',
-    createdBySessionId: 'sess-sani',
-    currentSession: {
-      sessionId: 'sess-sani',
-      operatorName: 'sani',
-      operatorCode: 'PK01',
-      role: 'operator',
-      taskType: 'packing',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  }), /hanya bisa mengelola sesi miliknya sendiri/)
+  const saniLogin = makeSession('sani', 'PK01', 'sess-sani')
+  const wildanLogin = makeSession('wildan', 'PK02', 'sess-wildan')
+  const adminLogin = makeSession('admin', 'ADM', 'sess-admin', 'admin')
 
   const wildanSession = createPackingSession({
-    packerOperatorName: 'wildan',
-    packerOperatorCode: 'PK02',
-    createdBySessionId: 'sess-wildan',
-    currentSession: {
-      sessionId: 'sess-wildan',
-      operatorName: 'wildan',
-      operatorCode: 'PK02',
-      role: 'operator',
-      taskType: 'packing',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
+    currentSession: wildanLogin,
   })
   assert.throws(() => reopenPackingSession({
     id: wildanSession.id,
-    currentSession: {
-      sessionId: 'sess-sani',
-      operatorName: 'sani',
-      operatorCode: 'PK01',
-      role: 'operator',
-      taskType: 'packing',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
+    currentSession: saniLogin,
     releaseActive: true,
-  }), /hanya bisa melanjutkan sesi miliknya sendiri/)
+  }), /akun pemiliknya/)
+  assert.throws(() => reopenPackingSession({
+    id: wildanSession.id,
+    currentSession: adminLogin,
+    releaseActive: true,
+  }), /akun pemiliknya/)
 })
 
-test('admin atas nama menyimpan createdByOperator', () => {
+test('admin membuat sesi packing sebagai akun admin sendiri', () => {
+  resetDb()
+  seedAdmin()
+  const adminLogin = makeSession('admin', 'ADM', 'sess-admin', 'admin')
+  const adminPackingSession = createPackingSession({
+    currentSession: adminLogin,
+  })
+  assert.equal(adminPackingSession.packerOperatorName, 'admin')
+  assert.equal(adminPackingSession.packerOperatorCode, 'ADM')
+  assert.equal(adminPackingSession.createdByOperatorName, 'admin')
+  assert.equal(adminPackingSession.createdByOperatorCode, 'ADM')
+})
+
+test('create dan reopen mewajibkan mode packing', () => {
   resetDb()
   seedPackingOperator('sani', 'PK01', 'Sani')
-  const adminSess = {
-    sessionId: 'sess-admin',
+  const packingLogin = makeSession('sani', 'PK01', 'sess-packing')
+  const qcLogin = makeSession('sani', 'PK01', 'sess-qc', 'operator', 'qc')
+  const packingSession = createPackingSession({ currentSession: packingLogin })
+
+  assert.throws(() => createPackingSession({ currentSession: qcLogin }), /Mode packing/)
+  assert.throws(() => reopenPackingSession({ id: packingSession.id, currentSession: qcLogin, releaseActive: true }), /Mode packing/)
+})
+
+test('getActivePackingSession mengabaikan attachment historis yang bukan milik login', () => {
+  resetDb()
+  seedPackingOperator('sani', 'PK01', 'Sani')
+  seedAdmin()
+  const saniLogin = makeSession('sani', 'PK01', 'legacy-session')
+  const adminLogin = makeSession('admin', 'ADM', 'legacy-session', 'admin')
+  const packingSession = createPackingSession({ currentSession: saniLogin })
+
+  assert.equal(getActivePackingSession(adminLogin), null)
+  assert.equal(getActivePackingSession(saniLogin)?.id, packingSession.id)
+})
+
+test('daftar sesi saya memprioritaskan sesi active yang bisa dilanjutkan', () => {
+  resetDb()
+  seedPackingOperator('sani', 'PK01', 'Sani')
+  const oldActive = createPackingSession({ currentSession: makeSession('sani', 'PK01', 'sess-old') })
+
+  for (let index = 0; index < 3; index += 1) {
+    const newer = createPackingSession({ currentSession: makeSession('sani', 'PK01', `sess-new-${index}`) })
+    closePackingSession(newer.id)
+  }
+
+  const [first] = listPackingSessionsForOperator('sani', 'PK01', 1)
+  assert.equal(first?.id, oldActive.id)
+  assert.equal(first?.status, 'active')
+})
+
+test('operator tidak bisa menutup sesi akun lain setelah task login berubah', () => {
+  resetDb()
+  seedPackingOperator('sani', 'PK01', 'Sani')
+  seedPackingOperator('wildan', 'PK02', 'Wildan')
+  seedAdmin()
+  const wildanSession = createPackingSession({ currentSession: makeSession('wildan', 'PK02', 'sess-wildan') })
+
+  assert.throws(() => closePackingSession(
+    wildanSession.id,
+    null,
+    makeSession('sani', 'PK01', 'sess-sani', 'operator', 'qc'),
+  ), /miliknya sendiri/)
+
+  const closed = closePackingSession(
+    wildanSession.id,
+    null,
+    makeSession('admin', 'ADM', 'sess-admin', 'admin', 'qc'),
+  )
+  assert.equal(closed?.status, 'closed')
+})
+
+test('ID draft recording tidak dapat dipakai ulang untuk mengganti identitas', () => {
+  resetDb()
+  const id = 'recording-identitas-tetap'
+  createRecordingDraft({
+    id,
+    resiNumber: 'QC-IDENTITAS-1',
+    taskType: 'qc',
+    operatorName: 'sani',
+    operatorCode: 'PK01',
+  })
+
+  assert.throws(() => createRecordingDraft({
+    id,
+    resiNumber: 'QC-IDENTITAS-1',
+    taskType: 'qc',
     operatorName: 'admin',
     operatorCode: 'ADM',
-    role: 'admin' as const,
-    taskType: 'packing' as const,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  }
-  const sani = createPackingSession({
-    packerOperatorName: 'sani',
-    packerOperatorCode: 'PK01',
-    createdBySessionId: adminSess.sessionId,
-    currentSession: adminSess,
-  })
-  assert.equal(sani.createdByOperatorName, 'admin')
-  assert.equal(sani.createdByOperatorCode, 'ADM')
+  }), /sudah dipakai oleh akun atau task lain/)
 })
 
 test('deletePackingSession hanya menghapus sesi closed kosong', () => {
