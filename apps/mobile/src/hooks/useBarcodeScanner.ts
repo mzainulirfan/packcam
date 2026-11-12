@@ -1,5 +1,12 @@
 import { useEffect, useRef } from 'react'
 
+import {
+  createBarcodeScanGate,
+  DEFAULT_BARCODE_RELEASE_MS,
+  observeBarcodeScan,
+  resetBarcodeScanGate,
+} from './useBarcodeScanner.logic'
+
 type BarcodeScannerOptions = {
   videoElement: HTMLVideoElement | null
   enabled: boolean
@@ -7,8 +14,10 @@ type BarcodeScannerOptions = {
   onUnsupported?: () => void
   intervalMs?: number
   cooldownMs?: number
+  releaseMs?: number
   maxScanWidth?: number
   resetToken?: number
+  resetValue?: string | null
 }
 
 type DetectorLike = {
@@ -79,11 +88,12 @@ export function useBarcodeScanner({
   onUnsupported,
   intervalMs = 700,
   cooldownMs = 2500,
+  releaseMs = DEFAULT_BARCODE_RELEASE_MS,
   maxScanWidth = 640,
   resetToken = 0,
+  resetValue = null,
 }: BarcodeScannerOptions) {
-  const lastValueRef = useRef<string | null>(null)
-  const lastEmittedAtRef = useRef<number>(0)
+  const scanGateRef = useRef(createBarcodeScanGate())
   const onDetectedRef = useRef(onDetected)
   const onUnsupportedRef = useRef(onUnsupported)
 
@@ -96,9 +106,8 @@ export function useBarcodeScanner({
   }, [onUnsupported])
 
   useEffect(() => {
-    lastValueRef.current = null
-    lastEmittedAtRef.current = 0
-  }, [resetToken])
+    resetBarcodeScanGate(scanGateRef.current, resetValue)
+  }, [resetToken, resetValue])
 
   useEffect(() => {
     const element = videoElement
@@ -136,18 +145,15 @@ export function useBarcodeScanner({
         context.drawImage(video, 0, 0, targetWidth, targetHeight)
 
         const barcodes = await activeDetector.detect(canvas)
-        const rawValue = barcodes[0]?.rawValue?.trim()
-
-        if (!rawValue) {
+        // detect() bisa selesai setelah effect dibersihkan (mis. selesai QC atau
+        // pindah mode). Hasil frame lama tidak boleh diteruskan ke mode baru.
+        if (cancelled) {
           return
         }
-
+        const rawValue = barcodes[0]?.rawValue?.trim() ?? ''
         const now = Date.now()
-        const shouldEmit = rawValue !== lastValueRef.current || now - lastEmittedAtRef.current >= cooldownMs
 
-        if (shouldEmit) {
-          lastValueRef.current = rawValue
-          lastEmittedAtRef.current = now
+        if (observeBarcodeScan(scanGateRef.current, rawValue, now, cooldownMs, releaseMs)) {
           onDetectedRef.current(rawValue)
         }
       } catch {
@@ -179,5 +185,5 @@ export function useBarcodeScanner({
         window.clearInterval(timerId)
       }
     }
-  }, [cooldownMs, enabled, intervalMs, maxScanWidth, videoElement, resetToken])
+  }, [cooldownMs, enabled, intervalMs, maxScanWidth, releaseMs, videoElement, resetToken])
 }

@@ -267,6 +267,7 @@ function App() {
   const stopScanRecordingBusyRef = useRef(false)
   const stopSaveBarcodeBusyRef = useRef(false)
   const photoBusyRef = useRef(false)
+  const scannerTransitionBusyRef = useRef(false)
 
   const appName = systemConfig?.appName ?? 'Pakti'
   const tagline = systemConfig?.tagline ?? 'Paket Tercatat, Bukti Terjaga'
@@ -345,6 +346,12 @@ function App() {
       : null
   const currentRecordingResi = activeRecordingResi ?? recordingSession.state.savingResi
   const scannerIntervalMs = recordingSession.state.mode === 'recording' ? 700 : 180
+  const scannerCanDetect =
+    Boolean(session) &&
+    activeTab === 'scan' &&
+    canUsePackingFlow &&
+    !taskBusy &&
+    (recordingSession.state.mode === 'idle' || recordingSession.state.mode === 'recording')
   const scanModeLabel = isPackingMode ? 'Packing' : 'QC'
   const scanStatusLabel = cameraState.error
     ? 'Kamera error'
@@ -532,15 +539,32 @@ function App() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!taskBusy) {
+      scannerTransitionBusyRef.current = false
+    }
+  }, [currentTaskType, taskBusy])
+
   useBarcodeScanner({
     videoElement: scanVideoElement,
-    enabled: Boolean(session) && activeTab === 'scan',
+    // Jangan menerima hasil detector saat task berganti atau video sedang
+    // stopping/saving. Frame terakhir QC bisa masih berada di pipeline browser.
+    enabled: scannerCanDetect,
     resetToken: scannerResetToken,
+    resetValue: recordingSession.state.lastSavedResi,
     intervalMs: scannerIntervalMs,
     cooldownMs: 1100,
     maxScanWidth: 640,
     onDetected: (value) => {
-      if (!session || activeTab !== 'scan') {
+      if (
+        !session ||
+        activeTab !== 'scan' ||
+        taskBusy ||
+        scannerTransitionBusyRef.current ||
+        stopScanRecordingBusyRef.current ||
+        !canUsePackingFlow ||
+        (recordingSession.state.mode !== 'idle' && recordingSession.state.mode !== 'recording')
+      ) {
         return
       }
 
@@ -939,6 +963,20 @@ function App() {
     if (blockSessionChangeWhileCapturing()) return
 
     setTaskBusy(true)
+    scannerTransitionBusyRef.current = true
+    // Antrean/input scan milik task lama tidak boleh ikut ke task baru. Token
+    // juga membatalkan detector lama dan menahan barcode yang masih ada di frame
+    // sampai kamera sempat melihat frame kosong.
+    clearPendingCameraScans()
+    clearRejectedResi()
+    setScanResi('')
+    setWatermarkResi(null)
+    setScannerResetToken((current) => current + 1)
+    try {
+      window.sessionStorage.removeItem(PENDING_PHOTO_RESI_KEY)
+    } catch {
+      // Abaikan kegagalan storage; state in-memory tetap sudah dibersihkan.
+    }
     void primeScanFeedbackAudio()
 
     try {
@@ -1516,12 +1554,18 @@ function App() {
 
   /** True saat ada rekam/capture/simpan berjalan — sesi tidak boleh diganti/ditutup. */
   function isCaptureActive() {
-    return recordingSession.state.mode !== 'idle' || photoCaptureBusy || photoBusyRef.current
+    return (
+      recordingSession.state.mode !== 'idle' ||
+      scanBusy ||
+      scanStartBusyRef.current ||
+      photoCaptureBusy ||
+      photoBusyRef.current
+    )
   }
 
   function blockSessionChangeWhileCapturing() {
     if (!isCaptureActive()) return false
-    showScanNotice({ kind: 'warning', title: 'Rekaman berjalan', message: 'Selesaikan atau batalkan dulu rekaman/foto yang berjalan sebelum ganti sesi.' })
+    showScanNotice({ kind: 'warning', title: 'Proses scan berjalan', message: 'Tunggu proses rekaman/foto/scan selesai sebelum ganti sesi.' })
     return true
   }
 

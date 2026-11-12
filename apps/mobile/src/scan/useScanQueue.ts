@@ -41,15 +41,24 @@ export function useScanQueue({ active, recordingState, stopRecording, onStuckDro
 
   useEffect(() => {
     activeRef.current = active
+    if (active) {
+      return
+    }
+
+    // Scan yang diterima di tab/task lama tidak boleh hidup kembali ketika
+    // queue diaktifkan untuk mode lain (terutama QC -> packing).
+    queueRevisionRef.current += 1
+    pendingScanResiRef.current = []
+    queueStuckSinceRef.current = null
+    if (scanQueueRetryTimerRef.current !== null) {
+      window.clearTimeout(scanQueueRetryTimerRef.current)
+      scanQueueRetryTimerRef.current = null
+    }
   }, [active])
 
   useEffect(() => {
     onStuckDropRef.current = onStuckDrop
   }, [onStuckDrop])
-
-  useEffect(() => {
-    activeRef.current = active
-  }, [active])
 
   useEffect(() => {
     recordingStateRef.current = recordingState
