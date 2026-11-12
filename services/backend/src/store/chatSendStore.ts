@@ -226,6 +226,12 @@ export function prepareRecordingChatSend(input: {
   fallbackBuyerUsername?: string | null
   fallbackOrderNumber?: string | null
   messageTemplate?: string | null
+  /**
+   * Saat true, job yang sudah `prepared` tetap `prepared` ketika lampirannya
+   * diperbarui. Dipakai auto-antre: video QC dibuat lebih dulu, lalu foto/video
+   * packing menyusul sebagai lampiran tanpa mereset progres extension.
+   */
+  keepStatus?: boolean
 }) {
   const recording = getRecordingForChatSend(input.recordingId)
   if (!recording) {
@@ -257,6 +263,7 @@ export function prepareRecordingChatSend(input: {
 
   const timestamp = nowIso()
   const id = makeId('chatsend')
+  const keepStatusFlag = input.keepStatus === true ? 1 : 0
   const attachments = (input.attachments?.length ? input.attachments : [{ filePath: videoFilePath, fileName: fileNameFromPath(videoFilePath), mimeType: 'video/mp4' }])
     .map((attachment) => normalizeAttachment(attachment))
   const messageTemplate =
@@ -274,10 +281,18 @@ export function prepareRecordingChatSend(input: {
         task_type = excluded.task_type,
         video_file_path = excluded.video_file_path,
         attachment_file_paths = excluded.attachment_file_paths,
-       status = CASE WHEN recording_chat_sends.status = 'sent' THEN recording_chat_sends.status ELSE 'pending' END,
+       status = CASE
+         WHEN recording_chat_sends.status = 'sent' THEN 'sent'
+         WHEN recording_chat_sends.status = 'prepared' AND ? = 1 THEN 'prepared'
+         ELSE 'pending'
+       END,
        message_template = excluded.message_template,
        error_message = NULL,
-       prepared_at = CASE WHEN recording_chat_sends.status = 'sent' THEN recording_chat_sends.prepared_at ELSE NULL END,
+       prepared_at = CASE
+         WHEN recording_chat_sends.status = 'sent' THEN recording_chat_sends.prepared_at
+         WHEN recording_chat_sends.status = 'prepared' AND ? = 1 THEN recording_chat_sends.prepared_at
+         ELSE NULL
+       END,
        updated_at = excluded.updated_at`,
   ).run(
     id,
@@ -292,6 +307,8 @@ export function prepareRecordingChatSend(input: {
     messageTemplate,
     timestamp,
     timestamp,
+    keepStatusFlag,
+    keepStatusFlag,
   )
 
   const row = db()
@@ -328,6 +345,7 @@ export async function prepareBundledRecordingChatSend(input: {
   messageTemplate?: string | null
   fallbackBuyerUsername?: string | null
   fallbackOrderNumber?: string | null
+  keepStatus?: boolean
   prepareShareFile: (recordingId: string) => Promise<ChatSendAttachment>
 }) {
   const source = getRecordingForChatSend(input.recordingId)
@@ -367,6 +385,7 @@ export async function prepareBundledRecordingChatSend(input: {
     messageTemplate: input.messageTemplate,
     fallbackBuyerUsername: input.fallbackBuyerUsername,
     fallbackOrderNumber: input.fallbackOrderNumber,
+    keepStatus: input.keepStatus,
   })
 }
 

@@ -1,75 +1,93 @@
-# Plan: Auto Antrean Bukti Packing Tanpa Ubah Durasi Klik Kirim
+# Plan: Auto Antrean Bukti Shopee (QC Selesai)
 
 ## Tujuan
-Bukti packing (video/foto) saat ini antreannya manual via `HistoryPage → Shopee Chat` per resi. Diinginkan otomatis seperti `Pengiriman info` (setelah `dikirim` + `Prepare shipping chat`), tapi **durasi/interval klik kirim tidak diubah** — hanya trigger masuk antreannya yang jadi otomatis setelah `QC` dan `Packing` lengkap.
+Antrean bukti Shopee (`recording_chat_sends`) sebelumnya hanya bisa diisi manual via `HistoryPage → Shopee Chat` per resi. Sekarang begitu **video QC selesai** (`status=completed`), backend langsung memasukkannya ke antrean otomatis.
 
-- Durasi klik kirim di extension (`content.js` → `new-webchat`) tetap seperti sekarang (delay/throttle yang sudah ada), tidak diutak-atik.
-- Yang otomatis hanya: begitu `qc=completed` **dan** `packing=completed` untuk 1 `resiNumber`, BE langsung `prepareRecordingChatSend` → `pending/prepared`, lalu saat buka tab `https://seller.shopee.co.id/new-webchat/conversations` antrean jalan sendiri seperti sekarang.
+- **Durasi/interval klik kirim di extension tidak diubah** (`content.js` → `new-webchat` tetap seperti sekarang).
+- Yang otomatis hanya *trigger masuk antrean*: `pending` dibuat backend, lalu saat tab `https://seller.shopee.co.id/new-webchat/conversations` dibuka antrean jalan sendiri.
+- Foto/video packing **tidak lagi wajib** sebagai syarat masuk antrean. Kalau nanti packing selesai, lampirannya menyusul ke job yang sama.
 
-## Kondisi Sekarang
+## Kondisi Sebelumnya
 - **Shipping**: `prepareShippingChatSends` (`shippingChatSendStore.ts`) dipicu setelah `order_status = dikirim` + klik `Prepare shipping chat` → `shipping_chat_sends` (`pending→prepared→sent` via `apps/shopee-extension/content.js` di `type=shipping`).
-- **Packing proof**: `prepareRecordingChatSend` (`recordingStore.ts:799`, `app.ts:1144 POST /api/recordings/:id/chat-send/prepare`) dipanggil manual dari `HistoryPage.tsx:639 handlePrepareShopeeChat` per resi → `recording_chat_sends`.
+- **Bukti QC/packing**: `prepareRecordingChatSend` (`chatSendStore.ts`, endpoint `POST /api/recordings/:id/chat-send/prepare` di `app.ts`) dipanggil manual dari `HistoryPage.tsx` (`handlePrepareShopeeChat` / `handleBulkQueueSelected`).
+- Auto-queue lama mensyaratkan `qc=completed` **dan** `packing=completed`, sehingga resi yang hanya punya QC tidak pernah masuk antrean sendiri.
 
 ## Prinsip
-- **Hanya auto-queue**, tidak ubah `content.js` delay, tidak ubah `markPrepared`/`markSent` throttle, tidak ubah `queue` di extension.
-- Idempoten: kalau sudah ada `pending/prepared/sent` untuk resi itu, jangan bikin duplikat.
-- Pakai `Asia/Jakarta` untuk hari, tapi trigger per resi (bukan per hari).
+- **Hanya auto-queue**, tidak ubah delay/throttle `content.js`, tidak ubah `markPrepared`/`markSent`.
+- Idempoten: kalau sudah ada job `pending/prepared/sent` untuk resi itu, jangan bikin duplikat.
+- Video QC selalu jadi file utama (primary) dan `recording_id` job, supaya upsert `UNIQUE(recording_id, buyer_username)` stabil walau lampiran berubah.
+- Trigger per resi (bukan scan harian).
 
-## Desain
+## Desain (implementasi)
 
-### 1. BE Watcher di `recordingStore.ts`
-- Setelah `finalizeRecording` sukses (`status=completed`):
-  ```ts
-  async function tryAutoQueuePackingProof(resiNumber: string) {
-    const normalized = resiNumber.trim()
-    if (!normalized) return
-    const prog = getTaskProgressByResi(normalized) // atau getGroupStatus via recordings
-    const qcDone = prog.qc?.status === 'completed'
-    const packingDone = prog.packing?.status === 'completed'
-    if (!qcDone || !packingDone) return
-    const latestPacking = db.prepare(
-      `SELECT id FROM recordings WHERE resi_number=? AND task_type='packing' AND status='completed' ORDER BY updated_at DESC LIMIT 1`
-    ).get(normalized) as { id: string } | undefined
-    if (!latestPacking) return
-    const existing = db.prepare(
-      `SELECT id FROM recording_chat_sends WHERE resi_number=? AND status IN ('pending','prepared','sent') LIMIT 1`
-    ).get(normalized)
-    if (existing) return
-    await prepareRecordingChatSend(latestPacking.id) // reuse existing (buyerUsername/orderNumber dari getShopeeOrderByResi fallback order_number)
-    broadcastBackendEvent('chat-sends-updated', { resiNumber: normalized, source: 'auto-packing-proof' })
-  }
-  ```
-- Panggil `void tryAutoQueuePackingProof(resiNumber)` di akhir `finalizeRecording` (setelah `prepareRecordingShareFile` dan sebelum `return`), dengan `catch` log saja biar tidak gagalkan finalize.
+### 1. Trigger di `services/backend/src/store/recordingStore.ts`
+`scheduleRecordingWatermark(recording)` memanggil `scheduleAutoQueueShopeeProof(recording)` untuk:
+- video (MP4 maupun WEBM), dan
+- **foto packing** (dulu langsung `return` sebelum auto-queue).
 
-### 2. Scheduler Penjaga (opsional, tanpa ubah durasi)
-- Fungsi `prepareReadyRecordingChatSendsForToday()` scan `recordings` yang `completed` dan `getGroupStatus==='completed'` tapi belum ada `recording_chat_sends` → panggil `tryAutoQueue...`.
-- Jalankan sekali saat `ensureServerStorage` dan `setInterval 5m` (mirip `prepareShippingChatSends`). Tidak ubah interval kirim, hanya jaga kalau watcher kelewat (server restart, dkk).
+`scheduleAutoQueueShopeeProof` merantai pekerjaan ke `watermarkQueue`:
 
-### 3. FE `HistoryPage.tsx`
-- Tidak tambah tombol. `handlePrepareShopeeChat` tetap untuk manual fallback (misal `buyerUsername` kosong perlu prompt).
-- Tambah badge kecil `Auto queued` di `DocumentationStatus` / `ChatDeliveryStatusAction` kalau `chatSend.status==='pending'|'prepared'` dan `source==='auto'` (optional, biar user tahu auto).
-- `useEffect` yang sudah `pakti:chat-sends-updated` akan refresh `visibleChatSendByRecordingId` otomatis.
+```ts
+watermarkQueue = watermarkQueue
+  .then(() => autoQueueShopeeProofForResi(recording.resi_number))
+  .catch((error) => reportLastError(...))
+```
 
-### 4. Extension `apps/shopee-extension/content.js`
-- **Tidak diubah durasi klik**. Tetap poll `https://seller.shopee.co.id/new-webchat/conversations` seperti sekarang (`readPendingShopeeChatSendsApi` → `markPrepared` → isi chat).
-- Auto-queue BE di atas akan membuat `pending` baru, extension akan pick up di poll berikutnya. Tidak perlu ubah `delay`, `throttle`, atau `out_time`.
+Artinya file share dibuat **setelah** watermark selesai, jadi yang diantrekan bukan video mentah.
 
-### 5. API
-- Tidak perlu endpoint baru. Reuse `POST /api/recordings/:id/chat-send/prepare` yang sudah ada. Watcher panggil internal `prepareRecordingChatSend`, bukan via HTTP.
+`autoQueueShopeeProofForResi(resiNumber, { prepareShareFile })`:
+
+1. Cari video QC `completed` terbaru untuk resi. Tidak ada → berhenti.
+2. **Guard order**: `getShopeeOrderByResi(resi)` harus ada dan `buyerUsername` terisi. Kalau tidak, biarkan manual (History butuh prompt username).
+3. Cek job existing `pending/prepared/sent`:
+   - `sent` → berhenti, job terkirim tidak boleh diubah.
+   - `recording_id` berbeda dari video QC terbaru (mis. QC diulang) → berhenti agar tidak duplikat; resi itu tetap bisa diantrekan manual.
+4. Panggil `prepareBundledRecordingChatSend({ recordingId: qcVideo.id, keepStatus: Boolean(existing), ... })`.
+
+### 2. `keepStatus` di `services/backend/src/store/chatSendStore.ts`
+`prepareRecordingChatSend` / `prepareBundledRecordingChatSend` menerima `keepStatus?: boolean`.
+
+Pada upsert `ON CONFLICT(recording_id, buyer_username)`:
+
+| Status lama | `keepStatus` | Status hasil |
+|---|---|---|
+| `sent` | apa pun | `sent` (tidak berubah) |
+| `prepared` | `true` | `prepared`, `prepared_at` dipertahankan |
+| `prepared` | `false` | `pending`, `prepared_at` direset |
+| `pending` | apa pun | `pending` |
+| belum ada | — | `pending` |
+
+Dipakai auto-queue saat foto/video packing menyusul: lampiran diperbarui tanpa mereset progres extension (mencegah double-pick / kirim ulang).
+
+### 3. Scheduler penjaga
+Tidak diaktifkan pada perubahan ini. Endpoint `POST /api/chat-sends/auto-prepare-ready` tetap ada sebagai jalur manual/ekstensi (`taskType` bisa `qc` atau `packing`), default pemanggil masih `packing`.
+
+### 4. FE `HistoryPage.tsx`
+Tidak diubah. `handlePrepareShopeeChat` / `handleBulkQueueSelected` tetap jadi fallback manual, terutama untuk resi tanpa order Shopee / `buyerUsername`.
+
+Badge “auto” di History **belum** ditambahkan karena butuh kolom `source` di `recording_chat_sends` plus perubahan tipe di `packages/types` — bisa jadi pekerjaan lanjutan.
+
+### 5. Extension `apps/shopee-extension/content.js`
+Tidak diubah. Tetap poll `/api/chat-sends/pending` → `prepared` → `sent` dengan delay/throttle yang sama.
 
 ## Verifikasi
-- Scan QC + packing 1 resi baru (pakai resi yang ada Shopee order biar `buyerUsername` keisi) → cek `recording_chat_sends` muncul `pending` tanpa klik → buka `new-webchat` → `prepared` → `sent` dengan durasi klik yang sama seperti manual.
-- Resi yang `qc` saja / `packing` saja → tidak auto.
-- Resi yang sudah ada `pending/prepared/sent` → tidak duplikat.
-- `npm run build:vercel` + `graphify update .`
+- `npm run test:chat-send` — 14 test lulus, termasuk:
+  - tidak membuat job tanpa order Shopee / `buyerUsername`;
+  - job `pending` dibuat dari video QC saja (tanpa foto packing);
+  - foto packing menyusul → lampiran jadi 2, status `prepared` tetap;
+  - job `sent` tidak diubah;
+  - resi dengan job milik rekaman QC lain dilewati.
+- `npm run test:packing-photo` — 5 test lulus (foto packing tetap tersimpan dan memicu jalur auto-queue).
+- `npx tsc -b` bersih; `eslint` pada file yang diubah bersih.
+
+Uji manual yang disarankan:
+- Scan QC resi yang order Shopee-nya sudah tersinkron → `recording_chat_sends` muncul `pending` tanpa klik → buka `new-webchat` → `prepared` → `sent`.
+- Resi tanpa order / `buyer_username` → tidak ada job otomatis; antre manual dari History tetap bisa.
+- Selesai packing foto setelah video QC terkirim → job `sent` tidak berubah.
 
 ## Tidak Diubah
 - `apps/shopee-extension/content.js` delay/throttle klik kirim.
 - `markPrepared`/`markSent` interval.
 - `shipping_chat_sends` flow.
-- `HistoryPage` manual `Shopee Chat` (tetap sebagai fallback).
-
-## Estimasi
-- BE: 1 file utama (`recordingStore.ts`) + 1 scheduler kecil.
-- FE: 1 file (`HistoryPage.tsx`) untuk badge opsional.
-- Risiko rendah, tidak migrasi data.
+- `HistoryPage` manual `Shopee Chat` (tetap fallback).
+- Skema database (tidak ada migrasi).

@@ -17,8 +17,9 @@ if (fs.existsSync(TEST_DB_PATH)) {
 process.env.PAKTI_DB_PATH = TEST_DB_PATH
 
 const { getDb } = await import('../services/backend/src/db.ts')
-const { listChatSendsByRecordingIds, prepareBundledRecordingChatSend } = await import('../services/backend/src/store/chatSendStore.ts')
+const { listChatSendsByRecordingIds, prepareBundledRecordingChatSend, updateChatSendStatus } = await import('../services/backend/src/store/chatSendStore.ts')
 const { getShopeeOrderByResi, importShopeeOrders } = await import('../services/backend/src/store/orderStore.ts')
+const { autoQueueShopeeProofForResi } = await import('../services/backend/src/store/recordingStore.ts')
 
 const database = getDb()
 
@@ -201,4 +202,121 @@ test('prepareBundledRecordingChatSend memakai buyer dari orderNumber fallback sa
 
   assert.equal(job.buyerUsername, 'buyer_order_fallback')
   assert.equal(job.orderNumber, '250831SPXINSTAN02')
+})
+
+test('auto-antre QC menjaga status prepared saat foto packing menyusul (keepStatus)', async () => {
+  clearDb()
+  seedOrder('RESI-KEEP-STATUS')
+  seedRecording({ id: 'qc-video-keep', resiNumber: 'RESI-KEEP-STATUS', taskType: 'qc', mediaType: 'video', fileName: 'qc-keep.mp4', mimeType: 'video/mp4' })
+
+  const first = await prepareBundledRecordingChatSend({ recordingId: 'qc-video-keep', prepareShareFile })
+  assert.equal(first.status, 'pending')
+  assert.equal(first.attachments?.length, 1)
+
+  updateChatSendStatus(first.id, 'prepared')
+  seedRecording({ id: 'packing-photo-keep', resiNumber: 'RESI-KEEP-STATUS', taskType: 'packing', mediaType: 'photo', fileName: 'pack-keep.jpg', mimeType: 'image/jpeg' })
+
+  const refreshed = await prepareBundledRecordingChatSend({
+    recordingId: 'qc-video-keep',
+    keepStatus: true,
+    prepareShareFile,
+  })
+
+  assert.equal(refreshed.status, 'prepared')
+  assert.equal(refreshed.attachments?.length, 2)
+  assert.deepEqual(refreshed.attachments?.map((attachment) => attachment.mimeType), ['video/mp4', 'image/jpeg'])
+})
+
+test('prepare ulang tanpa keepStatus mengembalikan job prepared ke pending', async () => {
+  clearDb()
+  seedOrder('RESI-RESET-STATUS')
+  seedRecording({ id: 'qc-video-reset', resiNumber: 'RESI-RESET-STATUS', taskType: 'qc', mediaType: 'video', fileName: 'qc-reset.mp4', mimeType: 'video/mp4' })
+
+  const first = await prepareBundledRecordingChatSend({ recordingId: 'qc-video-reset', prepareShareFile })
+  updateChatSendStatus(first.id, 'prepared')
+  seedRecording({ id: 'packing-photo-reset', resiNumber: 'RESI-RESET-STATUS', taskType: 'packing', mediaType: 'photo', fileName: 'pack-reset.jpg', mimeType: 'image/jpeg' })
+
+  const refreshed = await prepareBundledRecordingChatSend({ recordingId: 'qc-video-reset', prepareShareFile })
+
+  assert.equal(refreshed.status, 'pending')
+  assert.equal(refreshed.attachments?.length, 2)
+})
+
+test('auto-antre tidak membuat job kalau order Shopee dan buyer belum ada', async () => {
+  clearDb()
+  seedRecording({ id: 'qc-video-no-order', resiNumber: 'RESI-NO-ORDER', taskType: 'qc', mediaType: 'video', fileName: 'qc-no-order.mp4', mimeType: 'video/mp4' })
+
+  await autoQueueShopeeProofForResi('RESI-NO-ORDER', { prepareShareFile })
+
+  assert.equal(listChatSendsByRecordingIds(['qc-video-no-order']).length, 0)
+})
+
+test('auto-antre membuat job pending dari video QC walau foto packing belum ada', async () => {
+  clearDb()
+  seedOrder('RESI-AUTO-QC')
+  seedRecording({ id: 'qc-video-auto', resiNumber: 'RESI-AUTO-QC', taskType: 'qc', mediaType: 'video', fileName: 'qc-auto.mp4', mimeType: 'video/mp4' })
+
+  await autoQueueShopeeProofForResi('RESI-AUTO-QC', { prepareShareFile })
+
+  const sends = listChatSendsByRecordingIds(['qc-video-auto'])
+  assert.equal(sends.length, 1)
+  assert.equal(sends[0].status, 'pending')
+  assert.equal(sends[0].recordingId, 'qc-video-auto')
+  assert.equal(sends[0].attachments?.length, 1)
+  assert.equal(sends[0].buyerUsername, 'buyer_resi-auto-qc')
+})
+
+test('auto-antre melengkapi lampiran packing tanpa menurunkan status prepared', async () => {
+  clearDb()
+  seedOrder('RESI-AUTO-REFRESH')
+  seedRecording({ id: 'qc-video-refresh', resiNumber: 'RESI-AUTO-REFRESH', taskType: 'qc', mediaType: 'video', fileName: 'qc-refresh.mp4', mimeType: 'video/mp4' })
+
+  await autoQueueShopeeProofForResi('RESI-AUTO-REFRESH', { prepareShareFile })
+  const first = listChatSendsByRecordingIds(['qc-video-refresh'])[0]
+  updateChatSendStatus(first.id, 'prepared')
+
+  seedRecording({ id: 'packing-photo-refresh', resiNumber: 'RESI-AUTO-REFRESH', taskType: 'packing', mediaType: 'photo', fileName: 'pack-refresh.jpg', mimeType: 'image/jpeg' })
+  await autoQueueShopeeProofForResi('RESI-AUTO-REFRESH', { prepareShareFile })
+
+  const sends = listChatSendsByRecordingIds(['qc-video-refresh'])
+  assert.equal(sends.length, 1)
+  assert.equal(sends[0].status, 'prepared')
+  assert.equal(sends[0].preparedAt === null, false)
+  assert.deepEqual(sends[0].attachments?.map((attachment) => attachment.mimeType), ['video/mp4', 'image/jpeg'])
+})
+
+test('auto-antre tidak mengubah job yang sudah sent', async () => {
+  clearDb()
+  seedOrder('RESI-AUTO-SENT')
+  seedRecording({ id: 'qc-video-sent', resiNumber: 'RESI-AUTO-SENT', taskType: 'qc', mediaType: 'video', fileName: 'qc-sent.mp4', mimeType: 'video/mp4' })
+
+  await autoQueueShopeeProofForResi('RESI-AUTO-SENT', { prepareShareFile })
+  const first = listChatSendsByRecordingIds(['qc-video-sent'])[0]
+  updateChatSendStatus(first.id, 'sent')
+
+  seedRecording({ id: 'packing-photo-sent', resiNumber: 'RESI-AUTO-SENT', taskType: 'packing', mediaType: 'photo', fileName: 'pack-sent.jpg', mimeType: 'image/jpeg' })
+  await autoQueueShopeeProofForResi('RESI-AUTO-SENT', { prepareShareFile })
+
+  const sends = listChatSendsByRecordingIds(['qc-video-sent'])
+  assert.equal(sends.length, 1)
+  assert.equal(sends[0].status, 'sent')
+  assert.equal(sends[0].attachments?.length, 1)
+})
+
+test('auto-antre melewati resi yang job-nya memakai rekaman QC lain', async () => {
+  clearDb()
+  seedOrder('RESI-AUTO-DUP')
+  seedRecording({ id: 'qc-video-lama', resiNumber: 'RESI-AUTO-DUP', taskType: 'qc', mediaType: 'video', fileName: 'qc-lama.mp4', mimeType: 'video/mp4' })
+  await prepareBundledRecordingChatSend({ recordingId: 'qc-video-lama', prepareShareFile })
+
+  // Simulasi QC diulang: rekaman lama ditandai error agar rekaman QC baru boleh completed.
+  database.prepare(`UPDATE recordings SET status = 'error' WHERE id = 'qc-video-lama'`).run()
+  seedRecording({ id: 'qc-video-baru', resiNumber: 'RESI-AUTO-DUP', taskType: 'qc', mediaType: 'video', fileName: 'qc-baru.mp4', mimeType: 'video/mp4' })
+  await autoQueueShopeeProofForResi('RESI-AUTO-DUP', { prepareShareFile })
+
+  assert.equal(listChatSendsByRecordingIds(['qc-video-lama']).length, 1)
+  const jobBaru = database
+    .prepare(`SELECT COUNT(*) AS total FROM recording_chat_sends WHERE recording_id = 'qc-video-baru'`)
+    .get() as { total: number }
+  assert.equal(jobBaru.total, 0)
 })

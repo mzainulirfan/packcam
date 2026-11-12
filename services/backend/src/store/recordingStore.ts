@@ -913,6 +913,7 @@ function scheduleRecordingWatermark(recording: RecordingRow | null) {
     return
   }
   if (recording.media_type === 'photo') {
+    scheduleAutoQueueShopeeProof(recording)
     return
   }
 
@@ -946,6 +947,7 @@ function scheduleRecordingWatermark(recording: RecordingRow | null) {
         reportLastError(transcodeError instanceof Error ? transcodeError.message : 'Gagal mengonversi MP4 recording.')
       }
     })
+    scheduleAutoQueueShopeeProof(completedRecording)
     return
   }
 
@@ -967,24 +969,97 @@ function scheduleRecordingWatermark(recording: RecordingRow | null) {
     }
   })
 
-  void tryAutoQueuePackingProof(completedRecording.resi_number).catch(() => {})
+  scheduleAutoQueueShopeeProof(completedRecording)
 }
 
-function tryAutoQueuePackingProof(resiNumber: string) {
+/**
+ * Antrekan bukti Shopee secara otomatis begitu rekaman selesai.
+ *
+ * - Video QC langsung menjadi file utama antrean walau foto packing belum ada.
+ * - Foto/video packing yang menyusul hanya melengkapi lampiran job yang sudah ada.
+ * - Dijalankan berurutan setelah watermark supaya file share tidak memakai video
+ *   yang belum diberi watermark.
+ */
+function scheduleAutoQueueShopeeProof(recording: RecordingRow) {
+  watermarkQueue = watermarkQueue
+    .then(() => autoQueueShopeeProofForResi(recording.resi_number))
+    .catch((error) => {
+      reportLastError(
+        error instanceof Error ? error.message : 'Gagal memasukkan bukti Shopee ke antrean otomatis.',
+      )
+    })
+}
+
+type ShareFilePreparer = (recordingId: string) => Promise<{ filePath: string; fileName: string; mimeType: string }>
+
+const defaultShareFilePreparer: ShareFilePreparer = (id) =>
+  prepareRecordingShareFile(id).then((file) => ({
+    filePath: file.filePath,
+    fileName: file.fileName,
+    mimeType: file.mimeType,
+  }))
+
+export function autoQueueShopeeProofForResi(
+  resiNumber: string,
+  options: { prepareShareFile?: ShareFilePreparer } = {},
+) {
   const normalized = resiNumber.trim()
-  if (!normalized) return Promise.resolve()
+  if (!normalized) {
+    return Promise.resolve()
+  }
+
   return Promise.resolve().then(async () => {
-    const qc = db().prepare(`SELECT id FROM recordings WHERE resi_number = ? AND task_type = 'qc' AND status = 'completed' LIMIT 1`).get(normalized) as { id: string } | undefined
-    const packing = db().prepare(`SELECT id FROM recordings WHERE resi_number = ? AND task_type = 'packing' AND status = 'completed' LIMIT 1`).get(normalized) as { id: string } | undefined
-    if (!qc || !packing) return
-    const existing = db().prepare(`SELECT id FROM recording_chat_sends WHERE resi_number = ? AND status IN ('pending','prepared','sent') LIMIT 1`).get(normalized) as { id: string } | undefined
-    if (existing) return
-    const latestPacking = db().prepare(`SELECT id FROM recordings WHERE resi_number = ? AND task_type = 'packing' AND status = 'completed' ORDER BY updated_at DESC LIMIT 1`).get(normalized) as { id: string } | undefined
-    if (!latestPacking) return
+    const qcVideo = db()
+      .prepare(
+        `SELECT id FROM recordings
+         WHERE lower(resi_number) = lower(?)
+           AND task_type = 'qc'
+           AND media_type = 'video'
+           AND status = 'completed'
+         ORDER BY updated_at DESC
+         LIMIT 1`,
+      )
+      .get(normalized) as { id: string } | undefined
+
+    // Tanpa video QC tidak ada file utama yang bisa diantrekan.
+    if (!qcVideo) {
+      return
+    }
+
+    // Guard: auto-antre hanya kalau order Shopee + username pembeli sudah ada.
+    // Kalau belum, biarkan manual dari History karena butuh prompt username.
+    const order = getShopeeOrderByResi(normalized)
+    if (!order?.buyerUsername?.trim()) {
+      return
+    }
+
+    const existing = db()
+      .prepare(
+        `SELECT recording_id, status FROM recording_chat_sends
+         WHERE lower(resi_number) = lower(?)
+           AND status IN ('pending', 'prepared', 'sent')
+         ORDER BY updated_at DESC
+         LIMIT 1`,
+      )
+      .get(normalized) as { recording_id: string; status: string } | undefined
+
+    // Job yang sudah terkirim tidak boleh diubah lagi.
+    if (existing?.status === 'sent') {
+      return
+    }
+
+    // Job lama dari rekaman QC lain (mis. QC diulang) dibiarkan manual agar tidak duplikat.
+    if (existing && existing.recording_id !== qcVideo.id) {
+      return
+    }
+
     const { prepareBundledRecordingChatSend } = await import('./chatSendStore')
     await prepareBundledRecordingChatSend({
-      recordingId: latestPacking.id,
-      prepareShareFile: (id: string) => prepareRecordingShareFile(id).then((f) => ({ filePath: f.filePath, fileName: f.fileName, mimeType: f.mimeType })),
+      recordingId: qcVideo.id,
+      // Job baru dibuat sebagai pending. Untuk job yang sudah ada (foto/video packing
+      // menyusul), lampiran diperbarui tanpa menurunkan status prepared.
+      keepStatus: Boolean(existing),
+      prepareShareFile: options.prepareShareFile ?? defaultShareFilePreparer,
     })
   })
 }
