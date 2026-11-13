@@ -1,0 +1,74 @@
+﻿.account-page {
+  display: grid;
+  gap: 16px;
+  padding: 12px 0;
+  color: var(--op-ink);
+  font-family: 'Geist Variable', Inter, system-ui, sans-serif;
+}
+.account-page :is(h2, h3, p, dl, dd) { margin: 0; }
+.account-page-heading { display: grid; gap: 6px; }
+.account-page .account-eyebrow { font-size: 11px; font-weight: 650; letter-spacing: .12em; text-transform: uppercase; color: var(--op-mute); }
+.account-page-heading h2 { font-size: 28px; line-height: 1.1; font-weight: 650; letter-spacing: -.045em; }
+.account-page-heading > p:last-child { color: var(--op-mute); font-size: 13px; line-height: 1.6; }
+.account-identity { overflow: hidden; border: 1px solid var(--op-hairline); border-radius: 12px; background: var(--op-canvas); }
+.account-identity-main { display: flex; align-items: center; gap: 12px; padding: 14px; }
+.account-avatar { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; border: 1px solid var(--op-hairline); border-radius: 10px; background: var(--op-canvas); color: var(--op-ink); font-size: 17px; font-weight: 650; letter-spacing: -.05em; }
+.account-identity-copy { min-width: 0; flex: 1; display: grid; justify-items: start; gap: 6px; overflow-wrap: anywhere; }
+.account-role { display: inline-flex; border: 1px solid var(--op-hairline); padding: 2px 7px; border-radius: 5px; font-size: 11px; font-weight: 600; color: var(--op-mute); }
+.account-identity-copy h3 { font-size: 19px; font-weight: 650; line-height: 1.2; letter-spacing: -.035em; }
+.account-code { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--op-mute); }
+.account-session-meta { padding: 10px 14px; border-top: 1px solid var(--op-hairline); background: var(--op-surface-soft); }
+.account-session-meta > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-size: 12px; line-height: 1.6; }
+.account-session-meta dt { color: var(--op-mute); }
+.account-session-meta dd { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.account-work, .account-reports { display: grid; gap: 10px; min-width: 0; }
+.account-section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.account-section-heading h3 { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 650; letter-spacing: -.02em; }
+.account-caption { font-size: 12px; line-height: 1.6; color: var(--op-mute); }
+.account-mode { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; padding: 3px; border: 1px solid var(--op-hairline); border-radius: 10px; background: var(--op-surface-soft); }
+.account-mode button { display: grid; align-content: center; gap: 4px; min-height: 44px; padding: 8px 10px; text-align: center; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--op-mute); font-size: 13px; font-weight: 550; transition: background 160ms ease, color 160ms ease; }
+.account-mode button[aria-pressed='true'] { background: var(--op-canvas); color: var(--op-ink); border-color: var(--op-hairline); box-shadow: 0 1px 3px #0001; font-weight: 600; }
+.account-mode-detail { font-size: 11px; font-weight: 400; line-height: 1.5; }
+.account-mode button:not([aria-pressed='true']):hover { background: var(--op-surface-card); color: var(--op-ink); }
+.account-assigned-mode { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--op-hairline); border-radius: 10px; background: var(--op-surface-soft); }
+.account-mode-marker { width: 8px; height: 8px; border-radius: 50%; background: var(--op-ink); flex-shrink: 0; }
+.account-assigned-mode strong { font-size: 15px; font-weight: 600; }
+.account-assigned-mode p { padding-top: 4px; color: var(--op-mute); font-size: 12px; line-height: 1.6; }
+.account-reports { padding-top: 2px; }
+.account-reports > .grid > div { border-radius: 10px; }
+.account-reports button[aria-expanded] { min-height: 52px; padding: 14px; transition: background 160ms ease; }
+.account-reports button[aria-expanded]:hover { background: var(--op-surface-soft); }
+.account-report-panel { padding: 16px 12px; }
+.account-page :is(button, input, select) { min-height: 44px; }
+.account-page :is(input, select) { min-width: 0; width: 100%; font-size: 16px; }
+.account-report-panel .grid.grid-cols-3 { grid-template-columns: minmax(0, 1fr); }
+.account-report-panel :is(.text-\[11px\], .text-\[10px\]) { font-size: 12px; }
+.account-report-panel .font-mono { overflow-wrap: anywhere; }
+.account-page :is(button, input, select):focus-visible { outline: 2px solid var(--op-ink); outline-offset: 3px; }
+.account-page button:active:not(:disabled) { filter: brightness(.92); }
+.account-page button:disabled { opacity: .5; cursor: not-allowed; }
+.account-report-note { color: var(--op-mute); font-size: 12px; line-height: 1.6; }
+.account-exit { display: grid; gap: 8px; border-top: 1px solid var(--op-hairline); padding-top: 16px; }
+.account-page .account-logout { width: 100%; border-radius: 8px; border-color: var(--op-hairline); background: var(--op-canvas); color: var(--op-ink); font-size: 13px; font-weight: 550; }
+.account-page .account-logout:hover { background: var(--op-surface-soft); }
+.account-exit p { text-align: center; font-size: 12px; line-height: 1.6; color: var(--op-mute); padding-inline: 12px; }
+@media (prefers-reduced-motion: reduce) {
+  .account-page *, .account-page *::before, .account-page *::after { animation: none !important; transition: none !important; }
+}
+
+
+.account-identity-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
+.account-code { overflow-wrap: anywhere; }
+.account-work { padding: 14px; border: 1px solid var(--op-hairline); border-radius: 12px; background: var(--op-canvas); }
+.account-section-heading h3 { font-size: 13px; }
+.account-section-heading > .account-caption { font-size: 11px; }
+.account-reports > .grid > div { border-radius: 12px; }
+.account-reports button[aria-expanded] { border-radius: 12px; }
+.account-report-panel { border-radius: 0 0 12px 12px; }
+.account-reports button[aria-expanded='true'] { background: var(--op-surface-soft); border-radius: 12px 12px 0 0; }
+.account-page .account-logout { justify-content: flex-start; padding-inline: 14px; }
+.account-exit p { text-align: left; padding-inline: 0; font-size: 11px; }
+
+.account-logout-dialog { font-family: 'Geist Variable', Inter, system-ui, sans-serif; border-radius: 14px; }
+.account-logout-dialog button { min-height: 44px; border-radius: 8px; }
+.account-logout-dialog [data-slot='dialog-description'] { font-size: 13px; line-height: 1.65; }

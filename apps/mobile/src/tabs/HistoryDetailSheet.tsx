@@ -141,13 +141,13 @@ export function HistoryDetailSheet({
 
   return (
     <Sheet open onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" showCloseButton={false} className="w-full rounded-t-[4px] border-border bg-popover p-0" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+      <SheetContent side="bottom" showCloseButton={false} className="history-sheet history-detail-sheet w-full border-border bg-popover p-0">
         <SheetHeader className="border-b border-[var(--op-hairline)] px-4 pb-3 pt-4">
           <div className="grid gap-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 text-left">
                 <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--op-mute)]">Detail resi</p>
-                <SheetTitle className="mt-1 truncate text-left text-[18px] leading-none">{target.resiNumber}</SheetTitle>
+                <SheetTitle className="history-detail-resi mt-1 text-left text-[18px] leading-snug">{target.resiNumber}</SheetTitle>
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <button
@@ -183,7 +183,7 @@ export function HistoryDetailSheet({
           </div>
           <SheetDescription className="sr-only">Detail dokumentasi untuk resi {target.resiNumber}.</SheetDescription>
         </SheetHeader>
-        <div className="grid max-h-[76vh] gap-3 overflow-y-auto px-4 pb-6 pt-3">
+        <div className="history-detail-body grid gap-4 overflow-y-auto px-4 pb-6 pt-3">
           {target.rows.map((record) => {
             const chatSend = chatSendByRecordingId?.get(record.id)
             const sharePreparing = preparingShareFileIds.has(record.id)
@@ -286,7 +286,7 @@ export function HistoryDetailSheet({
                     </p>
                   ) : null}
 
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="history-detail-actions grid grid-cols-2 gap-2">
                     {canShare ? (
                       <>
                         <button
@@ -296,7 +296,7 @@ export function HistoryDetailSheet({
                           disabled={sharePreparing || deletingRecordId !== null}
                         >
                           <HugeiconsIcon icon={Share08Icon} size={14} />
-                          Share
+                          Bagikan
                         </button>
                         <button
                           type="button"
@@ -311,7 +311,7 @@ export function HistoryDetailSheet({
                     ) : null}
                     <button
                       type="button"
-                      className={canShare ? 'flex h-10 items-center justify-center gap-1.5 rounded-[4px] border border-destructive/40 bg-transparent px-2 text-[12px] font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50' : 'col-span-3 flex h-10 items-center justify-center gap-1.5 rounded-[4px] border border-destructive/40 bg-transparent px-2 text-[12px] font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50'}
+                      className={canShare ? 'flex h-10 items-center justify-center gap-1.5 rounded-[4px] border border-destructive/40 bg-transparent px-2 text-[12px] font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50' : 'col-span-2 flex h-10 items-center justify-center gap-1.5 rounded-[4px] border border-destructive/40 bg-transparent px-2 text-[12px] font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50'}
                       onClick={() => onDeleteClick(record)}
                       disabled={deletingRecordId !== null || sharingRecordId !== null}
                     >

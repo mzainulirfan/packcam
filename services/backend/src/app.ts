@@ -5,6 +5,7 @@ import cors from 'cors'
 import express from 'express'
 import type { NextFunction, Request, Response } from 'express'
 import multer from 'multer'
+import { selectHistoryActivityWindow } from './historyWindow'
 import { DEFAULT_APP_SETTINGS, DEFAULT_SYSTEM_CONFIG } from '@pakti/shared/defaults'
 import type { AppSettings, ShopeeOrder } from '@pakti/types'
 
@@ -1063,6 +1064,11 @@ app.get('/api/history/recordings', (req, res) => {
   }
 
   const query = req.query as Record<string, string | string[] | undefined>
+  const updatedSince = readQueryString(query.updatedSince)
+  const updatedSinceTime = updatedSince ? Date.parse(updatedSince) : null
+  if (updatedSinceTime !== null && !Number.isFinite(updatedSinceTime)) {
+    return sendError(res, 400, 'Batas waktu history tidak valid.')
+  }
   const searchText = readQueryString(query.search).toLowerCase()
   const taskFilter = readQueryString(query.taskType)
   const operatorFilter = readQueryString(query.operator)
@@ -1070,16 +1076,8 @@ app.get('/api/history/recordings', (req, res) => {
   const dateTo = readQueryString(query.dateTo)
   const shopeeOrderResiMatches = new Set(listShopeeOrderResisByOrderNumberSearch(searchText).map((resi) => resi.toLowerCase()))
 
-  const records = listRecordings().filter((record) => {
-    const matchesSession =
-      session.role === 'admin' ||
-      ((record.operator_name ?? '').trim().toLowerCase() === session.operatorName.trim().toLowerCase() &&
-        (record.operator_code ?? '').trim().toLowerCase() === session.operatorCode.trim().toLowerCase())
-
-    if (!matchesSession) {
-      return false
-    }
-
+  const authorizedRecords = listRecordings().filter(record => canSessionAccessRecording(session, record))
+  const records = selectHistoryActivityWindow(authorizedRecords, updatedSinceTime).filter((record) => {
     const matchesSearch =
       !searchText ||
       record.resi_number.toLowerCase().includes(searchText) ||

@@ -28,7 +28,7 @@ import {
   logoutServerOperatorApi,
   readServerRecordingsByResiApi,
   readServerTaskProgressByResiApi,
-  readServerRecordingsApi,
+  readServerHistoryRecordingsApi,
   readServerSessionApi,
   readServerSystemConfigApi,
   setSessionToken,
@@ -54,16 +54,14 @@ import { useBarcodeScanner } from './hooks/useBarcodeScanner'
 import { useCameraStream } from './hooks/useCameraStream'
 import { useMobileRecordingSession } from './hooks/useRecordingSession'
 import {
+  getHistorySince,
+  getLatestTaskRecord,
   formatDateTime,
-  formatOperatorIdentity,
   formatSectionDate,
   formatStatus,
   formatTask,
-  getDocStatus,
   getGroupShareStatus,
   getGroupShareStatusClassName,
-  getPayLabel,
-  getRecordingIdentitySummary,
   getShareStatusClassName,
   getShareStatusDescription,
   getShareStatusLabel,
@@ -80,6 +78,9 @@ import { HistoryDetailSheet } from './tabs/HistoryDetailSheet'
 import { SessionTab } from './tabs/SessionTab'
 import packingSuccessSoundUrl from './assets/correct.mp3'
 import './App.css'
+import './components/MobileNavigation.css'
+import './Login.css'
+import './history/History.css'
 
 type TabKey = 'scan' | 'history' | 'session'
 
@@ -134,19 +135,8 @@ function formatRupiah(value: number | null | undefined) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value ?? 0)
 }
 
-/** Batas bawah jendela history. null = semua. Angka = N hari terakhir mulai tengah malam lokal. */
-function historyWindowSinceIso(sinceDays: number | null): string | null {
-  if (sinceDays === null || sinceDays < 0) return null
-  const start = new Date()
-  start.setHours(0, 0, 0, 0)
-  start.setDate(start.getDate() - sinceDays)
-  return start.toISOString()
-}
-
-function historyWindowLabel(sinceDays: number | null) {
-  if (sinceDays === null) return 'Semua'
-  if (sinceDays <= 0) return 'Hari ini'
-  return `${sinceDays} hari terakhir`
+function historyDateLabel(filter: HistoryDateFilter) {
+  return filter === 'today' ? 'Hari ini' : filter === 'yesterday' ? 'Kemarin' : filter === 'week' ? '7 hari terakhir' : 'Semua waktu'
 }
 
 const ACTIVE_TAB_STORAGE_KEY = 'pakti_mobile_active_tab'
@@ -232,6 +222,8 @@ function App() {
   const [historyFilterOpen, setHistoryFilterOpen] = useState(false)
   const [historyDocStatusFilter, setHistoryDocStatusFilter] = useState<'all' | 'lengkap' | 'belum-lengkap'>('all')
   const [historyDateFilter, setHistoryDateFilter] = useState<HistoryDateFilter>('today')
+  const historyDateFilterRef = useRef<HistoryDateFilter>('today')
+  const historyRequestRef = useRef(0)
   const [historySortOrder, setHistorySortOrder] = useState<HistorySortOrder>('newest')
   const historyPullStartYRef = useRef<number | null>(null)
   const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null)
@@ -628,8 +620,8 @@ function App() {
   }, [clearRejectedResi, processCameraScanQueue, playScanFeedback, showScanNotice, recordingSession.state.mode, recordingSession.state.lastSavedResi])
 
   const {
-    groupedRecordings,
     groupedByDate,
+    historyResultCount,
     historyScopeRecordings,
     hasHistoryFilters,
     historyFilterSheetActive,
@@ -646,6 +638,14 @@ function App() {
     historySortOrder,
     historyDocStatusFilter,
   })
+
+  const historySummaryLabels = [
+    historyTaskFilter !== 'all' ? (historyTaskFilter === 'qc' ? 'QC' : 'Packing') : '',
+    historyResiQuery.trim() ? `Pencarian: ${historyResiQuery.trim()}` : '',
+    historyDocStatusFilter !== 'all' ? (historyDocStatusFilter === 'lengkap' ? 'Lengkap' : 'Belum lengkap') : '',
+    historySortOrder !== 'newest' ? 'Terlama' : '',
+    historyShowsAllAccounts ? 'Semua akun' : '',
+  ].filter(Boolean)
 
   useEffect(() => {
     if (!historyHighlightedResi) {
@@ -750,52 +750,6 @@ function App() {
     }
   }, [session])
 
-  useEffect(() => {
-    if (!session) {
-      return
-    }
-
-    let cancelled = false
-
-    async function loadHistory() {
-      setHistoryBusy(true)
-      setHistoryError(null)
-
-      try {
-        const rows = await readServerRecordingsApi({ limit: 300, since: historyWindowSinceIso(0) })
-        if (cancelled) {
-          return
-        }
-
-        setRecordings(rows)
-
-        try {
-          const orders = await readRecentShopeeOrdersApi(100)
-          if (!cancelled) {
-            setShopeeOrders(orders)
-          }
-        } catch {
-          if (!cancelled) {
-            setShopeeOrders([])
-          }
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setHistoryError(normalizeError(error))
-        }
-      } finally {
-        if (!cancelled) {
-          setHistoryBusy(false)
-        }
-      }
-    }
-
-    void loadHistory()
-
-    return () => {
-      cancelled = true
-    }
-  }, [session])
 
   useEffect(() => {
     if (recordings.length === 0) {
@@ -885,6 +839,8 @@ function App() {
       setShopeeOrders([])
       setHistoryAllAccounts(false)
       setHistoryTaskFilter('all')
+      setHistoryDateFilter('today')
+      historyDateFilterRef.current = 'today'
       setHistoryResiQuery('')
       setHistoryHighlightedResi(null)
       setActiveTab('scan')
@@ -1085,47 +1041,40 @@ function App() {
     [mergeRecordingsForResi, recordings],
   )
 
-  const [historySinceDays, setHistorySinceDays] = useState<number | null>(0)
-  const historySinceDaysRef = useRef<number | null>(0)
-
-  const fetchHistoryWindow = useCallback(async (sinceDays: number | null) => {
-    if (!session) {
-      return
-    }
-
+  const fetchHistory = useCallback(async (date: HistoryDateFilter) => {
+    if (!session) return
+    const request = ++historyRequestRef.current
     setHistoryBusy(true)
     setHistoryError(null)
-
     try {
-      const rows = await readServerRecordingsApi({ limit: 300, since: historyWindowSinceIso(sinceDays) })
-      setRecordings(rows)
-
-      try {
-        const orders = await readRecentShopeeOrdersApi(100)
-        setShopeeOrders(orders)
-      } catch {
-        setShopeeOrders([])
-      }
+      const [payload, orders] = await Promise.all([
+        readServerHistoryRecordingsApi({ updatedSince: getHistorySince(date) }),
+        readRecentShopeeOrdersApi(100).catch(() => [] as ShopeeOrder[]),
+      ])
+      if (request !== historyRequestRef.current) return
+      setRecordings(payload.records)
+      setShopeeOrders(orders)
     } catch (error) {
-      setHistoryError(normalizeError(error))
+      if (request === historyRequestRef.current) setHistoryError(normalizeError(error))
     } finally {
-      setHistoryBusy(false)
+      if (request === historyRequestRef.current) setHistoryBusy(false)
     }
   }, [session])
 
   const refreshHistory = useCallback(async () => {
-    await fetchHistoryWindow(historySinceDaysRef.current)
-  }, [fetchHistoryWindow])
+    await fetchHistory(historyDateFilterRef.current)
+  }, [fetchHistory])
 
-  /** Perlebar jendela history (0 -> 7 -> 30 -> semua) dan muat ulang. */
-  const loadMoreHistory = useCallback(() => {
-    const current = historySinceDaysRef.current
-    const next = current === null ? null : current <= 0 ? 7 : current < 30 ? 30 : null
-    if (next === current) return
-    historySinceDaysRef.current = next
-    setHistorySinceDays(next)
-    void fetchHistoryWindow(next)
-  }, [fetchHistoryWindow])
+  const handleHistoryDateChange = useCallback((date: HistoryDateFilter) => {
+    historyDateFilterRef.current = date
+    setHistoryDateFilter(date)
+    void fetchHistory(date)
+  }, [fetchHistory])
+
+  useEffect(() => {
+    void refreshHistory()
+    return () => { historyRequestRef.current += 1 }
+  }, [refreshHistory])
 
   const {
     sharingRecordId,
@@ -1760,56 +1709,29 @@ function App() {
   if (!session) {
     return (
       <main
-        className="mobile-app mobile-app--auth"
-        style={{ fontFamily: 'JetBrains Mono, monospace' }}
+        className="mobile-app mobile-app--auth login-page"
         onPointerDownCapture={() => {
           void primeScanFeedbackAudio()
         }}
       >
-        <section className="grid gap-4 border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="grid size-10 shrink-0 place-items-center rounded-[4px] bg-[var(--op-ink)] text-sm font-bold text-[var(--op-canvas)]">
-                {brandMark}
-              </span>
-              <div className="min-w-0">
-                <p className="text-[12px] font-bold tracking-wide">[ Pakti Mobile ]</p>
-                <h1 className="m-0 truncate text-[20px] font-bold leading-none tracking-tight">{appName}</h1>
-              </div>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              className="rounded-[4px] border-[var(--op-hairline)]"
-              onClick={toggleTheme}
-              aria-label={isDarkTheme ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}
-            >
-              {isDarkTheme ? <HugeiconsIcon icon={Sun03Icon} size={16} /> : <HugeiconsIcon icon={Moon02Icon} size={16} />}
-            </Button>
+        <header className="login-brand">
+          <div className="login-brand-identity">
+            <span className="brand-badge">{brandMark}</span>
+            <div><h1>{appName}</h1><p>Pakti Mobile</p></div>
           </div>
-          <div className="grid gap-0 border-t border-[var(--op-hairline)] text-[13px]">
-            <div className="grid grid-cols-[88px_1fr] gap-3 border-b border-[var(--op-hairline)] py-2">
-              <span className="text-[var(--op-mute)]">Sistem</span>
-              <strong className="truncate font-medium">{tagline}</strong>
-            </div>
-            <div className="grid grid-cols-[88px_1fr] gap-3 py-2">
-              <span className="text-[var(--op-mute)]">Status</span>
-              <strong className="font-medium">Menunggu login operator</strong>
-            </div>
-          </div>
-        </section>
-
-        <section className="grid gap-3 border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-4">
-          <div className="grid gap-1 border-b border-[var(--op-hairline)] pb-3">
-            <p className="text-[12px] font-bold tracking-wide">[ Login ]</p>
-            <h2 className="text-[16px] font-bold leading-none">Mulai sesi scan</h2>
-            <p className="text-[14px] leading-relaxed text-[var(--op-mute)]">Masukkan username dan password operator.</p>
+          <Button type="button" variant="outline" size="icon" onClick={toggleTheme} aria-label={isDarkTheme ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}>
+            <HugeiconsIcon icon={isDarkTheme ? Sun03Icon : Moon02Icon} size={18} />
+          </Button>
+        </header>
+        <section className="login-panel" aria-labelledby="login-title">
+          <div className="login-intro">
+            <h2 id="login-title">Masuk ke akun Anda</h2>
+            <p>Gunakan akun operator untuk mulai bekerja.</p>
           </div>
 
-          <form className="grid gap-3" onSubmit={handleLogin}>
+          <form className="login-form" aria-busy={loginBusy} onSubmit={handleLogin}>
             <div className="grid gap-2">
-              <Label htmlFor="mobile-operator-name" className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--op-mute)]">Username</Label>
+              <Label htmlFor="mobile-operator-name" className="login-label">Username</Label>
                 <Input
                   id="mobile-operator-name"
                   value={loginForm.operatorName}
@@ -1817,6 +1739,8 @@ function App() {
                     setLoginForm((current) => ({ ...current, operatorName: event.target.value }))
                     if (bootError) setBootError(null)
                   }}
+                  name="username"
+                  disabled={loginBusy}
                   autoComplete="username"
                   autoCapitalize="none"
                   autoCorrect="off"
@@ -1827,7 +1751,7 @@ function App() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="mobile-password" className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--op-mute)]">Password</Label>
+              <Label htmlFor="mobile-password" className="login-label">Password</Label>
               <div className="relative">
                 <Input
                   id="mobile-password"
@@ -1837,6 +1761,8 @@ function App() {
                     setLoginForm((current) => ({ ...current, password: event.target.value }))
                     if (bootError) setBootError(null)
                   }}
+                  name="password"
+                  disabled={loginBusy}
                   autoComplete="current-password"
                   placeholder="Masukkan password"
                   className="h-11 rounded-[4px] border-[var(--op-hairline)] bg-[var(--op-canvas)] pr-12"
@@ -1844,7 +1770,9 @@ function App() {
                 />
                 <button
                   type="button"
-                  className="absolute right-1 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-[4px] border border-transparent bg-transparent text-[var(--op-mute)] outline-none hover:border-[var(--op-hairline)] hover:bg-[var(--op-surface-card)] focus-visible:border-[var(--op-ink)]"
+                  className="login-password-toggle"
+                  disabled={loginBusy}
+                  aria-pressed={showLoginPassword}
                   onClick={() => setShowLoginPassword((current) => !current)}
                   aria-label={showLoginPassword ? 'Sembunyikan password' : 'Tampilkan password'}
                 >
@@ -1853,10 +1781,11 @@ function App() {
               </div>
             </div>
 
-            <label htmlFor="mobile-remember" className="flex cursor-pointer items-start gap-2.5 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 py-2.5">
+            <label htmlFor="mobile-remember" className="login-remember">
               <input
                 id="mobile-remember"
                 type="checkbox"
+                disabled={loginBusy}
                 checked={loginForm.rememberMe}
                 onChange={(event) => {
                   setLoginForm((current) => ({ ...current, rememberMe: event.target.checked }))
@@ -1864,13 +1793,13 @@ function App() {
                 className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-black"
               />
               <span className="grid gap-0.5">
-                <span className="text-[13px] font-bold">Ingat saya di perangkat ini</span>
-                <span className="text-[12px] leading-relaxed text-[var(--op-mute)]">Tetap login walau browser ditutup. Jangan centang di perangkat bersama.</span>
+                <span className="text-[13px] font-bold">Tetap masuk</span>
+                <span className="text-[12px] leading-relaxed text-[var(--op-mute)]">Gunakan hanya di perangkat pribadi.</span>
               </span>
             </label>
 
             {bootError ? (
-              <Alert variant="destructive" className="rounded-[4px]">
+              <Alert variant="destructive" className="login-error" role="alert">
                 <AlertTitle>Gagal masuk</AlertTitle>
                 <AlertDescription>{bootError}</AlertDescription>
               </Alert>
@@ -1878,13 +1807,15 @@ function App() {
 
             <Button
               type="submit"
-              className="h-11 w-full rounded-[4px] bg-[var(--op-ink)] text-[var(--op-canvas)]"
+              className="login-submit"
               disabled={loginBusy || !loginForm.operatorName.trim() || !loginForm.password}
             >
               {loginBusy ? 'Memverifikasi...' : 'Masuk'}
             </Button>
           </form>
+          <p className="login-help">Belum punya akun atau lupa password?<br />Hubungi admin untuk bantuan akses.</p>
         </section>
+        <p className="login-tagline">{tagline}</p>
       </main>
     )
   }
@@ -1897,43 +1828,30 @@ function App() {
       }}
     >
       {/* ——— Minimal header ——— */}
-      <header className="flex items-center justify-between gap-3 py-2">
-        <div className="flex items-center gap-3">
-          <span className="brand-badge">{brandMark}</span>
-          <div className="leading-tight">
-            <p className="eyebrow">Pakti Mobile</p>
-            <h1 className="m-0 text-[1.18rem] font-semibold tracking-[-0.03em]">{appName}</h1>
+      <header className="mobile-topbar">
+        <div className="mobile-topbar-brand">
+          <span className="mobile-topbar-mark" aria-hidden="true">{brandMark}</span>
+          <div className="mobile-topbar-identity">
+            <h1>{appName}</h1>
+            <span>Mobile</span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)]"
-            onClick={toggleTheme}
-            aria-label={isDarkTheme ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}
-          >
-            {isDarkTheme ? <HugeiconsIcon icon={Sun03Icon} size={16} /> : <HugeiconsIcon icon={Moon02Icon} size={16} />}
+        <div className="mobile-topbar-actions">
+          <Button type="button" variant="ghost" size="icon" onClick={toggleTheme}
+            aria-label={isDarkTheme ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}>
+            <HugeiconsIcon icon={isDarkTheme ? Sun03Icon : Moon02Icon} size={18} />
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)]"
-            onClick={() => {
-              setLogoutIntent('logout')
-              setLogoutConfirmOpen(true)
-            }}
-            aria-label="Keluar"
-          >
-            <HugeiconsIcon icon={Logout02Icon} size={16} />
+          <Button type="button" variant="ghost" size="icon" onClick={() => {
+            setLogoutIntent('logout')
+            setLogoutConfirmOpen(true)
+          }} aria-label="Keluar">
+            <HugeiconsIcon icon={Logout02Icon} size={18} />
           </Button>
         </div>
       </header>
 
       <Dialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
-        <DialogContent className="rounded-[4px] border-border bg-popover text-popover-foreground">
+        <DialogContent className="account-logout-dialog rounded-[4px] border-border bg-popover text-popover-foreground">
           <DialogHeader>
             <div className="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-[4px] border border-destructive/30 bg-[var(--op-canvas)] text-destructive">
               <HugeiconsIcon icon={ShieldAlertIcon} size={18} />
@@ -2317,33 +2235,17 @@ function App() {
 
       {/* ——— HISTORY TAB ——— */}
       {activeTab === 'history' ? (
-        <div className="grid gap-3 pt-1" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-          <div className="flex items-center justify-between gap-3 border-b border-[var(--op-hairline)] pb-3">
-            <div className="min-w-0">
-              <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--op-mute)]">
-                {historyShowsAllAccounts ? 'History · Audit admin' : 'History · Akun saya'}
-              </p>
-              <h2 className="mt-1 truncate text-[18px] font-bold leading-none">{groupedRecordings.length} resi</h2>
-              <p className="mt-1 text-[12px] text-[var(--op-mute)]">
-                {historyShowsAllAccounts
-                  ? 'Semua akun · hanya untuk audit'
-                  : `${session?.operatorName || 'Akun login'} (${session?.operatorCode || '-'})`} · {historyWindowLabel(historySinceDays)}
-              </p>
+        <div className="history-page">
+          <header className="history-heading">
+            <div><h2>History</h2>
+              <p className="history-scope">{historyShowsAllAccounts ? 'Semua akun / Audit admin' : `Akun ${session.operatorName}`}</p>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
-              {historySinceDays !== null ? (
-                <Button variant="outline" type="button" className="h-10 shrink-0 rounded-[4px] border-[var(--op-hairline)] px-3 text-[12px]" onClick={() => loadMoreHistory()} disabled={historyBusy}>
-                  {historyBusy ? '…' : historySinceDays <= 0 ? 'Muat 7 hari' : historySinceDays < 30 ? 'Muat 30 hari' : 'Muat semua'}
-                </Button>
-              ) : null}
-              <Button variant="outline" size="icon" type="button" className="h-10 w-10 shrink-0 rounded-[4px] border-[var(--op-hairline)]" onClick={() => void refreshHistory()} disabled={historyBusy} aria-label="Refresh history">
-                {historyBusy ? '…' : '↻'}
-              </Button>
-            </div>
-          </div>
-
+            <Button variant="outline" size="icon" type="button" onClick={() => void refreshHistory()} disabled={historyBusy} aria-label="Perbarui history">
+              <span aria-hidden="true">{historyBusy ? '...' : '↻'}</span>
+            </Button>
+          </header>
           <div
-            className="sticky top-0 z-10 grid gap-3 bg-[var(--op-canvas)] py-2"
+            className="history-content"
             onTouchStart={(event) => {
               if (window.scrollY <= 0) {
                 historyPullStartYRef.current = event.touches[0]?.clientY ?? null
@@ -2360,34 +2262,37 @@ function App() {
               }
             }}
           >
-            <div className="grid gap-2">
+            <div className="history-controls">
               <div className="grid gap-2">
                 <div className="flex gap-2">
-                  <div className="relative flex-1">
+                  <div className="relative min-w-0 flex-1">
                     <HugeiconsIcon icon={HistoryIcon} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="history-resi-search"
+                      aria-label="Cari nomor resi atau nomor pesanan"
                       value={historyResiQuery}
                       onChange={(event) => {
                         setHistoryResiQuery(event.target.value)
                         setHistoryHighlightedResi(null)
                       }}
-                      placeholder="Cari resi atau no. pesanan..."
+                      placeholder="Cari resi atau pesanan"
                       inputMode="text"
                       autoCapitalize="characters"
                       className="h-11 rounded-[4px] border-border bg-card pl-10"
                     />
                   </div>
-                  <Button type="button" variant="outline" size="icon" className="h-11 w-11 shrink-0 rounded-[4px]" onClick={() => setHistoryScanOpen(true)}>
+                  <Button type="button" variant="outline" size="icon" className="h-11 w-11 shrink-0 rounded-[4px]" onClick={() => setHistoryScanOpen(true)} aria-label="Scan barcode untuk mencari history">
                     <HugeiconsIcon icon={SearchAreaIcon} size={16} />
                   </Button>
                 </div>
               </div>
 
-              <div className="flex gap-2">
+              <div className="history-toolbar">
+                <div className="history-task-tabs" role="group" aria-label="Filter tugas">
                 {(['all','qc','packing'] as const).map((v) => (
                   <Button
                     key={v}
+                    aria-pressed={historyTaskFilter === v}
                     type="button"
                     variant={historyTaskFilter === v ? 'secondary' : 'outline'}
                     size="sm"
@@ -2397,6 +2302,7 @@ function App() {
                     {v === 'all' ? 'Semua' : v === 'qc' ? 'QC' : 'Packing'}
                   </Button>
                 ))}
+                </div>
                 <Button
                   type="button"
                   variant="outline"
@@ -2406,147 +2312,93 @@ function App() {
                       ? 'ml-auto rounded-[4px] border-[var(--op-hairline-strong)] bg-[var(--op-surface-card)]'
                       : 'ml-auto rounded-[4px] border-[var(--op-hairline)]'
                   }
+                  aria-expanded={historyFilterOpen}
                   onClick={() => setHistoryFilterOpen(true)}
                 >
-                  Filter {historyFilterSheetActive ? '[+]' : '[-]'}
+                  Filter {historyFilterSheetActive ? <span className="history-filter-dot" aria-label="Filter aktif" /> : null}
                 </Button>
               </div>
             </div>
 
+            {historySummaryLabels.length > 0 ? (
+              <div className="history-active-filters">
+                <p>{historySummaryLabels.join(' / ')}</p>
+                <Button type="button" variant="ghost" onClick={() => {
+                  setHistoryTaskFilter('all'); setHistoryResiQuery(''); setHistoryHighlightedResi(null)
+                  setHistoryAllAccounts(false); setHistoryDocStatusFilter('all'); handleHistoryDateChange('today'); setHistorySortOrder('newest')
+                }}>Reset</Button>
+              </div>
+            ) : null}
             <Sheet open={historyFilterOpen} onOpenChange={(open) => { if (!open) setHistoryFilterOpen(false) }}>
-              <SheetContent side="bottom" className="w-full rounded-t-[4px] border-border bg-popover p-0" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-                <SheetHeader className="px-4 pt-5">
-                  <SheetTitle className="text-left">Filter history</SheetTitle>
-                  <SheetDescription className="text-left">Saring dokumentasi sesuai kebutuhan.</SheetDescription>
+              <SheetContent side="bottom" className="history-sheet history-filter-sheet w-full border-border bg-popover p-0">
+                <div className="history-filter-handle" aria-hidden="true" />
+                <SheetHeader className="history-filter-header">
+                  <SheetTitle>Filter history</SheetTitle>
+                  <SheetDescription className="sr-only">Temukan dokumentasi yang Anda butuhkan.</SheetDescription>
                 </SheetHeader>
-                <div className="grid gap-5 px-4 pb-6 pt-2">
+                <div className="history-filter-body">
                   {isAdmin ? (
-                    <div className="grid gap-2">
-                      <span className="text-[12px] font-bold tracking-wide text-[var(--op-mute)]">Cakupan akun</span>
-                      <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Cakupan akun history">
-                        <Button
-                          type="button"
-                          variant={!historyShowsAllAccounts ? 'secondary' : 'outline'}
-                          size="sm"
-                          className="rounded-[4px]"
-                          role="radio"
-                          aria-checked={!historyShowsAllAccounts}
-                          onClick={() => setHistoryAllAccounts(false)}
-                        >
-                          Riwayat saya
-                        </Button>
-                        <Button
-                          type="button"
-                          variant={historyShowsAllAccounts ? 'secondary' : 'outline'}
-                          size="sm"
-                          className="rounded-[4px]"
-                          role="radio"
-                          aria-checked={historyShowsAllAccounts}
-                          onClick={() => setHistoryAllAccounts(true)}
-                        >
-                          Semua akun
-                        </Button>
+                    <fieldset className="history-filter-section">
+                      <legend>Cakupan akun</legend>
+                      <div className="history-filter-segment" role="group" aria-label="Cakupan akun history">
+                        <button type="button" aria-pressed={!historyShowsAllAccounts} onClick={() => setHistoryAllAccounts(false)}>Akun saya</button>
+                        <button type="button" aria-pressed={historyShowsAllAccounts} onClick={() => setHistoryAllAccounts(true)}>Semua akun</button>
                       </div>
-                      <p className="m-0 text-[11px] leading-snug text-[var(--op-mute)]">
-                        Semua akun adalah tampilan audit admin. Identitas kerja tetap akun yang sedang login.
-                      </p>
-                    </div>
+                      {historyShowsAllAccounts ? <p className="history-filter-hint">Semua akun hanya untuk audit admin.</p> : null}
+                    </fieldset>
                   ) : null}
-
-                  <div className="grid gap-2">
-                    <span className="text-[12px] font-bold tracking-wide text-[var(--op-mute)]">Status dokumentasi</span>
-                    <div className="grid gap-1.5">
+                  <fieldset className="history-filter-section">
+                    <legend>Status dokumentasi</legend>
+                    <div className="history-filter-status" role="group" aria-label="Status dokumentasi">
                       {([
                         { key: 'all', label: 'Semua' },
-                        { key: 'lengkap', label: '✓ Lengkap' },
-                        { key: 'belum-lengkap', label: '! Belum lengkap' },
+                        { key: 'lengkap', label: 'Lengkap' },
+                        { key: 'belum-lengkap', label: 'Belum lengkap' },
                       ] as const).map((opt) => (
-                        <button
-                          key={opt.key}
-                          type="button"
-                          className={
-                            historyDocStatusFilter === opt.key
-                              ? 'flex items-center justify-between rounded-[4px] border border-[var(--op-hairline-strong)] bg-[var(--op-surface-card)] px-3 py-2 text-left text-sm font-medium'
-                              : 'flex items-center justify-between rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 py-2 text-left text-sm'
-                          }
-                          onClick={() => setHistoryDocStatusFilter(opt.key)}
-                        >
-                          <span>{opt.label}</span>
-                          <span>{historyDocStatusFilter === opt.key ? '●' : '○'}</span>
+                        <button key={opt.key} type="button" aria-pressed={historyDocStatusFilter === opt.key} onClick={() => setHistoryDocStatusFilter(opt.key)}>
+                          <span className="history-filter-check" aria-hidden="true">{historyDocStatusFilter === opt.key ? '✓' : ''}</span>
+                          {opt.label}
                         </button>
                       ))}
                     </div>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <span className="text-[12px] font-bold tracking-wide text-[var(--op-mute)]">Tanggal</span>
-                    <div className="grid gap-1.5">
+                  </fieldset>
+                  <fieldset className="history-filter-section">
+                    <legend>Tanggal dokumentasi</legend>
+                    <div className="history-filter-dates" role="group" aria-label="Tanggal dokumentasi">
                       {([
                         { key: 'all', label: 'Semua waktu' },
                         { key: 'today', label: 'Hari ini' },
                         { key: 'yesterday', label: 'Kemarin' },
                         { key: 'week', label: '7 hari terakhir' },
                       ] as const).map((opt) => (
-                        <button
-                          key={opt.key}
-                          type="button"
-                          className={
-                            historyDateFilter === opt.key
-                              ? 'flex items-center justify-between rounded-[4px] border border-[var(--op-hairline-strong)] bg-[var(--op-surface-card)] px-3 py-2 text-left text-sm font-medium'
-                              : 'flex items-center justify-between rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-3 py-2 text-left text-sm'
-                          }
-                          onClick={() => setHistoryDateFilter(opt.key)}
-                        >
+                        <button key={opt.key} type="button" aria-pressed={historyDateFilter === opt.key} onClick={() => handleHistoryDateChange(opt.key)}>
                           <span>{opt.label}</span>
-                          <span>{historyDateFilter === opt.key ? '●' : '○'}</span>
+                          <span className="history-filter-check" aria-hidden="true">{historyDateFilter === opt.key ? '✓' : ''}</span>
                         </button>
                       ))}
                     </div>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <span className="text-[12px] font-bold tracking-wide text-[var(--op-mute)]">Urutan</span>
-                    <div className="grid grid-cols-2 gap-2">
+                    <p className="history-filter-hint">Tanggal mengikuti waktu Jakarta (WIB).</p>
+                  </fieldset>
+                  <fieldset className="history-filter-section">
+                    <legend>Urutkan</legend>
+                    <div className="history-filter-segment" role="group" aria-label="Urutan history">
                       {([
-                        { key: 'newest', label: 'Terbaru' },
-                        { key: 'oldest', label: 'Terlama' },
+                        { key: 'newest', label: 'Terbaru dulu' },
+                        { key: 'oldest', label: 'Terlama dulu' },
                       ] as const).map((opt) => (
-                        <Button
-                          key={opt.key}
-                          type="button"
-                          variant={historySortOrder === opt.key ? 'secondary' : 'outline'}
-                          size="sm"
-                          className="rounded-[4px]"
-                          onClick={() => setHistorySortOrder(opt.key)}
-                        >
-                          {historySortOrder === opt.key ? `[ ${opt.label} ]` : opt.label}
-                        </Button>
+                        <button key={opt.key} type="button" aria-pressed={historySortOrder === opt.key} onClick={() => setHistorySortOrder(opt.key)}>{opt.label}</button>
                       ))}
                     </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-2 pt-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="rounded-[4px]"
-                      onClick={() => {
-                        setHistoryTaskFilter('all')
-                        setHistoryResiQuery('')
-                        setHistoryHighlightedResi(null)
-                        setHistoryAllAccounts(false)
-                        setHistoryDocStatusFilter('all')
-                        setHistoryDateFilter('all')
-                        setHistorySortOrder('newest')
-                      }}
-                      disabled={!hasHistoryFilters && historyDocStatusFilter === 'all' && historyDateFilter === 'all' && historySortOrder === 'newest'}
-                    >
-                      Reset
-                    </Button>
-                    <Button type="button" size="sm" className="rounded-[4px]" onClick={() => setHistoryFilterOpen(false)}>
-                      Terapkan
-                    </Button>
+                  </fieldset>
+                </div>
+                <div className="history-filter-footer">
+                  <p aria-live="polite">{historyResultCount} resi sesuai filter </p>
+                  <div className="history-filter-actions">
+                    <Button type="button" variant="outline" onClick={() => {
+                      setHistoryTaskFilter('all'); setHistoryResiQuery(''); setHistoryHighlightedResi(null)
+                      setHistoryAllAccounts(false); setHistoryDocStatusFilter('all'); handleHistoryDateChange('today'); setHistorySortOrder('newest')
+                    }} disabled={!hasHistoryFilters}>Reset</Button>
+                    <Button type="button" onClick={() => setHistoryFilterOpen(false)}>Lihat hasil</Button>
                   </div>
                 </div>
               </SheetContent>
@@ -2562,7 +2414,7 @@ function App() {
                 }
               }}
             >
-              <SheetContent side="bottom" className="w-full rounded-t-[4px] border-border bg-popover p-0">
+              <SheetContent side="bottom" className="history-sheet history-scan-sheet w-full border-border bg-popover p-0">
                 <SheetHeader className="px-5 pt-6 text-left">
                   <SheetTitle>Scan resi untuk cari history</SheetTitle>
                   <SheetDescription>Arahkan barcode ke kamera agar langsung masuk ke pencarian.</SheetDescription>
@@ -2611,10 +2463,16 @@ function App() {
               </Alert>
             ) : null}
 
-            <div className="grid gap-4">
-              {groupedByDate.length > 0 ? (
+            <div className="history-results-summary" aria-live="polite" aria-atomic="true">
+              <p><strong>{historyResultCount}</strong> resi{historyResiQuery ? ' ditemukan' : ' ditampilkan'}</p>
+              <span>{historyBusy ? 'Memperbarui...' : historyDateLabel(historyDateFilter)}</span>
+            </div>
+            <div className="history-results grid gap-4" aria-busy={historyBusy}>
+              {historyBusy && groupedByDate.length === 0 ? (
+                <div className="history-loading" role="status">Memuat dokumentasi...</div>
+              ) : historyError && groupedByDate.length === 0 ? null : groupedByDate.length > 0 ? (
                 groupedByDate.map(([dateKey, groups]) => (
-                  <section key={dateKey} className="grid gap-2">
+                  <section key={dateKey} className="history-date-group grid gap-2">
                     <p className="text-[12px] font-bold tracking-wide text-[var(--op-mute)]">{formatSectionDate(dateKey)}</p>
                     <div className="grid gap-2">
                     {groups.map((group) => {
@@ -2623,16 +2481,16 @@ function App() {
                         (record) => record.resiNumber.trim().toLowerCase() === normalizedGroupResi,
                       )
                       const rowsForSummary = scopedRowsForResi.length > 0 ? scopedRowsForResi : group.rows
-                      const status = getDocStatus({ ...group, rows: rowsForSummary })
-                      const statusLabel = status === 'lengkap' ? 'Lengkap' : status === 'belum-lengkap' ? 'Belum lengkap' : 'Belum ada'
-                      const qcRow = rowsForSummary.find((record) => record.taskType === 'qc')
-                      const packingRow = rowsForSummary.find((record) => record.taskType === 'packing')
-                      const qcIdentity = qcRow ? getRecordingIdentitySummary(qcRow) : null
-                      const packingIdentity = packingRow ? getRecordingIdentitySummary(packingRow) : null
+                      const qcRow = getLatestTaskRecord(rowsForSummary, 'qc')
+                      const packingRow = getLatestTaskRecord(rowsForSummary, 'packing')
+                      const qcDone = qcRow?.status === 'completed'
+                      const packingDone = packingRow?.status === 'completed'
+                      const progress = (Number(qcDone) + Number(packingDone)) * 50
+
+
                       const latest = group.latestRow
-                      const latestMediaLabel = latest ? ((latest as unknown as { mediaType?: string }).mediaType === 'photo' ? 'Foto' : 'Video') : 'File'
-                      const orderNumber = shopeeOrders.find((o) => o.trackingNumber?.trim().toLowerCase() === group.resiNumber.trim().toLowerCase())?.orderNumber
-                      const packingPayLabel = packingRow ? getPayLabel(packingRow) : null
+                      const orderNumber = rowsForSummary.find(record => record.orderNumber)?.orderNumber ?? shopeeOrders.find((o) => o.trackingNumber?.trim().toLowerCase() === group.resiNumber.trim().toLowerCase())?.orderNumber
+
                       const shareStatus = getGroupShareStatus(rowsForSummary)
                       const sharePreparing = rowsForSummary.some((record) => preparingShareFileIds.has(record.id))
                       const shareFailed = !sharePreparing && rowsForSummary.some((record) => sharePreparationErrors.has(record.id))
@@ -2640,117 +2498,37 @@ function App() {
                       const activeShareRecord = rowsForSummary.find((record) => preparingShareFileIds.has(record.id))
                       const shareProgress = activeShareRecord ? shareProgressByRecordingId.get(activeShareRecord.id) ?? 0 : null
                       return (
-                      <div
-                        key={group.resiNumber}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => setHistoryDetailTarget(group)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault()
-                            setHistoryDetailTarget(group)
-                          }
-                        }}
-                        className={
-                          historyHighlightedResi === group.resiNumber
-                            ? 'grid cursor-pointer gap-3 rounded-[4px] border border-[var(--op-hairline-strong)] bg-[var(--op-surface-card)] p-3 text-left'
-                            : 'grid cursor-pointer gap-3 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] p-3 text-left hover:bg-[var(--op-surface-soft)]'
-                        }
-                        style={{ fontFamily: 'JetBrains Mono, monospace' }}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="grid min-w-0 gap-0.5">
-                              <strong className="min-w-0 truncate text-[16px] font-bold leading-none tracking-tight">{group.resiNumber}</strong>
-                              {orderNumber ? (
-                                <span className="truncate text-[11px] text-[var(--op-mute)]">Order {orderNumber}</span>
-                              ) : null}
-                            </div>
+                      <article key={group.resiNumber} className={`history-card ${historyHighlightedResi === group.resiNumber ? 'history-card-highlighted' : ''}`}>
+                        <button type="button" className="history-card-open" onClick={() => setHistoryDetailTarget(group)} aria-haspopup="dialog" aria-label={`Buka detail resi ${group.resiNumber}`} />
+                        <div className="history-card-top">
+                          <div className="history-card-identity">
+                            <h3>{group.resiNumber}</h3>
+                            {orderNumber ? <p>Pesanan <span className="history-machine">{orderNumber}</span></p> : null}
                           </div>
-                          <div className="flex shrink-0 items-center gap-2">
-                            <span className={
-                              status === 'lengkap'
-                                ? 'rounded-[4px] bg-[var(--op-ink)] px-2 py-0.5 text-[11px] font-medium text-[var(--op-canvas)]'
-                                : status === 'belum-lengkap'
-                                  ? 'rounded-[4px] border border-[var(--op-warning,#ff9f0a)] px-2 py-0.5 text-[11px] text-[var(--op-warning,#ff9f0a)]'
-                                  : 'rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] px-2 py-0.5 text-[11px] text-[var(--op-mute)]'
-                            }>
-                              {statusLabel}
-                            </span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="size-7 shrink-0 rounded-[4px] text-[var(--op-mute)]"
-                              onClick={(event) => {
-                                event.stopPropagation()
-                                void handleCopyResi(group.resiNumber)
-                              }}
-                              aria-label={`Salin resi ${group.resiNumber}`}
-                            >
-                              <HugeiconsIcon icon={Copy01Icon} size={14} />
-                            </Button>
-                          </div>
+                          <Button type="button" variant="ghost" size="icon" className="history-card-copy" onClick={() => void handleCopyResi(group.resiNumber)} aria-label={`Salin resi ${group.resiNumber}`}>
+                            <HugeiconsIcon icon={Copy01Icon} size={17} />
+                          </Button>
                         </div>
-
-                        <div className="grid gap-2 rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-surface-soft)] p-2">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span className={qcRow?.status === 'completed' ? 'rounded-[4px] bg-[var(--op-ink)] px-2 py-0.5 text-[11px] font-medium text-[var(--op-canvas)]' : 'rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-2 py-0.5 text-[11px] text-[var(--op-mute)]'}>
-                              QC {qcRow?.status === 'completed' ? 'selesai' : qcRow ? formatStatus(qcRow.status).toLowerCase() : 'kosong'}
-                            </span>
-                            <span className={packingRow?.status === 'completed' ? 'rounded-[4px] bg-[var(--op-ink)] px-2 py-0.5 text-[11px] font-medium text-[var(--op-canvas)]' : 'rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-2 py-0.5 text-[11px] text-[var(--op-mute)]'}>
-                              Packing {packingRow ? ((packingRow as unknown as { mediaType?: string }).mediaType === 'photo' ? 'foto' : 'video') : 'kosong'}
-                            </span>
-                            {packingIdentity?.isHistoricalOnBehalf ? (
-                              <span className="rounded-[4px] border border-amber-500/45 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-200">
-                                Atas nama · historis
-                              </span>
-                            ) : null}
-                            <span className={sharePreparing
-                              ? 'rounded-[4px] border border-[var(--op-warning,#ff9f0a)] bg-[var(--op-warning,#ff9f0a)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--op-warning,#ff9f0a)] animate-pulse'
-                              : shareFailed
-                                ? 'rounded-[4px] border border-destructive/50 px-2 py-0.5 text-[11px] text-destructive'
-                              : shareQueued
-                                ? 'rounded-[4px] border border-[var(--op-hairline)] bg-[var(--op-canvas)] px-2 py-0.5 text-[11px] text-[var(--op-mute)]'
-                                : getGroupShareStatusClassName(shareStatus.ready)}>
-                              {sharePreparing ? `${shareProgress}%` : shareFailed ? 'Share gagal' : shareQueued ? 'Antri share' : shareStatus.label}
-                            </span>
+                        <div className="history-progress" role="progressbar" aria-label="Progres dokumentasi" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}
+                          aria-valuetext={`QC ${qcDone ? 'selesai' : 'belum selesai'}, Packing ${packingDone ? 'selesai' : 'belum selesai'}${progress === 100 ? ', dokumentasi lengkap' : ''}`}>
+                          <div className="history-progress-track" aria-hidden="true">
+                            <span className={qcDone ? 'is-done' : ''} />
+                            <span className={packingDone ? 'is-done' : ''} />
                           </div>
-                          <div className="grid gap-1 border-t border-[var(--op-hairline)] pt-2 text-[11px] leading-snug">
-                            {qcIdentity ? (
-                              <div className="flex items-start justify-between gap-3">
-                                <span className="shrink-0 text-[var(--op-mute)]">QC oleh</span>
-                                <span className="min-w-0 truncate text-right font-medium text-[var(--op-ink)]">
-                                  {formatOperatorIdentity(qcIdentity.creditedName, qcIdentity.creditedCode)}
-                                </span>
-                              </div>
-                            ) : null}
-                            {packingIdentity ? (
-                              <div className="flex items-start justify-between gap-3">
-                                <span className="shrink-0 text-[var(--op-mute)]">Packing untuk</span>
-                                <span className="min-w-0 truncate text-right font-medium text-[var(--op-ink)]">
-                                  {formatOperatorIdentity(packingIdentity.creditedName, packingIdentity.creditedCode)}
-                                  {packingPayLabel ? ` · Upah ${packingPayLabel}` : ''}
-                                </span>
-                              </div>
-                            ) : null}
-                            {packingIdentity?.isHistoricalOnBehalf ? (
-                              <div className="flex items-start justify-between gap-3 text-amber-700 dark:text-amber-200">
-                                <span className="shrink-0">Dicatat oleh</span>
-                                <span className="min-w-0 truncate text-right font-medium">
-                                  {formatOperatorIdentity(packingIdentity.actorName, packingIdentity.actorCode)}
-                                </span>
-                              </div>
-                            ) : null}
+                          <div className="history-progress-labels" aria-hidden="true">
+                            <span className={qcDone ? 'is-done' : ''}><span>QC</span><span>{qcDone ? '✓' : '—'}</span></span>
+                            <span className={packingDone ? 'is-done' : ''}><span>Packing</span><span>{packingDone ? '✓' : '—'}</span></span>
                           </div>
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0 text-[12px] leading-snug text-[var(--op-mute)]">
-                              <p className="m-0 truncate">{latest ? `${latestMediaLabel} terakhir · ${formatDateTime(latest.updatedAt)}` : `${group.rows.length} dokumentasi`}</p>
-                            </div>
-                            <span className="shrink-0 text-[12px] font-medium text-[var(--op-mute)]">Lihat ›</span>
-                          </div>
+                          <span className="history-progress-value" aria-hidden="true">{progress}<span>%</span></span>
                         </div>
-                      </div>
+                        {sharePreparing || shareFailed || shareQueued ? <div className="history-card-share" role="status">
+                          {sharePreparing ? `Menyiapkan file berbagi ${shareProgress}%` : shareFailed ? 'Gagal menyiapkan file berbagi' : shareQueued ? 'File berbagi dalam antrean' : shareStatus.label}
+                        </div> : null}
+                        <div className="history-card-footer">
+                          <p>{latest ? <time dateTime={latest.updatedAt}>{formatDateTime(latest.updatedAt)}</time> : `${group.rows.length} dokumentasi`}</p>
+                          <span className="history-card-detail-label" aria-hidden="true">Detail <span>›</span></span>
+                        </div>
+                      </article>
                       )
                     })}
                     </div>
@@ -2771,17 +2549,18 @@ function App() {
                       </span>
                     ) : (
                       <span className="inline-flex rounded-[4px] border border-border bg-muted/50 px-3 py-1 text-[0.7rem] font-semibold">
-                        {historyEmptyState?.title ?? 'History'}
+                        {historyResiQuery ? 'Resi tidak ditemukan' : hasHistoryFilters ? 'Tidak ada hasil' : 'Belum ada dokumentasi'}
                       </span>
                     )}
                   </div>
                   <div className="grid gap-1">
-                    <p className="text-sm font-medium">{historyEmptyState?.message ?? 'Belum ada history untuk akun ini.'}</p>
-                    <p className="text-sm leading-relaxed text-muted-foreground">{historyEmptyState?.detail ?? 'Coba ubah filter atau scan resi lain.'}</p>
+                    <p className="text-sm font-medium">{historyResiQuery ? 'Tidak ada resi atau pesanan yang cocok.' : 'Tidak ada dokumentasi sesuai tanggal dan filter ini.'}</p>
+                    <p className="text-sm leading-relaxed text-muted-foreground">Coba ubah tanggal, kata pencarian, atau reset filter.</p>
                   </div>
                 </div>
               )}
             </div>
+
           </div>
         </div>
       ) : null}
@@ -2846,7 +2625,7 @@ function App() {
         </Alert>
       ) : null}
 
-      <div className="h-14" aria-hidden="true" />
+      <div className="mobile-nav-spacer" aria-hidden="true" />
       <BottomNav activeTab={activeTab} onChange={(tab) => openTab(tab)} />
     </main>
   )

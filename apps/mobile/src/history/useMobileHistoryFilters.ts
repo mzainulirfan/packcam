@@ -57,12 +57,14 @@ export function useMobileHistoryFilters({
     }
 
     return new Set(
-      shopeeOrders
+      [...historyScopeRecordings
+        .filter(record => (record.orderNumber ?? '').trim().toLowerCase().includes(normalizedHistoryQuery))
+        .map(record => record.resiNumber.trim().toLowerCase()), ...shopeeOrders
         .filter((order) => order.orderNumber.trim().toLowerCase().includes(normalizedHistoryQuery))
         .map((order) => order.trackingNumber?.trim().toLowerCase())
-        .filter((resi): resi is string => Boolean(resi)),
+        .filter((resi): resi is string => Boolean(resi))],
     )
-  }, [normalizedHistoryQuery, shopeeOrders])
+  }, [normalizedHistoryQuery, shopeeOrders, historyScopeRecordings])
 
   const filteredRecordings = useMemo(() => {
     return filterRecordings({
@@ -86,18 +88,18 @@ export function useMobileHistoryFilters({
     recordings,
   ])
 
-  const hasHistoryFilters = historyTaskFilter !== 'all' || Boolean(historyQuery) || historyAllAccounts || historyDateFilter !== 'all'
+  const hasHistoryFilters = historyTaskFilter !== 'all' || Boolean(historyQuery) || historyAllAccounts || historyDateFilter !== 'today' || historyDocStatusFilter !== 'all' || historySortOrder !== 'newest'
 
   const matchingResiRecords = useMemo(() => {
     if (!normalizedHistoryQuery) {
       return []
     }
 
-    return recordings.filter((record) => {
+    return historyScopeRecordings.filter((record) => {
       const normalizedResi = record.resiNumber.trim().toLowerCase()
-      return normalizedResi.includes(normalizedHistoryQuery) || queryMatchedResiNumbers.has(normalizedResi)
+      return normalizedResi.includes(normalizedHistoryQuery) || (record.orderNumber ?? '').trim().toLowerCase().includes(normalizedHistoryQuery) || queryMatchedResiNumbers.has(normalizedResi)
     })
-  }, [normalizedHistoryQuery, queryMatchedResiNumbers, recordings])
+  }, [normalizedHistoryQuery, queryMatchedResiNumbers, historyScopeRecordings])
 
   const latestMatchingResiRecord = useMemo(() => {
     if (!historyQuery || matchingResiRecords.length === 0) {
@@ -111,14 +113,16 @@ export function useMobileHistoryFilters({
     return groupRecordings(filteredRecordings, historySortOrder)
   }, [filteredRecordings, historySortOrder])
 
-  const historyFilterSheetActive = historyDocStatusFilter !== 'all' || historyAllAccounts || historyDateFilter !== 'all' || historySortOrder !== 'newest'
+  const historyFilterSheetActive = historyDocStatusFilter !== 'all' || historyAllAccounts || historyDateFilter !== 'today' || historySortOrder !== 'newest'
 
   const groupedByDate = useMemo(() => {
     return groupHistoryByDate(groupedRecordings, historyDocStatusFilter, historyScopeRecordings)
   }, [groupedRecordings, historyDocStatusFilter, historyScopeRecordings])
 
+  const historyResultCount = groupedByDate.reduce((count, [, groups]) => count + groups.length, 0)
+
   const historyEmptyState = useMemo(() => getHistoryEmptyState({
-    groupedRecordingsLength: groupedRecordings.length,
+    groupedRecordingsLength: historyResultCount,
     historyQuery,
     matchingResiRecords,
     latestMatchingResiRecord,
@@ -128,7 +132,7 @@ export function useMobileHistoryFilters({
   }), [
     currentOperatorCode,
     currentOperatorName,
-    groupedRecordings.length,
+    historyResultCount,
     historyAllAccounts,
     historyQuery,
     latestMatchingResiRecord,
@@ -138,6 +142,7 @@ export function useMobileHistoryFilters({
   return {
     groupedRecordings,
     groupedByDate,
+    historyResultCount,
     historyScopeRecordings,
     hasHistoryFilters,
     historyFilterSheetActive,

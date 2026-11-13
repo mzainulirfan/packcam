@@ -132,6 +132,8 @@ export type BootstrapStatusPayload = {
 }
 
 export type HistoryRecordingsQuery = {
+  /** Include all stages for authorized resis with activity since this ISO timestamp. */
+  updatedSince?: string | null
   search?: string
   taskType?: 'all' | 'qc' | 'packing'
   operator?: string
@@ -579,6 +581,7 @@ export function readServerRecordingsApi(query: { limit?: number; since?: string 
 export function readServerHistoryRecordingsApi(query: HistoryRecordingsQuery = {}) {
   const params = new URLSearchParams()
 
+  if (query.updatedSince) params.set('updatedSince', query.updatedSince)
   if (query.search?.trim()) params.set('search', query.search.trim())
   if (query.taskType && query.taskType !== 'all') params.set('taskType', query.taskType)
   if (query.operator?.trim() && query.operator !== 'all') params.set('operator', query.operator.trim())

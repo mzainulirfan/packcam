@@ -206,27 +206,23 @@ export function getGroupShareStatusClassName(ready: boolean) {
     : 'rounded-[4px] border border-[var(--op-warning,#ff9f0a)] px-2 py-0.5 text-[11px] text-[var(--op-warning,#ff9f0a)]'
 }
 
-export function matchesHistoryDateFilter(updatedAt: string, historyDateFilter: HistoryDateFilter) {
-  if (historyDateFilter === 'all') {
-    return true
-  }
+/** Shared Jakarta day boundary for server loading and local date filtering. */
+export function getHistorySince(filter: HistoryDateFilter, now = new Date()): string | null {
+  if (filter === 'all') return null
+  const key = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now)
+  const midnight = new Date(`${key}T00:00:00+07:00`)
+  const days = filter === 'yesterday' ? 1 : filter === 'week' ? 6 : 0
+  return new Date(midnight.getTime() - days * 86400000).toISOString()
+}
 
-  const recordTime = new Date(updatedAt).getTime()
-  if (!Number.isFinite(recordTime)) {
-    return false
-  }
-
-  const jakartaKey = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso))
-  const todayKey = jakartaKey(new Date().toISOString())
-  const recordKey = jakartaKey(updatedAt)
-  const toKey = (d: Date) => jakartaKey(d.toISOString())
-  const yesterdayKey = toKey(new Date(Date.now() - 86400000))
-  const weekStart = new Date(Date.now() - 6 * 86400000)
-  const weekStartKey = toKey(weekStart)
-
-  if (historyDateFilter === 'today') return recordKey === todayKey
-  if (historyDateFilter === 'yesterday') return recordKey === yesterdayKey
-  return recordKey >= weekStartKey && recordKey <= todayKey
+export function matchesHistoryDateFilter(updatedAt: string, filter: HistoryDateFilter, now = new Date()) {
+  if (filter === 'all') return true
+  const time = new Date(updatedAt).getTime()
+  if (!Number.isFinite(time)) return false
+  const start = Date.parse(getHistorySince(filter, now)!)
+  const today = Date.parse(getHistorySince('today', now)!)
+  const end = filter === 'yesterday' ? today : today + 86400000
+  return time >= start && time < end
 }
 
 export function filterRecordings(input: {
@@ -244,7 +240,7 @@ export function filterRecordings(input: {
     const matchesDate = matchesHistoryDateFilter(record.updatedAt, input.historyDateFilter)
     const normalizedRecordResi = record.resiNumber.trim().toLowerCase()
     const matchesQuery = input.normalizedHistoryQuery
-      ? normalizedRecordResi.includes(input.normalizedHistoryQuery) || Boolean(input.queryMatchedResiNumbers?.has(normalizedRecordResi))
+      ? normalizedRecordResi.includes(input.normalizedHistoryQuery) || (record.orderNumber ?? '').trim().toLowerCase().includes(input.normalizedHistoryQuery) || Boolean(input.queryMatchedResiNumbers?.has(normalizedRecordResi))
       : true
     const matchesAccount = input.historyAllAccounts
       ? true
@@ -259,7 +255,7 @@ export function groupRecordings(recordings: RecordingRow[], historySortOrder: Hi
   const order: string[] = []
 
   for (const record of recordings) {
-    const key = record.resiNumber.trim()
+    const key = record.resiNumber.trim().toLowerCase()
 
     if (!groups.has(key)) {
       groups.set(key, [])
@@ -280,9 +276,9 @@ export function groupRecordings(recordings: RecordingRow[], historySortOrder: Hi
     })
 
     return {
-      resiNumber,
+      resiNumber: rows[0]?.resiNumber.trim() ?? resiNumber,
       rows: sortedRows,
-      latestRow: sortedRows[0] ?? null,
+      latestRow: [...rows].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0] ?? null,
     }
   }).sort((a, b) => {
     const aTime = a.latestRow?.updatedAt ? new Date(a.latestRow.updatedAt).getTime() : 0
@@ -291,13 +287,18 @@ export function groupRecordings(recordings: RecordingRow[], historySortOrder: Hi
   })
 }
 
+export function getLatestTaskRecord(rows: RecordingRow[], task: WorkTask) {
+  return rows.filter(record => record.taskType === task)
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0]
+}
+
 export function getDocStatus(group: { rows: RecordingRow[]; resiNumber: string }, allRecordings?: RecordingRow[]) {
   // Use allRecordings for the resi if provided, so filter (task/date) doesn't hide the other task
   const rows = allRecordings
     ? allRecordings.filter((r) => r.resiNumber.trim().toLowerCase() === group.resiNumber.trim().toLowerCase())
     : group.rows
-  const qc = rows.find((record) => record.taskType === 'qc')
-  const packing = rows.find((record) => record.taskType === 'packing')
+  const qc = getLatestTaskRecord(rows, 'qc')
+  const packing = getLatestTaskRecord(rows, 'packing')
   const qcDone = qc?.status === 'completed'
   const packingDone = packing?.status === 'completed'
 
@@ -310,7 +311,7 @@ export function groupHistoryByDate(groupedRecordings: HistoryGroup[], historyDoc
   const sections = new Map<string, HistoryGroup[]>()
   const filteredByDocStatus = historyDocStatusFilter === 'all'
     ? groupedRecordings
-    : groupedRecordings.filter((group) => getDocStatus(group, allRecordings) === historyDocStatusFilter)
+    : groupedRecordings.filter((group) => historyDocStatusFilter === 'lengkap' ? getDocStatus(group, allRecordings) === 'lengkap' : getDocStatus(group, allRecordings) !== 'lengkap')
 
   const jakartaKey = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso))
   for (const group of filteredByDocStatus) {
@@ -359,9 +360,9 @@ export function getHistoryEmptyState(input: {
   if (input.matchingResiRecords.length === 0) {
     return {
       tone: 'neutral',
-      title: 'Resi tidak ada',
-      message: 'Resi tidak ada.',
-      detail: 'Nomor resi ini belum masuk ke server.',
+      title: 'Tidak ada hasil',
+      message: 'Tidak ada resi atau pesanan yang cocok.',
+      detail: 'Coba ubah tanggal, filter, atau kata pencarian.',
     }
   }
 
